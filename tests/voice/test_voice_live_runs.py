@@ -1365,7 +1365,8 @@ def test_sqlite_reserve_and_finalize_claims_never_commit_a_lost_segment(
     )
     VoiceLiveRunDB.__table__.create(race_engine)
     VoiceLiveRunSegmentDB.__table__.create(race_engine)
-    monkeypatch.setattr("agent.repositories.voice_live_runs.engine", race_engine)
+    def race_session():
+        return Session(race_engine)
     principal = VoicePrincipal(tenant_id="race-tenant", subject="race-owner")
 
     for index in range(10):
@@ -1394,7 +1395,7 @@ def test_sqlite_reserve_and_finalize_claims_never_commit_a_lost_segment(
         def reserve():
             barrier.wait()
             try:
-                VoiceLiveRunRepository().reserve_segment(
+                VoiceLiveRunRepository(session_factory=race_session).reserve_segment(
                     principal,
                     run_id,
                     sequence=0,
@@ -1413,7 +1414,7 @@ def test_sqlite_reserve_and_finalize_claims_never_commit_a_lost_segment(
         def finalize():
             barrier.wait()
             try:
-                VoiceLiveRunRepository().begin_finalize(
+                VoiceLiveRunRepository(session_factory=race_session).begin_finalize(
                     principal,
                     run_id,
                     expected_last_sequence=0,
@@ -2149,7 +2150,8 @@ def test_maintenance_claim_is_idempotent_and_multi_hub_safe(tmp_path, monkeypatc
     )
     VoiceLiveRunDB.__table__.create(race_engine)
     VoiceLiveRunSegmentDB.__table__.create(race_engine)
-    monkeypatch.setattr("agent.repositories.voice_live_runs.engine", race_engine)
+    def race_session():
+        return Session(race_engine)
     run_id = "voice-live-run-maintenance-race"
     with Session(race_engine) as session:
         session.add(
@@ -2184,6 +2186,7 @@ def test_maintenance_claim_is_idempotent_and_multi_hub_safe(tmp_path, monkeypatc
     def sweep():
         barrier.wait()
         return VoiceLiveRunMaintenanceService(
+            repository=VoiceLiveRunRepository(session_factory=race_session),
             tasks=NoopTasks(),
             clock=lambda: now,
         ).run_once()
@@ -2192,6 +2195,7 @@ def test_maintenance_claim_is_idempotent_and_multi_hub_safe(tmp_path, monkeypatc
         futures = [pool.submit(sweep), pool.submit(sweep)]
         results = [future.result() for future in futures]
     replay = VoiceLiveRunMaintenanceService(
+        repository=VoiceLiveRunRepository(session_factory=race_session),
         tasks=NoopTasks(),
         clock=lambda: now,
     ).run_once()

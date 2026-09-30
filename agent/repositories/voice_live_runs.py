@@ -22,8 +22,11 @@ from agent.repositories.voice_live_segment_store import VoiceLiveSegmentStore
 
 
 def _default_session() -> Session:
-    # Resolved at call time so the module-level ``engine`` stays the single
-    # production binding (tests may rebind it for isolated race databases).
+    """Production session factory on the hub database engine.
+
+    Other databases (for example isolated race databases in tests) are
+    injected through ``VoiceLiveRunRepository(session_factory=...)``.
+    """
     return Session(engine)
 
 
