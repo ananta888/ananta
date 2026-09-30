@@ -2,15 +2,12 @@ from __future__ import annotations
 
 import bz2
 import gzip
-import hashlib
 import json
 import logging
 import re
 import shutil
 import time
-import urllib.error
 import urllib.parse
-import urllib.request
 import xml.etree.ElementTree as ET
 from collections.abc import Mapping
 from io import BytesIO
@@ -28,8 +25,10 @@ from agent.repository import (
 )
 from agent.services.artifact_store import get_artifact_store
 from agent.services.extraction_service import get_extraction_service
+from agent.services.wiki_corpus_downloader import ResumableCorpusDownloader
 from agent.services.wiki_import_checkpoint_service import WikiImportCheckpointService
 from agent.services.wiki_import_reporter import build_wiki_import_stats
+from agent.services.wiki_jsonl_importer import WikiJsonlImporter
 from agent.services.wiki_mediawiki_xml_parser import MediaWikiXmlDumpParser
 from agent.services.wiki_normalizer import WikiRecordNormalizer
 from agent.services.wiki_record_writer import sort_wiki_records, write_wiki_jsonl_cache
@@ -40,9 +39,18 @@ logger = logging.getLogger(__name__)
 class IngestionService:
     """Coordinates raw storage, metadata persistence and extraction."""
 
-    def __init__(self, artifact_store=None, extraction_service=None) -> None:
+    def __init__(
+        self,
+        artifact_store=None,
+        extraction_service=None,
+        *,
+        corpus_downloader: ResumableCorpusDownloader | None = None,
+        wiki_jsonl_importer: WikiJsonlImporter | None = None,
+    ) -> None:
         self._artifact_store = artifact_store or get_artifact_store()
         self._extraction_service = extraction_service or get_extraction_service()
+        self._corpus_downloader = corpus_downloader or ResumableCorpusDownloader()
+        self._wiki_jsonl_importer = wiki_jsonl_importer or WikiJsonlImporter()
         self._wiki_parser = MediaWikiXmlDumpParser()
         self._wiki_normalizer = WikiRecordNormalizer()
         self._wiki_checkpoint_service = WikiImportCheckpointService()
@@ -156,34 +164,6 @@ class IngestionService:
         artifact.updated_at = time.time()
         artifact_repo.save(artifact)
         return artifact, version, document
-
-    def _split_wiki_content(self, content: str, *, max_chars: int = 700) -> list[str]:
-        text = re.sub(r"\s+", " ", str(content or "").strip())
-        if not text:
-            return []
-        if len(text) <= max_chars:
-            return [text]
-        chunks: list[str] = []
-        current = ""
-        for sentence in re.split(r"(?<=[.!?])\s+", text):
-            candidate = sentence.strip()
-            if not candidate:
-                continue
-            if not current:
-                current = candidate
-                continue
-            if len(current) + 1 + len(candidate) <= max_chars:
-                current = f"{current} {candidate}"
-                continue
-            chunks.append(current)
-            current = candidate
-        if current:
-            chunks.append(current)
-        return chunks
-
-    def _article_slug(self, article_title: str) -> str:
-        normalized = re.sub(r"[^a-z0-9]+", "-", str(article_title or "").strip().lower()).strip("-")
-        return normalized or "wiki-article"
 
     def _tag_local_name(self, tag: str) -> str:
         return str(tag or "").rsplit("}", 1)[-1].strip().lower()
@@ -617,59 +597,6 @@ class IngestionService:
                         pass
         return records
 
-    def _normalize_wiki_record(
-        self,
-        record: dict,
-        *,
-        source_path: Path,
-        source_id: str,
-        line_number: int,
-        default_language: str,
-        source_format: str = "jsonl",
-    ) -> list[dict]:
-        file_hint = str(record.get("file") or record.get("path") or source_path.name).strip() or source_path.name
-        article_title = str(record.get("article_title") or record.get("title") or "").strip()
-        if not article_title:
-            article_title = Path(file_hint).stem.replace("_", " ").replace("-", " ").strip().title() or source_id
-        section_title = str(record.get("section_title") or record.get("heading") or "Overview").strip() or "Overview"
-        language = str(record.get("language") or record.get("lang") or default_language).strip().lower() or default_language
-        content = str(record.get("content") or record.get("text") or record.get("body") or "").strip()
-        if not content:
-            raise ValueError("missing_content")
-        revision = str(record.get("revision") or record.get("revision_id") or "").strip() or None
-        import_revision = str(record.get("import_revision") or revision or "").strip() or None
-        chunks = self._split_wiki_content(content, max_chars=700)
-        article_slug = self._article_slug(article_title)
-        normalized: list[dict] = []
-        for index, chunk_text in enumerate(chunks, start=1):
-            digest = hashlib.sha1(
-                f"{source_id}|{article_title}|{section_title}|{chunk_text}".encode("utf-8")
-            ).hexdigest()[:16]
-            normalized.append(
-                {
-                    "kind": "wiki_section_chunk",
-                    "id": f"{article_slug}:{line_number}:{index}",
-                    "chunk_id": f"wiki:{digest}",
-                    "chunk_ordinal": index,
-                    "file": file_hint,
-                    "article_title": article_title,
-                    "wiki_article_id": article_slug,
-                    "section_title": section_title,
-                    "language": language,
-                    "revision": revision,
-                    "import_revision": import_revision,
-                    "import_metadata": {
-                        "source_scope": "wiki",
-                        "source_id": source_id,
-                        "source_line": line_number,
-                        "source_path": str(source_path),
-                        "format": source_format,
-                    },
-                    "content": chunk_text,
-                }
-            )
-        return normalized
-
     def import_wiki_jsonl(
         self,
         *,
@@ -678,75 +605,12 @@ class IngestionService:
         default_language: str = "en",
         strict: bool = False,
     ) -> dict[str, object]:
-        path = Path(str(corpus_path or "").strip()).expanduser().resolve()
-        if not path.exists():
-            raise ValueError("wiki_corpus_not_found")
-        if not path.is_file():
-            raise ValueError("wiki_corpus_not_file")
-        normalized_source_id = str(source_id or "").strip() or path.stem
-        lines = path.read_text(encoding="utf-8").splitlines()
-        records: list[dict] = []
-        issues: list[dict] = []
-        for line_number, raw_line in enumerate(lines, start=1):
-            if not raw_line.strip():
-                continue
-            try:
-                payload = json.loads(raw_line)
-            except json.JSONDecodeError as exc:
-                issue = {"line": line_number, "error": "invalid_json", "details": str(exc)}
-                logger.warning("Wiki import skipped malformed JSON line", extra=issue)
-                issues.append(issue)
-                if strict:
-                    raise ValueError("wiki_corpus_invalid_json") from exc
-                continue
-            if not isinstance(payload, dict):
-                issue = {"line": line_number, "error": "record_not_object"}
-                logger.warning("Wiki import skipped non-object record", extra=issue)
-                issues.append(issue)
-                if strict:
-                    raise ValueError("wiki_corpus_invalid_record")
-                continue
-            try:
-                records.extend(
-                    self._normalize_wiki_record(
-                        payload,
-                        source_path=path,
-                        source_id=normalized_source_id,
-                        line_number=line_number,
-                        default_language=default_language,
-                        source_format="jsonl",
-                    )
-                )
-            except ValueError as exc:
-                issue = {"line": line_number, "error": str(exc)}
-                logger.warning("Wiki import skipped invalid record", extra=issue)
-                issues.append(issue)
-                if strict:
-                    raise ValueError("wiki_corpus_invalid_record") from exc
-        records = sorted(
-            records,
-            key=lambda item: (
-                str(item.get("article_title") or "").lower(),
-                str(item.get("section_title") or "").lower(),
-                str(item.get("file") or "").lower(),
-                int(item.get("chunk_ordinal") or 0),
-            ),
+        return self._wiki_jsonl_importer.import_file(
+            corpus_path=corpus_path,
+            source_id=source_id,
+            default_language=default_language,
+            strict=strict,
         )
-        if not records:
-            raise ValueError("wiki_corpus_no_valid_records")
-        return {
-            "source_scope": "wiki",
-            "source_id": normalized_source_id,
-            "corpus_path": str(path),
-            "records": records,
-            "issues": issues,
-            "stats": {
-                "input_lines": len(lines),
-                "normalized_records": len(records),
-                "issues": len(issues),
-            },
-            "deterministic_order": "article_section_file_chunk_ordinal",
-        }
 
     def import_wiki_jsonl_from_url(
         self,
@@ -816,7 +680,7 @@ class IngestionService:
                 "download": {"url": url, "skipped": True},
             }
 
-        download_report = self._download_with_resume(
+        download_report = self._corpus_downloader.download(
             url=url,
             destination=local_compressed or local_extracted,
             max_download_bytes=max_download_bytes,
@@ -847,7 +711,7 @@ class IngestionService:
             safe_index_name = re.sub(r"[^A-Za-z0-9._-]+", "-", index_name).strip("-") or "wiki-index.txt.bz2"
             local_index_compressed = wiki_corpus_dir / safe_index_name
             local_index_path = wiki_corpus_dir / Path(safe_index_name).stem if safe_index_name.endswith(".bz2") else local_index_compressed
-            index_report = self._download_with_resume(
+            index_report = self._corpus_downloader.download(
                 url=str(index_url).strip(),
                 destination=local_index_compressed,
                 max_download_bytes=512 * 1024 * 1024,
@@ -919,87 +783,6 @@ class IngestionService:
             "index": index_download,
         }
         return report
-
-    def _download_with_resume(self, *, url: str, destination: Path, max_download_bytes: int, cancel_check=None) -> dict[str, Any]:
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        existing_bytes = destination.stat().st_size if destination.exists() else 0
-        request = urllib.request.Request(url)
-        mode = "wb"
-        requested_range = False
-        if existing_bytes > 0:
-            request.add_header("Range", f"bytes={existing_bytes}-")
-            mode = "ab"
-            requested_range = True
-        downloaded_bytes = existing_bytes
-        status = 0
-        response_headers: dict[str, Any] = {}
-        restarted_without_range = False
-        storage_issue = None
-        try:
-            _response_ctx = urllib.request.urlopen(request, timeout=45)
-        except urllib.error.HTTPError as http_err:
-            if http_err.code == 416 and existing_bytes > 0:
-                # 416 Range Not Satisfiable: the local file already covers the full content —
-                # the previous download completed but the process was killed before the job finished.
-                logger.info("_download_with_resume: 416 for %s — local file (%d bytes) is complete, reusing", url, existing_bytes)
-                return {
-                    "bytes": int(existing_bytes),
-                    "status_code": 416,
-                    "requested_range": True,
-                    "resumed": False,
-                    "already_complete": True,
-                    "headers": {},
-                    "storage_issue": None,
-                }
-            raise
-        with _response_ctx as response:
-            status = int(getattr(response, "status", 200) or 200)
-            headers = getattr(response, "headers", {}) or {}
-            response_headers = {
-                "content_length": str(headers.get("Content-Length") or "").strip() or None,
-                "accept_ranges": str(headers.get("Accept-Ranges") or "").strip() or None,
-                "etag": str(headers.get("ETag") or "").strip() or None,
-                "last_modified": str(headers.get("Last-Modified") or "").strip() or None,
-            }
-            if existing_bytes > 0 and status == 200:
-                mode = "wb"
-                downloaded_bytes = 0
-                restarted_without_range = True
-            content_length = 0
-            try:
-                content_length = int(headers.get("Content-Length") or 0)
-            except (TypeError, ValueError):
-                content_length = 0
-            expected_remaining = max(0, content_length)
-            free_bytes = shutil.disk_usage(destination.parent).free
-            reserve_bytes = max(128 * 1024 * 1024, max_download_bytes // 200)
-            if expected_remaining > 0 and free_bytes < expected_remaining + reserve_bytes:
-                storage_issue = {
-                    "free_bytes": int(free_bytes),
-                    "required_bytes": int(expected_remaining + reserve_bytes),
-                    "reserve_bytes": int(reserve_bytes),
-                }
-                raise ValueError("wiki_storage_insufficient")
-            with destination.open(mode) as output:
-                while True:
-                    if cancel_check and cancel_check():
-                        raise ValueError("wiki_download_cancelled")
-                    chunk = response.read(1024 * 256)
-                    if not chunk:
-                        break
-                    downloaded_bytes += len(chunk)
-                    if downloaded_bytes > max_download_bytes:
-                        raise ValueError("wiki_corpus_too_large")
-                    output.write(chunk)
-        return {
-            "bytes": int(downloaded_bytes),
-            "status_code": int(status),
-            "requested_range": requested_range,
-            "resumed": bool(requested_range and not restarted_without_range),
-            "restarted_without_range": restarted_without_range,
-            "headers": response_headers,
-            "storage_issue": storage_issue,
-        }
 
 
 ingestion_service = IngestionService()
