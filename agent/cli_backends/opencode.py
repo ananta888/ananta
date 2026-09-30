@@ -151,7 +151,7 @@ def resolve_opencode_runtime_config(
 ) -> dict[str, object]:
     backend_settings = settings if backend_settings is None else backend_settings
     agent_cfg = _get_agent_config()
-    provider_urls = _get_runtime_provider_urls()
+    provider_urls = _get_runtime_provider_urls(backend_settings=backend_settings)
     opencode_runtime_cfg = agent_cfg.get("opencode_runtime") if isinstance(agent_cfg.get("opencode_runtime"), dict) else {}
     tool_mode = _normalize_opencode_tool_mode(
         tool_mode or opencode_runtime_cfg.get("tool_mode")
@@ -176,7 +176,7 @@ def resolve_opencode_runtime_config(
         for entry in get_local_openai_backends(
             agent_cfg=agent_cfg,
             provider_urls=provider_urls,
-            default_provider=_get_runtime_default_provider(),
+            default_provider=_get_runtime_default_provider(backend_settings=backend_settings),
             default_model=str(agent_cfg.get("default_model") or ""),
         )
         if str(entry.get("provider") or "").strip()
@@ -191,7 +191,14 @@ def resolve_opencode_runtime_config(
         or str(agent_cfg.get("default_model") or agent_cfg.get("model") or "").strip()
         or str(backend_settings.opencode_default_model or "").strip()
     )
-    default_provider = str(agent_cfg.get("default_provider") or _get_runtime_default_provider() or "").strip() or None
+    default_provider = (
+        str(
+            agent_cfg.get("default_provider")
+            or _get_runtime_default_provider(backend_settings=backend_settings)
+            or ""
+        ).strip()
+        or None
+    )
     known_provider_prefixes = _native_passthrough | {
         "ollama",
         "lmstudio",
@@ -227,7 +234,11 @@ def resolve_opencode_runtime_config(
         inferred_provider, inferred_model = _infer_local_opencode_target(
             raw_model,
             provider_urls=provider_urls,
-            preferred_provider=forced_target_provider or default_provider or _get_runtime_default_provider(),
+            preferred_provider=(
+                forced_target_provider
+                or default_provider
+                or _get_runtime_default_provider(backend_settings=backend_settings)
+            ),
             timeout=inference_timeout,
         )
     built_in_providers = {
@@ -290,7 +301,7 @@ def resolve_opencode_runtime_config(
             target_provider,
             agent_cfg=agent_cfg,
             provider_urls=provider_urls,
-            default_provider=_get_runtime_default_provider(),
+            default_provider=_get_runtime_default_provider(backend_settings=backend_settings),
             default_model=str(agent_cfg.get("default_model") or ""),
         )
         if local_target and local_target.get("base_url"):
@@ -549,7 +560,7 @@ def _run_opencode_subprocess(
 def resolve_codex_runtime_config(*, backend_settings: Any | None = None) -> dict:
     backend_settings = settings if backend_settings is None else backend_settings
     agent_cfg = _get_agent_config()
-    provider_urls = _get_runtime_provider_urls()
+    provider_urls = _get_runtime_provider_urls(backend_settings=backend_settings)
     if has_app_context() and "PROVIDER_URLS" in current_app.config:
         explicit_provider_urls = current_app.config.get("PROVIDER_URLS") or {}
         if isinstance(explicit_provider_urls, dict) and not explicit_provider_urls:
@@ -562,7 +573,7 @@ def resolve_codex_runtime_config(*, backend_settings: Any | None = None) -> dict
     prefer_lmstudio = codex_cfg.get("prefer_lmstudio")
     target_provider = str(codex_cfg.get("target_provider") or "").strip().lower() or None
     if prefer_lmstudio is None:
-        prefer_lmstudio = _get_runtime_default_provider() == "lmstudio"
+        prefer_lmstudio = _get_runtime_default_provider(backend_settings=backend_settings) == "lmstudio"
     local_target = resolve_local_openai_backend(target_provider, agent_cfg=agent_cfg, provider_urls=provider_urls) if target_provider else None
 
     if explicit_base_url:
@@ -578,7 +589,7 @@ def resolve_codex_runtime_config(*, backend_settings: Any | None = None) -> dict
         base_url = None
         base_url_source = None
     else:
-        base_url = _resolve_openai_compatible_base_url()
+        base_url = _resolve_openai_compatible_base_url(backend_settings=backend_settings)
         base_url_source = "default_provider"
 
     api_key = str(codex_cfg.get("api_key") or "").strip() or None

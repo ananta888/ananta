@@ -43,14 +43,19 @@ class IntegrationRegistryService:
         *,
         include_preflight: bool = True,
         preflight_scope: str = "full",
+        backend_settings: Any | None = None,
     ) -> dict[str, Any]:
+        """List execution backends; ``backend_settings`` overrides the default settings object."""
         payload = {
             "supported_backends": sorted(SUPPORTED_CLI_BACKENDS),
-            "capabilities": get_cli_backend_capabilities(),
-            "runtime": get_cli_backend_runtime_status(),
+            "capabilities": get_cli_backend_capabilities(backend_settings=backend_settings),
+            "runtime": get_cli_backend_runtime_status(backend_settings=backend_settings),
         }
         if include_preflight:
-            payload["preflight"] = get_cli_backend_preflight(runtime_scope=preflight_scope)
+            payload["preflight"] = get_cli_backend_preflight(
+                runtime_scope=preflight_scope,
+                backend_settings=backend_settings,
+            )
         return payload
 
     def normalize_runtime_endpoint_descriptor(

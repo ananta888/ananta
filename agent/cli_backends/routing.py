@@ -181,7 +181,8 @@ _BACKEND_RUNTIME: dict[str, dict] = {
 }
 
 
-def _resolve_backend_binary(backend: str) -> str | None:
+def _resolve_backend_binary(backend: str, *, backend_settings: Any | None = None) -> str | None:
+    backend_settings = settings if backend_settings is None else backend_settings
     from agent.cli_backends.provisioning import resolve_provisioned_backend_binary
 
     if is_research_backend(backend):
@@ -189,46 +190,48 @@ def _resolve_backend_binary(backend: str) -> str | None:
     if backend in {"sgpt", "ananta-worker"}:
         return sys.executable if sys.executable else None
     if backend == "codex":
-        return shutil.which(settings.codex_path or "codex") or resolve_provisioned_backend_binary(backend)
+        return shutil.which(backend_settings.codex_path or "codex") or resolve_provisioned_backend_binary(backend)
     if backend == "opencode":
-        return shutil.which(settings.opencode_path or "opencode")
+        return shutil.which(backend_settings.opencode_path or "opencode")
     if backend == "claude_code":
         return shutil.which(
-            getattr(settings, "claude_path", "claude") or "claude"
+            getattr(backend_settings, "claude_path", "claude") or "claude"
         ) or resolve_provisioned_backend_binary(backend)
     if backend == "aider":
-        return shutil.which(settings.aider_path or "aider")
+        return shutil.which(backend_settings.aider_path or "aider")
     if backend == "mistral_code":
-        return shutil.which(settings.mistral_code_path or "mistral-code")
+        return shutil.which(backend_settings.mistral_code_path or "mistral-code")
     if backend in PROFILE_CLI_BACKENDS:
         return shutil.which(CLI_PROFILES[backend].binary_name)
     return None
 
 
-def _configured_backend_command(backend: str) -> str:
+def _configured_backend_command(backend: str, *, backend_settings: Any | None = None) -> str:
+    backend_settings = settings if backend_settings is None else backend_settings
     if is_research_backend(backend):
         return str(resolve_research_backend_config(provider_override=backend).get("command") or "")
     if backend in {"sgpt", "ananta-worker"}:
         return f"{sys.executable} -m sgpt" if sys.executable else "python -m sgpt"
     if backend == "codex":
-        return settings.codex_path or "codex"
+        return backend_settings.codex_path or "codex"
     if backend == "opencode":
-        return settings.opencode_path or "opencode"
+        return backend_settings.opencode_path or "opencode"
     if backend == "claude_code":
-        return getattr(settings, "claude_path", "claude") or "claude"
+        return getattr(backend_settings, "claude_path", "claude") or "claude"
     if backend == "aider":
-        return settings.aider_path or "aider"
+        return backend_settings.aider_path or "aider"
     if backend == "mistral_code":
-        return settings.mistral_code_path or "mistral-code"
+        return backend_settings.mistral_code_path or "mistral-code"
     if backend in PROFILE_CLI_BACKENDS:
         return CLI_PROFILES[backend].binary_name
     return ""
 
 
-def _health_score(backend: str) -> int:
+def _health_score(backend: str, *, backend_settings: Any | None = None) -> int:
+    backend_settings = settings if backend_settings is None else backend_settings
     rt = _BACKEND_RUNTIME.get(backend, {})
     score = 100
-    if not _resolve_backend_binary(backend):
+    if not _resolve_backend_binary(backend, backend_settings=backend_settings):
         score -= 80
     score -= min(40, int(rt.get("consecutive_failures", 0)) * 10)
     cooldown_until = float(rt.get("cooldown_until") or 0.0)
@@ -239,7 +242,8 @@ def _health_score(backend: str) -> int:
     return max(0, min(100, score))
 
 
-def get_cli_backend_runtime_status() -> dict[str, dict]:
+def get_cli_backend_runtime_status(*, backend_settings: Any | None = None) -> dict[str, dict]:
+    backend_settings = settings if backend_settings is None else backend_settings
     from agent.cli_backends.opencode import resolve_codex_runtime_config, resolve_opencode_runtime_config
 
     now = time.time()
@@ -248,15 +252,15 @@ def get_cli_backend_runtime_status() -> dict[str, dict]:
         rt = dict(_BACKEND_RUNTIME.get(name, {}))
         cooldown_until = float(rt.get("cooldown_until") or 0.0)
         runtime_entry = {
-            "binary_path": _resolve_backend_binary(name),
-            "binary_available": bool(_resolve_backend_binary(name)),
-            "health_score": _health_score(name),
+            "binary_path": _resolve_backend_binary(name, backend_settings=backend_settings),
+            "binary_available": bool(_resolve_backend_binary(name, backend_settings=backend_settings)),
+            "health_score": _health_score(name, backend_settings=backend_settings),
             "cooldown_active": cooldown_until > now,
             "cooldown_until": cooldown_until,
             **rt,
         }
         if name == "codex":
-            codex_runtime = resolve_codex_runtime_config(backend_settings=settings)
+            codex_runtime = resolve_codex_runtime_config(backend_settings=backend_settings)
             runtime_entry["target_base_url"] = codex_runtime["base_url"]
             runtime_entry["target_provider"] = codex_runtime["target_provider"]
             runtime_entry["target_base_url_source"] = codex_runtime["base_url_source"]
@@ -271,7 +275,7 @@ def get_cli_backend_runtime_status() -> dict[str, dict]:
             runtime_entry["prefer_lmstudio"] = codex_runtime["prefer_lmstudio"]
             runtime_entry["diagnostics"] = list(codex_runtime.get("diagnostics") or [])
         if name == "opencode":
-            opencode_runtime = resolve_opencode_runtime_config(backend_settings=settings)
+            opencode_runtime = resolve_opencode_runtime_config(backend_settings=backend_settings)
             runtime_entry["target_base_url"] = opencode_runtime.get("base_url")
             runtime_entry["target_provider"] = opencode_runtime.get("target_provider")
             runtime_entry["target_base_url_source"] = opencode_runtime.get("base_url_source")
@@ -283,7 +287,7 @@ def get_cli_backend_runtime_status() -> dict[str, dict]:
         if name == "claude_code":
             from agent.cli_backends.opencode import resolve_claude_runtime_config
 
-            claude_runtime = resolve_claude_runtime_config(backend_settings=settings)
+            claude_runtime = resolve_claude_runtime_config(backend_settings=backend_settings)
             runtime_entry["enabled"] = bool(claude_runtime.get("enabled"))
             runtime_entry["auth_mode"] = claude_runtime.get("auth_mode")
             runtime_entry["api_key_required"] = bool(claude_runtime.get("api_key_required"))
@@ -294,21 +298,24 @@ def get_cli_backend_runtime_status() -> dict[str, dict]:
     return data
 
 
-def _claude_login_command_for_mode(auth_mode: str | None) -> str | None:
+def _claude_login_command_for_mode(auth_mode: str | None, *, backend_settings: Any | None = None) -> str | None:
     """CLA-002: liefert den offiziellen Claude CLI Login-Befehl fuer den
     gegebenen auth mode, oder None wenn kein manueller Login noetig ist.
 
     Wie bei codex ist der String nur ein UI-Hinweis; Ananta fuehrt ihn
     nicht aus und liest keine Dateien aus ~/.claude/.
     """
+    backend_settings = settings if backend_settings is None else backend_settings
     mode = str(auth_mode or "").strip().lower()
     if mode == "claude_login":
-        claude_path = str(getattr(settings, "claude_path", "claude") or "claude").strip() or "claude"
+        claude_path = str(getattr(backend_settings, "claude_path", "claude") or "claude").strip() or "claude"
         return f"{claude_path} login"
     return None
 
 
-def _codex_login_command_for_mode(auth_mode: str | None) -> str | None:
+def _codex_login_command_for_mode(
+    auth_mode: str | None, *, backend_settings: Any | None = None
+) -> str | None:
     """CCA-002: return the official Codex CLI login command for the
     given auth mode, or None if no manual login is required.
 
@@ -321,32 +328,38 @@ def _codex_login_command_for_mode(auth_mode: str | None) -> str | None:
     * "chatgpt_login" — the user must run ``codex login`` to
       authenticate against ChatGPT. The hint is the literal command.
     """
+    backend_settings = settings if backend_settings is None else backend_settings
     mode = str(auth_mode or "").strip().lower()
     if mode == "chatgpt_login":
-        codex_path = str(getattr(settings, "codex_path", "codex") or "codex").strip() or "codex"
+        codex_path = str(getattr(backend_settings, "codex_path", "codex") or "codex").strip() or "codex"
         return f"{codex_path} login"
     return None
 
 
-def get_cli_backend_preflight(*, runtime_scope: str = "full") -> dict[str, dict]:
+def get_cli_backend_preflight(
+    *, runtime_scope: str = "full", backend_settings: Any | None = None
+) -> dict[str, dict]:
+    backend_settings = settings if backend_settings is None else backend_settings
     from agent.cli_backends.opencode import resolve_claude_runtime_config, resolve_codex_runtime_config
 
     scope = str(runtime_scope or "full").strip().lower() or "full"
     worker_scope = scope in {"worker", "worker_only", "execution"}
-    provider_urls = _get_runtime_provider_urls()
-    lmstudio_base_url = _normalize_openai_base_url(provider_urls.get("lmstudio") or settings.lmstudio_url)
+    provider_urls = _get_runtime_provider_urls(backend_settings=backend_settings)
+    lmstudio_base_url = _normalize_openai_base_url(provider_urls.get("lmstudio") or backend_settings.lmstudio_url)
     from agent.llm_integration import _normalize_ollama_base_url
 
-    ollama_base_url = _normalize_ollama_base_url(provider_urls.get("ollama") or getattr(settings, "ollama_url", None))
-    codex_runtime = resolve_codex_runtime_config(backend_settings=settings)
-    claude_runtime = resolve_claude_runtime_config(backend_settings=settings)
+    ollama_base_url = _normalize_ollama_base_url(
+        provider_urls.get("ollama") or getattr(backend_settings, "ollama_url", None)
+    )
+    codex_runtime = resolve_codex_runtime_config(backend_settings=backend_settings)
+    claude_runtime = resolve_claude_runtime_config(backend_settings=backend_settings)
     agent_cfg = _get_agent_config()
 
     cli_backends: dict[str, dict] = {}
     for name in sorted(SUPPORTED_CLI_BACKENDS):
-        resolved = _resolve_backend_binary(name)
+        resolved = _resolve_backend_binary(name, backend_settings=backend_settings)
         cli_backends[name] = {
-            "command": _configured_backend_command(name),
+            "command": _configured_backend_command(name, backend_settings=backend_settings),
             "binary_path": resolved,
             "binary_available": bool(resolved),
             "install_hint": CLI_BACKEND_INSTALL_HINTS.get(name),
@@ -366,7 +379,7 @@ def get_cli_backend_preflight(*, runtime_scope: str = "full") -> dict[str, dict]
         try:
             lmstudio_probe = probe_lmstudio_runtime(
                 lmstudio_base_url,
-                timeout=min(getattr(settings, "http_timeout", 5.0), 2.0),
+                timeout=min(getattr(backend_settings, "http_timeout", 5.0), 2.0),
             )
         except Exception:
             lmstudio_probe = {
@@ -399,7 +412,7 @@ def get_cli_backend_preflight(*, runtime_scope: str = "full") -> dict[str, dict]
         try:
             ollama_probe = probe_ollama_runtime(
                 ollama_base_url,
-                timeout=min(getattr(settings, "http_timeout", 5.0), 2.0),
+                timeout=min(getattr(backend_settings, "http_timeout", 5.0), 2.0),
             )
         except Exception:
             ollama_probe = {
@@ -412,7 +425,7 @@ def get_cli_backend_preflight(*, runtime_scope: str = "full") -> dict[str, dict]
         try:
             ollama_activity = probe_ollama_activity(
                 ollama_base_url,
-                timeout=min(getattr(settings, "http_timeout", 5.0), 2.0),
+                timeout=min(getattr(backend_settings, "http_timeout", 5.0), 2.0),
             )
         except Exception:
             ollama_activity = {
@@ -433,7 +446,7 @@ def get_cli_backend_preflight(*, runtime_scope: str = "full") -> dict[str, dict]
     for backend in get_local_openai_backends(
         agent_cfg=agent_cfg,
         provider_urls=provider_urls,
-        default_provider=_get_runtime_default_provider(),
+        default_provider=_get_runtime_default_provider(backend_settings=backend_settings),
         default_model=str(agent_cfg.get("default_model") or ""),
     ):
         local_provider_entries.append(
@@ -516,6 +529,7 @@ def get_cli_backend_preflight(*, runtime_scope: str = "full") -> dict[str, dict]
                 "api_key_required": bool(codex_runtime.get("api_key_required", True)),
                 "login_command": _codex_login_command_for_mode(
                     codex_runtime.get("auth_mode", "api_key"),
+                    backend_settings=backend_settings,
                 ),
             },
             # CLA-002: Claude Code CLI Health/Auth-Status. Kein
@@ -525,13 +539,14 @@ def get_cli_backend_preflight(*, runtime_scope: str = "full") -> dict[str, dict]
             # als Fehlertext durchgereicht.
             "claude": {
                 "enabled": bool(claude_runtime.get("enabled")),
-                "installed": bool(_resolve_backend_binary("claude_code")),
-                "binary_path": _resolve_backend_binary("claude_code"),
+                "installed": bool(_resolve_backend_binary("claude_code", backend_settings=backend_settings)),
+                "binary_path": _resolve_backend_binary("claude_code", backend_settings=backend_settings),
                 "command": claude_runtime.get("command"),
                 "auth_mode": claude_runtime.get("auth_mode", "claude_login"),
                 "api_key_required": bool(claude_runtime.get("api_key_required", False)),
                 "login_command": _claude_login_command_for_mode(
                     claude_runtime.get("auth_mode", "claude_login"),
+                    backend_settings=backend_settings,
                 ),
                 "default_model": claude_runtime.get("default_model"),
                 "permission_mode": claude_runtime.get("permission_mode"),
@@ -597,14 +612,15 @@ def diagnose_cli_backend(backend: str, *, timeout: float = 15.0) -> dict:
     return result
 
 
-def get_cli_backend_capabilities() -> dict[str, dict]:
+def get_cli_backend_capabilities(*, backend_settings: Any | None = None) -> dict[str, dict]:
+    backend_settings = settings if backend_settings is None else backend_settings
     result: dict[str, dict] = {}
     for backend_id, raw in CLI_BACKEND_CAPABILITIES.items():
         item = dict(raw)
         item.setdefault("supports_model_selection", bool(item.get("supports_model")))
         item.setdefault("supported_options", list(item.get("supported_flags") or []))
         item.setdefault("install_hint", CLI_BACKEND_INSTALL_HINTS.get(backend_id))
-        item["available"] = bool(_resolve_backend_binary(backend_id))
+        item["available"] = bool(_resolve_backend_binary(backend_id, backend_settings=backend_settings))
         result[backend_id] = item
     return result
 

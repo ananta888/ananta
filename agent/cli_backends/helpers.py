@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import logging
 import os
+from typing import Any
 
 from flask import current_app, has_app_context
 
+# Production default of every ``backend_settings=`` parameter below.
 from agent.config import settings
 
 
@@ -14,13 +16,14 @@ def _get_agent_config() -> dict:
     return {}
 
 
-def _get_runtime_provider_urls() -> dict:
+def _get_runtime_provider_urls(*, backend_settings: Any | None = None) -> dict:
+    backend_settings = settings if backend_settings is None else backend_settings
     defaults = {
-        "ollama": getattr(settings, "ollama_url", None),
-        "lmstudio": getattr(settings, "lmstudio_url", None),
-        "openai": getattr(settings, "openai_url", None),
-        "anthropic": getattr(settings, "anthropic_url", None),
-        "mock": getattr(settings, "mock_url", None),
+        "ollama": getattr(backend_settings, "ollama_url", None),
+        "lmstudio": getattr(backend_settings, "lmstudio_url", None),
+        "openai": getattr(backend_settings, "openai_url", None),
+        "anthropic": getattr(backend_settings, "anthropic_url", None),
+        "mock": getattr(backend_settings, "mock_url", None),
     }
     if not has_app_context():
         return defaults
@@ -33,9 +36,10 @@ def _get_runtime_provider_urls() -> dict:
     }
 
 
-def _get_runtime_default_provider() -> str:
+def _get_runtime_default_provider(*, backend_settings: Any | None = None) -> str:
+    backend_settings = settings if backend_settings is None else backend_settings
     agent_cfg = _get_agent_config()
-    return str(agent_cfg.get("default_provider") or settings.default_provider or "").strip().lower()
+    return str(agent_cfg.get("default_provider") or backend_settings.default_provider or "").strip().lower()
 
 
 def _resolve_profile_api_key(profile_name: str | None) -> str | None:
@@ -113,22 +117,23 @@ def _normalize_ollama_openai_base_url(url: str | None) -> str | None:
     return f"{normalized}/v1"
 
 
-def _resolve_openai_compatible_base_url() -> str | None:
+def _resolve_openai_compatible_base_url(*, backend_settings: Any | None = None) -> str | None:
     from agent.llm_integration import _normalize_lmstudio_base_url
 
-    provider = _get_runtime_default_provider()
-    provider_urls = _get_runtime_provider_urls()
+    backend_settings = settings if backend_settings is None else backend_settings
+    provider = _get_runtime_default_provider(backend_settings=backend_settings)
+    provider_urls = _get_runtime_provider_urls(backend_settings=backend_settings)
     if provider == "lmstudio":
-        return _normalize_lmstudio_base_url(provider_urls.get("lmstudio") or settings.lmstudio_url)
+        return _normalize_lmstudio_base_url(provider_urls.get("lmstudio") or backend_settings.lmstudio_url)
     elif provider in {"openai", "codex"}:
-        raw_url = provider_urls.get("openai") or provider_urls.get("codex") or settings.openai_url
+        raw_url = provider_urls.get("openai") or provider_urls.get("codex") or backend_settings.openai_url
     else:
         raw_url = (
             provider_urls.get("openai")
             or provider_urls.get("codex")
             or provider_urls.get("lmstudio")
-            or settings.openai_url
-            or settings.lmstudio_url
+            or backend_settings.openai_url
+            or backend_settings.lmstudio_url
         )
 
     if not raw_url:

@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from agent.routes import sgpt as sgpt_route
+from agent.routes.sgpt_route_dependencies import SGPT_ROUTE_DEPENDENCIES
 
 
 @pytest.fixture(autouse=True)
@@ -344,7 +345,7 @@ def test_sgpt_backends_endpoint(client, admin_auth_header):
     assert "providers" in data["preflight"]
 
 
-def test_sgpt_backends_endpoint_includes_runtime_preflight_metadata(client, admin_auth_header):
+def test_sgpt_backends_endpoint_includes_runtime_preflight_metadata(app, client, admin_auth_header):
     from unittest.mock import MagicMock as _MagicMock
     _ms = _MagicMock()
     _ms.sgpt_execution_backend = "codex"
@@ -367,7 +368,7 @@ def test_sgpt_backends_endpoint_includes_runtime_preflight_metadata(client, admi
             "candidate_count": 3,
             "candidates": [{"id": "qwen2.5-coder"}],
         },
-    ), patch("agent.cli_backends.routing.settings", _ms), patch("agent.cli_backends.helpers.settings", _ms), patch("agent.cli_backends.opencode.settings", _ms):
+    ), SGPT_ROUTE_DEPENDENCIES.override(app, settings=_ms):
         response = client.get("/api/sgpt/backends", headers=admin_auth_header)
 
     assert response.status_code == 200
@@ -412,7 +413,7 @@ def test_sgpt_backends_endpoint_lists_custom_local_openai_runtime(client, admin_
     assert any(item["provider"] == "vllm_local" and item["provider_type"] == "local_openai_compatible" for item in providers)
 
 
-def test_sgpt_backends_endpoint_reports_invalid_lmstudio_runtime_metadata(client, admin_auth_header):
+def test_sgpt_backends_endpoint_reports_invalid_lmstudio_runtime_metadata(app, client, admin_auth_header):
     from unittest.mock import MagicMock as _MagicMock
     _ms = _MagicMock()
     _ms.sgpt_execution_backend = "codex"
@@ -436,7 +437,7 @@ def test_sgpt_backends_endpoint_reports_invalid_lmstudio_runtime_metadata(client
             "candidate_count": 0,
             "candidates": [],
         },
-    ), patch("agent.cli_backends.routing.settings", _ms), patch("agent.cli_backends.helpers.settings", _ms), patch("agent.cli_backends.opencode.settings", _ms):
+    ), SGPT_ROUTE_DEPENDENCIES.override(app, settings=_ms):
         response = client.get("/api/sgpt/backends", headers=admin_auth_header)
 
     assert response.status_code == 200
@@ -634,12 +635,11 @@ def test_sgpt_execute_auto_routing_defaults_to_ananta_worker(client, app, admin_
     assert data["routing"]["reason"] == "default_policy:ananta-worker"
 
 
-def test_sgpt_source_preview_success(client, tmp_path, admin_auth_header):
+def test_sgpt_source_preview_success(app, client, tmp_path, admin_auth_header):
     source_file = tmp_path / "sample.py"
     source_file.write_text("def hello():\n    return 'world'\n", encoding="utf-8")
-    with patch("agent.routes.sgpt.settings") as mock_settings:
-        mock_settings.rag_repo_root = str(tmp_path)
-        mock_settings.rag_enabled = True
+    route_settings = MagicMock(rag_repo_root=str(tmp_path), rag_enabled=True)
+    with SGPT_ROUTE_DEPENDENCIES.override(app, settings=route_settings):
         response = client.post("/api/sgpt/source", json={"source_path": "sample.py"}, headers=admin_auth_header)
 
     assert response.status_code == 200

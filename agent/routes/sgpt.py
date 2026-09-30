@@ -16,7 +16,7 @@ from agent.cli_backends.sgpt import (
 from agent.common.audit import log_audit
 from agent.common.errors import api_response
 from agent.common.gateways.worker_gateway import get_worker_gateway
-from agent.config import settings
+from agent.config import settings  # noqa: F401  (compatibility: tests patch attributes of this object)
 from agent.metrics import RAG_CHUNKS_SELECTED, RAG_REQUESTS_TOTAL, RAG_RETRIEVAL_DURATION
 from agent.models import (
     SgptContextRequest,
@@ -28,6 +28,7 @@ from agent.models import (
 from agent.routes import sgpt_account_login_routes as _account_login_routes
 from agent.routes import sgpt_claude_workspace_routes as _claude_workspace_routes
 from agent.routes import sgpt_execute as _sgpt_execute
+from agent.routes.sgpt_route_dependencies import sgpt_route_settings
 from agent.routes.sgpt_source_preview import resolve_source_preview_path
 from agent.runtime_policy import (
     build_trace_record,
@@ -139,7 +140,7 @@ def execute_sgpt():
 
     return _sgpt_execute.execute_sgpt_request(
         _sgpt_execute.SgptExecuteRuntime(
-            settings=settings,
+            settings=sgpt_route_settings(),
             policy=_sgpt_execute.SgptExecutePolicy(
                 supported_backends=SUPPORTED_CLI_BACKENDS,
                 allowed_backends=_allowed_backends,
@@ -170,19 +171,23 @@ def execute_sgpt():
 @sgpt_bp.route("/backends", methods=["GET"])
 @check_auth
 def list_cli_backends():
-    registry_payload = get_core_services().integration_registry_service.list_execution_backends(include_preflight=True)
+    route_settings = sgpt_route_settings()
+    registry_payload = get_core_services().integration_registry_service.list_execution_backends(
+        include_preflight=True,
+        backend_settings=route_settings,
+    )
     capabilities = registry_payload.get("capabilities") or {}
     runtime = registry_payload.get("runtime") or {}
     preflight = registry_payload.get("preflight") or {}
-    configured_backend = _normalize_backend_name(settings.sgpt_execution_backend, default="ananta-worker")
-    codex_runtime = resolve_codex_runtime_config()
+    configured_backend = _normalize_backend_name(route_settings.sgpt_execution_backend, default="ananta-worker")
+    codex_runtime = resolve_codex_runtime_config(backend_settings=route_settings)
     from agent.cli_backends.opencode import resolve_claude_runtime_config
 
-    claude_runtime = resolve_claude_runtime_config()
+    claude_runtime = resolve_claude_runtime_config(backend_settings=route_settings)
     default_provider = (
         str(
             (current_app.config.get("AGENT_CONFIG", {}) or {}).get("default_provider")
-            or settings.default_provider
+            or route_settings.default_provider
             or ""
         )
         .strip()
@@ -496,7 +501,7 @@ def cli_backend_provision(backend_id: str):
     if action not in {"status", "install"}:
         return api_response(status="error", message="invalid_provisioning_action", code=400)
 
-    if settings.role == "hub":
+    if sgpt_route_settings().role == "hub":
         worker = _registered_worker(str(body.get("worker_url") or ""))
         if worker is None:
             return api_response(status="error", message="registered_worker_required", code=404)
@@ -532,7 +537,7 @@ def cli_backend_provision(backend_id: str):
             }
         )
 
-    if settings.role != "worker":
+    if sgpt_route_settings().role != "worker":
         return api_response(status="error", message="worker_role_required", code=409)
 
     provisioner = get_cli_backend_provisioner()
@@ -589,7 +594,7 @@ def cli_backend_worker_action(backend_id: str):
     backend = str(backend_id or "").strip().lower()
     if backend not in {"codex", "claude_code"}:
         return api_response(status="error", message="backend_not_provisionable", code=404)
-    if settings.role != "hub":
+    if sgpt_route_settings().role != "hub":
         return api_response(status="error", message="hub_role_required", code=409)
 
     body = request.get_json(silent=True) or {}
@@ -712,7 +717,10 @@ def create_cli_session():
     if not policy["enabled"]:
         return api_response(status="error", message="cli_sessions_disabled", code=403)
     data = request.get_json(silent=True) or {}
-    backend = _normalize_backend_name(data.get("backend") or settings.sgpt_execution_backend, default="ananta-worker")
+    backend = _normalize_backend_name(
+        data.get("backend") or sgpt_route_settings().sgpt_execution_backend,
+        default="ananta-worker",
+    )
     if backend == "auto":
         backend = "ananta-worker"
     if backend not in SUPPORTED_CLI_BACKENDS:
@@ -851,7 +859,7 @@ def run_cli_session_turn(session_id: str):
 @check_auth
 @validate_request(SgptContextRequest)
 def get_context():
-    if not settings.rag_enabled:
+    if not sgpt_route_settings().rag_enabled:
         return api_response(status="error", message="Hybrid context mode is disabled", code=400)
 
     user_id = _extract_user_id()
@@ -909,7 +917,7 @@ def get_source_preview():
     try:
         file_path = resolve_source_preview_path(
             source_path,
-            repo_root=settings.rag_repo_root,
+            repo_root=sgpt_route_settings().rag_repo_root,
         )
     except Exception as e:
         _log().warning("Rejected source preview path '%s': %s", source_path, e)
