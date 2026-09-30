@@ -14,13 +14,8 @@ import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
-from typing import Any, Mapping, Protocol
+from typing import Any, Mapping
 
-from sqlalchemy import or_
-from sqlmodel import Session, select
-
-from agent.database import engine
-from agent.db_models.speech_evidence import SpeechEvidenceConsentDB
 from agent.repositories.speech_evidence_sync import (
     SpeechEvidencePeerKeyRecord,
     SpeechEvidenceSyncRepositoryError,
@@ -35,8 +30,7 @@ from agent.services.semantic_media_audit_service import SemanticMediaAuditPort
 from agent.services.semantic_relay_composition import get_semantic_relay_service
 from agent.services.semantic_relay_service import SemanticRelayService
 from agent.services.semantic_speech_relay import SemanticSpeechRelay, SpeechRelayLimits
-from agent.services.share_session_relay_membership import ShareSessionRelayMembership
-from agent.services.share_session_service import ShareSessionService, get_share_session_service
+from agent.services.share_session_service import get_share_session_service
 from agent.services.speech_evidence_offer_service import (
     HubEvidenceConsent,
     HubPeerAuthorization,
@@ -44,8 +38,17 @@ from agent.services.speech_evidence_offer_service import (
     SpeechEvidenceOfferRecord,
     SpeechEvidenceOfferService,
 )
+from agent.services.speech_evidence_sync_consent_adapter import SqlSpeechEvidenceConsentAdapter
+from agent.services.speech_evidence_sync_ports import (
+    SpeechEvidenceControlRelayPort,
+    SpeechEvidenceOpaqueRelayPort,
+)
+from agent.services.speech_evidence_sync_share_session_adapters import (
+    ShareSessionSpeechEvidenceEpoch,
+    ShareSessionSpeechEvidenceMembership,
+)
 from agent.services.voice_governance_domain import VoicePrincipal
-from agent.services.webrtc_epoch_service import WebrtcEpochService, get_webrtc_epoch_service
+from agent.services.webrtc_epoch_service import get_webrtc_epoch_service
 from ananta_contracts.speech_evidence_sync import (
     SpeechEvidenceMessageVerifier,
     SpeechEvidenceProtocolError,
@@ -71,274 +74,6 @@ class HubSpeechEvidenceSyncError(ValueError):
 PEER_CURATION_REQUEST_POLICY_DIGEST = hashlib.sha256(
     b"ananta.peer-speech-hub-curation-request.v1"
 ).hexdigest()
-
-
-class SpeechEvidenceOpaqueRelayPort(Protocol):
-    def append_ciphertext(
-        self,
-        *,
-        tenant_id: str,
-        authenticated_sender_id: str,
-        offer_id: str,
-        message: ValidatedDataChannelMessage,
-    ) -> dict: ...
-
-    def acknowledge_bytes(self, offer_id: str, sender_id: str, audience_id: str, count: int) -> None: ...
-
-    def revoke_ciphertext(
-        self,
-        *,
-        tenant_id: str,
-        session_id: str,
-        epoch: int,
-        offer_id: str,
-        message_ids: tuple[str, ...],
-    ) -> int: ...
-
-
-class SpeechEvidenceControlRelayPort(Protocol):
-    def append_message(
-        self,
-        *,
-        tenant_id: str,
-        authenticated_sender_id: str,
-        message: ValidatedDataChannelMessage,
-    ) -> dict: ...
-
-
-class ShareSessionSpeechEvidenceMembership:
-    """Resolve pair authority from current strict-E2EE share membership.
-
-    Browser key bindings use the share scope as both ``session_id`` and
-    ``pair_id``.  Keeping that invariant at the Hub prevents a member from
-    inventing an independent pair namespace inside an authorized session.
-    """
-
-    def __init__(
-        self,
-        sessions: ShareSessionService,
-        epochs: WebrtcEpochService,
-        *,
-        clock=time.time,
-    ) -> None:
-        self._sessions = sessions
-        self._epochs = epochs
-        self._clock = clock
-        self._relay_membership = ShareSessionRelayMembership(
-            sessions,
-            epoch_resolver=lambda session_id: epochs.current_epoch("session", session_id),
-            clock=clock,
-        )
-
-    def current(
-        self,
-        *,
-        session_id: str,
-        pair_id: str,
-        peer_id: str,
-        audience_id: str,
-    ) -> HubPeerAuthorization | None:
-        if pair_id != session_id or peer_id == audience_id:
-            return None
-        share = self._sessions.get_session(session_id)
-        if not isinstance(share, dict):
-            return None
-        if (
-            share.get("revoked_at") is not None
-            or share.get("security_mode") != "strict_e2ee"
-            or int(share.get("security_contract_version") or 0) != 1
-        ):
-            return None
-        expires_at = share.get("expires_at")
-        if isinstance(expires_at, (int, float)) and float(expires_at) <= float(self._clock()):
-            return None
-        tenant_id = str(share.get("tenant_id") or "default")
-        sender = self._relay_membership.member(
-            tenant_id=tenant_id,
-            session_id=session_id,
-            member_id=peer_id,
-        )
-        audience = self._relay_membership.member(
-            tenant_id=tenant_id,
-            session_id=session_id,
-            member_id=audience_id,
-        )
-        if (
-            sender is None
-            or audience is None
-            or sender.epoch != audience.epoch
-            or audience_id not in sender.send_audiences
-            or "peer_evidence_sync" not in sender.permissions
-            or "peer_evidence_sync" not in audience.permissions
-        ):
-            return None
-        return HubPeerAuthorization(
-            tenant_id=tenant_id,
-            session_id=session_id,
-            pair_id=pair_id,
-            peer_id=peer_id,
-            audience_id=audience_id,
-            epoch=sender.epoch,
-            membership_version=self._membership_version(share, peer_id),
-            permissions=frozenset({"peer_evidence_sync"}),
-            active=True,
-        )
-
-    def _membership_version(self, share: Mapping[str, Any], peer_id: str) -> int:
-        participants = self._sessions.get_participants(str(share.get("id") or ""))
-        participant = next(
-            (row for row in participants if str(row.get("user_id") or "") == peer_id and row.get("revoked_at") is None),
-            None,
-        )
-        basis = {
-            "peer_id": peer_id,
-            "owner": str(share.get("owner_user_id") or ""),
-            "created_at": share.get("created_at"),
-            "session_permissions": share.get("permissions"),
-            "participant_id": participant.get("id") if participant else None,
-            "joined_at": participant.get("joined_at") if participant else None,
-            "participant_permissions": participant.get("permissions") if participant else None,
-        }
-        digest = hashlib.sha256(
-            json.dumps(basis, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
-        ).digest()
-        return int.from_bytes(digest[:4], "big") % 2_147_483_646 + 1
-
-
-class ShareSessionSpeechEvidenceEpoch:
-    def __init__(self, epochs: WebrtcEpochService) -> None:
-        self._epochs = epochs
-
-    def current_epoch(self, *, session_id: str, pair_id: str) -> int | None:
-        if pair_id != session_id:
-            return None
-        return self._epochs.current_epoch("session", session_id)
-
-
-class SqlSpeechEvidenceConsentAdapter:
-    """Project durable governance consent into the narrower sync scope."""
-
-    def __init__(self, epochs: ShareSessionSpeechEvidenceEpoch, *, clock_ms=lambda: time.time_ns() // 1_000_000):
-        self._epochs = epochs
-        self._clock_ms = clock_ms
-
-    def current(self, *, pair_id: str, peer_id: str) -> HubEvidenceConsent | None:
-        """Legacy port: resolve only when the pair is globally unambiguous."""
-
-        with Session(engine) as session:
-            scopes = session.exec(
-                select(
-                    SpeechEvidenceConsentDB.tenant_id,
-                    SpeechEvidenceConsentDB.session_id,
-                )
-                .where(
-                    SpeechEvidenceConsentDB.pair_id == pair_id,
-                    or_(
-                        SpeechEvidenceConsentDB.speaker_id == peer_id,
-                        SpeechEvidenceConsentDB.recipient_id == peer_id,
-                    ),
-                )
-                .distinct()
-            ).all()
-        if len(scopes) != 1:
-            return None
-        tenant_id, session_id = scopes[0]
-        return self.current_scoped(
-            tenant_id=str(tenant_id),
-            session_id=str(session_id),
-            pair_id=pair_id,
-            peer_id=peer_id,
-        )
-
-    def current_scoped(
-        self,
-        *,
-        tenant_id: str,
-        session_id: str,
-        pair_id: str,
-        peer_id: str,
-    ) -> HubEvidenceConsent | None:
-        now = int(self._clock_ms())
-        epoch = self._epochs.current_epoch(session_id=session_id, pair_id=pair_id)
-        if epoch is None:
-            return None
-        with Session(engine) as session:
-            rows = session.exec(
-                select(SpeechEvidenceConsentDB).where(
-                    SpeechEvidenceConsentDB.tenant_id == tenant_id,
-                    SpeechEvidenceConsentDB.session_id == session_id,
-                    SpeechEvidenceConsentDB.pair_id == pair_id,
-                    SpeechEvidenceConsentDB.session_epoch == epoch,
-                    SpeechEvidenceConsentDB.state == "active",
-                    SpeechEvidenceConsentDB.expires_at_ms > now,
-                    or_(
-                        SpeechEvidenceConsentDB.speaker_id == peer_id,
-                        SpeechEvidenceConsentDB.recipient_id == peer_id,
-                    ),
-                )
-            ).all()
-        owned = [row for row in rows if row.owner_subject == peer_id]
-        candidates = owned if owned else rows
-        if len(candidates) != 1:
-            return None
-        return self._project(candidates[0], peer_id)
-
-    @staticmethod
-    def _project(row: SpeechEvidenceConsentDB, peer_id: str) -> HubEvidenceConsent | None:
-        scope = dict(row.scope_payload or {})
-        grants = scope.get("grants")
-        if not isinstance(grants, Mapping):
-            return None
-        participants = {str(row.speaker_id), str(row.recipient_id)}
-        if (
-            row.direction == "local"
-            or set(str(value) for value in row.required_signers) != participants
-            or set(str(value) for value in row.signature_digests) != participants
-        ):
-            return None
-        raw_classes = {str(value) for value in scope.get("data_classes", ()) if isinstance(value, str)}
-        data_classes: set[str] = set()
-        fields: set[str] = set()
-        if grants.get("transcript_share") is True:
-            if "transcript" in raw_classes:
-                data_classes.update({"transcript", "text_corrections"})
-                fields.update({"transcript", "timing", "confidence"})
-            if "correction" in raw_classes:
-                data_classes.update({"correction", "text_corrections", "vocabulary"})
-                fields.update({"transcript", "timing", "confidence"})
-        if grants.get("feature_share") is True:
-            for name in ("acoustic_features", "speaker_embedding", "quality_metrics"):
-                if name in raw_classes:
-                    data_classes.add(name)
-                    fields.add(name)
-            if data_classes & {"acoustic_features", "speaker_embedding", "quality_metrics"}:
-                fields.add("timing")
-        if grants.get("raw_audio_share") is True and "audio" in raw_classes:
-            data_classes.add("raw_audio")
-            fields.add("audio")
-        if not data_classes:
-            return None
-        trainer_classes = {"none"}
-        if grants.get("dataset_import") is True and grants.get("training") is True:
-            trainer_classes.add("speech_adaptation")
-        retention = scope.get("retention_seconds", row.scope_payload.get("retention_seconds"))
-        if type(retention) is not int or retention < 1:
-            return None
-        return HubEvidenceConsent(
-            peer_id=peer_id,
-            speaker_id=str(row.speaker_id),
-            pair_id=str(row.pair_id),
-            version=int(row.consent_version),
-            digest=str(row.consent_digest),
-            directions=frozenset({str(row.direction)}),
-            purposes=frozenset({str(row.purpose)}),
-            data_classes=frozenset(data_classes),
-            fields=frozenset(fields),
-            trainer_classes=frozenset(trainer_classes),
-            maximum_retention_seconds=retention,
-            expires_at_ms=int(row.expires_at_ms),
-            active=True,
-        )
 
 
 class _TenantMembershipKeyResolver:
