@@ -10,6 +10,7 @@ import json
 import sqlite3
 import sys
 import threading
+import time
 from pathlib import Path
 
 import pytest
@@ -267,7 +268,7 @@ def test_v2_same_account_pair_is_device_addressed_and_capability_isolated(public
     guest_spki, guest_fp = _device_key()
     owner_capability = "A" * 43
     guest_capability = "B" * 43
-    expires_at = public_service._now() + 600
+    expires_at = time.time() + 600
     session = public_service.create_session(
         owner_user_id=account_id,
         owner_user_sub="shared-sub",
@@ -1526,7 +1527,7 @@ def test_v2_rejects_cloned_device_key_and_version_downgrade(public_service):
         owner_device_fingerprint=owner_fp,
         owner_public_key_spki_b64=owner_spki,
         oidc_issuer="https://issuer",
-        requested_expires_at=public_service._now() + 600,
+        requested_expires_at=time.time() + 600,
         identity_binding_version=2,
         membership_capability="F" * 43,
     )
@@ -1566,7 +1567,7 @@ def test_v2_join_requires_explicit_identity_binding_negotiation(public_service):
         owner_device_fingerprint=owner_fp,
         owner_public_key_spki_b64=owner_spki,
         oidc_issuer="https://issuer",
-        requested_expires_at=public_service._now() + 600,
+        requested_expires_at=time.time() + 600,
         identity_binding_version=2,
         membership_capability="H" * 43,
     )
@@ -1612,16 +1613,16 @@ def test_v1_join_without_identity_binding_version_remains_compatible(public_serv
 
 def test_confirmation_refresh_renews_only_the_authenticated_immutable_binding(
     public_service,
-    monkeypatch,
 ):
-    session, owner_packages, guest_packages = _joined_session(public_service)
+    service, clock = _clocked_service(public_service)
+    session, owner_packages, guest_packages = _joined_session(service)
     owner_id = _peer_id("owner-sub")
     guest_id = _peer_id("guest-sub")
     tag = base64.b64encode(b"a" * 32).decode("ascii")
-    now = public_service._now()
-    monkeypatch.setattr(public_service, "_now", lambda: now)
+    now = clock()
+    clock.set(now)
 
-    wrong_direction = public_service.put_key_confirmation(
+    wrong_direction = service.put_key_confirmation(
         session_id=session["id"],
         sender_peer_id=owner_id,
         recipient_peer_id=guest_id,
@@ -1629,7 +1630,7 @@ def test_confirmation_refresh_renews_only_the_authenticated_immutable_binding(
         epoch=2,
         confirmation_tag=tag,
     )
-    stored = public_service.put_key_confirmation(
+    stored = service.put_key_confirmation(
         session_id=session["id"],
         sender_peer_id=owner_id,
         recipient_peer_id=guest_id,
@@ -1638,8 +1639,8 @@ def test_confirmation_refresh_renews_only_the_authenticated_immutable_binding(
         confirmation_tag=tag,
     )
     renewal_now = now + 120
-    monkeypatch.setattr(public_service, "_now", lambda: renewal_now)
-    idempotent = public_service.put_key_confirmation(
+    clock.set(renewal_now)
+    idempotent = service.put_key_confirmation(
         session_id=session["id"],
         sender_peer_id=owner_id,
         recipient_peer_id=guest_id,
@@ -1647,7 +1648,7 @@ def test_confirmation_refresh_renews_only_the_authenticated_immutable_binding(
         epoch=2,
         confirmation_tag=tag,
     )
-    conflict = public_service.put_key_confirmation(
+    conflict = service.put_key_confirmation(
         session_id=session["id"],
         sender_peer_id=owner_id,
         recipient_peer_id=guest_id,
@@ -1663,7 +1664,7 @@ def test_confirmation_refresh_renews_only_the_authenticated_immutable_binding(
     assert idempotent["expires_at_ms"] == int((renewal_now + 300) * 1000)
     assert idempotent["expires_at_ms"] > stored["expires_at_ms"]
     assert conflict == {"ok": False, "reason": "key_confirmation_conflict"}
-    fetched = public_service.get_key_confirmation(
+    fetched = service.get_key_confirmation(
         session_id=session["id"],
         requester_user_id=guest_id,
         sender_peer_id=owner_id,
@@ -1673,19 +1674,20 @@ def test_confirmation_refresh_renews_only_the_authenticated_immutable_binding(
     assert fetched["confirmation"]["confirmation_tag"] == tag
 
 
-def test_confirmation_refresh_prevents_the_bilateral_expiry_race(public_service, monkeypatch):
-    session, owner_packages, guest_packages = _joined_session(public_service)
+def test_confirmation_refresh_prevents_the_bilateral_expiry_race(public_service):
+    service, clock = _clocked_service(public_service)
+    session, owner_packages, guest_packages = _joined_session(service)
     owner_id = _peer_id("owner-sub")
     guest_id = _peer_id("guest-sub")
-    now = public_service._now()
-    monkeypatch.setattr(public_service, "_now", lambda: now)
+    now = clock()
+    clock.set(now)
 
     directions = (
         (owner_id, guest_id, owner_packages["packages"][0]["package_id"], b"o" * 32),
         (guest_id, owner_id, guest_packages["packages"][0]["package_id"], b"g" * 32),
     )
     for sender_id, recipient_id, package_id, raw_tag in directions:
-        stored = public_service.put_key_confirmation(
+        stored = service.put_key_confirmation(
             session_id=session["id"],
             sender_peer_id=sender_id,
             recipient_peer_id=recipient_id,
@@ -1700,9 +1702,9 @@ def test_confirmation_refresh_prevents_the_bilateral_expiry_race(public_service,
     # the opposite direction must still be present instead of transiently null.
     for refresh_offset in (120, 240):
         refresh_now = now + refresh_offset
-        monkeypatch.setattr(public_service, "_now", lambda: refresh_now)
+        clock.set(refresh_now)
         for sender_id, recipient_id, package_id, raw_tag in directions:
-            renewed = public_service.put_key_confirmation(
+            renewed = service.put_key_confirmation(
                 session_id=session["id"],
                 sender_peer_id=sender_id,
                 recipient_peer_id=recipient_id,
@@ -1716,9 +1718,9 @@ def test_confirmation_refresh_prevents_the_bilateral_expiry_race(public_service,
     # At the next refresh, peer A renews first and immediately reads peer B,
     # matching the live ordering that used to return confirmation:null.
     refresh_now = now + 360
-    monkeypatch.setattr(public_service, "_now", lambda: refresh_now)
+    clock.set(refresh_now)
     sender_id, recipient_id, package_id, raw_tag = directions[0]
-    renewed = public_service.put_key_confirmation(
+    renewed = service.put_key_confirmation(
         session_id=session["id"],
         sender_peer_id=sender_id,
         recipient_peer_id=recipient_id,
@@ -1727,7 +1729,7 @@ def test_confirmation_refresh_prevents_the_bilateral_expiry_race(public_service,
         confirmation_tag=base64.b64encode(raw_tag).decode("ascii"),
     )
     assert renewed["expires_at_ms"] == int((refresh_now + 300) * 1000)
-    fetched = public_service.get_key_confirmation(
+    fetched = service.get_key_confirmation(
         session_id=session["id"],
         requester_user_id=owner_id,
         sender_peer_id=guest_id,
@@ -1737,15 +1739,16 @@ def test_confirmation_refresh_prevents_the_bilateral_expiry_race(public_service,
     assert fetched["confirmation"]["expires_at_ms"] == int((now + 540) * 1000)
 
 
-def test_confirmation_refresh_never_exceeds_session_expiry(public_service, monkeypatch):
-    session, owner_packages, _ = _joined_session(public_service)
+def test_confirmation_refresh_never_exceeds_session_expiry(public_service):
+    service, clock = _clocked_service(public_service)
+    session, owner_packages, _ = _joined_session(service)
     owner_id = _peer_id("owner-sub")
     guest_id = _peer_id("guest-sub")
     tag = base64.b64encode(b"s" * 32).decode("ascii")
     session_expires_at = float(session["expires_at"])
     initial_now = session_expires_at - 120
-    monkeypatch.setattr(public_service, "_now", lambda: initial_now)
-    stored = public_service.put_key_confirmation(
+    clock.set(initial_now)
+    stored = service.put_key_confirmation(
         session_id=session["id"],
         sender_peer_id=owner_id,
         recipient_peer_id=guest_id,
@@ -1756,8 +1759,8 @@ def test_confirmation_refresh_never_exceeds_session_expiry(public_service, monke
     assert stored["expires_at_ms"] == int(session_expires_at * 1000)
 
     renewal_now = initial_now + 60
-    monkeypatch.setattr(public_service, "_now", lambda: renewal_now)
-    renewed = public_service.put_key_confirmation(
+    clock.set(renewal_now)
+    renewed = service.put_key_confirmation(
         session_id=session["id"],
         sender_peer_id=owner_id,
         recipient_peer_id=guest_id,
@@ -1770,14 +1773,15 @@ def test_confirmation_refresh_never_exceeds_session_expiry(public_service, monke
     assert renewed["expires_at_ms"] == int(session_expires_at * 1000)
 
 
-def test_confirmation_expires_after_five_minutes(public_service, monkeypatch):
-    session, owner_packages, _ = _joined_session(public_service)
+def test_confirmation_expires_after_five_minutes(public_service):
+    service, clock = _clocked_service(public_service)
+    session, owner_packages, _ = _joined_session(service)
     owner_id = _peer_id("owner-sub")
     guest_id = _peer_id("guest-sub")
     tag = base64.b64encode(b"x" * 32).decode("ascii")
-    now = public_service._now()
-    monkeypatch.setattr(public_service, "_now", lambda: now)
-    stored = public_service.put_key_confirmation(
+    now = clock()
+    clock.set(now)
+    stored = service.put_key_confirmation(
         session_id=session["id"],
         sender_peer_id=owner_id,
         recipient_peer_id=guest_id,
@@ -1786,8 +1790,8 @@ def test_confirmation_expires_after_five_minutes(public_service, monkeypatch):
         confirmation_tag=tag,
     )
 
-    monkeypatch.setattr(public_service, "_now", lambda: now + 301)
-    fetched = public_service.get_key_confirmation(
+    clock.set(now + 301)
+    fetched = service.get_key_confirmation(
         session_id=session["id"],
         requester_user_id=guest_id,
         sender_peer_id=owner_id,
@@ -1949,16 +1953,17 @@ def test_signal_poll_serializes_bounds_page_and_ack_pruning(public_service):
     assert [row["sequence"] for row in results[0]["signals"]] == ["3"]
 
 
-def test_requested_expiry_is_shortened_clamped_and_rejects_invalid(public_service, monkeypatch):
-    now = public_service._now()
-    monkeypatch.setattr(public_service, "_now", lambda: now)
+def test_requested_expiry_is_shortened_clamped_and_rejects_invalid(public_service):
+    service, clock = _clocked_service(public_service)
+    now = clock()
+    clock.set(now)
     short = _create_session(
-        public_service,
+        service,
         subject="short-sub",
         requested_expires_at=now + 120,
     )
     clamped = _create_session(
-        public_service,
+        service,
         subject="clamped-sub",
         requested_expires_at=now + public_service.cfg.SESSION_MAX_DURATION_SECONDS * 2,
     )
@@ -1968,36 +1973,37 @@ def test_requested_expiry_is_shortened_clamped_and_rejects_invalid(public_servic
     for invalid in (True, float("nan"), float("inf"), now):
         with pytest.raises(ValueError, match="session_expiry_invalid"):
             _create_session(
-                public_service,
+                service,
                 subject=f"invalid-{repr(invalid)}",
                 requested_expires_at=invalid,
             )
 
 
 def test_turn_credentials_require_current_strict_pair_membership(public_service, monkeypatch):
-    now = public_service._now()
-    monkeypatch.setattr(public_service, "_now", lambda: now)
+    service, clock = _clocked_service(public_service)
+    now = clock()
+    clock.set(now)
     monkeypatch.setattr(public_service.cfg, "TURN_SHARED_SECRET", "turn-only-test-secret")
     monkeypatch.setattr(public_service.cfg, "TURN_URLS", ["turn:relay.example:3478"])
     monkeypatch.setattr(public_service.cfg, "TURN_TTL_SECONDS", 3_600)
     session = _create_session(
-        public_service,
+        service,
         subject="owner-sub",
         requested_expires_at=now + 90,
     )
     owner_id = _peer_id("owner-sub")
     guest_id = _peer_id("guest-sub")
 
-    missing = public_service.issue_turn_credentials(
+    missing = service.issue_turn_credentials(
         session_id="00000000-0000-0000-0000-000000000000",
         requester_user_id=owner_id,
     )
-    incomplete = public_service.issue_turn_credentials(
+    incomplete = service.issue_turn_credentials(
         session_id=session["id"],
         requester_user_id=owner_id,
     )
     guest_spki, guest_fp = _device_key()
-    joined = public_service.join_session(
+    joined = service.join_session(
         invite_code=session["invite_code"],
         user_id=guest_id,
         user_sub="guest-sub",
@@ -2006,22 +2012,22 @@ def test_turn_credentials_require_current_strict_pair_membership(public_service,
         public_key_spki_b64=guest_spki,
         oidc_issuer="https://issuer",
     )
-    owner_credentials = public_service.issue_turn_credentials(
+    owner_credentials = service.issue_turn_credentials(
         session_id=session["id"],
         requester_user_id=owner_id,
     )
-    guest_credentials = public_service.issue_turn_credentials(
+    guest_credentials = service.issue_turn_credentials(
         session_id=session["id"],
         requester_user_id=guest_id,
     )
     second_session = _create_session(
-        public_service,
+        service,
         subject="owner-sub",
         requested_expires_at=now + 90,
     )
     second_guest_id = _peer_id("second-guest-sub")
     second_guest_spki, second_guest_fp = _device_key()
-    public_service.join_session(
+    service.join_session(
         invite_code=second_session["invite_code"],
         user_id=second_guest_id,
         user_sub="second-guest-sub",
@@ -2030,11 +2036,11 @@ def test_turn_credentials_require_current_strict_pair_membership(public_service,
         public_key_spki_b64=second_guest_spki,
         oidc_issuer="https://issuer",
     )
-    second_session_credentials = public_service.issue_turn_credentials(
+    second_session_credentials = service.issue_turn_credentials(
         session_id=second_session["id"],
         requester_user_id=owner_id,
     )
-    stranger = public_service.issue_turn_credentials(
+    stranger = service.issue_turn_credentials(
         session_id=session["id"],
         requester_user_id=_peer_id("stranger-sub"),
     )
@@ -2082,14 +2088,14 @@ def test_turn_credentials_require_current_strict_pair_membership(public_service,
     ).decode()
     assert credentials["password"] == expected_password
 
-    monkeypatch.setattr(public_service, "_now", lambda: now + 91)
-    assert public_service.issue_turn_credentials(
+    clock.set(now + 91)
+    assert service.issue_turn_credentials(
         session_id=session["id"],
         requester_user_id=owner_id,
     ) == {"ok": False, "reason": "session_inactive"}
-    monkeypatch.setattr(public_service, "_now", lambda: now)
-    public_service.revoke_session(session_id=session["id"], actor_user_id=owner_id)
-    assert public_service.issue_turn_credentials(
+    clock.set(now)
+    service.revoke_session(session_id=session["id"], actor_user_id=owner_id)
+    assert service.issue_turn_credentials(
         session_id=session["id"],
         requester_user_id=owner_id,
     ) == {"ok": False, "reason": "session_inactive"}
@@ -2309,18 +2315,18 @@ def test_pre_v2_strict_session_is_backfilled_as_account_scoped_v1(public_service
     assert packages["packages"] == []
 
 
-def test_migration_rolls_back_schema_and_cursor_changes_together(public_service, monkeypatch, tmp_path):
+def test_migration_rolls_back_schema_and_cursor_changes_together(public_service, tmp_path):
     database = tmp_path / "rollback-rendezvous.db"
     _create_legacy_database(database)
 
     def reject_backfill(_conn):
         raise RuntimeError("injected_backfill_failure")
 
-    monkeypatch.setattr(public_service, "_backfill_signal_sequences", reject_backfill)
+    failing_service = public_service.PublicRendezvousService(backfill_sequences=reject_backfill)
     with sqlite3.connect(database, isolation_level=None) as conn:
         conn.row_factory = sqlite3.Row
         with pytest.raises(RuntimeError, match="injected_backfill_failure"):
-            public_service._migrate_database(conn)
+            failing_service.store.migrate(conn)
         assert conn.in_transaction is False
         session_columns = {str(row["name"]) for row in conn.execute("PRAGMA table_info(sessions)")}
         participant_columns = {str(row["name"]) for row in conn.execute("PRAGMA table_info(participants)")}
@@ -2332,10 +2338,10 @@ def test_migration_rolls_back_schema_and_cursor_changes_together(public_service,
     assert "sequence" not in signal_columns
 
 
-def test_parallel_migrations_serialize_with_cursor_allocation(public_service, monkeypatch, tmp_path):
+def test_parallel_migrations_serialize_with_cursor_allocation(public_service, tmp_path):
     database = tmp_path / "parallel-rendezvous.db"
     _create_legacy_database(database)
-    original_backfill = public_service._backfill_signal_sequences
+    original_backfill = importlib.import_module("rendezvous_schema").backfill_signal_sequences
     first_backfill_entered = threading.Event()
     release_first_backfill = threading.Event()
     backfill_guard = threading.Lock()
@@ -2353,7 +2359,7 @@ def test_parallel_migrations_serialize_with_cursor_allocation(public_service, mo
                 raise RuntimeError("parallel_migration_test_timeout")
         original_backfill(conn)
 
-    monkeypatch.setattr(public_service, "_backfill_signal_sequences", controlled_backfill)
+    migrating_service = public_service.PublicRendezvousService(backfill_sequences=controlled_backfill)
 
     def migrate(started: threading.Event, completed: threading.Event) -> None:
         started.set()
@@ -2361,7 +2367,7 @@ def test_parallel_migrations_serialize_with_cursor_allocation(public_service, mo
             with sqlite3.connect(database, timeout=5, isolation_level=None) as conn:
                 conn.row_factory = sqlite3.Row
                 conn.execute("PRAGMA busy_timeout = 5000")
-                public_service._migrate_database(conn)
+                migrating_service.store.migrate(conn)
         except BaseException as exc:  # pragma: no cover - asserted in the parent thread
             errors.append(exc)
         finally:
@@ -2484,7 +2490,6 @@ def test_http_create_binds_actual_issuer_and_returns_local_peer_id(monkeypatch, 
         issuer="https://issuer",
         raw={},
     )
-    monkeypatch.setattr(public_app, "verify_bearer_token", lambda _header: context)
     public_key, fingerprint = _device_key()
     request_body = {
         "title": "Public pair",
@@ -2496,7 +2501,9 @@ def test_http_create_binds_actual_issuer_and_returns_local_peer_id(monkeypatch, 
         "owner_device_fingerprint": fingerprint,
         "public_key_spki_b64": public_key,
     }
-    client = public_app.app.test_client()
+    client = public_app.create_app(
+        verify_token=lambda _header: context,
+    ).test_client()
 
     rejected = client.post(
         "/rendezvous/sessions",
@@ -2563,7 +2570,6 @@ def test_http_guest_leave_requires_exact_membership_and_is_idempotent(monkeypatc
         issuer="https://issuer",
         raw={},
     )
-    monkeypatch.setattr(public_app, "verify_bearer_token", lambda _header: context)
     path = f"/rendezvous/sessions/{pair['session']['id']}/membership"
     auth = {"Authorization": "Bearer test"}
     owner_headers = {
@@ -2580,7 +2586,9 @@ def test_http_guest_leave_requires_exact_membership_and_is_idempotent(monkeypatc
         **guest_headers,
         "X-Ananta-Membership-Capability": "Z" * 43,
     }
-    client = public_app.app.test_client()
+    client = public_app.create_app(
+        verify_token=lambda _header: context,
+    ).test_client()
 
     owner_attempt = client.delete(path, headers=owner_headers)
     forged_attempt = client.delete(path, headers=forged_headers)
@@ -2631,7 +2639,6 @@ def test_http_v2_same_account_pair_requires_membership_capabilities(monkeypatch,
         issuer="https://issuer",
         raw={},
     )
-    monkeypatch.setattr(public_app, "verify_bearer_token", lambda _header: context)
     monkeypatch.setattr(public_app.cfg, "RATE_CREATE_LIMIT", 1)
     monkeypatch.setattr(public_app.cfg, "RATE_JOIN_LIMIT", 1)
     monkeypatch.setattr(public_app.cfg, "RATE_RECOVERY_PROBE_LIMIT", 10)
@@ -2647,8 +2654,10 @@ def test_http_v2_same_account_pair_requires_membership_capabilities(monkeypatch,
     owner_capability = "H" * 43
     guest_capability = "I" * 43
     media_capabilities = _public_media_capabilities_v1()
-    expires_at = public_app.svc._now() + 600
-    client = public_app.app.test_client()
+    expires_at = time.time() + 600
+    client = public_app.create_app(
+        verify_token=lambda _header: context,
+    ).test_client()
     auth = {"Authorization": "Bearer shared"}
     owner_headers = {
         **auth,
@@ -3110,7 +3119,6 @@ def test_create_recovery_probe_is_rate_limited_before_lookup(monkeypatch, tmp_pa
         issuer="https://issuer",
         raw={},
     )
-    monkeypatch.setattr(public_app, "verify_bearer_token", lambda _header: context)
     monkeypatch.setattr(public_app.cfg, "RATE_RECOVERY_PROBE_LIMIT", 1)
     monkeypatch.setattr(public_app.cfg, "RATE_CREATE_LIMIT", 10)
     lookup_calls = []
@@ -3128,8 +3136,6 @@ def test_create_recovery_probe_is_rate_limited_before_lookup(monkeypatch, tmp_pa
             "identity_binding_version": 2,
         }
 
-    monkeypatch.setattr(public_app.svc, "is_owner_create_recovery", lookup)
-    monkeypatch.setattr(public_app.svc, "create_session", create)
     owner_spki, owner_fp = _device_key()
     body = {
         "identity_binding_version": 2,
@@ -3137,7 +3143,10 @@ def test_create_recovery_probe_is_rate_limited_before_lookup(monkeypatch, tmp_pa
         "owner_device_fingerprint": owner_fp,
         "public_key_spki_b64": owner_spki,
     }
-    client = public_app.app.test_client()
+    client = public_app.create_app(
+        verify_token=lambda _header: context,
+        service=_ServiceDouble(public_app.svc, is_owner_create_recovery=lookup, create_session=create),
+    ).test_client()
 
     first = client.post(
         "/rendezvous/sessions",
@@ -3204,7 +3213,6 @@ def test_join_recovery_probe_is_rate_limited_before_lookup(monkeypatch, tmp_path
         issuer="https://issuer",
         raw={},
     )
-    monkeypatch.setattr(public_app, "verify_bearer_token", lambda _header: context)
     monkeypatch.setattr(public_app.cfg, "RATE_RECOVERY_PROBE_LIMIT", 1)
     monkeypatch.setattr(public_app.cfg, "RATE_JOIN_LIMIT", 10)
     lookup_calls = []
@@ -3218,8 +3226,6 @@ def test_join_recovery_probe_is_rate_limited_before_lookup(monkeypatch, tmp_path
         join_calls.append(kwargs)
         return {"ok": False, "reason": "invalid_invite_code"}
 
-    monkeypatch.setattr(public_app.svc, "is_join_recovery", lookup)
-    monkeypatch.setattr(public_app.svc, "join_session", join)
     guest_spki, guest_fp = _device_key()
     body = {
         "invite_code": "AAAA-BBBB",
@@ -3228,7 +3234,10 @@ def test_join_recovery_probe_is_rate_limited_before_lookup(monkeypatch, tmp_path
         "device_fingerprint": guest_fp,
         "public_key_spki_b64": guest_spki,
     }
-    client = public_app.app.test_client()
+    client = public_app.create_app(
+        verify_token=lambda _header: context,
+        service=_ServiceDouble(public_app.svc, is_join_recovery=lookup, join_session=join),
+    ).test_client()
 
     first = client.post(
         "/rendezvous/sessions/join",
@@ -3271,7 +3280,6 @@ def test_membership_probe_is_rate_limited_before_resolver(monkeypatch, tmp_path,
         issuer="https://issuer",
         raw={},
     )
-    monkeypatch.setattr(public_app, "verify_bearer_token", lambda _header: context)
     monkeypatch.setattr(public_app.cfg, "RATE_MEMBERSHIP_PROBE_LIMIT", 1)
     resolver_calls = []
 
@@ -3279,9 +3287,11 @@ def test_membership_probe_is_rate_limited_before_resolver(monkeypatch, tmp_path,
         resolver_calls.append(kwargs)
         return {"ok": False, "reason": "membership_capability_invalid"}
 
-    monkeypatch.setattr(public_app.svc, "authenticate_session_membership", resolve)
     session_id = "00000000-0000-0000-0000-000000000002"
-    client = public_app.app.test_client()
+    client = public_app.create_app(
+        verify_token=lambda _header: context,
+        service=_ServiceDouble(public_app.svc, authenticate_session_membership=resolve),
+    ).test_client()
 
     def probe(capability: str, peer_digit: str):
         headers = {
@@ -3343,14 +3353,11 @@ def test_join_rate_limit_uses_authenticated_peer_and_ignores_spoofed_xff(monkeyp
             raw={},
         ),
     }
-    monkeypatch.setattr(
-        public_app,
-        "verify_bearer_token",
-        lambda header: contexts[header.removeprefix("Bearer ")],
-    )
     monkeypatch.setattr(public_app.cfg, "RATE_JOIN_LIMIT", 1)
     public_app.svc.reset_rate_limits_for_tests()
-    client = public_app.app.test_client()
+    client = public_app.create_app(
+        verify_token=lambda header: contexts[header.removeprefix("Bearer ")],
+    ).test_client()
 
     def join(subject: str, spoofed_ip: str):
         return client.post(
@@ -3407,14 +3414,11 @@ def test_turn_credentials_http_contract_is_session_bound_and_rate_limited(monkey
             raw={},
         ),
     }
-    monkeypatch.setattr(
-        public_app,
-        "verify_bearer_token",
-        lambda header: contexts[header.removeprefix("Bearer ")],
-    )
     waiting_session = _create_session(public_app.svc, subject="owner-sub")
     session, _, _ = _joined_session(public_app.svc)
-    client = public_app.app.test_client()
+    client = public_app.create_app(
+        verify_token=lambda header: contexts[header.removeprefix("Bearer ")],
+    ).test_client()
     owner_headers = {"Authorization": "Bearer owner"}
     stranger_headers = {"Authorization": "Bearer stranger"}
 
@@ -3510,9 +3514,10 @@ def test_signal_poll_http_cursor_is_sqlite_safe_and_rate_limited(monkeypatch, tm
         issuer="https://issuer",
         raw={},
     )
-    monkeypatch.setattr(public_app, "verify_bearer_token", lambda _header: context)
     session, _, _ = _joined_session(public_app.svc)
-    client = public_app.app.test_client()
+    client = public_app.create_app(
+        verify_token=lambda _header: context,
+    ).test_client()
     path = f"/webrtc/sessions/{session['id']}/signal"
     headers = {"Authorization": "Bearer owner"}
 
@@ -3558,6 +3563,36 @@ def test_signal_poll_http_cursor_is_sqlite_safe_and_rate_limited(monkeypatch, tm
     limited = client.get(path, headers=headers, query_string={"since": "0"})
     assert first.status_code == 200
     assert (limited.status_code, limited.get_json()) == (429, {"error": "rate_limited"})
+
+
+class _ServiceDouble:
+    """Rendezvous service double for ``create_app``: overrides some operations, delegates the rest."""
+
+    def __init__(self, service, **overrides) -> None:
+        self._service = service
+        self.__dict__.update(overrides)
+
+    def __getattr__(self, name):
+        return getattr(self._service, name)
+
+
+class _ManualClock:
+    """Test clock injected into the service: wall time until a test pins it with ``set``."""
+
+    def __init__(self) -> None:
+        self._pinned: float | None = None
+
+    def __call__(self) -> float:
+        return time.time() if self._pinned is None else self._pinned
+
+    def set(self, value: float) -> None:
+        self._pinned = float(value)
+
+
+def _clocked_service(public_service):
+    """A service instance on the fixture database whose clock the test controls."""
+    clock = _ManualClock()
+    return public_service.PublicRendezvousService(clock=clock), clock
 
 
 def _peer_id(subject: str, issuer: str = "https://issuer") -> str:

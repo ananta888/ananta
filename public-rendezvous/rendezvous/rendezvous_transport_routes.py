@@ -1,18 +1,16 @@
 """TURN-credential and WebRTC signaling endpoints of the public rendezvous app.
 
-``app`` owns the Flask application, authentication and rate limiting; it
-registers these views through :meth:`TransportRoutes.register` and passes
-the request helpers, the rendezvous service facade and the configuration in
-explicitly (SRP/DIP). View function names - and therefore Flask endpoint
+``app.create_app`` owns the Flask application; it registers these views
+through :meth:`TransportRoutes.register` and injects the request helpers
+(``RequestSupport``), the rendezvous service and the configuration
+(SRP/DIP). View function names - and therefore Flask endpoint
 names and URLs - are unchanged.
 """
 
 from __future__ import annotations
 
 import uuid
-from collections.abc import Callable
-from dataclasses import dataclass
-from typing import Any
+from typing import Any, Protocol
 
 from flask import Flask, jsonify, request
 
@@ -23,18 +21,24 @@ TURN_CREDENTIAL_ERROR_STATUS = {
 }
 
 
-@dataclass(frozen=True)
-class TransportRouteSupport:
-    """Request helpers of ``app`` that the transport views depend on."""
+class TransportRouteSupport(Protocol):
+    """Request helpers the transport views depend on (``RequestSupport`` in ``app``)."""
 
-    require_auth: Callable[[], Any]
-    auth_error: Callable[..., Any]
-    closed_json_body: Callable[[set[str]], tuple[Any, Any]]
-    requested_peer_id: Callable[[], str]
-    membership_capability: Callable[[], str]
-    membership_probe_limit: Callable[[str], Any]
-    rate_limit_guard: Callable[[str, str, int, int], Any]
-    member_error_status: Callable[..., int]
+    def require_auth(self) -> Any: ...
+
+    def auth_error(self, msg: str = ..., status: int = ...) -> Any: ...
+
+    def closed_json_body(self, allowed_fields: set[str]) -> tuple[Any, Any]: ...
+
+    def requested_peer_id(self) -> str: ...
+
+    def membership_capability(self) -> str: ...
+
+    def membership_probe_limit(self, account_id: str) -> Any: ...
+
+    def rate_limit_guard(self, namespace: str, subject: str, limit: int, window: int) -> Any: ...
+
+    def member_error_status(self, reason: str, *, default: int = ...) -> int: ...
 
 
 class TransportRoutes:
@@ -140,7 +144,7 @@ class TransportRoutes:
         if not ctx:
             return self._support.auth_error()
         raw = request.get_data(as_text=False)
-        if len(raw) > self._service._MAX_SIGNAL_BYTES:
+        if len(raw) > self._service.MAX_SIGNAL_BYTES:
             return jsonify({"error": "signal_too_large"}), 413
         body, body_error = self._support.closed_json_body(
             {
@@ -228,7 +232,7 @@ class TransportRoutes:
         if raw_since and (len(raw_since) > 19 or not raw_since.isascii() or not raw_since.isdecimal()):
             return jsonify({"error": "signal_cursor_invalid"}), 400
         since = int(raw_since) if raw_since else 0
-        if since > self._service._MAX_SIGNAL_CURSOR:
+        if since > self._service.MAX_SIGNAL_CURSOR:
             return jsonify({"error": "signal_cursor_invalid"}), 400
         epoch_values = request.args.getlist("security_epoch")
         if len(epoch_values) > 1:
