@@ -5,7 +5,6 @@ import pytest
 
 from agent.db_models import KnowledgeIndexDB, KnowledgeIndexRunDB
 from agent.repository import knowledge_index_repo
-from agent.services import rag_helper_index_service as rag_helper_index_module
 from agent.services.ingestion_service import IngestionService
 from agent.services.rag_helper_index_service import RagHelperIndexService
 from worker.retrieval.knowledge_index_job_handler import (
@@ -202,7 +201,6 @@ def test_rag_helper_index_service_indexes_source_records_in_scope_layout():
 
 def test_source_records_can_build_worker_outputs_without_hub_projection_persistence(
     tmp_path,
-    monkeypatch,
 ):
     class ForbiddenControlPlaneRepository:
         def __getattr__(self, name):
@@ -211,17 +209,10 @@ def test_source_records_can_build_worker_outputs_without_hub_projection_persiste
 
             return fail
 
-    monkeypatch.setattr(
-        rag_helper_index_module,
-        "knowledge_index_repo",
-        ForbiddenControlPlaneRepository(),
+    service = RagHelperIndexService(
+        knowledge_index_repository=ForbiddenControlPlaneRepository(),
+        knowledge_index_run_repository=ForbiddenControlPlaneRepository(),
     )
-    monkeypatch.setattr(
-        rag_helper_index_module,
-        "knowledge_index_run_repo",
-        ForbiddenControlPlaneRepository(),
-    )
-    service = RagHelperIndexService()
     service._knowledge_output_root = (
         lambda *, source_scope: tmp_path / "worker" / source_scope
     )
@@ -249,7 +240,7 @@ def test_source_records_can_build_worker_outputs_without_hub_projection_persiste
     assert (output_dir / "index.jsonl").is_file()
 
 
-def test_source_records_persist_hub_projection_by_default(tmp_path, monkeypatch):
+def test_source_records_persist_hub_projection_by_default(tmp_path):
     class TrackingIndexRepository:
         def __init__(self):
             self.get_calls = []
@@ -273,17 +264,10 @@ def test_source_records_persist_hub_projection_by_default(tmp_path, monkeypatch)
 
     index_repository = TrackingIndexRepository()
     run_repository = TrackingRunRepository()
-    monkeypatch.setattr(
-        rag_helper_index_module,
-        "knowledge_index_repo",
-        index_repository,
+    service = RagHelperIndexService(
+        knowledge_index_repository=index_repository,
+        knowledge_index_run_repository=run_repository,
     )
-    monkeypatch.setattr(
-        rag_helper_index_module,
-        "knowledge_index_run_repo",
-        run_repository,
-    )
-    service = RagHelperIndexService()
     service._knowledge_output_root = (
         lambda *, source_scope: tmp_path / "hub" / source_scope
     )
