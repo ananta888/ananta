@@ -115,7 +115,8 @@ def merge_db_config_overrides(default_cfg: dict) -> None:
         logging.warning(f"Konnte Konfiguration nicht aus DB laden: {e}. Nutze Fallback.")
 
 
-def apply_env_config_overrides(cfg: dict) -> None:
+def _apply_tiny_router_env(cfg: dict) -> None:
+    """ANANTA_TINY_ROUTER_* overrides for the worker tool loop."""
     tool_loop_cfg = cfg.get("ananta_worker_tool_loop")
     if isinstance(tool_loop_cfg, dict):
         tiny_cfg = tool_loop_cfg.get("tiny_router")
@@ -133,6 +134,9 @@ def apply_env_config_overrides(cfg: dict) -> None:
             tool_loop_cfg["tiny_router"] = tiny_cfg
         cfg["ananta_worker_tool_loop"] = tool_loop_cfg
 
+
+def _apply_opencode_runtime_env(cfg: dict) -> None:
+    """ANANTA_OPENCODE_* overrides for the opencode runtime."""
     runtime_cfg = cfg.get("opencode_runtime") if isinstance(cfg.get("opencode_runtime"), dict) else {}
     forced_execution_mode = str(os.environ.get("ANANTA_OPENCODE_EXECUTION_MODE") or "").strip().lower()
     if forced_execution_mode in {"backend", "live_terminal", "interactive_terminal"}:
@@ -152,6 +156,32 @@ def apply_env_config_overrides(cfg: dict) -> None:
     if runtime_cfg:
         cfg["opencode_runtime"] = runtime_cfg
 
+
+def _apply_worker_pool_env_values(
+    parallel_cfg: dict, model_defaults: dict, worker_defaults: dict, native_kind: dict, subworkers: dict
+) -> None:
+    if "ANANTA_WORKER_POOL_ENABLED" in os.environ:
+        parallel_cfg["enabled"] = str(os.environ.get("ANANTA_WORKER_POOL_ENABLED") or "").strip().lower() in {"1", "true", "yes", "on"}
+    if "ANANTA_OLLAMA_MAX_PARALLEL" in os.environ:
+        try:
+            model_defaults["max_parallel_requests"] = max(1, int(os.environ.get("ANANTA_OLLAMA_MAX_PARALLEL") or 4))
+        except Exception:
+            pass
+    if "ANANTA_WORKER_MAX_PARALLEL_TASKS" in os.environ:
+        try:
+            worker_defaults["max_parallel_tasks"] = max(1, int(os.environ.get("ANANTA_WORKER_MAX_PARALLEL_TASKS") or 4))
+            native_kind["max_parallel_tasks_per_container"] = worker_defaults["max_parallel_tasks"]
+        except Exception:
+            pass
+    if "ANANTA_SUBWORKER_MAX_CHILDREN" in os.environ:
+        try:
+            subworkers["max_children_per_parent"] = max(1, int(os.environ.get("ANANTA_SUBWORKER_MAX_CHILDREN") or 4))
+        except Exception:
+            pass
+
+
+def _apply_worker_parallelism_env(cfg: dict) -> None:
+    """Worker pool / Ollama parallelism overrides."""
     parallel_cfg = cfg.get("worker_parallelism") if isinstance(cfg.get("worker_parallelism"), dict) else {}
     if parallel_cfg:
         ollama_cfg = parallel_cfg.get("ollama") if isinstance(parallel_cfg.get("ollama"), dict) else {}
@@ -162,24 +192,7 @@ def apply_env_config_overrides(cfg: dict) -> None:
         native_kind = kinds.get("native_ananta_worker") if isinstance(kinds.get("native_ananta_worker"), dict) else {}
         subworkers = native_kind.get("subworkers") if isinstance(native_kind.get("subworkers"), dict) else {}
 
-        if "ANANTA_WORKER_POOL_ENABLED" in os.environ:
-            parallel_cfg["enabled"] = str(os.environ.get("ANANTA_WORKER_POOL_ENABLED") or "").strip().lower() in {"1", "true", "yes", "on"}
-        if "ANANTA_OLLAMA_MAX_PARALLEL" in os.environ:
-            try:
-                model_defaults["max_parallel_requests"] = max(1, int(os.environ.get("ANANTA_OLLAMA_MAX_PARALLEL") or 4))
-            except Exception:
-                pass
-        if "ANANTA_WORKER_MAX_PARALLEL_TASKS" in os.environ:
-            try:
-                worker_defaults["max_parallel_tasks"] = max(1, int(os.environ.get("ANANTA_WORKER_MAX_PARALLEL_TASKS") or 4))
-                native_kind["max_parallel_tasks_per_container"] = worker_defaults["max_parallel_tasks"]
-            except Exception:
-                pass
-        if "ANANTA_SUBWORKER_MAX_CHILDREN" in os.environ:
-            try:
-                subworkers["max_children_per_parent"] = max(1, int(os.environ.get("ANANTA_SUBWORKER_MAX_CHILDREN") or 4))
-            except Exception:
-                pass
+        _apply_worker_pool_env_values(parallel_cfg, model_defaults, worker_defaults, native_kind, subworkers)
 
         if model_defaults:
             ollama_cfg["model_defaults"] = model_defaults
@@ -197,11 +210,9 @@ def apply_env_config_overrides(cfg: dict) -> None:
             parallel_cfg["ollama"] = ollama_cfg
         cfg["worker_parallelism"] = parallel_cfg
 
-    evolution_cfg = cfg.get("evolution") if isinstance(cfg.get("evolution"), dict) else {}
-    provider_overrides = evolution_cfg.get("provider_overrides")
-    if not isinstance(provider_overrides, dict):
-        provider_overrides = {}
-    evolver_cfg = dict(provider_overrides.get("evolver") or {})
+
+def _evolver_env_settings() -> dict[str, tuple[str, Any]]:
+    """EVOLVER_* environment variable -> (evolver config key, value from settings)."""
     evolver_headers = getattr(settings, "evolver_headers", None)
     parsed_evolver_headers = {}
     if evolver_headers:
@@ -252,6 +263,17 @@ def apply_env_config_overrides(cfg: dict) -> None:
         "EVOLVER_DEFAULT": ("default", bool(getattr(settings, "evolver_default", False))),
         "EVOLVER_VERSION": ("version", getattr(settings, "evolver_version", "unknown")),
     }
+    return env_to_key
+
+
+def _apply_evolver_env(cfg: dict) -> None:
+    """EVOLVER_* overrides for the evolution provider."""
+    evolution_cfg = cfg.get("evolution") if isinstance(cfg.get("evolution"), dict) else {}
+    provider_overrides = evolution_cfg.get("provider_overrides")
+    if not isinstance(provider_overrides, dict):
+        provider_overrides = {}
+    evolver_cfg = dict(provider_overrides.get("evolver") or {})
+    env_to_key = _evolver_env_settings()
     for env_name, (key, value) in env_to_key.items():
         if env_name in os.environ:
             evolver_cfg[key] = value
@@ -263,6 +285,9 @@ def apply_env_config_overrides(cfg: dict) -> None:
         evolution_cfg["default_provider"] = evolver_cfg.get("provider_name") or "evolver"
     cfg["evolution"] = evolution_cfg
 
+
+def _apply_terminal_policy_env(cfg: dict) -> None:
+    """TERMINAL_FEATURE_ENABLED override for the terminal policy."""
     terminal_policy = cfg.get("terminal_policy") if isinstance(cfg.get("terminal_policy"), dict) else {}
     terminal_feature_enabled = str(os.environ.get("TERMINAL_FEATURE_ENABLED") or "").strip().lower()
     if terminal_feature_enabled in {"1", "true", "yes"}:
@@ -271,3 +296,17 @@ def apply_env_config_overrides(cfg: dict) -> None:
         terminal_policy["allow_interactive"] = True
     if terminal_policy:
         cfg["terminal_policy"] = terminal_policy
+
+
+_ENV_CONFIG_OVERRIDES = (
+    _apply_tiny_router_env,
+    _apply_opencode_runtime_env,
+    _apply_worker_parallelism_env,
+    _apply_evolver_env,
+    _apply_terminal_policy_env,
+)
+
+
+def apply_env_config_overrides(cfg: dict) -> None:
+    for apply_override in _ENV_CONFIG_OVERRIDES:
+        apply_override(cfg)
