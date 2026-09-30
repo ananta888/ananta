@@ -35,6 +35,27 @@ import { AiAssistantDomainService } from './ai-assistant-domain.service';
 import { AiAssistantMessageListComponent } from './ai-assistant-message-list.component';
 import { AiAssistantStorageService } from './ai-assistant-storage.service';
 import { AssistantRuntimeContext, ChatMessage, ChatThread, CliBackend, ContextSource } from './ai-assistant.types';
+import {
+  contextFromLegacyResponses,
+  contextFromReadModel,
+  toAssistantRequestContext,
+} from './ai-assistant-runtime-context.mappers';
+import {
+  formatExecutionOutput,
+  formatToolResults,
+  isCliBackend,
+  mergeContextMeta,
+  toAvailableCliBackends,
+  toContextSources,
+  toRoutingMeta,
+} from './ai-assistant-response.mappers';
+import {
+  createDefaultThread,
+  createNumberedThread,
+  deriveThreadTitle,
+  parseStoredThreads,
+  toStoredThreads,
+} from './ai-assistant-thread.mappers';
 
 @Component({
   standalone: true,
@@ -205,12 +226,7 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
 
   createThread() {
     const index = this.chatThreads.length + 1;
-    const thread: ChatThread = {
-      id: `thread-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      title: `Chat ${index}`,
-      history: [],
-      updatedAt: Date.now(),
-    };
+    const thread: ChatThread = createNumberedThread(index);
     this.chatThreads = [...this.chatThreads, thread];
     this.switchThread(thread.id);
     this.threadSwitcherOpen = true;
@@ -253,24 +269,7 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
 
     this.hubApi.getAssistantReadModel(hub.url).subscribe({
       next: (res) => {
-        const teams = Array.isArray(res?.teams?.items) ? res.teams.items : [];
-        const templates = Array.isArray(res?.templates?.items) ? res.templates.items : [];
-        const effectiveAgents = Array.isArray(res?.agents?.items)
-          ? res.agents.items.map((a: any) => ({ name: String(a?.name || ''), role: a?.role, url: String(a?.url || '') })).filter((a: any) => a.name && a.url)
-          : (Array.isArray(res?.agents) ? res.agents : []);
-        const mappedAgents = Array.isArray(effectiveAgents) && effectiveAgents.length ? effectiveAgents : agents;
-        this.runtimeContext = {
-          ...baseCtx,
-          agents: mappedAgents,
-          teamsCount: teams.length,
-          templatesCount: templates.length,
-          templatesSummary: this.toTemplateSummary(templates),
-          settingsSummary: res?.settings?.summary || null,
-          editableSettings: this.toEditableSettingsSummary(res?.settings?.editable_inventory),
-          automationSummary: res?.automation || null,
-          hasConfig: !!res?.config?.effective,
-          configSnapshot: this.toCompactConfigSnapshot(res?.config?.effective || {}),
-        };
+        this.runtimeContext = contextFromReadModel(baseCtx, res, agents);
         this.cdr.detectChanges();
       },
       error: () => {
@@ -281,23 +280,7 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
           agents: this.hubApi.listAgents(hub.url),
         }).subscribe({
           next: (legacyRes) => {
-            const teams = Array.isArray(legacyRes.teams) ? legacyRes.teams : [];
-            const templates = Array.isArray(legacyRes.templates) ? legacyRes.templates : [];
-            const effectiveAgents = Array.isArray(legacyRes.agents)
-              ? legacyRes.agents.map((a: any) => ({ name: String(a?.name || ''), role: a?.role, url: String(a?.url || '') })).filter((a: any) => a.name && a.url)
-              : agents;
-            this.runtimeContext = {
-              ...baseCtx,
-              agents: effectiveAgents,
-              teamsCount: teams.length,
-              templatesCount: templates.length,
-              templatesSummary: this.toTemplateSummary(templates),
-              settingsSummary: this.toLegacySettingsSummary(legacyRes.config),
-              editableSettings: [],
-              automationSummary: null,
-              hasConfig: !!legacyRes.config,
-              configSnapshot: this.toCompactConfigSnapshot(legacyRes.config),
-            };
+            this.runtimeContext = contextFromLegacyResponses(baseCtx, legacyRes, agents);
             this.cdr.detectChanges();
           },
           error: () => {
@@ -341,12 +324,7 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
               assistantMsg.cliBackendUsed = r.backend;
             }
             if (r?.routing && typeof r.routing === 'object') {
-              assistantMsg.routing = {
-                requestedBackend: r.routing.requested_backend,
-                effectiveBackend: r.routing.effective_backend,
-                reason: r.routing.reason,
-                policyVersion: r.routing.policy_version,
-              };
+              assistantMsg.routing = toRoutingMeta(r.routing);
             }
             if (r?.context) {
               assistantMsg.contextMeta = r.context;
@@ -356,23 +334,8 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
               next: ctx => {
                 this.zone.run(() => {
                   const chunks = Array.isArray(ctx?.chunks) ? ctx.chunks : [];
-                  assistantMsg.contextMeta = {
-                    ...(assistantMsg.contextMeta || {}),
-                    policy_version: ctx?.policy_version || assistantMsg.contextMeta?.policy_version,
-                    chunk_count: typeof ctx?.chunk_count === 'number' ? ctx.chunk_count : chunks.length,
-                    token_estimate: typeof ctx?.token_estimate === 'number' ? ctx.token_estimate : assistantMsg.contextMeta?.token_estimate,
-                    strategy: ctx?.strategy || assistantMsg.contextMeta?.strategy,
-                    explainability: ctx?.explainability || assistantMsg.contextMeta?.explainability,
-                  };
-                  assistantMsg.contextSources = chunks.map((c: any) => ({
-                    engine: c.engine,
-                    source: c.source,
-                    score: c.score,
-                    recordKind: c?.metadata?.record_kind,
-                    artifactId: c?.metadata?.artifact_id,
-                    knowledgeIndexId: c?.metadata?.knowledge_index_id,
-                    collectionNames: Array.isArray(c?.metadata?.collection_names) ? c.metadata.collection_names : [],
-                  }));
+                  assistantMsg.contextMeta = mergeContextMeta(assistantMsg.contextMeta, ctx, chunks);
+                  assistantMsg.contextSources = toContextSources(chunks);
                   this.cdr.detectChanges();
                 });
               },
@@ -465,9 +428,7 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
       next: r => {
         const summary = toolCalls.map(tc => `- ${this.formatToolName(tc?.name)}: ${this.summarizeToolChanges(tc)}`).join('\n');
         const toolResults = Array.isArray((r as any)?.tool_results) ? (r as any).tool_results : [];
-        const resultsText = toolResults.length
-          ? `\n\nTool results:\n${toolResults.map((tr: any) => `- ${tr?.tool || 'tool'}: ${tr?.success ? 'ok' : 'failed'}${tr?.error ? ` (${tr.error})` : ''}`).join('\n')}`
-          : '';
+        const resultsText = formatToolResults(toolResults);
         const msgText = `${r.response || 'Actions completed.'}\n\nApplied changes:\n${summary}${resultsText}`;
         this.chatHistory.push({ role: 'assistant', content: msgText });
         this.refreshRuntimeContext();
@@ -521,11 +482,7 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
 
     this.agentApi.execute(hub.url, { command: cmd }).subscribe({
       next: r => {
-        let resultMsg = '### Execution Output\n';
-        if (r.stdout) resultMsg += '```text\n' + r.stdout + '\n```';
-        if (r.stderr) resultMsg += '\n### Errors\n```text\n' + r.stderr + '\n```';
-        if (!r.stdout && !r.stderr) resultMsg = 'Command executed without output.';
-        this.chatHistory.push({ role: 'assistant', content: resultMsg });
+        this.chatHistory.push({ role: 'assistant', content: formatExecutionOutput(r) });
         this.persistChatHistory();
       },
       error: (err) => {
@@ -590,15 +547,8 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
     if (!hub) return;
     this.agentApi.sgptBackends(hub.url).subscribe({
       next: data => {
-        const supported = Object.keys(data?.supported_backends || {});
         this.cliBackendMetadata = data?.supported_backends || {};
-        const dynamic: CliBackend[] = ['auto'];
-        const known: CliBackend[] = [
-          'sgpt', 'codex', 'opencode', 'claude_code', 'aider', 'mistral_code',
-          'qwen_code', 'gemini_cli', 'copilot_cli', 'cline', 'kilo_code',
-        ];
-        dynamic.push(...known.filter(backend => supported.includes(backend)));
-        this.availableCliBackends = dynamic;
+        this.availableCliBackends = toAvailableCliBackends(data?.supported_backends);
         this.cliRuntime = (data?.runtime && typeof data.runtime === 'object') ? data.runtime : {};
         if (!this.availableCliBackends.includes(this.cliBackend)) {
           this.cliBackend = 'auto';
@@ -611,7 +561,7 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
       next: cfg => {
         const value = String(cfg?.sgpt_execution_backend || '').toLowerCase();
         if (
-          this.isCliBackend(value) &&
+          isCliBackend(value) &&
           this.availableCliBackends.includes(value as CliBackend)
         ) {
           this.cliBackend = value as CliBackend;
@@ -620,13 +570,6 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
       },
       error: () => {}
     });
-  }
-
-  private isCliBackend(value: string): value is CliBackend {
-    return [
-      'auto', 'sgpt', 'codex', 'opencode', 'claude_code', 'aider', 'mistral_code',
-      'qwen_code', 'gemini_cli', 'copilot_cli', 'cline', 'kilo_code',
-    ].includes(value);
   }
 
   onCliBackendChange() {
@@ -714,23 +657,7 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
   }
 
   private buildAssistantRequestContext() {
-    return {
-      route: this.runtimeContext.route,
-      selected_agent: this.runtimeContext.selectedAgentName || null,
-      user: {
-        name: this.runtimeContext.userName || null,
-        role: this.runtimeContext.userRole || null,
-      },
-      agents: this.runtimeContext.agents,
-      teams_count: this.runtimeContext.teamsCount,
-      templates_count: this.runtimeContext.templatesCount,
-      templates_summary: this.runtimeContext.templatesSummary,
-      settings_summary: this.runtimeContext.settingsSummary || null,
-      editable_settings: this.runtimeContext.editableSettings,
-      automation_summary: this.runtimeContext.automationSummary || null,
-      has_config: this.runtimeContext.hasConfig,
-      config_snapshot: this.runtimeContext.configSnapshot || null,
-    };
+    return toAssistantRequestContext(this.runtimeContext);
   }
 
   quickActions(): Array<{ label: string; prompt: string }> {
@@ -741,78 +668,6 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
     if (this.busy) return;
     this.chatInput = prompt;
     this.sendChat();
-  }
-
-  private toCompactConfigSnapshot(cfg: any) {
-    if (!cfg || typeof cfg !== 'object') return null;
-    return {
-      default_provider: cfg.default_provider || null,
-      default_model: cfg.default_model || null,
-      template_agent_name: cfg.template_agent_name || null,
-      team_agent_name: cfg.team_agent_name || null,
-      sgpt_execution_backend: cfg.sgpt_execution_backend || null,
-      llm_config: cfg.llm_config ? {
-        provider: cfg.llm_config.provider || null,
-        model: cfg.llm_config.model || null,
-        lmstudio_api_mode: cfg.llm_config.lmstudio_api_mode || null,
-      } : null,
-      codex_cli: cfg.codex_cli ? {
-        base_url: cfg.codex_cli.base_url || null,
-        api_key_profile: cfg.codex_cli.api_key_profile || null,
-        prefer_lmstudio: cfg.codex_cli.prefer_lmstudio ?? null,
-        auth_mode: cfg.codex_cli.auth_mode || null,
-      } : null,
-      claude_cli: cfg.claude_cli ? {
-        enabled: cfg.claude_cli.enabled ?? null,
-        auth_mode: cfg.claude_cli.auth_mode || null,
-        permission_mode: cfg.claude_cli.permission_mode || null,
-        default_model: cfg.claude_cli.default_model || null,
-      } : null,
-    };
-  }
-
-  private toTemplateSummary(templates: any[]): Array<{ name: string; description?: string }> {
-    if (!Array.isArray(templates)) return [];
-    const maxTemplates = 25;
-    const maxDescriptionChars = 180;
-
-    return templates
-      .flatMap((tpl: any) => {
-        const name = String(tpl?.name || '').trim();
-        if (!name) return [];
-        const rawDescription = String(tpl?.description || '').replace(/\s+/g, ' ').trim();
-        const description = rawDescription ? rawDescription.slice(0, maxDescriptionChars) : undefined;
-        return [description ? { name, description } : { name }];
-      })
-      .slice(0, maxTemplates);
-  }
-
-  private toEditableSettingsSummary(items: any[]): Array<{ key: string; path?: string; type?: string; endpoint?: string }> {
-    if (!Array.isArray(items)) return [];
-    return items
-      .map((item: any) => ({
-        key: String(item?.key || '').trim(),
-        path: item?.path ? String(item.path) : undefined,
-        type: item?.type ? String(item.type) : undefined,
-        endpoint: item?.endpoint ? String(item.endpoint) : undefined,
-      }))
-      .filter((item) => !!item.key)
-      .slice(0, 60);
-  }
-
-  private toLegacySettingsSummary(cfg: any) {
-    if (!cfg || typeof cfg !== 'object') return null;
-    return {
-      llm: {
-        default_provider: cfg.default_provider || null,
-        default_model: cfg.default_model || null,
-      },
-      system: {
-        log_level: cfg.log_level || null,
-        http_timeout: cfg.http_timeout ?? null,
-        command_timeout: cfg.command_timeout ?? null,
-      },
-    };
   }
 
   private persistChatHistory() {
@@ -832,38 +687,12 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
   }
 
   private persistThreads() {
-    const compactThreads = (Array.isArray(this.chatThreads) ? this.chatThreads : []).map((thread) => ({
-      id: thread.id,
-      title: thread.title,
-      updatedAt: thread.updatedAt,
-      history: thread.history.slice(-40).map((message) => ({ role: message.role, content: message.content })),
-    }));
-    this.storage.persistJson(this.threadStorageKey, compactThreads);
+    this.storage.persistJson(this.threadStorageKey, toStoredThreads(this.chatThreads));
     this.storage.persistJson(this.activeThreadStorageKey, this.activeThreadId);
   }
 
   private restoreThreads() {
-    const stored = this.storage.restoreJson<any[]>(this.threadStorageKey, []);
-    const threads = Array.isArray(stored)
-      ? stored
-          .map((thread: any) => {
-            const rawHistory = Array.isArray(thread?.history) ? thread.history : [];
-            const history = rawHistory
-              .filter((message: any) => (message?.role === 'user' || message?.role === 'assistant') && typeof message?.content === 'string')
-              .filter((message: any) => message.content !== 'Hallo. Ich bin AI Snake.')
-              .map((message: any) => ({ role: message.role, content: message.content } as ChatMessage))
-              .slice(-40);
-            const id = String(thread?.id || '').trim();
-            if (!id) return null;
-            return {
-              id,
-              title: String(thread?.title || '').trim() || 'Chat',
-              history,
-              updatedAt: Number(thread?.updatedAt) || Date.now(),
-            } as ChatThread;
-          })
-          .filter((thread): thread is ChatThread => !!thread)
-      : [];
+    const threads = parseStoredThreads(this.storage.restoreJson<any[]>(this.threadStorageKey, []));
 
     if (threads.length) {
       this.chatThreads = threads;
@@ -873,27 +702,13 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
     }
 
     this.restoreChatHistory();
-    this.chatThreads = [
-      {
-        id: 'thread-default',
-        title: 'Chat 1',
-        history: this.chatHistory.length ? this.chatHistory : [],
-        updatedAt: Date.now(),
-      },
-    ];
+    this.chatThreads = [createDefaultThread(this.chatHistory.length ? this.chatHistory : [])];
     this.activeThreadId = 'thread-default';
   }
 
   private ensureThreadSelection() {
     if (!this.chatThreads.length) {
-      this.chatThreads = [
-        {
-          id: 'thread-default',
-          title: 'Chat 1',
-          history: [],
-          updatedAt: Date.now(),
-        },
-      ];
+      this.chatThreads = [createDefaultThread()];
       this.activeThreadId = 'thread-default';
     }
     const active = this.chatThreads.find((thread) => thread.id === this.activeThreadId) || this.chatThreads[0];
@@ -905,11 +720,8 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
   private updateActiveThreadTitle(prompt: string) {
     const active = this.chatThreads.find((thread) => thread.id === this.activeThreadId);
     if (!active) return;
-    const normalized = prompt.replace(/\s+/g, ' ').trim();
-    if (!normalized) return;
-    const isDefaultTitle = /^Chat \d+$/.test(active.title) || active.title === 'Chat';
-    if (!isDefaultTitle) return;
-    active.title = normalized.length > 30 ? `${normalized.slice(0, 30)}...` : normalized;
+    const title = deriveThreadTitle(active.title, prompt);
+    if (title !== null) active.title = title;
   }
 
   ngOnDestroy(): void {
