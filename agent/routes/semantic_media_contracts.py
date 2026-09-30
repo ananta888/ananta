@@ -13,7 +13,6 @@ from agent.models.semantic_principal import SemanticPrincipal
 from agent.services.repository_registry import get_repository_registry
 from agent.services.semantic_compute_execution_service import (
     SemanticComputeExecutionError,
-    get_semantic_compute_execution_service,
 )
 from agent.services.semantic_compute_explanation_service import (
     SemanticComputeExplanationError,
@@ -25,7 +24,6 @@ from agent.services.semantic_compute_task_service import (
 )
 from agent.services.semantic_contract_service import (
     SemanticContractServiceError,
-    get_semantic_contract_service,
 )
 from agent.services.semantic_media_permission_service import (
     SemanticMediaPermissionError,
@@ -56,27 +54,28 @@ from agent.routes.semantic_media_contract_route_parsing import (
     _worker_url,
 )
 from agent.routes.semantic_media_contract_route_authority import (
-    SemanticContractRouteAuthority,
     _capability_record,
     _hub_fallback_healthy,
     _hub_security_confirmed,
     _require_hub_compute_enabled,
-    _require_semantic_capability,
     _semantic_permission_service,
     _training_capability_authorised,
+)
+from agent.routes.semantic_media_contract_route_dependencies import (
+    SEMANTIC_MEDIA_CONTRACT_ROUTE_DEPENDENCIES,
+    SemanticMediaContractRouteDependencies,
 )
 
 
 semantic_media_contracts_bp = Blueprint("semantic_media_contracts", __name__)
 
-# Composition seam: the module-level authority resolves share membership and
-# capability issuance with the production services; tests replace it with an
-# instance built from explicit test doubles.
-_route_authority = SemanticContractRouteAuthority()
+def _dependencies() -> SemanticMediaContractRouteDependencies:
+    """This application's route collaborators (per-app seam, production default)."""
+    return SEMANTIC_MEDIA_CONTRACT_ROUTE_DEPENDENCIES.resolve()
 
 
 def _establish_membership(principal: SemanticPrincipal, body: dict[str, Any]) -> None:
-    _route_authority.establish_membership(principal, body)
+    _dependencies().route_authority.establish_membership(principal, body)
 
 
 _CREATE_FIELDS = {
@@ -175,7 +174,7 @@ def issue_semantic_media_capability_grant():
         principal = _principal()
         session_id = _identifier(body["session_id"], "session_id")
         epoch = _bounded_int(body["epoch"], "epoch", 1, 2_147_483_647)
-        share, target_permissions = _route_authority.capability_issuance_authority(
+        share, target_permissions = _dependencies().route_authority.capability_issuance_authority(
             principal,
             session_id=session_id,
             epoch=epoch,
@@ -192,7 +191,7 @@ def issue_semantic_media_capability_grant():
                 raise SemanticMediaPermissionError("scope_invalid", status_code=400)
         else:
             raise SemanticMediaPermissionError("scope_invalid", status_code=400)
-        authorised = _route_authority.attenuated_capabilities(
+        authorised = _dependencies().route_authority.attenuated_capabilities(
             session_id,
             target_permissions,
             allow_training=_training_capability_authorised(principal, body),
@@ -231,7 +230,7 @@ def list_semantic_media_capability_grants():
         epoch = _bounded_int(request.args.get("epoch"), "epoch", 1, 2_147_483_647)
         scope_kind = _bounded_string(request.args.get("scope_kind", "session"), "scope_kind", 4, 16)
         scope_id = _identifier(request.args.get("scope_id", session_id), "scope_id")
-        share, membership_permissions = _route_authority.share_membership_authority(
+        share, membership_permissions = _dependencies().route_authority.share_membership_authority(
             principal,
             session_id=session_id,
             epoch=epoch,
@@ -298,8 +297,8 @@ def create_semantic_contract_offer():
         body = _body(_CREATE_FIELDS, required={"session_id", "epoch", "policy_version", "consent_version", "proposal"})
         principal = _principal()
         _establish_membership(principal, body)
-        _require_semantic_capability(principal, body, "publish", direction="egress")
-        result = get_semantic_contract_service().create_offer(
+        _dependencies().require_semantic_capability(principal, body, "publish", direction="egress")
+        result = _dependencies().contract_service().create_offer(
             principal,
             session_id=_identifier(body["session_id"], "session_id"),
             room_id=_optional_identifier(body.get("room_id"), "room_id"),
@@ -329,8 +328,8 @@ def mutate_semantic_contract(contract_id: str, action: str):
         )
         principal = _principal()
         _establish_membership(principal, body)
-        _require_semantic_capability(principal, body, "publish", direction="egress")
-        result = get_semantic_contract_service().mutate(
+        _dependencies().require_semantic_capability(principal, body, "publish", direction="egress")
+        result = _dependencies().contract_service().mutate(
             principal,
             contract_id=_identifier(contract_id, "contract_id"),
             session_id=_identifier(body["session_id"], "session_id"),
@@ -356,8 +355,8 @@ def semantic_contract_detail(contract_id: str):
         body = _query_scope()
         principal = _principal()
         _establish_membership(principal, body)
-        _require_semantic_capability(principal, body, "subscribe", direction="ingress")
-        result = get_semantic_contract_service().detail(
+        _dependencies().require_semantic_capability(principal, body, "subscribe", direction="ingress")
+        result = _dependencies().contract_service().detail(
             principal,
             contract_id=_identifier(contract_id, "contract_id"),
             session_id=str(body["session_id"]),
@@ -375,10 +374,10 @@ def list_semantic_contracts():
         body = _query_scope()
         principal = _principal()
         _establish_membership(principal, body)
-        _require_semantic_capability(principal, body, "subscribe", direction="ingress")
+        _dependencies().require_semantic_capability(principal, body, "subscribe", direction="ingress")
         offset = _bounded_int(request.args.get("offset", "0"), "offset", 0, 10_000_000)
         limit = _bounded_int(request.args.get("limit", "50"), "limit", 1, 100)
-        result = get_semantic_contract_service().list(
+        result = _dependencies().contract_service().list(
             principal,
             session_id=str(body["session_id"]),
             epoch=int(body["epoch"]),
@@ -397,8 +396,8 @@ def register_semantic_compute_candidate_key():
         body = _body(_CANDIDATE_KEY_FIELDS, required=_CANDIDATE_KEY_FIELDS)
         principal = _principal()
         _establish_membership(principal, body)
-        _require_semantic_capability(principal, body, "compute", direction="egress")
-        result = get_semantic_compute_execution_service().register_candidate_key(
+        _dependencies().require_semantic_capability(principal, body, "compute", direction="egress")
+        result = _dependencies().compute_execution_service().register_candidate_key(
             principal,
             session_id=_identifier(body["session_id"], "session_id"),
             epoch=_bounded_int(body["epoch"], "epoch", 1, 2_147_483_647),
@@ -419,8 +418,8 @@ def advertise_semantic_compute_candidate():
         body = _body(_CAPABILITY_FIELDS, required=required)
         principal = _principal()
         _establish_membership(principal, body)
-        _require_semantic_capability(principal, body, "compute", direction="egress")
-        result = get_semantic_compute_execution_service().advertise_candidate(principal, advertisement=body)
+        _dependencies().require_semantic_capability(principal, body, "compute", direction="egress")
+        result = _dependencies().compute_execution_service().advertise_candidate(principal, advertisement=body)
         return jsonify({"ok": True, "capability": result, "data": result}), 201
     except (SemanticContractServiceError, SemanticComputeExecutionError) as exc:
         return _error(exc)
@@ -433,8 +432,8 @@ def list_semantic_compute_candidate_claims():
         body = _query_scope()
         principal = _principal()
         _establish_membership(principal, body)
-        _require_semantic_capability(principal, body, "subscribe", direction="ingress")
-        result = get_semantic_compute_execution_service().list_candidate_claims(
+        _dependencies().require_semantic_capability(principal, body, "subscribe", direction="ingress")
+        result = _dependencies().compute_execution_service().list_candidate_claims(
             principal,
             session_id=str(body["session_id"]),
             epoch=int(body["epoch"]),
@@ -452,9 +451,9 @@ def schedule_semantic_compute(contract_id: str):
         body = _body(_SCHEDULE_FIELDS, required=_SCHEDULE_FIELDS)
         principal = _principal()
         _establish_membership(principal, body)
-        _require_semantic_capability(principal, body, "compute", direction="egress")
+        _dependencies().require_semantic_capability(principal, body, "compute", direction="egress")
         expected_revision = _revision_precondition(body)
-        result = get_semantic_compute_execution_service().schedule(
+        result = _dependencies().compute_execution_service().schedule(
             principal,
             contract_id=_identifier(contract_id, "contract_id"),
             session_id=_identifier(body["session_id"], "session_id"),
@@ -482,8 +481,8 @@ def list_semantic_compute_leases(contract_id: str):
         body = _query_scope()
         principal = _principal()
         _establish_membership(principal, body)
-        _require_semantic_capability(principal, body, "subscribe", direction="ingress")
-        result = get_semantic_compute_execution_service().list_leases(
+        _dependencies().require_semantic_capability(principal, body, "subscribe", direction="ingress")
+        result = _dependencies().compute_execution_service().list_leases(
             principal,
             session_id=str(body["session_id"]),
             epoch=int(body["epoch"]),
@@ -507,7 +506,7 @@ def mutate_semantic_compute_lease(lease_id: str, action: str):
         body = _body(_LEASE_MUTATION_FIELDS, required=required)
         principal = _principal()
         _establish_membership(principal, body)
-        _require_semantic_capability(principal, body, "compute", direction="egress")
+        _dependencies().require_semantic_capability(principal, body, "compute", direction="egress")
         common = {
             "lease_id": _identifier(lease_id, "lease_id"),
             "session_id": _identifier(body["session_id"], "session_id"),
@@ -516,7 +515,7 @@ def mutate_semantic_compute_lease(lease_id: str, action: str):
             "fencing_token": _bounded_int(body["fencing_token"], "fencing_token", 1, 9_007_199_254_740_991),
             "idempotency_key": _idempotency_key(),
         }
-        service = get_semantic_compute_execution_service()
+        service = _dependencies().compute_execution_service()
         if action == "revoke":
             result = service.revoke_lease(principal, **common)
         else:
@@ -542,7 +541,7 @@ def delegate_semantic_server_compute(contract_id: str):
         body = _body(_SERVER_TASK_FIELDS, required=_SERVER_TASK_FIELDS)
         principal = _principal()
         _establish_membership(principal, body)
-        _require_semantic_capability(principal, body, "compute", direction="egress")
+        _dependencies().require_semantic_capability(principal, body, "compute", direction="egress")
         _require_hub_compute_enabled()
         raw_refs = body["input_refs"]
         if not isinstance(raw_refs, list) or len(raw_refs) > 16:
@@ -751,8 +750,8 @@ def semantic_compute_explanation(contract_id: str):
         body = _query_scope()
         principal = _principal()
         _establish_membership(principal, body)
-        _require_semantic_capability(principal, body, "subscribe", direction="ingress")
-        detail = get_semantic_contract_service().detail(
+        _dependencies().require_semantic_capability(principal, body, "subscribe", direction="ingress")
+        detail = _dependencies().contract_service().detail(
             principal,
             contract_id=_identifier(contract_id, "contract_id"),
             session_id=str(body["session_id"]),
@@ -799,8 +798,8 @@ def semantic_compute_suggestion(contract_id: str):
         body = _body(fields, required=fields)
         principal = _principal()
         _establish_membership(principal, body)
-        _require_semantic_capability(principal, body, "validate", direction="egress")
-        detail = get_semantic_contract_service().detail(
+        _dependencies().require_semantic_capability(principal, body, "validate", direction="egress")
+        detail = _dependencies().contract_service().detail(
             principal,
             contract_id=_identifier(contract_id, "contract_id"),
             session_id=_identifier(body["session_id"], "session_id"),

@@ -16,6 +16,10 @@ from agent.repositories.semantic_contract_repository import (
     SemanticPrincipal,
 )
 from agent.routes import semantic_media_contracts as routes
+from agent.routes.semantic_media_contract_route_authority import SemanticContractRouteAuthority
+from agent.routes.semantic_media_contract_route_dependencies import (
+    SEMANTIC_MEDIA_CONTRACT_ROUTE_DEPENDENCIES,
+)
 from agent.services.semantic_compute_negotiation import (
     NegotiationLimits,
     SemanticComputeNegotiation,
@@ -26,6 +30,13 @@ from agent.services.semantic_contract_service import (
     SemanticContractServiceError,
 )
 from agent.services.user_session_tokens import issue_user_access_token
+
+
+class _AcceptedMembershipAuthority(SemanticContractRouteAuthority):
+    """Route authority double: share membership is already established."""
+
+    def establish_membership(self, principal, body) -> None:
+        return None
 
 
 class FakeClock:
@@ -224,9 +235,12 @@ def test_message_budget_is_enforced_across_http_requests_and_replays(monkeypatch
         SEMANTIC_COMPUTE_FALLBACK_HEALTHY=True,
     )
     app.register_blueprint(routes.semantic_media_contracts_bp)
-    monkeypatch.setattr(routes, "get_semantic_contract_service", lambda: service)
-    monkeypatch.setattr(routes, "_establish_membership", lambda *_args, **_kwargs: None)
-    monkeypatch.setattr(routes, "_require_semantic_capability", lambda *_args, **_kwargs: None)
+    SEMANTIC_MEDIA_CONTRACT_ROUTE_DEPENDENCIES.install(
+        app,
+        route_authority=_AcceptedMembershipAuthority(),
+        contract_service=lambda: service,
+        require_semantic_capability=lambda *_args, **_kwargs: None,
+    )
     client = app.test_client()
     token = issue_user_access_token(username="owner-a", role="admin")
     client.environ_base["HTTP_AUTHORIZATION"] = f"Bearer {token}"

@@ -6,9 +6,20 @@ from flask import Flask
 
 from agent.bootstrap.semantic_media_services import initialize_semantic_media_services
 from agent.routes import semantic_media_contracts as routes
+from agent.routes.semantic_media_contract_route_authority import SemanticContractRouteAuthority
+from agent.routes.semantic_media_contract_route_dependencies import (
+    SEMANTIC_MEDIA_CONTRACT_ROUTE_DEPENDENCIES,
+)
 from agent.services.semantic_contract_service import SemanticContractServiceError
 from agent.services.semantic_media_permission_service import SemanticMediaPermissionService
 from agent.services.user_session_tokens import issue_user_access_token
+
+
+class _AcceptedMembershipAuthority(SemanticContractRouteAuthority):
+    """Route authority double: share membership is already established."""
+
+    def establish_membership(self, principal, body) -> None:
+        return None
 
 
 class FakeService:
@@ -98,9 +109,12 @@ def setup(monkeypatch):
     app.register_blueprint(routes.semantic_media_contracts_bp)
     app.extensions["semantic_media_permission_service"] = _ExplicitPermissionTestPort()
     fake = FakeService()
-    monkeypatch.setattr(routes, "get_semantic_contract_service", lambda: fake)
-    monkeypatch.setattr(routes, "get_semantic_compute_execution_service", lambda: fake.execution)
-    monkeypatch.setattr(routes, "_establish_membership", lambda principal, body: None)
+    SEMANTIC_MEDIA_CONTRACT_ROUTE_DEPENDENCIES.install(
+        app,
+        route_authority=_AcceptedMembershipAuthority(),
+        contract_service=lambda: fake,
+        compute_execution_service=lambda: fake.execution,
+    )
     token = issue_user_access_token(username="owner-a", role="admin")
     client = app.test_client()
     client.environ_base["HTTP_AUTHORIZATION"] = f"Bearer {token}"
@@ -122,7 +136,10 @@ def test_capability_composition_is_required_and_bootstrap_installs_it(monkeypatc
     missing_app = Flask(__name__)
     missing_app.config.update(TESTING=True, SEMANTIC_COMPUTE_SECURITY_CONFIRMED=True)
     missing_app.register_blueprint(routes.semantic_media_contracts_bp)
-    monkeypatch.setattr(routes, "_establish_membership", lambda principal, body: None)
+    SEMANTIC_MEDIA_CONTRACT_ROUTE_DEPENDENCIES.install(
+        missing_app,
+        route_authority=_AcceptedMembershipAuthority(),
+    )
     missing_client = missing_app.test_client()
     missing_client.environ_base["HTTP_AUTHORIZATION"] = f"Bearer {token}"
     unavailable = missing_client.post(
@@ -137,6 +154,10 @@ def test_capability_composition_is_required_and_bootstrap_installs_it(monkeypatc
     bootstrapped.config.update(TESTING=True)
     initialize_semantic_media_services(bootstrapped)
     bootstrapped.register_blueprint(routes.semantic_media_contracts_bp)
+    SEMANTIC_MEDIA_CONTRACT_ROUTE_DEPENDENCIES.install(
+        bootstrapped,
+        route_authority=_AcceptedMembershipAuthority(),
+    )
     client = bootstrapped.test_client()
     client.environ_base["HTTP_AUTHORIZATION"] = f"Bearer {token}"
     denied = client.post(
