@@ -1,184 +1,39 @@
-"""Immutable Context Access Policy lifecycle controlled by the Hub."""
+"""Immutable Context Access Policy lifecycle controlled by the Hub.
+
+Value types and digests live in ``agent.models.context_policy_lifecycle`` and
+ports in ``agent.ports.context_policy_lifecycle``; both are re-exported here.
+"""
 
 from __future__ import annotations
 
-import hashlib
 import json
 import re
-from dataclasses import dataclass
-from typing import Any, Mapping, Protocol, Sequence
+from typing import Any, Mapping
 
+from agent.models.context_policy_lifecycle import (
+    ContextPolicyActor,
+    ContextPolicyDiagnostic,
+    ContextPolicyLifecycleError,
+    ContextPolicyPreview,
+    ContextPolicyVersion,
+    derive_context_policy_digest,
+    derive_context_policy_etag,
+)
+from agent.models.context_policy_lifecycle import (
+    context_policy_payload_digest as _digest,
+)
+from agent.ports.context_policy_lifecycle import (
+    ContextPolicyAuditPort,
+    ContextPolicyLifecycleRepositoryPort,
+    ContextPolicyLintPort,
+    ContextPolicyPreviewPort,
+)
 from ananta_contracts.source_control import GrantOperation, GrantTransformation
 
-
 _OPAQUE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,254}$")
-_SHA256 = re.compile(r"^[0-9a-f]{64}$")
-_STATES = frozenset({"draft", "active", "superseded", "revoked"})
 _DOCUMENT_KEYS = frozenset(
     {"schema", "policy_id", "scope", "defaults", "rules", "precedence"}
 )
-
-
-class ContextPolicyLifecycleError(ValueError):
-    def __init__(self, reason_code: str) -> None:
-        self.reason_code = reason_code
-        super().__init__(reason_code)
-
-
-@dataclass(frozen=True)
-class ContextPolicyActor:
-    subject_id: str
-    tenant_id: str
-    project_id: str
-    roles: frozenset[str]
-
-
-@dataclass(frozen=True)
-class ContextPolicyVersion:
-    policy_id: str
-    version: int
-    tenant_id: str
-    project_id: str
-    state: str
-    document: Mapping[str, Any]
-    policy_digest: str
-    etag: str
-    created_by: str
-    created_at: str
-
-    def __post_init__(self) -> None:
-        if self.version < 1 or self.state not in _STATES:
-            raise ContextPolicyLifecycleError("policy_version_invalid")
-        if not _SHA256.fullmatch(self.policy_digest):
-            raise ContextPolicyLifecycleError("policy_digest_invalid")
-        if not _SHA256.fullmatch(self.etag):
-            raise ContextPolicyLifecycleError("policy_etag_invalid")
-
-
-@dataclass(frozen=True)
-class ContextPolicyDiagnostic:
-    severity: str
-    reason_code: str
-    rule_id: str | None = None
-
-
-@dataclass(frozen=True)
-class ContextPolicyPreview:
-    decision: str
-    reason_codes: tuple[str, ...]
-    matched_rule_path: tuple[str, ...]
-    approval_requirement: str | None
-    policy_digest: str
-
-
-class ContextPolicyLifecycleRepositoryPort(Protocol):
-    def latest(
-        self,
-        *,
-        tenant_id: str,
-        project_id: str,
-        policy_id: str,
-    ) -> ContextPolicyVersion | None: ...
-
-    def get_version(
-        self,
-        *,
-        tenant_id: str,
-        project_id: str,
-        policy_id: str,
-        version: int,
-    ) -> ContextPolicyVersion | None: ...
-
-    def list_versions(
-        self,
-        *,
-        tenant_id: str,
-        project_id: str,
-        policy_id: str,
-        cursor: str | None,
-        limit: int,
-    ) -> tuple[Sequence[ContextPolicyVersion], str | None]: ...
-
-    def active(
-        self,
-        *,
-        tenant_id: str,
-        project_id: str,
-        policy_id: str,
-    ) -> ContextPolicyVersion | None: ...
-
-    def get_mutation_result(
-        self,
-        *,
-        tenant_id: str,
-        project_id: str,
-        policy_id: str,
-        operation: str,
-        idempotency_key: str,
-        request_digest: str,
-    ) -> ContextPolicyVersion | None: ...
-
-    def append_draft(
-        self,
-        *,
-        version: ContextPolicyVersion,
-        expected_latest_version: int | None,
-        operation: str | None = None,
-        idempotency_key: str | None = None,
-        request_digest: str | None = None,
-    ) -> ContextPolicyVersion: ...
-
-    def transition(
-        self,
-        *,
-        tenant_id: str,
-        project_id: str,
-        policy_id: str,
-        version: int,
-        expected_etag: str,
-        target_state: str,
-        actor_id: str,
-        operation: str | None = None,
-        idempotency_key: str | None = None,
-        request_digest: str | None = None,
-    ) -> ContextPolicyVersion: ...
-
-
-class ContextPolicyLintPort(Protocol):
-    def lint(
-        self,
-        *,
-        document: Mapping[str, Any],
-    ) -> Sequence[ContextPolicyDiagnostic]: ...
-
-
-class ContextPolicyPreviewPort(Protocol):
-    def preview(
-        self,
-        *,
-        tenant_id: str,
-        project_id: str,
-        policy_document: Mapping[str, Any],
-        source_revision_id: str,
-        destination_id: str,
-        operation: GrantOperation,
-        transformation: GrantTransformation,
-    ) -> ContextPolicyPreview: ...
-
-
-class ContextPolicyAuditPort(Protocol):
-    def record(
-        self,
-        *,
-        operation: str,
-        actor_id: str,
-        tenant_id: str,
-        project_id: str,
-        policy_id: str,
-        version: int,
-        policy_digest: str,
-        reason_code: str,
-    ) -> None: ...
 
 
 class ContextPolicyLifecycleService:
@@ -663,40 +518,21 @@ def _validate_id(name: str, value: str) -> None:
         raise ContextPolicyLifecycleError(f"{name}_invalid")
 
 
-def _digest(payload: object) -> str:
-    return hashlib.sha256(
-        json.dumps(
-            payload,
-            sort_keys=True,
-            separators=(",", ":"),
-            ensure_ascii=True,
-            allow_nan=False,
-        ).encode("utf-8")
-    ).hexdigest()
-
-
 def _normalize_etag(value: str) -> str:
     return str(value or "").strip().removeprefix("W/").strip().strip('"')
 
 
-def derive_context_policy_etag(
-    *,
-    policy_id: str,
-    version: int,
-    policy_digest: str,
-    state: str,
-) -> str:
-    return _digest(
-        {
-            "policy_id": policy_id,
-            "version": version,
-            "policy_digest": policy_digest,
-            "state": state,
-        }
-    )
-
-
-def derive_context_policy_digest(
-    document: Mapping[str, Any],
-) -> str:
-    return _digest(dict(document))
+__all__ = [
+    "ContextPolicyActor",
+    "ContextPolicyAuditPort",
+    "ContextPolicyDiagnostic",
+    "ContextPolicyLifecycleError",
+    "ContextPolicyLifecycleRepositoryPort",
+    "ContextPolicyLifecycleService",
+    "ContextPolicyLintPort",
+    "ContextPolicyPreview",
+    "ContextPolicyPreviewPort",
+    "ContextPolicyVersion",
+    "derive_context_policy_digest",
+    "derive_context_policy_etag",
+]

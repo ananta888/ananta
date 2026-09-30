@@ -16,7 +16,7 @@ from agent.db_models.context_policy_lifecycle import (
     ContextPolicyMutationDB,
     ContextPolicyVersionDB,
 )
-from agent.services.context_policy_lifecycle import (
+from agent.models.context_policy_lifecycle import (
     ContextPolicyLifecycleError,
     ContextPolicyVersion,
     derive_context_policy_etag,
