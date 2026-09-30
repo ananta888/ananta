@@ -79,12 +79,12 @@ def test_verify_translation_tool_reports_verified_with_warnings():
     assert result["data"]["verification"]["status"] in {"verified", "verified_with_warnings"}
 
 
-def test_semantic_equivalents_degrades_when_index_missing(monkeypatch):
-    monkeypatch.setattr(codecompass_tools, "_resolve_graph_store", lambda args: (None, None))
+def test_semantic_equivalents_degrades_when_index_missing():
     result = codecompass_tools.codecompass_semantic_equivalents(
         workspace_dir=".",
         arguments={"symbol": "UserDto", "target_languages": ["typescript"]},
         tool_call_id="call-4",
+        resolve_graph_store=lambda args: (None, None),
     )
 
     assert result["status"] == "degraded"

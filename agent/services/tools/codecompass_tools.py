@@ -6,10 +6,14 @@
 store of the latest completed knowledge index (or an explicitly
 requested one). All results are bounded; missing indexes degrade to an
 error ToolResult with a warning instead of raising.
+
+This module stays the public tool facade; semantic translation tools live in
+``codecompass_semantic_translation_tools``, x86 tools in
+``codecompass_x86_tools`` and graph store resolution in
+``codecompass_graph_store_access`` (all re-exported here).
 """
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any, Mapping
 
 from agent.services.tools._evidence import (
@@ -18,11 +22,55 @@ from agent.services.tools._evidence import (
     build_evidence_entry,
     build_tool_result,
 )
+from agent.services.tools.codecompass_graph_store_access import (
+    resolve_graph_store as _resolve_graph_store,
+)
+from agent.services.tools.codecompass_graph_store_access import (
+    resolve_graph_store_diagnostics as _resolve_graph_store_diagnostics,  # noqa: F401 - compatibility re-export
+)
 from agent.services.tools.codecompass_repository_tools import (
     codecompass_build_test_map as codecompass_build_test_map,
 )
 from agent.services.tools.codecompass_repository_tools import (
     codecompass_repository_query as codecompass_repository_query,
+)
+from agent.services.tools.codecompass_semantic_translation_tools import (
+    _semantic_feature_enabled as _semantic_feature_enabled,
+)
+from agent.services.tools.codecompass_semantic_translation_tools import (
+    codecompass_python_translation_plan as codecompass_python_translation_plan,
+)
+from agent.services.tools.codecompass_semantic_translation_tools import (
+    codecompass_semantic_equivalents as codecompass_semantic_equivalents,
+)
+from agent.services.tools.codecompass_semantic_translation_tools import (
+    codecompass_translation_plan as codecompass_translation_plan,
+)
+from agent.services.tools.codecompass_semantic_translation_tools import (
+    codecompass_verify_translation as codecompass_verify_translation,
+)
+from agent.services.tools.codecompass_x86_tools import (
+    codecompass_x86_address_lookup as codecompass_x86_address_lookup,
+)
+from agent.services.tools.codecompass_x86_tools import (
+    codecompass_x86_call_graph as codecompass_x86_call_graph,
+)
+from agent.services.tools.codecompass_x86_tools import (
+    codecompass_x86_cfg as codecompass_x86_cfg,
+)
+from agent.services.tools.codecompass_x86_tools import (
+    codecompass_x86_find as codecompass_x86_find,
+)
+from agent.services.tools.codecompass_x86_tools import (
+    codecompass_x86_overview as codecompass_x86_overview,
+)
+from agent.services.tools.codecompass_x86_tools import (  # noqa: F401 - compatibility re-exports
+    _X86_EVIDENCE_KIND_BASIC_BLOCK,
+    _X86_EVIDENCE_KIND_CALLSITE,
+    _X86_EVIDENCE_KIND_CFG_EDGE,
+    _X86_EVIDENCE_KIND_FUNCTION,
+    _X86_EVIDENCE_KIND_INSTRUCTION,
+    _x86_kind_evidence_kind,
 )
 
 _MAX_SEARCH_LIMIT = 20
@@ -390,34 +438,6 @@ def codecompass_plan_context(*, workspace_dir: str, arguments: dict[str, Any], t
     )
 
 
-def _resolve_graph_store(
-    arguments: dict[str, Any],
-    *,
-    allowed_index_ids: set[str] | None = None,
-):
-    """Open a consumable graph store within a Hub-derived index scope."""
-    store, index_id, _diagnostics = _resolve_graph_store_diagnostics(
-        arguments,
-        allowed_index_ids=allowed_index_ids,
-    )
-    return store, index_id
-
-
-def _resolve_graph_store_diagnostics(
-    arguments: dict[str, Any],
-    *,
-    allowed_index_ids: set[str] | None = None,
-):
-    """Compatibility facade for the service-layer graph resolver."""
-    from agent.services.codecompass_graph_store_resolution_service import (
-        resolve_codecompass_graph_store,
-    )
-
-    return resolve_codecompass_graph_store(
-        arguments, allowed_index_ids=allowed_index_ids
-    )
-
-
 def codecompass_expand_graph(*, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str) -> dict[str, Any]:
     args = arguments or {}
     node = str(args.get("node") or "").strip()
@@ -537,535 +557,4 @@ def codecompass_architecture_query(*, workspace_dir: str, arguments: dict[str, A
         data={"knowledge_index_id": index_id, "query_result": result},
         warnings=[str(item) for item in list(result.get("warnings") or [])],
         error=str(result.get("error") or "") or None,
-    )
-
-
-def _semantic_feature_enabled() -> bool:
-    from agent.codecompass.semantic_translation.config import load_semantic_translation_config
-
-    return load_semantic_translation_config().enabled
-
-
-def codecompass_semantic_equivalents(*, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str) -> dict[str, Any]:
-    args = arguments or {}
-    target_languages = [str(item).strip().lower() for item in list(args.get("target_languages") or ["typescript", "kotlin"]) if str(item).strip()]
-    symbol = str(args.get("symbol") or "").strip()
-    file = str(args.get("file") or "").strip()
-    language = str(args.get("language") or "java").strip().lower()
-    semantic_kind = str(args.get("semantic_kind") or "").strip().lower()
-    try:
-        store, index_id = _resolve_graph_store(args)
-    except Exception as exc:
-        store, index_id = None, None
-        unavailable_reason = str(exc)
-    else:
-        unavailable_reason = "semantic_translation_index_unavailable"
-    semantic_nodes: list[dict[str, Any]] = []
-    diagnostics: dict[str, Any] = {}
-    if store is not None:
-        payload = store.load()
-        diagnostics = dict((payload.get("diagnostics") or {}).get("semantic_translation") or {})
-        semantic_nodes = store.find_semantic_nodes(symbol=symbol or None, file=file or None, language=language or None, semantic_kind=semantic_kind or None, limit=20)
-    if store is None or diagnostics.get("status") != "ready":
-        warnings = ["semantic_translation_index_unavailable"]
-        semantic_nodes = []
-    else:
-        warnings = []
-    from agent.codecompass.semantic_translation.equivalence_registry import EquivalenceRuleRegistry
-    from agent.codecompass.semantic_translation.type_registry import TypeMappingRegistry
-
-    rule_registry = EquivalenceRuleRegistry()
-    type_registry = TypeMappingRegistry()
-    target_constructs = []
-    for node in semantic_nodes[:10]:
-        attrs = dict(node.get("attributes") or {})
-        for prop in attrs.get("properties") or []:
-            target_constructs.extend(type_registry.find_by_source(str(prop.get("type") or ""), target_languages=target_languages))
-    rules = []
-    for target in target_languages:
-        rules.extend(rule.as_record() for rule in rule_registry.find(source_language=language, target_language=target, semantic_kind=semantic_kind or "data_record"))
-    evidence = []
-    for node in semantic_nodes[:8]:
-        entry, _ = build_evidence_entry(
-            kind=EVIDENCE_KIND_GRAPH_PATH,
-            path=str(node.get("file") or ""),
-            excerpt=f"{node.get('semantic_kind')}:{node.get('symbol')}",
-            source="codecompass.semantic_equivalents",
-            max_excerpt_chars=300,
-        )
-        evidence.append(entry)
-    return build_tool_result(
-        tool_name="codecompass.semantic_equivalents",
-        tool_call_id=tool_call_id,
-        status="ok" if not warnings and (semantic_nodes or rules) else "degraded",
-        evidence=evidence,
-        data={
-            "knowledge_index_id": index_id,
-            "semantic_nodes": semantic_nodes[:20],
-            "equivalence_rules": rules[:20],
-            "target_constructs": target_constructs[:30],
-            "diagnostics": diagnostics or {"reason": unavailable_reason},
-        },
-        warnings=warnings,
-        error="semantic_translation_index_unavailable" if warnings else None,
-        max_total_chars=10000,
-    )
-
-
-def codecompass_translation_plan(*, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str) -> dict[str, Any]:
-    args = arguments or {}
-    if not _semantic_feature_enabled():
-        return build_tool_result(
-            tool_name="codecompass.translation_plan",
-            tool_call_id=tool_call_id,
-            status="error",
-            error="semantic_translation_disabled",
-            warnings=["ANANTA_CODECOMPASS_SEMANTIC_TRANSLATION_ENABLED=false"],
-        )
-    source_path = str(args.get("source_path") or "").strip()
-    source_code = str(args.get("source_code") or "").strip()
-    target_language = str(args.get("target_language") or "typescript").strip().lower()
-    if not source_path or not source_code:
-        return build_tool_result(tool_name="codecompass.translation_plan", tool_call_id=tool_call_id, status="error", error="source_required")
-    from agent.codecompass.semantic_translation.registry import get_semantic_adapter_registry
-    from agent.codecompass.semantic_translation.transform import DeterministicTransformEngine, TransformRequest
-
-    semantic_executor = get_semantic_adapter_registry()
-    graph = semantic_executor.emit_graph_records_for_language(
-        "java",
-        source_path,
-        source_code,
-    )
-    artifact = DeterministicTransformEngine(semantic_executor=semantic_executor).transform(
-        TransformRequest(
-            source_path=source_path,
-            source_code=source_code,
-            target_language=target_language,
-            allowed_rule_ids=tuple(str(item) for item in list(args.get("allowed_rule_ids") or [])),
-        )
-    )
-    classification = artifact["status"] if artifact["status"] in {"safe_auto_transform", "needs_review", "unsupported"} else "needs_review"
-    return build_tool_result(
-        tool_name="codecompass.translation_plan",
-        tool_call_id=tool_call_id,
-        status="ok",
-        data={
-            "plan": {
-                "classification": classification,
-                "source_files": [source_path],
-                "recognized_language_elements": [node for node in graph["nodes"][:40]],
-                "applicable_rules": artifact.get("rule_ids") or [],
-                "blocking_uncertainties": artifact.get("warnings") or [],
-                "target_artifacts": [{"target_language": target_language, "kind": "code", "preview": artifact.get("target_code", "")[:2000]}],
-                "test_strategy": ["run semantic translation golden samples", "run verifier before promotion"],
-                "transform_artifact": artifact,
-            }
-        },
-        warnings=list(artifact.get("warnings") or []),
-        max_total_chars=12000,
-    )
-
-
-def codecompass_verify_translation(*, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str) -> dict[str, Any]:
-    args = arguments or {}
-    source_path = str(args.get("source_path") or "").strip()
-    source_code = str(args.get("source_code") or "")
-    target_code = str(args.get("target_code") or "")
-    artifact = dict(args.get("transform_artifact") or {})
-    if not source_path or not source_code or not target_code or not artifact:
-        return build_tool_result(tool_name="codecompass.verify_translation", tool_call_id=tool_call_id, status="error", error="verification_inputs_required")
-    from agent.codecompass.semantic_translation.verifier import SemanticTranslationVerifier
-
-    result = SemanticTranslationVerifier().verify(source_path=source_path, source_code=source_code, target_code=target_code, transform_artifact=artifact)
-    evidence = []
-    entry, _ = build_evidence_entry(
-        kind="semantic_translation_verification",
-        path=source_path,
-        excerpt=f"status={result.get('status')} rules={','.join(result.get('verified_rule_ids') or [])}",
-        source="codecompass.verify_translation",
-        max_excerpt_chars=500,
-    )
-    evidence.append(entry)
-    return build_tool_result(
-        tool_name="codecompass.verify_translation",
-        tool_call_id=tool_call_id,
-        status="ok" if result.get("status") in {"verified", "verified_with_warnings"} else "error",
-        evidence=evidence,
-        data={"verification": result},
-        warnings=list(result.get("warnings") or []),
-        error="translation_verification_failed" if result.get("status") == "failed" else None,
-        max_total_chars=8000,
-    )
-
-
-def codecompass_python_translation_plan(*, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str) -> dict[str, Any]:
-    """PYJR-024: Python → Java/Rust translation plan tool."""
-    args = arguments or {}
-    if not _semantic_feature_enabled():
-        return build_tool_result(
-            tool_name="codecompass.python_translation_plan",
-            tool_call_id=tool_call_id,
-            status="error",
-            error="semantic_translation_disabled",
-            warnings=["ANANTA_CODECOMPASS_SEMANTIC_TRANSLATION_ENABLED=false"],
-        )
-
-    source_code = str(args.get("source_code") or "").strip()
-    source_path = str(args.get("source_path") or "<stdin>").strip()
-    target = str(args.get("target") or "both").strip().lower()
-    symbol_filter = str(args.get("symbol") or "").strip()
-
-    if not source_code and source_path and source_path != "<stdin>":
-        try:
-            full_path = Path(workspace_dir) / source_path if not Path(source_path).is_absolute() else Path(source_path)
-            source_code = full_path.read_text(encoding="utf-8", errors="replace")
-        except Exception as exc:
-            return build_tool_result(
-                tool_name="codecompass.python_translation_plan",
-                tool_call_id=tool_call_id,
-                status="error",
-                error=f"source_file_read_failed: {exc}",
-            )
-
-    if not source_code:
-        return build_tool_result(
-            tool_name="codecompass.python_translation_plan",
-            tool_call_id=tool_call_id,
-            status="error",
-            error="source_code_or_path_required",
-        )
-
-    if target not in ("java", "rust", "both"):
-        return build_tool_result(
-            tool_name="codecompass.python_translation_plan",
-            tool_call_id=tool_call_id,
-            status="error",
-            error="invalid_target: must be java, rust, or both",
-        )
-
-    from agent.codecompass.semantic_translation.python_transform import PythonTranslationPlanService
-
-    plan = PythonTranslationPlanService().create_plan(source_code, source_path, target)
-
-    # Optionally filter by symbol
-    entries = plan.entries
-    if symbol_filter:
-        entries = [e for e in entries if symbol_filter in e.symbol]
-
-    plan_dict = plan.as_dict()
-    plan_dict["entries"] = [e.as_dict() for e in entries]
-
-    evidence = []
-    entry, _ = build_evidence_entry(
-        kind="python_translation_plan",
-        path=source_path,
-        excerpt=f"target={target} entries={len(entries)} blockers={len(plan.dynamic_blockers)} safe={plan.is_fully_safe}",
-        source="codecompass.python_translation_plan",
-        max_excerpt_chars=400,
-    )
-    evidence.append(entry)
-
-    warnings = list(plan.warnings)
-    has_blockers = bool(plan.dynamic_blockers)
-    status = "ok" if not has_blockers else "degraded"
-
-    return build_tool_result(
-        tool_name="codecompass.python_translation_plan",
-        tool_call_id=tool_call_id,
-        status=status,
-        evidence=evidence,
-        data={"plan": plan_dict},
-        warnings=warnings,
-        error="dynamic_runtime_blockers_detected" if has_blockers else None,
-        max_total_chars=14000,
-    )
-
-
-# ===========================================================================
-# X86CC-023..027: x86 CodeCompass tools
-# ===========================================================================
-#
-# These five tools expose the x86 extension's graph-store data through the
-# same shape as the existing codecompass_* tools: workspace_dir, arguments,
-# tool_call_id -> ToolResult. They are feature-flag-gated through the x86
-# graph-store payload (`x86_extension.status`); if no x86 records exist,
-# they degrade to a clean OK result with empty data, never an exception.
-
-_X86_EVIDENCE_KIND_INSTRUCTION = "x86_instruction"
-_X86_EVIDENCE_KIND_BASIC_BLOCK = "x86_basic_block"
-_X86_EVIDENCE_KIND_FUNCTION = "x86_function"
-_X86_EVIDENCE_KIND_CFG_EDGE = "x86_cfg_edge"
-_X86_EVIDENCE_KIND_CALLSITE = "x86_callsite"
-
-
-def _x86_payload(arguments: dict[str, Any]):
-    """Resolve the x86 extension payload (nodes/edges/index) from the graph store.
-
-    Returns (x86_index_dict, store_or_none). The store is exposed for tests that
-    may want to assert against the same store reference.
-    """
-    store = _resolve_graph_store(arguments)
-    if store is None:
-        return ({
-            "schema": "codecompass_x86_graph.v1",
-            "nodes": [], "edges": [], "nodes_by_id": {},
-            "node_count": 0, "edge_count": 0,
-        }, None)
-    payload = store.load()
-    x86_index = dict(payload.get("x86_index") or {})
-    if not x86_index:
-        x86_index = {
-            "schema": "codecompass_x86_graph.v1",
-            "nodes": [], "edges": [], "nodes_by_id": {},
-            "node_count": 0, "edge_count": 0,
-        }
-    return (x86_index, store)
-
-
-def _x86_kind_evidence_kind(node_kind: str) -> str:
-    return {
-        "instruction": _X86_EVIDENCE_KIND_INSTRUCTION,
-        "basic_block": _X86_EVIDENCE_KIND_BASIC_BLOCK,
-        "function": _X86_EVIDENCE_KIND_FUNCTION,
-        "callsite": _X86_EVIDENCE_KIND_CALLSITE,
-    }.get(str(node_kind or ""), "x86_diagnostic")
-
-
-# ----- X86CC-023: x86_overview -----
-
-def codecompass_x86_overview(
-    *, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str,
-) -> dict[str, Any]:
-    """Summarize the x86 extension payload: counts, kinds present, diagnostics.
-
-    Returns ToolResult with data.summary = {node_count, edge_count, by_kind, by_section}.
-    """
-    x86_index, _ = _x86_payload(arguments)
-    nodes = list(x86_index.get("nodes") or [])
-    edges = list(x86_index.get("edges") or [])
-    by_kind: dict[str, int] = {}
-    by_section: dict[str, int] = {}
-    for n in nodes:
-        kind = str(n.get("kind") or "unknown")
-        by_kind[kind] = by_kind.get(kind, 0) + 1
-        attrs = n.get("attributes") or {}
-        section = str(attrs.get("name") or n.get("section") or "")
-        if section:
-            by_section[section] = by_section.get(section, 0) + 1
-    summary = {
-        "schema": x86_index.get("schema", "codecompass_x86_graph.v1"),
-        "node_count": len(nodes),
-        "edge_count": len(edges),
-        "by_kind": dict(sorted(by_kind.items())),
-        "by_section": dict(sorted(by_section.items())),
-    }
-    return build_tool_result(
-        tool_name="codecompass.x86_overview",
-        tool_call_id=tool_call_id,
-        status="ok",
-        data={"summary": summary},
-    )
-
-
-# ----- X86CC-024: x86_address_lookup -----
-
-def codecompass_x86_address_lookup(
-    *, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str,
-) -> dict[str, Any]:
-    """Resolve a single address (hex 0x... or decimal) to x86 nodes."""
-    args = arguments or {}
-    raw_addr = str(args.get("address") or "").strip()
-    if not raw_addr:
-        return build_tool_result(
-            tool_name="codecompass.x86_address_lookup",
-            tool_call_id=tool_call_id,
-            status="error",
-            error="address_required",
-        )
-    from agent.codecompass.x86.graph_extensions import build_x86_index
-    from agent.codecompass.x86.query import X86Query, X86QueryEngine, parse_address
-
-    addr = parse_address(raw_addr)
-    if addr is None:
-        return build_tool_result(
-            tool_name="codecompass.x86_address_lookup",
-            tool_call_id=tool_call_id,
-            status="error",
-            error=f"invalid_address:{raw_addr!r}",
-        )
-
-    x86_index, _ = _x86_payload(arguments)
-    nodes = list(x86_index.get("nodes") or [])
-    idx = build_x86_index(nodes)
-    nodes_by_id = dict(x86_index.get("nodes_by_id") or {})
-    engine = X86QueryEngine(nodes_by_id=nodes_by_id)
-    result = engine.execute(X86Query(kind="address", value=raw_addr, limit=20), idx)
-    matched = [nodes_by_id[nid] for nid in result.node_ids if nid in nodes_by_id]
-    evidence = [
-        build_evidence_entry(
-            kind=_x86_kind_evidence_kind(n.get("kind", "")),
-            path=str(n.get("id") or ""),
-            excerpt=str(n.get("attributes") or {}).replace("\n", " ")[:200],
-        )[0]  # take the entry, drop the truncation flag
-        for n in matched[:5]
-    ]
-    return build_tool_result(
-        tool_name="codecompass.x86_address_lookup",
-        tool_call_id=tool_call_id,
-        status="ok",
-        data={
-            "address": raw_addr,
-            "resolved": addr,
-            "nodes": matched,
-            "warnings": result.warnings,
-        },
-        evidence=evidence,
-    )
-
-
-# ----- X86CC-025: x86_cfg -----
-
-def codecompass_x86_cfg(
-    *, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str,
-) -> dict[str, Any]:
-    """CFG traversal (cycle-safe, bounded) from a seed node id."""
-    args = arguments or {}
-    seed = str(args.get("seed_id") or "").strip()
-    if not seed:
-        return build_tool_result(
-            tool_name="codecompass.x86_cfg",
-            tool_call_id=tool_call_id,
-            status="error",
-            error="seed_id_required",
-        )
-    from agent.codecompass.x86.graph_extensions import X86CFGTraversal, build_x86_index
-
-    x86_index, _ = _x86_payload(arguments)
-    nodes = list(x86_index.get("nodes") or [])
-    edges = list(x86_index.get("edges") or [])
-    nodes_by_id = dict(x86_index.get("nodes_by_id") or {})
-    if seed not in nodes_by_id:
-        return build_tool_result(
-            tool_name="codecompass.x86_cfg",
-            tool_call_id=tool_call_id,
-            status="error",
-            error=f"unknown_seed_id:{seed!r}",
-        )
-    edges_by_source: dict[str, list[dict[str, Any]]] = {}
-    for e in edges:
-        edges_by_source.setdefault(str(e.get("source") or ""), []).append(e)
-    idx = build_x86_index(nodes)
-    result = X86CFGTraversal().traverse(
-        idx, nodes_by_id, edges_by_source, seed,
-        max_depth=int(args.get("max_depth", 20)),
-        max_nodes=int(args.get("max_nodes", 200)),
-    )
-    return build_tool_result(
-        tool_name="codecompass.x86_cfg",
-        tool_call_id=tool_call_id,
-        status="ok",
-        data={
-            "seed_id": seed,
-            "nodes": result["nodes"],
-            "edges": result["edges"],
-            "warnings": result["warnings"],
-        },
-    )
-
-
-# ----- X86CC-026: x86_call_graph -----
-
-def codecompass_x86_call_graph(
-    *, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str,
-) -> dict[str, Any]:
-    """Call-graph traversal: classify calls into direct/indirect/import/unresolved."""
-    args = arguments or {}
-    seed = str(args.get("seed_id") or "").strip()
-    if not seed:
-        return build_tool_result(
-            tool_name="codecompass.x86_call_graph",
-            tool_call_id=tool_call_id,
-            status="error",
-            error="seed_id_required",
-        )
-    from agent.codecompass.x86.graph_extensions import X86CallGraphTraversal
-
-    x86_index, _ = _x86_payload(arguments)
-    nodes_by_id = dict(x86_index.get("nodes_by_id") or {})
-    edges = list(x86_index.get("edges") or [])
-    if seed not in nodes_by_id:
-        return build_tool_result(
-            tool_name="codecompass.x86_call_graph",
-            tool_call_id=tool_call_id,
-            status="error",
-            error=f"unknown_seed_id:{seed!r}",
-        )
-    result = X86CallGraphTraversal().traverse(
-        nodes_by_id, edges, seed,
-        max_depth=int(args.get("max_depth", 10)),
-        max_nodes=int(args.get("max_nodes", 100)),
-    )
-    return build_tool_result(
-        tool_name="codecompass.x86_call_graph",
-        tool_call_id=tool_call_id,
-        status="ok",
-        data={
-            "seed_id": seed,
-            "nodes": result["nodes"],
-            "edges": result["edges"],
-            "direct_calls": result["direct_calls"],
-            "indirect_calls": result["indirect_calls"],
-            "import_calls": result["import_calls"],
-            "unresolved": result["unresolved"],
-            "warnings": result["warnings"],
-        },
-    )
-
-
-# ----- X86CC-027: x86_find -----
-
-def codecompass_x86_find(
-    *, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str,
-) -> dict[str, Any]:
-    """Generic x86 finder: address/symbol/function/mnemonic/import/string/section/basic_block."""
-    args = arguments or {}
-    kind = str(args.get("kind") or "").strip()
-    value = str(args.get("value") or "").strip()
-    if not kind:
-        return build_tool_result(
-            tool_name="codecompass.x86_find",
-            tool_call_id=tool_call_id,
-            status="error",
-            error="kind_required",
-        )
-    from agent.codecompass.x86.graph_extensions import build_x86_index
-    from agent.codecompass.x86.query import VALID_QUERY_KINDS, X86Query, X86QueryEngine
-
-    if kind not in VALID_QUERY_KINDS:
-        return build_tool_result(
-            tool_name="codecompass.x86_find",
-            tool_call_id=tool_call_id,
-            status="error",
-            error=f"invalid_kind:{kind}",
-        )
-
-    x86_index, _ = _x86_payload(arguments)
-    nodes = list(x86_index.get("nodes") or [])
-    nodes_by_id = dict(x86_index.get("nodes_by_id") or {})
-    idx = build_x86_index(nodes)
-    engine = X86QueryEngine(nodes_by_id=nodes_by_id)
-    limit = int(args.get("limit", 50))
-    result = engine.execute(X86Query(kind=kind, value=value, limit=limit), idx)
-    matched = [nodes_by_id[nid] for nid in result.node_ids if nid in nodes_by_id]
-    return build_tool_result(
-        tool_name="codecompass.x86_find",
-        tool_call_id=tool_call_id,
-        status="ok" if result.status == "ok" else "error",
-        data={
-            "kind": kind,
-            "value": value,
-            "nodes": matched,
-            "warnings": result.warnings,
-        },
-        error=result.error,
     )

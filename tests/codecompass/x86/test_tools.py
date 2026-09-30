@@ -14,7 +14,7 @@ Tools under test:
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -72,10 +72,10 @@ def test_x86_overview_returns_tool_result_with_summary():
     from agent.services.tools.codecompass_tools import codecompass_x86_overview
     store = MagicMock()
     store.load.return_value = _build_mock_graph_store()
-    with patch("agent.services.tools.codecompass_tools._resolve_graph_store", return_value=store):
-        result = codecompass_x86_overview(
-            workspace_dir="/tmp", arguments={"manifest_hash": "abc"}, tool_call_id="tc-1",
-        )
+    result = codecompass_x86_overview(
+        workspace_dir="/tmp", arguments={"manifest_hash": "abc"}, tool_call_id="tc-1",
+        resolve_graph_store=lambda _arguments: store,
+    )
     assert result["tool_name"] == "codecompass.x86_overview"
     assert result["status"] == "ok"
     summary = result.get("data", {}).get("summary", {})
@@ -87,10 +87,10 @@ def test_x86_overview_when_x86_disabled_returns_degraded():
     from agent.services.tools.codecompass_tools import codecompass_x86_overview
     store = MagicMock()
     store.load.return_value = _build_mock_graph_store(with_x86=False)
-    with patch("agent.services.tools.codecompass_tools._resolve_graph_store", return_value=store):
-        result = codecompass_x86_overview(
-            workspace_dir="/tmp", arguments={"manifest_hash": "abc"}, tool_call_id="tc-1",
-        )
+    result = codecompass_x86_overview(
+        workspace_dir="/tmp", arguments={"manifest_hash": "abc"}, tool_call_id="tc-1",
+        resolve_graph_store=lambda _arguments: store,
+    )
     assert result["status"] == "ok"
     summary = result.get("data", {}).get("summary", {})
     assert summary["node_count"] == 0
@@ -106,12 +106,12 @@ def test_x86_address_lookup_resolves_instruction():
     # pick first instruction address
     instr = next(n for n in payload["x86_nodes"] if n["kind"] == "instruction")
     addr_hex = hex(instr["address"])
-    with patch("agent.services.tools.codecompass_tools._resolve_graph_store", return_value=store):
-        result = codecompass_x86_address_lookup(
-            workspace_dir="/tmp",
-            arguments={"manifest_hash": "abc", "address": addr_hex},
-            tool_call_id="tc-2",
-        )
+    result = codecompass_x86_address_lookup(
+        workspace_dir="/tmp",
+        arguments={"manifest_hash": "abc", "address": addr_hex},
+        tool_call_id="tc-2",
+        resolve_graph_store=lambda _arguments: store,
+    )
     assert result["status"] == "ok"
     nodes = result.get("data", {}).get("nodes", [])
     assert any(n["id"] == instr["id"] for n in nodes)
@@ -121,12 +121,12 @@ def test_x86_address_lookup_invalid_address_returns_error():
     from agent.services.tools.codecompass_tools import codecompass_x86_address_lookup
     store = MagicMock()
     store.load.return_value = _build_mock_graph_store()
-    with patch("agent.services.tools.codecompass_tools._resolve_graph_store", return_value=store):
-        result = codecompass_x86_address_lookup(
-            workspace_dir="/tmp",
-            arguments={"manifest_hash": "abc", "address": "not_a_number"},
-            tool_call_id="tc-2",
-        )
+    result = codecompass_x86_address_lookup(
+        workspace_dir="/tmp",
+        arguments={"manifest_hash": "abc", "address": "not_a_number"},
+        tool_call_id="tc-2",
+        resolve_graph_store=lambda _arguments: store,
+    )
     assert result["status"] == "error"
     assert "invalid" in (result.get("error") or "").lower()
 
@@ -135,12 +135,12 @@ def test_x86_address_lookup_missing_address_returns_error():
     from agent.services.tools.codecompass_tools import codecompass_x86_address_lookup
     store = MagicMock()
     store.load.return_value = _build_mock_graph_store()
-    with patch("agent.services.tools.codecompass_tools._resolve_graph_store", return_value=store):
-        result = codecompass_x86_address_lookup(
-            workspace_dir="/tmp",
-            arguments={"manifest_hash": "abc"},
-            tool_call_id="tc-2",
-        )
+    result = codecompass_x86_address_lookup(
+        workspace_dir="/tmp",
+        arguments={"manifest_hash": "abc"},
+        tool_call_id="tc-2",
+        resolve_graph_store=lambda _arguments: store,
+    )
     assert result["status"] == "error"
     assert "address" in (result.get("error") or "").lower()
 
@@ -154,12 +154,12 @@ def test_x86_cfg_returns_cfg_traversal_for_seed():
     store.load.return_value = payload
     # pick a function node as seed
     fn = next(n for n in payload["x86_nodes"] if n["kind"] == "function")
-    with patch("agent.services.tools.codecompass_tools._resolve_graph_store", return_value=store):
-        result = codecompass_x86_cfg(
-            workspace_dir="/tmp",
-            arguments={"manifest_hash": "abc", "seed_id": fn["id"]},
-            tool_call_id="tc-3",
-        )
+    result = codecompass_x86_cfg(
+        workspace_dir="/tmp",
+        arguments={"manifest_hash": "abc", "seed_id": fn["id"]},
+        tool_call_id="tc-3",
+        resolve_graph_store=lambda _arguments: store,
+    )
     assert result["status"] == "ok"
     assert "nodes" in result.get("data", {})
 
@@ -168,12 +168,12 @@ def test_x86_cfg_missing_seed_returns_error():
     from agent.services.tools.codecompass_tools import codecompass_x86_cfg
     store = MagicMock()
     store.load.return_value = _build_mock_graph_store()
-    with patch("agent.services.tools.codecompass_tools._resolve_graph_store", return_value=store):
-        result = codecompass_x86_cfg(
-            workspace_dir="/tmp",
-            arguments={"manifest_hash": "abc"},
-            tool_call_id="tc-3",
-        )
+    result = codecompass_x86_cfg(
+        workspace_dir="/tmp",
+        arguments={"manifest_hash": "abc"},
+        tool_call_id="tc-3",
+        resolve_graph_store=lambda _arguments: store,
+    )
     assert result["status"] == "error"
 
 
@@ -185,12 +185,12 @@ def test_x86_call_graph_returns_classified_calls():
     payload = _build_mock_graph_store()
     store.load.return_value = payload
     fn = next(n for n in payload["x86_nodes"] if n["kind"] == "function")
-    with patch("agent.services.tools.codecompass_tools._resolve_graph_store", return_value=store):
-        result = codecompass_x86_call_graph(
-            workspace_dir="/tmp",
-            arguments={"manifest_hash": "abc", "seed_id": fn["id"]},
-            tool_call_id="tc-4",
-        )
+    result = codecompass_x86_call_graph(
+        workspace_dir="/tmp",
+        arguments={"manifest_hash": "abc", "seed_id": fn["id"]},
+        tool_call_id="tc-4",
+        resolve_graph_store=lambda _arguments: store,
+    )
     assert result["status"] == "ok"
     data = result.get("data", {})
     assert "direct_calls" in data or "indirect_calls" in data or "import_calls" in data
@@ -200,12 +200,12 @@ def test_x86_call_graph_missing_seed_returns_error():
     from agent.services.tools.codecompass_tools import codecompass_x86_call_graph
     store = MagicMock()
     store.load.return_value = _build_mock_graph_store()
-    with patch("agent.services.tools.codecompass_tools._resolve_graph_store", return_value=store):
-        result = codecompass_x86_call_graph(
-            workspace_dir="/tmp",
-            arguments={"manifest_hash": "abc"},
-            tool_call_id="tc-4",
-        )
+    result = codecompass_x86_call_graph(
+        workspace_dir="/tmp",
+        arguments={"manifest_hash": "abc"},
+        tool_call_id="tc-4",
+        resolve_graph_store=lambda _arguments: store,
+    )
     assert result["status"] == "error"
 
 
@@ -216,12 +216,12 @@ def test_x86_find_by_mnemonic():
     store = MagicMock()
     payload = _build_mock_graph_store()
     store.load.return_value = payload
-    with patch("agent.services.tools.codecompass_tools._resolve_graph_store", return_value=store):
-        result = codecompass_x86_find(
-            workspace_dir="/tmp",
-            arguments={"manifest_hash": "abc", "kind": "mnemonic", "value": "mov"},
-            tool_call_id="tc-5",
-        )
+    result = codecompass_x86_find(
+        workspace_dir="/tmp",
+        arguments={"manifest_hash": "abc", "kind": "mnemonic", "value": "mov"},
+        tool_call_id="tc-5",
+        resolve_graph_store=lambda _arguments: store,
+    )
     assert result["status"] == "ok"
     nodes = result.get("data", {}).get("nodes", [])
     assert any(n.get("attributes", {}).get("mnemonic") == "mov" for n in nodes)
@@ -232,12 +232,12 @@ def test_x86_find_by_function_name():
     store = MagicMock()
     payload = _build_mock_graph_store()
     store.load.return_value = payload
-    with patch("agent.services.tools.codecompass_tools._resolve_graph_store", return_value=store):
-        result = codecompass_x86_find(
-            workspace_dir="/tmp",
-            arguments={"manifest_hash": "abc", "kind": "function", "value": "add_two"},
-            tool_call_id="tc-5",
-        )
+    result = codecompass_x86_find(
+        workspace_dir="/tmp",
+        arguments={"manifest_hash": "abc", "kind": "function", "value": "add_two"},
+        tool_call_id="tc-5",
+        resolve_graph_store=lambda _arguments: store,
+    )
     assert result["status"] == "ok"
     nodes = result.get("data", {}).get("nodes", [])
     assert any(n.get("attributes", {}).get("name") == "add_two" for n in nodes)
@@ -247,12 +247,12 @@ def test_x86_find_missing_kind_returns_error():
     from agent.services.tools.codecompass_tools import codecompass_x86_find
     store = MagicMock()
     store.load.return_value = _build_mock_graph_store()
-    with patch("agent.services.tools.codecompass_tools._resolve_graph_store", return_value=store):
-        result = codecompass_x86_find(
-            workspace_dir="/tmp",
-            arguments={"manifest_hash": "abc", "value": "x"},
-            tool_call_id="tc-5",
-        )
+    result = codecompass_x86_find(
+        workspace_dir="/tmp",
+        arguments={"manifest_hash": "abc", "value": "x"},
+        tool_call_id="tc-5",
+        resolve_graph_store=lambda _arguments: store,
+    )
     assert result["status"] == "error"
 
 
@@ -260,12 +260,12 @@ def test_x86_find_invalid_kind_returns_error():
     from agent.services.tools.codecompass_tools import codecompass_x86_find
     store = MagicMock()
     store.load.return_value = _build_mock_graph_store()
-    with patch("agent.services.tools.codecompass_tools._resolve_graph_store", return_value=store):
-        result = codecompass_x86_find(
-            workspace_dir="/tmp",
-            arguments={"manifest_hash": "abc", "kind": "not_a_real_kind", "value": "x"},
-            tool_call_id="tc-5",
-        )
+    result = codecompass_x86_find(
+        workspace_dir="/tmp",
+        arguments={"manifest_hash": "abc", "kind": "not_a_real_kind", "value": "x"},
+        tool_call_id="tc-5",
+        resolve_graph_store=lambda _arguments: store,
+    )
     assert result["status"] == "error"
 
 
@@ -274,12 +274,12 @@ def test_x86_find_respects_limit():
     store = MagicMock()
     payload = _build_mock_graph_store()
     store.load.return_value = payload
-    with patch("agent.services.tools.codecompass_tools._resolve_graph_store", return_value=store):
-        result = codecompass_x86_find(
-            workspace_dir="/tmp",
-            arguments={"manifest_hash": "abc", "kind": "mnemonic", "value": "mov", "limit": 1},
-            tool_call_id="tc-5",
-        )
+    result = codecompass_x86_find(
+        workspace_dir="/tmp",
+        arguments={"manifest_hash": "abc", "kind": "mnemonic", "value": "mov", "limit": 1},
+        tool_call_id="tc-5",
+        resolve_graph_store=lambda _arguments: store,
+    )
     assert result["status"] == "ok"
     nodes = result.get("data", {}).get("nodes", [])
     assert len(nodes) <= 1
