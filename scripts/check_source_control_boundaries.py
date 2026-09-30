@@ -151,14 +151,14 @@ def _check_indirect_hub_worker_imports(
             == "agent/bootstrap/source_control_api.py"
             or path.name.startswith("source_control")
             and any(
-                part in {"routes", "services", "sources"}
+                part in {"bootstrap", "routes", "services", "sources"}
                 for part in path.parts
             )
         )
     )
     def source_control_owned(module: str) -> bool:
         return (
-            module == "agent.bootstrap.source_control_api"
+            module.startswith("agent.bootstrap.source_control")
             or module.startswith("agent.routes.source_control")
             or module.startswith("agent.services.source_control")
             or module.startswith("agent.sources.source_control")
@@ -234,7 +234,10 @@ def _check_route_authentication(root: Path) -> list[BoundaryViolation]:
     if routes_root.exists():
         for path in routes_root.rglob("*.py"):
             text = path.read_text(encoding="utf-8")
-            if "/api/source-control/v1" in text:
+            # the v1 route families split out of source_control_v1.py carry no URL literal themselves
+            if "/api/source-control/v1" in text or (
+                path.name.startswith("source_control_v1_") and path.name.endswith("_routes.py")
+            ):
                 route_files.add(str(path.relative_to(root)))
     for relative_path in sorted(route_files):
         path = root / relative_path
