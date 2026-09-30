@@ -84,6 +84,7 @@ def build_ollama_container_command(
     libraries: Mapping[str, Path],
     device_paths: Sequence[Path],
     nvidia_smi_path: Path,
+    driver_store_paths: Sequence[Path] = (),
 ) -> list[str]:
     if re.fullmatch(r"ananta-unsloth-ollama-[0-9a-f]{16}", container_name) is None:
         raise OllamaRuntimeProbeError("ollama_probe_container_name_invalid")
@@ -119,6 +120,9 @@ def build_ollama_container_command(
         command.extend(("--volume", f"{path.resolve(strict=True)}:/host-nvidia/{name}:ro"))
         if name == "libcuda.so.1":
             command.extend(("--volume", f"{path.resolve(strict=True)}:/host-nvidia/libcuda.so:ro"))
+    for store in driver_store_paths:
+        resolved_store = store.resolve(strict=True)
+        command.extend(("--volume", f"{resolved_store}:{resolved_store}:ro"))
     command.extend(
         (
             "--env",
@@ -257,6 +261,7 @@ def run_ollama_runtime_probe(
     libraries: Mapping[str, Path],
     device_paths: Sequence[Path],
     nvidia_smi_path: Path,
+    driver_store_paths: Sequence[Path] = (),
 ) -> dict[str, Any]:
     """Load, invoke and roll back one promoted GGUF without provider fallback."""
     source_ids = tuple(str(value) for value in assignment.get("source_ids") or ())
@@ -279,6 +284,7 @@ def run_ollama_runtime_probe(
         libraries=libraries,
         device_paths=device_paths,
         nvidia_smi_path=nvidia_smi_path,
+        driver_store_paths=driver_store_paths,
     )
     started = _run(command, timeout=120)
     if started.returncode != 0:

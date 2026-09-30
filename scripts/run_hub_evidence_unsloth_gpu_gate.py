@@ -35,6 +35,11 @@ from agent.services.hub_evidence_gate_service import (  # noqa: E402
     canonical_evidence_digest,
 )
 from agent.services.hub_evidence_registry_service import HubEvidenceRegistryService  # noqa: E402
+from scripts.nvidia_container_access import (  # noqa: E402
+    NvidiaContainerAccess,
+    NvidiaContainerAccessError,
+    resolve_nvidia_container_access,
+)
 from scripts.unsloth_dataset_admission import (  # noqa: E402
     materialize_admitted_dolly_recipe,
 )
@@ -88,6 +93,7 @@ SOURCE_PATHS = (
     "scripts/lora_training_smoke_compatibility.py",
     "scripts/lora_training_smoke_files.py",
     "scripts/lora_training_smoke_release_chain.py",
+    "scripts/nvidia_container_access.py",
     "scripts/run_hub_evidence_unsloth_gpu_gate.py",
     "scripts/run_hub_evidence_unsloth_gpu_resilience_gate.py",
     "scripts/unsloth_ollama_runtime_probe.py",
@@ -212,6 +218,13 @@ def docker_image_revision(image: str) -> str:
     return value
 
 
+def nvidia_container_access() -> NvidiaContainerAccess:
+    try:
+        return resolve_nvidia_container_access()
+    except (NvidiaContainerAccessError, OSError) as exc:
+        raise UnslothGpuGateError("unsloth_gate_nvidia_device_unavailable") from exc
+
+
 def nvidia_environment() -> dict[str, Any]:
     completed = subprocess.run(
         (
@@ -277,6 +290,7 @@ def build_container_command(
     device_paths: Sequence[Path] | None = None,
     nvidia_smi_path: Path | None = None,
     dataset_result_path: Path | None = None,
+    driver_store_paths: Sequence[Path] = (),
 ) -> list[str]:
     source_ids = assignment.get("source_ids")
     run_id = str(assignment.get("run_id") or "")
@@ -324,6 +338,9 @@ def build_container_command(
         command.extend(("--volume", f"{path}:/host-nvidia/{name}:ro"))
         for alias in _NVIDIA_LINKER_ALIASES.get(name, ()):
             command.extend(("--volume", f"{path}:/host-nvidia/{alias}:ro"))
+    for store in driver_store_paths:
+        resolved_store = store.resolve(strict=True)
+        command.extend(("--volume", f"{resolved_store}:{resolved_store}:ro"))
     dataset_root = None
     if dataset_result_path is not None:
         dataset_root = dataset_result_path.resolve(strict=True).parent.parent
@@ -444,6 +461,8 @@ def execute_gate(
     if dataset_source_digest is not None and dataset_source_digest != dataset_contract.get("source_sha256"):
         raise UnslothGpuGateError("unsloth_gate_dataset_source_mismatch")
     environment = nvidia_environment()
+    gpu_access = nvidia_container_access()
+    environment["container_gpu_access"] = gpu_access.profile
     execution_profile = {
         "schema": "ananta.unsloth-gpu-gate-profile.v1",
         "image_id": image_id,
@@ -551,7 +570,11 @@ def execute_gate(
                 assignment=assignment,
                 matrix_entry=matrix_entry,
                 timeout_seconds=timeout_seconds,
+                libraries=gpu_access.libraries,
+                device_paths=gpu_access.device_paths,
+                nvidia_smi_path=gpu_access.nvidia_smi_path,
                 dataset_result_path=dataset_result_path,
+                driver_store_paths=gpu_access.driver_store_paths,
             )
             try:
                 completed = subprocess.run(
@@ -600,17 +623,10 @@ def execute_gate(
                     assignment=assignment,
                     state_dir=provider_state,
                     endpoint_database=output_dir / "runtime-provider-endpoints.sqlite3",
-                    libraries=resolve_nvidia_libraries(),
-                    device_paths=tuple(
-                        Path(value)
-                        for value in (
-                            "/dev/nvidia0",
-                            "/dev/nvidiactl",
-                            "/dev/nvidia-uvm",
-                            "/dev/nvidia-uvm-tools",
-                        )
-                    ),
-                    nvidia_smi_path=Path(shutil.which("nvidia-smi") or ""),
+                    libraries=gpu_access.libraries,
+                    device_paths=gpu_access.device_paths,
+                    nvidia_smi_path=gpu_access.nvidia_smi_path,
+                    driver_store_paths=gpu_access.driver_store_paths,
                 )
             except Exception as exc:  # noqa: BLE001 - bounded gate observation
                 provider_error = type(exc).__name__
