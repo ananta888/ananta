@@ -144,6 +144,9 @@ def test_release_document_binds_complete_declared_source_and_configuration(tmp_p
         "docs/operations/semantic-media-rollout.md",
         "schemas/release/semantic_media_program_evidence.v1.json",
         "scripts/run_semantic_media_program_release_gate.py",
+        "scripts/semantic_media_release_document.py",
+        "scripts/semantic_media_release_gate_catalog.py",
+        "scripts/semantic_media_release_paths.py",
         "todos/archiv/todo.ai-snake-semantic-media-speech-program.json",
     )
     for relative in (*core, "agent/program.py", "config/program.json"):
