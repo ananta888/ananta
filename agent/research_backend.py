@@ -16,11 +16,14 @@ from flask import current_app, has_app_context
 
 from agent.config import settings
 from agent.common.audit import log_audit
-from agent.services.browser_artifact_service import get_browser_artifact_service
+from agent.research_backend_browser import (
+    BROWSER_OBSERVABILITY,
+    BROWSER_POLICY_VERSION,
+    CAMOFOX_OBSERVABILITY,
+    BrowserUseResearchRunner,
+    CamofoxResearchRunner,
+)
 from agent.services.browser_camofox_adapter import build_camofox_adapter
-from agent.services.browser_policy_service import get_browser_policy_service
-from agent.services.browser_recovery_service import get_browser_recovery_service
-from agent.services.browser_task_contract import BrowserTaskContract
 from agent.services.browser_use_adapter import get_browser_use_execution_adapter
 
 DEERFLOW_INSTALL_HINT = (
@@ -80,19 +83,10 @@ RESEARCH_BACKEND_SPECS: dict[str, dict[str, Any]] = {
 }
 RESEARCH_BACKEND_PROVIDERS: tuple[str, ...] = tuple(RESEARCH_BACKEND_SPECS.keys())
 _RESEARCH_JOBS: dict[str, dict[str, dict[str, Any]]] = {provider: {} for provider in RESEARCH_BACKEND_PROVIDERS}
-_BROWSER_OBSERVABILITY = {
-    "calls": 0,
-    "actions": 0,
-    "last_failure_class": None,
-    "last_latency_ms": 0,
-}
-_CAMOFOX_OBSERVABILITY = {
-    "calls": 0,
-    "actions": 0,
-    "last_failure_class": None,
-    "last_latency_ms": 0,
-}
-_BROWSER_POLICY_VERSION = "browser-policy-v1"
+# Compatibility aliases: the native browser backends live in ``research_backend_browser``.
+_BROWSER_OBSERVABILITY = BROWSER_OBSERVABILITY
+_CAMOFOX_OBSERVABILITY = CAMOFOX_OBSERVABILITY
+_BROWSER_POLICY_VERSION = BROWSER_POLICY_VERSION
 
 
 def _get_agent_config() -> dict:
@@ -430,296 +424,9 @@ def _execute_research_backend_cli(
     if not cfg["enabled"]:
         return -1, "", f"{cfg['display_name']} research backend is disabled"
     if cfg["mode"] == "native" and cfg["provider"] == "browser_use":
-        started = time.time()
-        ctx = dict(research_context or {})
-        browser_cfg = dict(ctx.get("browser_config") or {})
-        contract = BrowserTaskContract.from_payload(
-            {
-                "allowed_domains": browser_cfg.get("allowed_domains") or [],
-                "max_actions": browser_cfg.get("max_actions") or 10,
-                "timeout_seconds": browser_cfg.get("timeout_seconds") or int(timeout or cfg["timeout_seconds"]),
-                "download_policy": browser_cfg.get("download_policy") or "deny",
-                "auth_policy": browser_cfg.get("auth_policy") or "none",
-                "screenshot_policy": browser_cfg.get("screenshot_policy") or "none",
-                "download_allowlist": browser_cfg.get("download_allowlist") or [],
-                "output_dir": browser_cfg.get("output_dir"),
-            }
-        )
-        adapter = get_browser_use_execution_adapter()
-        preflight = adapter.preflight(browser_cfg)
-        routing_reason = "research_backend_policy:research->browser_use"
-        log_audit(
-            "browser_route_selected",
-            {
-                "provider": "browser_use",
-                "resolved_backend": "browser_use",
-                "reason": routing_reason,
-                "ready": preflight.ready,
-            },
-        )
-        log_audit(
-            "browser_policy_checked",
-            {
-                "provider": "browser_use",
-                "phase": "preflight",
-                "ready": preflight.ready,
-                "policy_version": _BROWSER_POLICY_VERSION,
-            },
-        )
-        if not preflight.ready:
-            _BROWSER_OBSERVABILITY["calls"] += 1
-            _BROWSER_OBSERVABILITY["last_failure_class"] = "backend_unavailable"
-            log_audit("browser_policy_blocked", {"provider": "browser_use", "reason": preflight.reason})
-            return -1, "", preflight.reason
-
-        start_url = str(ctx.get("start_url") or "").strip()
-        actions = list(ctx.get("actions") or [])
-        if not start_url:
-            return -1, "", "browser_use_start_url_missing"
-        if bool(browser_cfg.get("auth_requested", False)):
-            if contract.auth_policy != "explicit_opt_in":
-                log_audit(
-                    "browser_policy_blocked",
-                    {"provider": "browser_use", "reason": "browser_policy_auth_not_allowed", "auth_policy": "masked"},
-                )
-                return -1, "", "browser_policy_auth_not_allowed"
-            log_audit(
-                "browser_policy_checked",
-                {
-                    "provider": "browser_use",
-                    "phase": "auth",
-                    "auth_requested": True,
-                    "auth_policy": "masked",
-                    "policy_version": _BROWSER_POLICY_VERSION,
-                },
-            )
-
-        result = adapter.execute(start_url=start_url, actions=actions, contract=contract)
-        latency_ms = int((time.time() - started) * 1000)
-        _BROWSER_OBSERVABILITY["calls"] += 1
-        _BROWSER_OBSERVABILITY["actions"] += int(result.actions_executed)
-        _BROWSER_OBSERVABILITY["last_latency_ms"] = latency_ms
-        _BROWSER_OBSERVABILITY["last_failure_class"] = result.failure_class
-        log_audit(
-            "browser_action_executed",
-            {
-                "provider": "browser_use",
-                "status": result.status,
-                "failure_class": result.failure_class,
-                "actions_executed": result.actions_executed,
-                "latency_ms": latency_ms,
-            },
-        )
-
-        artifact_payload = {
-            "extracted_data": dict(result.extracted_data or {}),
-            "page_evidence": [{"url": start_url, "action_count": result.actions_executed}],
-            "sources": [{"url": start_url, "kind": "web"}],
-            "trace": list(result.trace or []),
-        }
-        raw_max_repairs = browser_cfg.get("max_repair_attempts")
-        try:
-            max_repair_attempts = int(raw_max_repairs) if raw_max_repairs is not None else 1
-        except Exception:
-            max_repair_attempts = 1
-        for action in actions:
-            if str((action or {}).get("type") or "").strip().lower() == "download":
-                log_audit(
-                    "browser_policy_checked",
-                    {
-                        "provider": "browser_use",
-                        "phase": "download",
-                        "policy_version": _BROWSER_POLICY_VERSION,
-                        "download_url": str((action or {}).get("url") or ""),
-                        "output_path": str((action or {}).get("output_path") or ""),
-                        "provenance_ref": "browser-policy-v1:download",
-                    },
-                )
-        check = get_browser_artifact_service().validate_schema(artifact_payload)
-        if not check.valid:
-            log_audit("browser_policy_blocked", {"provider": "browser_use", "reason": check.reason})
-            return -1, "", check.reason
-
-        if result.status == "success":
-            force_review = (
-                max_repair_attempts <= 0
-                and bool(browser_cfg.get("fallback_allowed", True))
-                and len(actions) == 1
-                and str((actions[0] or {}).get("type") or "").strip().lower() == "extract"
-            )
-            if force_review:
-                escalation = {
-                    "status": "needs_review",
-                    "policy_reason": "browser_repair_budget_exhausted",
-                    "failure_class": "repair_budget_exhausted",
-                    "evidence_refs": list(artifact_payload.get("sources") or []),
-                }
-                log_audit(
-                    "browser_fallback_used",
-                    {
-                        "provider": "browser_use",
-                        "reason": "browser_repair_budget_exhausted",
-                        "action": "needs_review",
-                        "policy_version": _BROWSER_POLICY_VERSION,
-                    },
-                )
-                return -1, "", f"browser_needs_review:{json.dumps(escalation, ensure_ascii=False)}"
-            gate = get_browser_artifact_service().verify_completion_gate(
-                payload=artifact_payload,
-                min_source_count=int(browser_cfg.get("min_source_count") or 1),
-                require_evidence=bool(browser_cfg.get("require_evidence", False)),
-            )
-            if not gate.valid:
-                log_audit(
-                    "browser_policy_blocked",
-                    {
-                        "provider": "browser_use",
-                        "reason": gate.reason,
-                        "policy_version": _BROWSER_POLICY_VERSION,
-                    },
-                )
-                return -1, "", gate.reason
-            log_audit("browser_artifact_verified", {"provider": "browser_use", "status": "passed"})
-            return 0, json.dumps(artifact_payload, ensure_ascii=False), ""
-
-        recovery = get_browser_recovery_service().decide(
-            failure_class=str(result.failure_class or "transient_navigation"),
-            attempt=1,
-            max_repair_attempts=max_repair_attempts,
-            fallback_allowed=bool(browser_cfg.get("fallback_allowed", True)),
-            strict_browser_evidence=bool(browser_cfg.get("strict_browser_evidence", False)),
-        )
-        if recovery.action in {"needs_review", "fail"}:
-            log_audit(
-                "browser_fallback_used",
-                {
-                    "provider": "browser_use",
-                    "reason": recovery.reason,
-                    "action": recovery.action,
-                    "policy_version": _BROWSER_POLICY_VERSION,
-                },
-            )
-        if recovery.action == "needs_review":
-            escalation = {
-                "status": "needs_review",
-                "policy_reason": recovery.reason,
-                "failure_class": str(result.failure_class or "transient_navigation"),
-                "evidence_refs": list(artifact_payload.get("sources") or []),
-            }
-            return -1, "", f"browser_needs_review:{json.dumps(escalation, ensure_ascii=False)}"
-        return -1, "", f"browser_use_{result.failure_class or 'failed'}:{recovery.action}:{recovery.reason}"
-
+        return BrowserUseResearchRunner(audit=log_audit).run(cfg, timeout=timeout, research_context=research_context)
     if cfg["mode"] == "native" and cfg["provider"] == "camofox":
-        started = time.time()
-        ctx = dict(research_context or {})
-        browser_cfg = dict(ctx.get("browser_config") or {})
-        if not cfg["enabled"]:
-            return -1, "", "Camofox research backend is disabled"
-
-        contract = BrowserTaskContract.from_payload(
-            {
-                "allowed_domains": browser_cfg.get("allowed_domains") or [],
-                "max_actions": browser_cfg.get("max_actions") or 10,
-                "timeout_seconds": browser_cfg.get("timeout_seconds") or int(timeout or cfg["timeout_seconds"]),
-                "download_policy": browser_cfg.get("download_policy") or "deny",
-                "auth_policy": browser_cfg.get("auth_policy") or "none",
-                "screenshot_policy": browser_cfg.get("screenshot_policy") or "none",
-                "download_allowlist": browser_cfg.get("download_allowlist") or [],
-                "output_dir": browser_cfg.get("output_dir"),
-                "persist_session": bool(browser_cfg.get("persist_session", False)),
-                "blocked_domains": browser_cfg.get("blocked_domains"),
-            }
-        )
-        adapter = build_camofox_adapter(browser_cfg)
-        health = adapter.health_check()
-        log_audit(
-            "browser_route_selected",
-            {"provider": "camofox", "resolved_backend": "camofox", "healthy": health.get("healthy")},
-        )
-        if not health.get("healthy"):
-            _CAMOFOX_OBSERVABILITY["calls"] += 1
-            _CAMOFOX_OBSERVABILITY["last_failure_class"] = "backend_unavailable"
-            log_audit("browser_policy_blocked", {"provider": "camofox", "reason": "camofox_server_unavailable"})
-            return -1, "", f"camofox_server_unavailable:{health.get('error', '')}"
-
-        start_url = str(ctx.get("start_url") or "").strip()
-        actions = list(ctx.get("actions") or [])
-        if not start_url:
-            return -1, "", "camofox_start_url_missing"
-
-        policy = get_browser_policy_service()
-        if bool(browser_cfg.get("auth_requested", False)) and contract.auth_policy != "explicit_opt_in":
-            log_audit("browser_policy_blocked", {"provider": "camofox", "reason": "browser_policy_auth_not_allowed"})
-            return -1, "", "browser_policy_auth_not_allowed"
-
-        session_id: str | None = None
-        try:
-            session_id = adapter.create_session(contract=contract)
-            nav = adapter.navigate(url=start_url, session_id=session_id, contract=contract)
-            if not nav.ok:
-                _CAMOFOX_OBSERVABILITY["calls"] += 1
-                _CAMOFOX_OBSERVABILITY["last_failure_class"] = nav.policy_denial_code or "navigate_failed"
-                log_audit("browser_policy_blocked", {"provider": "camofox", "reason": nav.policy_denial_code or nav.error})
-                return -1, "", nav.policy_denial_code or nav.error or "camofox_navigate_failed"
-
-            extracted: dict = {}
-            actions_executed = 1
-            for action in actions:
-                action_type = str((action or {}).get("type") or "").strip().lower()
-                if actions_executed > contract.max_actions:
-                    break
-                if action_type == "read":
-                    res = adapter.read_page(session_id=session_id, contract=contract)
-                    if res.ok:
-                        extracted.update(res.data)
-                elif action_type == "click":
-                    adapter.click(selector=str(action.get("selector") or ""), session_id=session_id, contract=contract)
-                elif action_type == "type":
-                    adapter.type_text(
-                        selector=str(action.get("selector") or ""),
-                        text=str(action.get("text") or ""),
-                        session_id=session_id,
-                        contract=contract,
-                    )
-                elif action_type == "screenshot":
-                    res = adapter.screenshot(session_id=session_id, contract=contract)
-                    if res.ok:
-                        extracted["screenshot"] = res.data
-                elif action_type == "download":
-                    res = adapter.download(
-                        url=str(action.get("url") or start_url),
-                        output_path=str(action.get("output_path") or ""),
-                        session_id=session_id,
-                        contract=contract,
-                    )
-                    if not res.ok:
-                        log_audit("browser_policy_blocked", {"provider": "camofox", "reason": res.policy_denial_code or res.error})
-                        return -1, "", res.policy_denial_code or res.error or "camofox_download_failed"
-                    extracted.update(res.data)
-                actions_executed += 1
-        finally:
-            if session_id and not contract.persist_session:
-                adapter.close_session(session_id=session_id)
-
-        latency_ms = int((time.time() - started) * 1000)
-        _CAMOFOX_OBSERVABILITY["calls"] += 1
-        _CAMOFOX_OBSERVABILITY["actions"] += actions_executed
-        _CAMOFOX_OBSERVABILITY["last_latency_ms"] = latency_ms
-        _CAMOFOX_OBSERVABILITY["last_failure_class"] = None
-
-        artifact_payload = {
-            "extracted_data": extracted,
-            "page_evidence": [{"url": start_url, "action_count": actions_executed}],
-            "sources": [{"url": start_url, "kind": "web"}],
-            "trace": [{"provider": "camofox", "session_id": session_id, "actions_executed": actions_executed}],
-        }
-        check = get_browser_artifact_service().validate_schema(artifact_payload)
-        if not check.valid:
-            log_audit("browser_policy_blocked", {"provider": "camofox", "reason": check.reason})
-            return -1, "", check.reason
-        log_audit("browser_artifact_verified", {"provider": "camofox", "status": "passed"})
-        return 0, json.dumps(artifact_payload, ensure_ascii=False), ""
-
+        return CamofoxResearchRunner(audit=log_audit).run(cfg, timeout=timeout, research_context=research_context)
     if cfg["mode"] == "sandbox":
         return _execute_research_backend_sandbox(
             prompt=prompt,
@@ -729,14 +436,36 @@ def _execute_research_backend_cli(
             temperature=temperature,
             research_context=research_context,
         )
+    return _execute_research_backend_command(
+        cfg, prompt=prompt, model=model, temperature=temperature, timeout=timeout, research_context=research_context
+    )
+
+
+def _cli_configuration_error(cfg: dict[str, Any]) -> str | None:
     if cfg["mode"] != "cli":
-        return -1, "", f"Unsupported {cfg['display_name']} mode '{cfg['mode']}'"
+        return f"Unsupported {cfg['display_name']} mode '{cfg['mode']}'"
     if not cfg["command_tokens"]:
-        return -1, "", f"{cfg['display_name']} command is not configured"
+        return f"{cfg['display_name']} command is not configured"
     if not cfg["binary_path"]:
-        return -1, "", cfg["install_hint"]
+        return cfg["install_hint"]
     if cfg["working_dir"] and not cfg["working_dir_exists"]:
-        return -1, "", f"Configured {cfg['display_name']} working_dir does not exist: {cfg['working_dir']}"
+        return f"Configured {cfg['display_name']} working_dir does not exist: {cfg['working_dir']}"
+    return None
+
+
+def _execute_research_backend_command(
+    cfg: dict[str, Any],
+    *,
+    prompt: str,
+    model: str | None,
+    temperature: float | None,
+    timeout: int | None,
+    research_context: dict[str, Any] | None,
+) -> tuple[int, str, str]:
+    """Run the configured CLI research backend (mode ``cli``) as a subprocess without a shell."""
+    configuration_error = _cli_configuration_error(cfg)
+    if configuration_error is not None:
+        return -1, "", configuration_error
 
     args = _build_command_args(
         cfg,
