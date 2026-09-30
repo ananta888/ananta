@@ -8,7 +8,6 @@ import {
 } from '../../services/speech-evidence-quarantine.store';
 import {
   SpeechEvidenceConsentPairAuthority,
-  SpeechEvidenceHubCurationResponse,
   SpeechEvidenceSyncApiService,
 } from '../../services/speech-evidence-sync-api.service';
 import { SpeechEvidenceHubCurationFacade } from '../../services/speech-evidence-hub-curation.facade';
@@ -44,7 +43,6 @@ import {
 } from './peer-evidence-consent-policy';
 import {
   assertInboundBoundToContext,
-  buildHubCurationRequestPayload,
   buildProposalDraft,
   chunkAckPayload,
   currentSourceRevisions,
@@ -60,14 +58,12 @@ import {
 import {
   aggregateOutboundSnapshots,
   emptySync,
-  hubCurationBinding,
   offerFromMessage,
   offerFromRecord,
   offerView,
   outboundSnapshotFromHubStatus,
 } from './peer-evidence-offer.mappers';
 import {
-  buildDatasetLineageNodes,
   completedGroupConflict,
   lineageWithQuarantinedGroup,
   lineageWithReceiptStates,
@@ -94,7 +90,6 @@ import {
   STATUS_POLL_MS,
 } from './peer-evidence-sync.models';
 import {
-  bytesToBase64,
   concatenate,
   reason,
   sameSourceRevisions,
@@ -103,6 +98,7 @@ import {
   unique,
 } from './peer-evidence-sync-primitives';
 import { PeerEvidenceViewState } from './peer-evidence-view-state';
+import { PeerEvidenceHubCurationFlow } from './peer-evidence-hub-curation.flow';
 
 export type { PeerEvidenceFlowView, PeerEvidenceSyncContext } from './peer-evidence-sync.models';
 
@@ -140,6 +136,26 @@ export class PeerEvidenceSyncFacade implements OnDestroy {
   private pendingRevocation: PendingRevocation | null = null;
   private inboundChain: Promise<void> = Promise.resolve();
   private statusPollActive = false;
+
+  private readonly hubCurationFlow = new PeerEvidenceHubCurationFlow({
+    quarantine: this.quarantine,
+    evidence: this.evidence,
+    crypto: this.crypto,
+    hubCuration: this.hubCuration,
+  }, {
+    evidenceView: this.evidenceView,
+    requireActiveContext: () => this.requireActiveContext(),
+    requireOffer: () => this.requireOffer(),
+    generation: () => this.generation,
+    active: () => this.active,
+    currentOffer: () => this.offer,
+    syncPending: () => this.view$.value.sync.pending,
+    isCurrentContext: (context, generation) => this.isCurrentContext(context, generation),
+    restoreQuarantine: (context, generation) => this.restoreQuarantine(context, generation),
+    emit: (reasonCode, patch) => this.emit(reasonCode, patch),
+    patchSync: patch => this.patchSync(patch),
+    fail: reasonCode => this.fail(reasonCode),
+  });
 
   readonly view$ = new BehaviorSubject<PeerEvidenceFlowView>(Object.freeze({
     offer: null,
@@ -228,7 +244,7 @@ export class PeerEvidenceSyncFacade implements OnDestroy {
       if (!this.isCurrentContext(context, generation) || !this.active) return;
       await this.restoreQuarantine(context, generation);
       if (!this.isCurrentContext(context, generation) || !this.active) return;
-      await this.restoreHubCuration(context, generation);
+      await this.hubCurationFlow.restore(context, generation);
       if (!this.isCurrentContext(context, generation) || !this.active) return;
       this.emit('peer_evidence_sync_active', { pending: false, state: 'active', reasonCode: null });
     } catch (error) {
@@ -369,67 +385,8 @@ export class PeerEvidenceSyncFacade implements OnDestroy {
     }
   }
 
-  async requestHubCuration(): Promise<void> {
-    const context = this.requireActiveContext();
-    const offer = this.requireOffer();
-    const generation = this.generation;
-    const transferRecipient = offer.direction === 'sender_to_receiver' ? offer.recipientId : offer.senderId;
-    if (
-      transferRecipient !== context.localPeerId
-      || offer.trainerClass !== 'speech_adaptation'
-      || offer.state !== 'accepted'
-      || this.view$.value.sync.pending
-    ) {
-      this.fail('speech_evidence_hub_curation_not_authorized');
-      return;
-    }
-    this.patchSync({ pending: true, state: 'curation_uploading', reasonCode: null });
-    const clearChunks: Uint8Array[] = [];
-    try {
-      const summaries = await this.quarantine.summaries(
-        context.sessionId, context.pairId, context.epoch, offer.offerId,
-      );
-      const complete = summaries.filter(value => value.complete && value.conflictCount === 0);
-      if (
-        complete.length !== offer.groupIds.length
-        || complete.some(value => !offer.groupIds.includes(value.groupId))
-        || this.evidenceView.quarantineRows.some(value =>
-          offer.groupIds.includes(value.groupId) && value.state !== 'quarantined')
-      ) throw new SpeechEvidenceValidationError('speech_evidence_curation_transfer_incomplete');
-      const groups: { groupId: string; chunksB64: string[] }[] = [];
-      for (const groupId of [...offer.groupIds].sort()) {
-        const messages = await this.quarantine.group(
-          context.sessionId, context.pairId, context.epoch, offer.offerId, groupId,
-        );
-        const chunksB64: string[] = [];
-        for (const message of messages) {
-          const clear = await this.evidence.decryptChunk(message);
-          clearChunks.push(clear);
-          chunksB64.push(bytesToBase64(clear));
-        }
-        groups.push({ groupId, chunksB64 });
-      }
-      if (!this.isCurrentContext(context, generation) || !this.active) return;
-      const requestPayload = await buildHubCurationRequestPayload(offer, context);
-      const requestMessage = await this.crypto.sign(
-        'receipt',
-        requestPayload,
-        Math.min(offer.expiresAtMs, context.consent.consent.expires_at_ms, Date.now() + 5 * 60_000),
-      );
-      const response = await this.hubCuration.request({
-        hubUrl: context.hubUrl,
-        binding: hubCurationBinding(context, offer),
-        message: requestMessage,
-        groups,
-      });
-      if (!this.isCurrentContext(context, generation) || !this.active) return;
-      await this.applyHubCuration(context, offer, response, generation);
-    } catch (error) {
-      if (!this.isCurrentContext(context, generation)) return;
-      this.fail(reason(error, 'speech_evidence_hub_curation_failed'));
-    } finally {
-      for (const clear of clearChunks) clear.fill(0);
-    }
+  requestHubCuration(): Promise<void> {
+    return this.hubCurationFlow.request();
   }
 
   async revoke(): Promise<void> {
@@ -789,52 +746,6 @@ export class PeerEvidenceSyncFacade implements OnDestroy {
     }
   }
 
-  private async restoreHubCuration(context: PeerEvidenceSyncContext, generation: number): Promise<void> {
-    const offer = this.offer;
-    if (!offer || offer.trainerClass !== 'speech_adaptation' || offer.state !== 'accepted') return;
-    const response = await this.hubCuration.get(
-      context.hubUrl,
-      hubCurationBinding(context, offer),
-    ).catch(() => undefined);
-    if (!response || !this.isCurrentContext(context, generation) || offer !== this.offer) return;
-    await this.applyHubCuration(context, offer, response, generation);
-  }
-
-  private async applyHubCuration(
-    context: PeerEvidenceSyncContext,
-    offer: ActiveOffer,
-    response: SpeechEvidenceHubCurationResponse,
-    generation: number,
-  ): Promise<void> {
-    const receipt = response.curation.receipt;
-    const expected = [...offer.groupIds].sort();
-    this.evidenceView.lineage = lineageWithReceiptStates(
-      this.evidenceView.lineage, receipt.acceptedGroupIds, receipt.rejectedGroupIds, receipt.quarantinedGroupIds,
-    );
-    this.evidenceView.resolutionHash = receipt.resolutionDigest;
-    this.evidenceView.resolutionPolicyVersion = receipt.policyDigest;
-    await this.quarantine.removeGroups(
-      context.sessionId, context.pairId, context.epoch, offer.offerId, expected,
-    );
-    if (!this.isCurrentContext(context, generation) || offer !== this.offer) return;
-    await this.restoreQuarantine(context, generation);
-    if (!this.isCurrentContext(context, generation) || offer !== this.offer) return;
-    const datasetLineageNodes = await buildDatasetLineageNodes(response, offer, this.evidenceView.lineage);
-    if (!this.isCurrentContext(context, generation) || offer !== this.offer) return;
-    this.emit('speech_evidence_hub_receipt_verified', {
-      pending: false,
-      state: response.curation.state === 'dataset_published' ? 'dataset_published'
-        : response.curation.state === 'admitted' ? 'curation_queued' : response.curation.state,
-      receiptId: receipt.receiptId,
-      receiptVerification: 'hub_verified',
-      curationTaskId: response.curation.curationTaskId,
-      datasetId: response.curation.datasetId,
-      datasetManifestDigest: response.curation.datasetManifestDigest,
-      datasetLineageNodes,
-      reasonCode: null,
-    });
-  }
-
   private async restoreQuarantine(context: PeerEvidenceSyncContext, generation = this.generation): Promise<void> {
     await this.quarantine.pruneExpired();
     if (!this.isCurrentContext(context, generation) || !this.active) return;
@@ -877,7 +788,7 @@ export class PeerEvidenceSyncFacade implements OnDestroy {
       if (this.outboundSnapshots.size) this.emitAggregatedOutbound('speech_evidence_transfer_status_refreshed');
       if (this.view$.value.sync.receiptVerification === 'hub_verified'
         && !this.view$.value.sync.datasetManifestDigest) {
-        await this.restoreHubCuration(context, generation);
+        await this.hubCurationFlow.restore(context, generation);
       }
     } finally {
       if (generation === this.generation) this.statusPollActive = false;
