@@ -13,10 +13,6 @@ from agent.auth import admin_required, check_auth
 from agent.common.audit import log_audit
 from agent.common.errors import api_response
 from agent.db_models import MlInternDatasetDB
-from agent.repositories.ml_intern_training import (
-    MlInternTrainingRepositoryConflict,
-    get_ml_intern_training_repository,
-)
 from agent.routes.ml_intern_training_adapter_routes import register_adapter_routes
 from agent.routes.ml_intern_training_route_support import (
     _bounded_body_float,
@@ -63,6 +59,10 @@ from agent.services.ml_intern_training_contract import (
     MlInternTrainingContractError,
 )
 from agent.services.ml_intern_training_read_model_service import MlInternTrainingReadModelService
+from agent.services.ml_intern_training_repository_provider import (
+    MlInternTrainingRepositoryConflict,
+    get_ml_intern_training_repository,
+)
 from agent.services.unsloth_mutation_command_service import (
     project_unsloth_capabilities,
 )
