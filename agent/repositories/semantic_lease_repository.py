@@ -6,7 +6,6 @@ import hashlib
 import threading
 import time
 from contextlib import contextmanager
-from dataclasses import dataclass
 from typing import Callable, Iterator, Mapping
 
 import sqlalchemy as sa
@@ -17,47 +16,29 @@ from agent.database import engine as default_engine
 from agent.db_models import (
     SemanticComputeContractDB,
     SemanticComputeLeaseDB,
-    SemanticComputeLeaseMutationDB,
     SemanticComputeScheduleReceiptDB,
     SemanticLeaseFenceDB,
 )
 from agent.models.semantic_media_audit import SemanticMediaAuditEvent
 from agent.ports.semantic_media_audit import SemanticMediaAuditPort
+from agent.repositories.semantic_lease_models import (
+    LeaseRequest,
+    LeaseScheduleCommit,
+    SemanticLeaseRepositoryError,
+)
+from agent.repositories.semantic_lease_queries import SemanticLeaseQueries
+from agent.repositories.semantic_lease_records import (
+    active_scope_key,
+    expire_lease_row,
+    find_mutation_replay,
+    find_schedule_replay,
+    lease_scope_key,
+    record_mutation,
+    required_lease,
+    required_scoped_lease,
+    schedule_commit_from_receipt,
+)
 from agent.repositories.semantic_media_audit_outbox import SqlSemanticMediaAuditOutbox
-
-
-class SemanticLeaseRepositoryError(RuntimeError):
-    def __init__(self, reason_code: str) -> None:
-        self.reason_code = reason_code
-        super().__init__(reason_code)
-
-
-@dataclass(frozen=True, slots=True)
-class LeaseRequest:
-    tenant_id: str
-    owner_subject: str
-    contract_id: str
-    contract_digest: str
-    session_id: str
-    epoch: int
-    task_type: str
-    audience: str
-    role: str
-    executor_id: str
-    sequence_start: int
-    sequence_end: int
-    resource_budget: Mapping[str, int]
-    ttl_seconds: float
-    deadline_at: float
-
-
-@dataclass(frozen=True, slots=True)
-class LeaseScheduleCommit:
-    """One atomic Hub scheduling result, including its replay projection."""
-
-    leases: tuple[SemanticComputeLeaseDB, ...]
-    result_payload: Mapping[str, object]
-    replayed: bool
 
 
 class SemanticLeaseRepository:
@@ -72,11 +53,17 @@ class SemanticLeaseRepository:
         clock=time.time,
         clock_skew_seconds: float = 2.0,
         audit: SemanticMediaAuditPort | None = None,
+        queries: SemanticLeaseQueries | None = None,
     ) -> None:
         self._engine = db_engine
         self._clock = clock
         self._clock_skew = max(0.0, min(float(clock_skew_seconds), 5.0))
         self._audit = audit
+        self._queries = queries or SemanticLeaseQueries(
+            db_engine=db_engine,
+            clock=clock,
+            clock_skew_seconds=self._clock_skew,
+        )
 
     def configure_audit(self, audit: SemanticMediaAuditPort | None) -> None:
         """Configure the Hub audit command factory at the composition boundary."""
@@ -152,7 +139,7 @@ class SemanticLeaseRepository:
         key_digest = hashlib.sha256(idempotency_key.encode()).hexdigest()
         with self._sqlite_lock:
             with Session(self._engine) as db:
-                replay = self._schedule_replay(
+                replay = find_schedule_replay(
                     db,
                     tenant_id=tenant_id,
                     owner_subject=owner_subject,
@@ -161,7 +148,7 @@ class SemanticLeaseRepository:
                     request_digest=request_digest,
                 )
                 if replay is not None:
-                    return self._schedule_commit_from_receipt(db, replay, replayed=True)
+                    return schedule_commit_from_receipt(db, replay, replayed=True)
                 contract = db.exec(
                     select(SemanticComputeContractDB)
                     .where(
@@ -201,7 +188,7 @@ class SemanticLeaseRepository:
                     db.commit()
                 except IntegrityError as exc:
                     db.rollback()
-                    replay = self._schedule_replay(
+                    replay = find_schedule_replay(
                         db,
                         tenant_id=tenant_id,
                         owner_subject=owner_subject,
@@ -210,7 +197,7 @@ class SemanticLeaseRepository:
                         request_digest=request_digest,
                     )
                     if replay is not None:
-                        return self._schedule_commit_from_receipt(db, replay, replayed=True)
+                        return schedule_commit_from_receipt(db, replay, replayed=True)
                     raise SemanticLeaseRepositoryError("schedule_commit_conflict") from exc
                 for lease in leases:
                     db.refresh(lease)
@@ -260,7 +247,7 @@ class SemanticLeaseRepository:
                 audit_event=audit_event,
             )
             db.commit()
-            return self._required(db, lease_id)
+            return required_lease(db, lease_id)
 
     def revoke(
         self,
@@ -306,7 +293,7 @@ class SemanticLeaseRepository:
                 audit_event=audit_event,
             )
             db.commit()
-            return self._required(db, lease_id)
+            return required_lease(db, lease_id)
 
     def revoke_scoped(
         self,
@@ -322,7 +309,7 @@ class SemanticLeaseRepository:
 
         now = self._clock()
         with Session(self._engine) as db:
-            current = self._required_scoped(db, tenant_id, owner_subject, lease_id)
+            current = required_scoped_lease(db, tenant_id, owner_subject, lease_id)
             result = db.exec(
                 sa.update(SemanticComputeLeaseDB)
                 .where(
@@ -353,7 +340,7 @@ class SemanticLeaseRepository:
                 audit_event=audit_event,
             )
             db.commit()
-            return self._required_scoped(db, tenant_id, owner_subject, lease_id)
+            return required_scoped_lease(db, tenant_id, owner_subject, lease_id)
 
     def revoke_scoped_idempotent(
         self,
@@ -369,7 +356,7 @@ class SemanticLeaseRepository:
     ) -> tuple[SemanticComputeLeaseDB, bool]:
         now = self._clock()
         with Session(self._engine) as db:
-            replay = self._mutation_replay(
+            replay = find_mutation_replay(
                 db,
                 tenant_id=tenant_id,
                 owner_subject=owner_subject,
@@ -379,7 +366,7 @@ class SemanticLeaseRepository:
                 request_digest=request_digest,
             )
             if replay is not None:
-                return self._required_scoped(db, tenant_id, owner_subject, lease_id), True
+                return required_scoped_lease(db, tenant_id, owner_subject, lease_id), True
             result = db.exec(
                 sa.update(SemanticComputeLeaseDB)
                 .where(
@@ -403,7 +390,7 @@ class SemanticLeaseRepository:
                 if db.get(SemanticComputeLeaseDB, lease_id) is None:
                     raise SemanticLeaseRepositoryError("lease_not_found")
                 raise SemanticLeaseRepositoryError("lease_cas_conflict")
-            self._record_mutation(
+            record_mutation(
                 db,
                 tenant_id=tenant_id,
                 owner_subject=owner_subject,
@@ -413,7 +400,7 @@ class SemanticLeaseRepository:
                 request_digest=request_digest,
                 result_version=expected_version + 1,
             )
-            current = self._required_scoped(db, tenant_id, owner_subject, lease_id)
+            current = required_scoped_lease(db, tenant_id, owner_subject, lease_id)
             self._enqueue_transition(
                 db,
                 current,
@@ -424,7 +411,7 @@ class SemanticLeaseRepository:
                 command_key=f"semantic-lease:revoke:{idempotency_key}",
             )
             db.commit()
-            return self._required_scoped(db, tenant_id, owner_subject, lease_id), False
+            return required_scoped_lease(db, tenant_id, owner_subject, lease_id), False
 
     def reduce(
         self,
@@ -493,7 +480,7 @@ class SemanticLeaseRepository:
                 audit_event=audit_event,
             )
             db.commit()
-            return self._required(db, lease_id)
+            return required_lease(db, lease_id)
 
     def reduce_idempotent(
         self,
@@ -516,7 +503,7 @@ class SemanticLeaseRepository:
             raise SemanticLeaseRepositoryError("resource_budget_invalid")
         now = self._clock()
         with Session(self._engine) as db:
-            replay = self._mutation_replay(
+            replay = find_mutation_replay(
                 db,
                 tenant_id=tenant_id,
                 owner_subject=owner_subject,
@@ -526,8 +513,8 @@ class SemanticLeaseRepository:
                 request_digest=request_digest,
             )
             if replay is not None:
-                return self._required_scoped(db, tenant_id, owner_subject, lease_id), True
-            current = self._required_scoped(db, tenant_id, owner_subject, lease_id)
+                return required_scoped_lease(db, tenant_id, owner_subject, lease_id), True
+            current = required_scoped_lease(db, tenant_id, owner_subject, lease_id)
             if current.status != "active" or current.expires_at <= now + self._clock_skew:
                 raise SemanticLeaseRepositoryError("lease_not_authorized")
             old_budget = dict(current.resource_budget or {})
@@ -556,7 +543,7 @@ class SemanticLeaseRepository:
             if result.rowcount != 1:
                 db.rollback()
                 raise SemanticLeaseRepositoryError("lease_cas_conflict")
-            self._record_mutation(
+            record_mutation(
                 db,
                 tenant_id=tenant_id,
                 owner_subject=owner_subject,
@@ -576,7 +563,7 @@ class SemanticLeaseRepository:
                 command_key=f"semantic-lease:reduce:{idempotency_key}",
             )
             db.commit()
-            return self._required_scoped(db, tenant_id, owner_subject, lease_id), False
+            return required_scoped_lease(db, tenant_id, owner_subject, lease_id), False
 
     def list_for_principal(
         self,
@@ -588,25 +575,14 @@ class SemanticLeaseRepository:
         contract_id: str | None = None,
         limit: int = 100,
     ) -> list[SemanticComputeLeaseDB]:
-        if not 1 <= limit <= 200:
-            raise SemanticLeaseRepositoryError("limit_invalid")
-        with Session(self._engine) as db:
-            statement = select(SemanticComputeLeaseDB).where(
-                SemanticComputeLeaseDB.tenant_id == tenant_id,
-                SemanticComputeLeaseDB.owner_subject == owner_subject,
-                SemanticComputeLeaseDB.session_id == session_id,
-                SemanticComputeLeaseDB.epoch == epoch,
-            )
-            if contract_id is not None:
-                statement = statement.where(SemanticComputeLeaseDB.contract_id == contract_id)
-            return list(
-                db.exec(
-                    statement.order_by(
-                        SemanticComputeLeaseDB.issued_at.desc(),
-                        SemanticComputeLeaseDB.id.desc(),
-                    ).limit(limit)
-                )
-            )
+        return self._queries.list_for_principal(
+            tenant_id=tenant_id,
+            owner_subject=owner_subject,
+            session_id=session_id,
+            epoch=epoch,
+            contract_id=contract_id,
+            limit=limit,
+        )
 
     def get_scoped(
         self,
@@ -615,17 +591,11 @@ class SemanticLeaseRepository:
         owner_subject: str,
         lease_id: str,
     ) -> SemanticComputeLeaseDB:
-        with Session(self._engine) as db:
-            item = db.exec(
-                select(SemanticComputeLeaseDB).where(
-                    SemanticComputeLeaseDB.id == lease_id,
-                    SemanticComputeLeaseDB.tenant_id == tenant_id,
-                    SemanticComputeLeaseDB.owner_subject == owner_subject,
-                )
-            ).first()
-            if item is None:
-                raise SemanticLeaseRepositoryError("lease_not_found")
-            return item
+        return self._queries.get_scoped(
+            tenant_id=tenant_id,
+            owner_subject=owner_subject,
+            lease_id=lease_id,
+        )
 
     def active_assignment_counts(
         self,
@@ -637,29 +607,12 @@ class SemanticLeaseRepository:
     ) -> dict[str, int]:
         """Project current Hub leases for deterministic load-aware fairness."""
 
-        normalized = {str(value).strip() for value in executor_ids if str(value).strip()}
-        if len(normalized) > 128:
-            raise SemanticLeaseRepositoryError("executor_limit_invalid")
-        if not normalized:
-            return {}
-        now = self._clock()
-        with Session(self._engine) as db:
-            rows = db.exec(
-                select(SemanticComputeLeaseDB.executor_id).where(
-                    SemanticComputeLeaseDB.tenant_id == tenant_id,
-                    SemanticComputeLeaseDB.session_id == session_id,
-                    SemanticComputeLeaseDB.epoch == epoch,
-                    SemanticComputeLeaseDB.status == "active",
-                    SemanticComputeLeaseDB.expires_at > now + self._clock_skew,
-                    SemanticComputeLeaseDB.deadline_at > now,
-                    SemanticComputeLeaseDB.executor_id.in_(normalized),
-                )
-            )
-            counts: dict[str, int] = {}
-            for executor_id in rows:
-                rendered = str(executor_id)
-                counts[rendered] = counts.get(rendered, 0) + 1
-            return counts
+        return self._queries.active_assignment_counts(
+            tenant_id=tenant_id,
+            session_id=session_id,
+            epoch=epoch,
+            executor_ids=executor_ids,
+        )
 
     def revoke_contract_active(
         self,
@@ -742,7 +695,7 @@ class SemanticLeaseRepository:
                     reason_code="lease_ttl_elapsed",
                     result_version=next_version,
                 )
-                self._expire_row(row, now)
+                expire_lease_row(row, now)
                 db.add(row)
             db.commit()
             return len(rows)
@@ -759,28 +712,19 @@ class SemanticLeaseRepository:
         audience: str,
         sequence: int | None = None,
     ) -> SemanticComputeLeaseDB:
-        now = self._clock()
-        with Session(self._engine) as db:
-            lease = self._required(db, lease_id)
-            bindings = (
-                lease.contract_digest == contract_digest,
-                lease.fencing_token == fencing_token,
-                lease.session_id == session_id,
-                lease.epoch == epoch,
-                lease.task_type == task_type,
-                lease.audience == audience,
-            )
-            if not all(bindings):
-                raise SemanticLeaseRepositoryError("lease_binding_mismatch")
-            if lease.status != "active" or lease.expires_at <= now + self._clock_skew or lease.deadline_at <= now:
-                raise SemanticLeaseRepositoryError("lease_not_authorized")
-            if sequence is not None and not lease.sequence_start <= sequence <= lease.sequence_end:
-                raise SemanticLeaseRepositoryError("lease_sequence_mismatch")
-            return lease
+        return self._queries.authorize_result(
+            lease_id=lease_id,
+            contract_digest=contract_digest,
+            fencing_token=fencing_token,
+            session_id=session_id,
+            epoch=epoch,
+            task_type=task_type,
+            audience=audience,
+            sequence=sequence,
+        )
 
     def get(self, lease_id: str) -> SemanticComputeLeaseDB:
-        with Session(self._engine) as db:
-            return self._required(db, lease_id)
+        return self._queries.get(lease_id)
 
     def _acquire_in_session(
         self,
@@ -792,8 +736,8 @@ class SemanticLeaseRepository:
     ) -> SemanticComputeLeaseDB:
         """Stage one fenced lease and its audit command without committing."""
 
-        scope_key = self.scope_key(request)
-        active_key = self._active_key(scope_key, request.sequence_start, request.sequence_end)
+        scope_key = lease_scope_key(request)
+        active_key = active_scope_key(scope_key, request.sequence_start, request.sequence_end)
         fence = db.get(SemanticLeaseFenceDB, scope_key)
         if fence is None:
             last_token = 0
@@ -852,7 +796,7 @@ class SemanticLeaseRepository:
                 reason_code="lease_superseded_after_expiry",
                 result_version=next_version,
             )
-            self._expire_row(active, now)
+            expire_lease_row(active, now)
             db.add(active)
 
         fence.last_token += 1
@@ -920,146 +864,7 @@ class SemanticLeaseRepository:
         except Exception as exc:
             raise SemanticLeaseRepositoryError("semantic_audit_unavailable") from exc
 
-    @staticmethod
-    def _schedule_replay(
-        db: Session,
-        *,
-        tenant_id: str,
-        owner_subject: str,
-        contract_id: str,
-        key_digest: str,
-        request_digest: str,
-    ) -> SemanticComputeScheduleReceiptDB | None:
-        item = db.exec(
-            select(SemanticComputeScheduleReceiptDB).where(
-                SemanticComputeScheduleReceiptDB.tenant_id == tenant_id,
-                SemanticComputeScheduleReceiptDB.owner_subject == owner_subject,
-                SemanticComputeScheduleReceiptDB.contract_id == contract_id,
-                SemanticComputeScheduleReceiptDB.idempotency_key_digest == key_digest,
-            )
-        ).first()
-        if item is not None and item.request_digest != request_digest:
-            raise SemanticLeaseRepositoryError("idempotency_conflict")
-        return item
-
-    @classmethod
-    def _schedule_commit_from_receipt(
-        cls,
-        db: Session,
-        receipt: SemanticComputeScheduleReceiptDB,
-        *,
-        replayed: bool,
-    ) -> LeaseScheduleCommit:
-        payload = dict(receipt.result_payload or {})
-        lease_ids = [str(value) for value in payload.get("lease_ids") or ()]
-        leases: list[SemanticComputeLeaseDB] = []
-        for lease_id in lease_ids:
-            lease = db.get(SemanticComputeLeaseDB, lease_id)
-            if lease is None or (
-                lease.tenant_id != receipt.tenant_id
-                or lease.owner_subject != receipt.owner_subject
-                or lease.contract_id != receipt.contract_id
-            ):
-                raise SemanticLeaseRepositoryError("schedule_receipt_stale")
-            leases.append(lease)
-        if not leases:
-            raise SemanticLeaseRepositoryError("schedule_receipt_stale")
-        return LeaseScheduleCommit(tuple(leases), payload, replayed)
-
-    @staticmethod
-    def scope_key(request: LeaseRequest) -> str:
-        fields = [
-            request.tenant_id,
-            request.session_id,
-            str(request.epoch),
-            request.task_type,
-            request.audience,
-            request.role,
-        ]
-        if request.role == "validator":
-            fields.append(request.executor_id)
-        raw = "\0".join(fields)
-        return hashlib.sha256(raw.encode()).hexdigest()
-
-    @staticmethod
-    def _active_key(scope_key: str, sequence_start: int, sequence_end: int) -> str:
-        return hashlib.sha256(f"{scope_key}:{sequence_start}:{sequence_end}".encode()).hexdigest()
-
-    @staticmethod
-    def _required(db: Session, lease_id: str) -> SemanticComputeLeaseDB:
-        item = db.get(SemanticComputeLeaseDB, lease_id)
-        if item is None:
-            raise SemanticLeaseRepositoryError("lease_not_found")
-        return item
-
-    @staticmethod
-    def _required_scoped(db: Session, tenant_id: str, owner_subject: str, lease_id: str) -> SemanticComputeLeaseDB:
-        item = db.exec(
-            select(SemanticComputeLeaseDB).where(
-                SemanticComputeLeaseDB.id == lease_id,
-                SemanticComputeLeaseDB.tenant_id == tenant_id,
-                SemanticComputeLeaseDB.owner_subject == owner_subject,
-            )
-        ).first()
-        if item is None:
-            raise SemanticLeaseRepositoryError("lease_not_found")
-        return item
-
-    @staticmethod
-    def _mutation_replay(
-        db: Session,
-        *,
-        tenant_id: str,
-        owner_subject: str,
-        lease_id: str,
-        operation: str,
-        idempotency_key: str,
-        request_digest: str,
-    ) -> SemanticComputeLeaseMutationDB | None:
-        key_digest = hashlib.sha256(idempotency_key.encode()).hexdigest()
-        item = db.exec(
-            select(SemanticComputeLeaseMutationDB).where(
-                SemanticComputeLeaseMutationDB.tenant_id == tenant_id,
-                SemanticComputeLeaseMutationDB.owner_subject == owner_subject,
-                SemanticComputeLeaseMutationDB.lease_id == lease_id,
-                SemanticComputeLeaseMutationDB.operation == operation,
-                SemanticComputeLeaseMutationDB.idempotency_key_digest == key_digest,
-            )
-        ).first()
-        if item is not None and item.request_digest != request_digest:
-            raise SemanticLeaseRepositoryError("idempotency_conflict")
-        return item
-
-    @staticmethod
-    def _record_mutation(
-        db: Session,
-        *,
-        tenant_id: str,
-        owner_subject: str,
-        lease_id: str,
-        operation: str,
-        idempotency_key: str,
-        request_digest: str,
-        result_version: int,
-    ) -> None:
-        db.add(
-            SemanticComputeLeaseMutationDB(
-                tenant_id=tenant_id,
-                owner_subject=owner_subject,
-                lease_id=lease_id,
-                operation=operation,
-                idempotency_key_digest=hashlib.sha256(idempotency_key.encode()).hexdigest(),
-                request_digest=request_digest,
-                result_version=result_version,
-            )
-        )
-
-    @staticmethod
-    def _expire_row(item: SemanticComputeLeaseDB, now: float) -> None:
-        item.status = "expired"
-        item.active_scope_key = None
-        item.updated_at = now
-        item.version += 1
+    scope_key = staticmethod(lease_scope_key)
 
     def _validate_request(self, request: LeaseRequest) -> None:
         if request.sequence_start < 0 or request.sequence_end < request.sequence_start:
