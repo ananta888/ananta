@@ -85,7 +85,11 @@
     },
     {
       "path": "agent/services/langgraph_workflow_control_bridge.py",
-      "sha256": "00aaccbe0a896cf5dc5c284f487a6ea121ea34c843516c97a06c7b187e2b7fc3"
+      "sha256": "c3a80343d9416bdb27871cdccb2cbab4b42d02b0af770e5d9368b929ca8c0718"
+    },
+    {
+      "path": "agent/services/langgraph_workflow_run_status.py",
+      "sha256": "8113838455aebda09eea1462d4b48a261e2f5ae4c54ba93c2b231667fad94b0a"
     },
     {
       "path": "agent/services/temporal_workflow_backend.py",
@@ -385,7 +389,7 @@
     },
     {
       "path": "scripts/run_caseflow_agent_collaboration_gate.py",
-      "sha256": "b592da4b5bc220d7214adf0eb600eaf02aabb88d069cec4531fb6fd6b3f73a67"
+      "sha256": "973aa28dc248bdc1c274656239bd445abfcf3622284425b764d4e5624fc92f24"
     },
     {
       "path": "tests/services/test_caseflow_agent_collaboration_trace_projection_service.py",
@@ -552,7 +556,7 @@
       "sha256": "52eeac1e9d382f31784056e63f85f08401e7d380c372490f3608940f18dc6baf"
     }
   ],
-  "source_manifest_sha256": "f13bd6b5ae9bd0e72fb06034641d95bc84841f0fa5fcf7df9b5d586aee474149",
+  "source_manifest_sha256": "5dc8c148e7a4dec7698b70ca9b371ea4cc322316a1e70445b48f74e8223dab52",
   "status": "passed",
   "test_outputs": [
     {

@@ -87,7 +87,7 @@
     "agent/routes/visual_process_design_routes.py": "289e8ea0991cd6a2902b863d5d3ac27ff96e507df73263465494e465c81b0ef4",
     "agent/routes/visual_process_graph_routes.py": "36aea53305cb642a3a11767043b388140924683b20fb31633e4d6106a2d9a41e",
     "agent/routes/visual_process_graph_support.py": "dd339aa7ab7d912abafdfc7cbc37125bcf5bc9b5589ae9f872c2e16dcf7e3e3e",
-    "agent/routes/visual_process_model_plan.py": "6cb936b4d28d7f988c7473083caa1b968572c229fd68bdeb1355a92b30e40f94",
+    "agent/routes/visual_process_model_plan.py": "cbe3157be782f1fd16d5d8343caf4cdb5ac486a415fa89b2242ea9bbe0f0c02e",
     "agent/routes/visual_process_route_dependencies.py": "5f761848209715bbb309b1991d17a6a6a387935fe224f0708e47fac8af9e2795",
     "agent/routes/visual_process_workflow_command_routes.py": "42bfc424cb6609c29853e6301ad8fe0a06d28686ce5054b2fb609ad8bac1e39b",
     "agent/routes/visual_process_workflow_event_routes.py": "50a638d4379d4038f5ca3957d9cb7fb48886606847230ae82761e5036f253a3b",
@@ -114,11 +114,11 @@
     "agent/visual_process/step_adapters_ml_intern_support.py": "019e28b444e12371e2777d6b619df57033a55494c22f1100c138f7df23f268ff",
     "agent/visual_process/step_adapters_ml_intern_training.py": "07f0e388705e1bbc81737d30c6829d8d403ceaa9bf38cc6d46c03614a6f42aff",
     "agent/visual_process/task_kind_registry.py": "391f567d6955287b18d3ac95bdc9f07416839d0ac509a37abedb3589d76369d0",
-    "agent/visual_process/validator.py": "c04b0cc62520f8e84e237382802910c9f7ed7dc539248065c7cb8c0c1319a3c1",
+    "agent/visual_process/validator.py": "6bb41dbfe207bdeea8f50e17360f6eecb054dc7f667c2e18c12c36aa228b38c8",
     "ananta_contracts/retrieval.py": "198975d64758ed72c74bee7296d1c67c4fbf94a685c8c000eab3d8d4dcf97645",
     "ananta_contracts/visual_process_assistant.py": "2a8c6550b253fc13c64cf21a9a7cabaf275176983d402b53ee05b9f1f94450d5",
     "artifacts/domain/visual-process-assistant-baseline.json": "aa629c80b39e00874288bbc5eee2fcc9f37f76d3bfd87f0dc621acea3f978852",
-    "artifacts/test-gates/codecompass-e2e.json": "4a1497582c145e84dfc37a949f97f773f71c7fd6dda5714ce7615c0fe3f4134b",
+    "artifacts/test-gates/codecompass-e2e.json": "c7317e57f4d4820e2bb36cda26050b5b18739da8c58451b1619994e5d2d36862",
     "docs/architecture/visual-process-assistant.md": "d4859bf92979ff1fde9e0dec2d8ccf9442260bad56c85565e1ab6bf4e59e6aa0",
     "frontend-angular/playwright.vpa-functional.config.ts": "e98e2e08b502338195138b86066b834b0ec821198095489ff256df80fad89955",
     "frontend-angular/src/app/components/ai-snake-process-panel.component.ts": "d4fa92720df6963834b901a424c1b192102ade2cc08819d18a35807d220398cd",
@@ -178,5 +178,5 @@
     "worker/visual_process_assistant/evidence_gate.py": "242394c084b2440b852d63cfca3d0ed97b111d2f33ec04f9acad577e37f02be4",
     "worker/visual_process_assistant/handlers.py": "eb2d39f432548753eef3e1e28db91b07a40b53098d30fa44a7445d6794f94476"
   },
-  "source_revision": "worktree-sha256:1ee823c0388dd571009726a026f15bcd7fd2dc126cb8f31ed56c8121fc10a167"
+  "source_revision": "worktree-sha256:5f8129d4a65e0995075530255458db986e15f147bd2dee783dd105ce42a873df"
 }
