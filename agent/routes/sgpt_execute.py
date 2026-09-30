@@ -174,23 +174,170 @@ def _build_cli_error_details(
     return None
 
 
-def execute_sgpt_request(  # noqa: C901
+def _circuit_breaker_rejection(runtime: SgptExecuteRuntime):
+    """Return a 503 response while the breaker is open; half-open it after recovery."""
+
+    circuit_breaker = runtime.circuit_breaker
+    if not circuit_breaker["open"]:
+        return None
+    if time.time() - circuit_breaker["last_failure"] > runtime.cb_recovery_time:
+        runtime.get_logger().info("SGPT circuit breaker switching to half-open.")
+        circuit_breaker["open"] = False
+        circuit_breaker["failures"] = 0
+        return None
+    return api_response(
+        status="error",
+        message=("SGPT service is temporarily unavailable (circuit breaker open)."),
+        code=503,
+    )
+
+
+def _invalid_request_response(
+    *,
+    prompt: Any,
+    options: Any,
+    backend: str,
+    model: Any,
+    allowed_backends: set[str],
+):
+    """Validate the request shape; return an error response or ``None``."""
+
+    message = None
+    if not prompt:
+        message = "Missing prompt"
+    elif not isinstance(options, list):
+        message = "Options must be a list"
+    elif backend not in allowed_backends:
+        message = f"Invalid backend. Allowed: {sorted(allowed_backends)}"
+    elif model is not None and not isinstance(model, str):
+        message = "model must be a string"
+    elif not all(isinstance(option, str) for option in options):
+        message = "options must contain only strings"
+    if message is None:
+        return None
+    return api_response(status="error", message=message, code=400)
+
+
+def _resolve_effective_backend(
+    runtime: SgptExecuteRuntime,
+    *,
+    backend: str,
+    task_kind: str,
+    agent_cfg: dict[str, Any],
+) -> tuple[str, str, dict[str, Any]]:
+    """Return ``(effective_backend, routing_reason, routing_cfg)``."""
+
+    if backend == "ml_intern":
+        return "ml_intern", "specialized_profile_ml_intern", runtime.policy.runtime_routing_config(agent_cfg)
+    return runtime.policy.resolve_cli_backend(
+        task_kind=task_kind,
+        requested_backend=backend,
+        supported_backends=runtime.policy.supported_backends,
+        agent_cfg=agent_cfg,
+        fallback_backend="ananta-worker",
+    )
+
+
+def _resolve_safe_options(
+    runtime: SgptExecuteRuntime,
+    effective_backend: str,
+    options: list[str],
+):
+    """Return ``(safe_options, error_response)`` for the effective backend."""
+
+    if effective_backend == "ml_intern":
+        if options:
+            return [], api_response(
+                status="error",
+                message=("ml_intern backend does not accept CLI flags"),
+                code=400,
+            )
+        return [], None
+    safe_options, rejected = runtime.policy.normalize_backend_flags(
+        effective_backend,
+        options,
+    )
+    if rejected:
+        return safe_options, api_response(
+            status="error",
+            message=(f"Unsupported options for backend '{effective_backend}': {rejected}"),
+            code=400,
+        )
+    if effective_backend in {"sgpt", "ananta-worker"} and "--no-interaction" not in safe_options:
+        safe_options.append("--no-interaction")
+    return safe_options, None
+
+
+@dataclass
+class _RetrievedContext:
+    context_payload: dict[str, Any] | None
+    effective_prompt: str
+    degraded: bool
+    grounding: dict[str, Any]
+
+
+def _retrieve_hybrid_context(
+    runtime: SgptExecuteRuntime,
+    pipeline: dict[str, Any],
+    *,
+    prompt: str,
+    task_kind: str,
+    retrieval_intent: str | None,
+    source_types: list[str] | None,
+) -> _RetrievedContext:
+    """Build the hybrid RAG context and record the ``retrieve`` stage."""
+
+    stage_started = time.time()
+    RAG_REQUESTS_TOTAL.labels(mode="execute").inc()
+    with RAG_RETRIEVAL_DURATION.time():
+        (
+            context_payload,
+            effective_prompt,
+        ) = runtime.get_context_manager_service().build_cli_execution_context(
+            prompt=prompt,
+            task_kind=task_kind,
+            retrieval_intent=retrieval_intent,
+            source_types=source_types,
+        )
+    chunk_count = len(context_payload.get("chunks", []))
+    RAG_CHUNKS_SELECTED.observe(chunk_count)
+    engines = {str((chunk or {}).get("engine") or "") for chunk in (context_payload.get("chunks") or [])}
+    diversity = len([engine for engine in engines if engine])
+    score = min(
+        1.0,
+        (chunk_count / max(1, runtime.settings.rag_max_chunks)) * 0.7 + min(diversity, 3) / 3.0 * 0.3,
+    )
+    append_stage(
+        pipeline,
+        name="retrieve",
+        status=("ok" if chunk_count > 0 else "degraded"),
+        metadata={
+            "chunk_count": chunk_count,
+            "engine_diversity": diversity,
+        },
+        started_at=stage_started,
+    )
+    return _RetrievedContext(
+        context_payload=context_payload,
+        effective_prompt=effective_prompt,
+        degraded=chunk_count == 0,
+        grounding={
+            "score": round(score, 3),
+            "chunk_count": chunk_count,
+            "engine_diversity": diversity,
+        },
+    )
+
+
+def execute_sgpt_request(
     runtime: SgptExecuteRuntime,
 ):
     """Execute one validated SGPT HTTP request."""
 
     circuit_breaker = runtime.circuit_breaker
-    if circuit_breaker["open"]:
-        if time.time() - circuit_breaker["last_failure"] > runtime.cb_recovery_time:
-            runtime.get_logger().info("SGPT circuit breaker switching to half-open.")
-            circuit_breaker["open"] = False
-            circuit_breaker["failures"] = 0
-        else:
-            return api_response(
-                status="error",
-                message=("SGPT service is temporarily unavailable (circuit breaker open)."),
-                code=503,
-            )
+    breaker_rejection = _circuit_breaker_rejection(runtime)
+    if breaker_rejection is not None:
+        return breaker_rejection
 
     user_id = runtime.policy.extract_user_id()
     if runtime.is_rate_limited(user_id):
@@ -234,77 +381,26 @@ def execute_sgpt_request(  # noqa: C901
             code=400,
         )
 
-    if not prompt:
-        return api_response(
-            status="error",
-            message="Missing prompt",
-            code=400,
-        )
-    if not isinstance(options, list):
-        return api_response(
-            status="error",
-            message="Options must be a list",
-            code=400,
-        )
-    allowed_backends = runtime.policy.allowed_backends()
-    if backend not in allowed_backends:
-        return api_response(
-            status="error",
-            message=(f"Invalid backend. Allowed: {sorted(allowed_backends)}"),
-            code=400,
-        )
-    if model is not None and not isinstance(model, str):
-        return api_response(
-            status="error",
-            message="model must be a string",
-            code=400,
-        )
-    if not all(isinstance(option, str) for option in options):
-        return api_response(
-            status="error",
-            message="options must contain only strings",
-            code=400,
-        )
+    invalid_request = _invalid_request_response(
+        prompt=prompt,
+        options=options,
+        backend=backend,
+        model=model,
+        allowed_backends=runtime.policy.allowed_backends(),
+    )
+    if invalid_request is not None:
+        return invalid_request
 
     agent_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
-    routing_reason = ""
-    if backend == "ml_intern":
-        effective_backend = "ml_intern"
-        routing_reason = "specialized_profile_ml_intern"
-        routing_cfg = runtime.policy.runtime_routing_config(agent_cfg)
-    else:
-        (
-            effective_backend,
-            routing_reason,
-            routing_cfg,
-        ) = runtime.policy.resolve_cli_backend(
-            task_kind=task_kind,
-            requested_backend=backend,
-            supported_backends=runtime.policy.supported_backends,
-            agent_cfg=agent_cfg,
-            fallback_backend="ananta-worker",
-        )
-    if effective_backend == "ml_intern":
-        safe_options = []
-        if options:
-            return api_response(
-                status="error",
-                message=("ml_intern backend does not accept CLI flags"),
-                code=400,
-            )
-    else:
-        safe_options, rejected = runtime.policy.normalize_backend_flags(
-            effective_backend,
-            options,
-        )
-        if rejected:
-            return api_response(
-                status="error",
-                message=(f"Unsupported options for backend '{effective_backend}': {rejected}"),
-                code=400,
-            )
-        if effective_backend in {"sgpt", "ananta-worker"} and "--no-interaction" not in safe_options:
-            safe_options.append("--no-interaction")
+    effective_backend, routing_reason, routing_cfg = _resolve_effective_backend(
+        runtime,
+        backend=backend,
+        task_kind=task_kind,
+        agent_cfg=agent_cfg,
+    )
+    safe_options, options_error = _resolve_safe_options(runtime, effective_backend, options)
+    if options_error is not None:
+        return options_error
 
     try:
         context_payload = None
@@ -322,49 +418,24 @@ def execute_sgpt_request(  # noqa: C901
             metadata={"requested_backend": backend},
         )
         if use_hybrid_context:
-            stage_started = time.time()
             if not runtime.settings.rag_enabled:
                 return api_response(
                     status="error",
                     message="Hybrid context mode is disabled",
                     code=400,
                 )
-            RAG_REQUESTS_TOTAL.labels(mode="execute").inc()
-            with RAG_RETRIEVAL_DURATION.time():
-                (
-                    context_payload,
-                    effective_prompt,
-                ) = runtime.get_context_manager_service().build_cli_execution_context(
-                    prompt=prompt,
-                    task_kind=task_kind,
-                    retrieval_intent=retrieval_intent,
-                    source_types=source_types,
-                )
-            chunk_count = len(context_payload.get("chunks", []))
-            RAG_CHUNKS_SELECTED.observe(chunk_count)
-            engines = {str((chunk or {}).get("engine") or "") for chunk in (context_payload.get("chunks") or [])}
-            diversity = len([engine for engine in engines if engine])
-            score = min(
-                1.0,
-                (chunk_count / max(1, runtime.settings.rag_max_chunks)) * 0.7 + min(diversity, 3) / 3.0 * 0.3,
-            )
-            grounding = {
-                "score": round(score, 3),
-                "chunk_count": chunk_count,
-                "engine_diversity": diversity,
-            }
-            if chunk_count == 0:
-                degraded = True
-            append_stage(
+            retrieved = _retrieve_hybrid_context(
+                runtime,
                 pipeline,
-                name="retrieve",
-                status=("ok" if chunk_count > 0 else "degraded"),
-                metadata={
-                    "chunk_count": chunk_count,
-                    "engine_diversity": diversity,
-                },
-                started_at=stage_started,
+                prompt=prompt,
+                task_kind=task_kind,
+                retrieval_intent=retrieval_intent,
+                source_types=source_types,
             )
+            context_payload = retrieved.context_payload
+            effective_prompt = retrieved.effective_prompt
+            degraded = retrieved.degraded
+            grounding = retrieved.grounding
         else:
             append_stage(
                 pipeline,
