@@ -1,6 +1,15 @@
+"""Knowledge collection, index-job, wiki import and retrieval routes.
+
+Route handlers stay here with their service lookups. Collaborators:
+
+* ``knowledge_route_requests`` -- request parsing and payload shaping
+* ``knowledge_route_access`` -- endpoint to source-control action map
+* ``knowledge_wiki_presets`` -- curated wiki corpus presets
+* ``knowledge_wiki_disk_state`` -- on-disk wiki import inventory
+"""
+
 from __future__ import annotations
 
-import time
 from pathlib import Path
 
 from flask import Blueprint, g, request
@@ -10,21 +19,66 @@ from agent.common.audit import log_audit
 from agent.common.errors import BadRequestError, ConflictError, NotFoundError, api_response
 from agent.config import settings
 from agent.db_models import KnowledgeCollectionDB
-from agent.models import (
-    KnowledgeCollectionCreateRequest,
-    KnowledgeCollectionIndexRequest,
-    KnowledgeCollectionSearchRequest,
-    KnowledgeSourceIndexRequest,
+from agent.routes.knowledge_route_access import (
+    KNOWLEDGE_ACTIONS as _KNOWLEDGE_ACTIONS,
 )
+from agent.routes.knowledge_route_access import (
+    KNOWLEDGE_COLLECTION_ENDPOINTS as _KNOWLEDGE_COLLECTION_ENDPOINTS,
+)
+from agent.routes.knowledge_route_access import (
+    KNOWLEDGE_GLOBAL_ENDPOINTS as _KNOWLEDGE_GLOBAL_ENDPOINTS,
+)
+from agent.routes.knowledge_route_requests import (
+    FILE_TYPE_SUPPORT_QUERY_FIELDS as _FILE_TYPE_SUPPORT_QUERY_FIELDS,  # noqa: F401 - compatibility re-export
+)
+from agent.routes.knowledge_route_requests import (
+    apply_security_metadata_patch as _apply_security_metadata_patch,
+)
+from agent.routes.knowledge_route_requests import (
+    collection_create_request as _collection_create_request,
+)
+from agent.routes.knowledge_route_requests import (
+    collection_index_request as _collection_index_request,
+)
+from agent.routes.knowledge_route_requests import (
+    collection_search_request as _collection_search_request,
+)
+from agent.routes.knowledge_route_requests import (
+    current_username as _current_username,
+)
+from agent.routes.knowledge_route_requests import (
+    file_type_support_filter as _file_type_support_filter,
+)
+from agent.routes.knowledge_route_requests import (
+    knowledge_index_payload as _index_payload,
+)
+from agent.routes.knowledge_route_requests import (
+    model_status as _model_status,  # noqa: F401 - compatibility re-export
+)
+from agent.routes.knowledge_route_requests import (
+    normalize_security_metadata_patch as _normalize_security_metadata_patch,
+)
+from agent.routes.knowledge_route_requests import (
+    source_index_request as _source_index_request,
+)
+from agent.routes.knowledge_route_requests import (
+    strict_if_match_version,
+)
+from agent.routes.knowledge_route_requests import (
+    wiki_import_request as _wiki_import_request,
+)
+from agent.routes.knowledge_route_requests import (
+    wiki_import_url_request as _wiki_import_url_request,
+)
+from agent.routes.knowledge_wiki_disk_state import collect_wiki_disk_state
+from agent.routes.knowledge_wiki_presets import WIKI_IMPORT_PRESETS as WIKI_IMPORT_PRESETS
 from agent.routes.source_control_access import (
     authorize_route_request,
     filter_visible_resources,
 )
 from agent.services.file_type_support_service import (
-    FileTypeSupportFilter,
     FileTypeSupportFilterError,
     get_file_type_support_service,
-    parse_optional_boolean,
 )
 from agent.services.knowledge_index_execution_binding_service import (
     KnowledgeIndexExecutionBindingError,
@@ -37,82 +91,10 @@ from agent.services.retrieval_orchestration_contract import build_retrieval_orch
 from agent.services.retrieval_service import get_retrieval_service
 from agent.services.retrieval_source_contract import source_scopes_for_types
 from agent.services.service_registry import get_core_services
-from agent.services.source_control_access_policy import SourceControlAction
 from agent.services.wiki_import_job_service import get_wiki_import_job_service
 from agent.sources.source_registry import SourceRegistry
 
 knowledge_bp = Blueprint("knowledge", __name__)
-
-_FILE_TYPE_SUPPORT_QUERY_FIELDS = frozenset(
-    {
-        "priority",
-        "support_level",
-        "level",
-        "dimension",
-        "pipeline",
-        "missing_parser",
-        "missing_runtime",
-        "enabled",
-    }
-)
-
-WIKI_IMPORT_PRESETS = [
-    {
-        "id": "wikipedia-de-multistream-latest",
-        "label": "Wikipedia DE: Artikel Multistream (latest)",
-        "description": "Empfohlen fuer ernsthaftes deutsches RAG: echter Wikimedia XML.BZ2 Multistream-Dump plus Index.",
-        "corpus_url": "https://dumps.wikimedia.org/dewiki/latest/dewiki-latest-pages-articles-multistream.xml.bz2",
-        "index_url": "https://dumps.wikimedia.org/dewiki/latest/dewiki-latest-pages-articles-multistream-index.txt.bz2",
-        "source_id": "wikipedia-de-multistream-latest",
-        "language": "de",
-        "size_hint": "~8.1 GB dump + ~63 MB index",
-        "recommended": True,
-        "import_format": "mediawiki-multistream",
-        "codecompass_prerender": True,
-        "mobile_policy": {"network": "unknown", "charging": "unknown", "storage": "unknown"},
-    },
-    {
-        "id": "wikipedia-de-pages-latest",
-        "label": "Wikipedia DE: Artikel nicht-Multistream (latest)",
-        "description": "Fallback ohne Multistream-Index; meist weniger praktisch fuer grosse lokale Verarbeitung.",
-        "corpus_url": "https://dumps.wikimedia.org/dewiki/latest/dewiki-latest-pages-articles.xml.bz2",
-        "source_id": "wikipedia-de-pages-latest",
-        "language": "de",
-        "size_hint": "~7.8 GB",
-        "recommended": False,
-        "import_format": "mediawiki-xml",
-        "codecompass_prerender": True,
-        "mobile_policy": {"network": "unknown", "charging": "unknown", "storage": "unknown"},
-    },
-    {
-        "id": "wikipedia-de-zim-mini-2026-04",
-        "label": "Wikipedia DE: ZIM mini 2026-04 (Prototyp)",
-        "description": "Kleiner Kiwix/ZIM-Prototyp-Dump. Sichtbar fuer Download-Planung; Import benoetigt noch ZIM-Parser.",
-        "corpus_url": "https://dumps.wikimedia.org/kiwix/zim/wikipedia/wikipedia_de_all_mini_2026-04.zim",
-        "source_id": "wikipedia-de-zim-mini-2026-04",
-        "language": "de",
-        "size_hint": "~3.9 GiB",
-        "recommended": False,
-        "import_format": "zim",
-        "supported": False,
-        "codecompass_prerender": False,
-        "mobile_policy": {"network": "unknown", "charging": "unknown", "storage": "unknown"},
-    },
-    {
-        "id": "wikipedia-de-zim-nopic-2026-01",
-        "label": "Wikipedia DE: ZIM ohne Bilder 2026-01 (Prototyp)",
-        "description": "Groesserer Kiwix/ZIM-Dump ohne Bilder. Sichtbar fuer spaetere ZIM-Unterstuetzung.",
-        "corpus_url": "https://dumps.wikimedia.org/kiwix/zim/wikipedia/wikipedia_de_all_nopic_2026-01.zim",
-        "source_id": "wikipedia-de-zim-nopic-2026-01",
-        "language": "de",
-        "size_hint": "~13.6 GiB",
-        "recommended": False,
-        "import_format": "zim",
-        "supported": False,
-        "codecompass_prerender": False,
-        "mobile_policy": {"network": "unknown", "charging": "unknown", "storage": "unknown"},
-    },
-]
 
 
 def get_knowledge_index_job_service():
@@ -141,191 +123,6 @@ def _knowledge_index_repo():
 
 def _knowledge_link_repo():
     return get_repository_registry().knowledge_link_repo
-
-
-def _collection_create_request() -> KnowledgeCollectionCreateRequest:
-    payload = request.get_json(silent=True) or {}
-    if not isinstance(payload, dict):
-        payload = {}
-    return KnowledgeCollectionCreateRequest.model_validate(payload)
-
-
-def _collection_index_request() -> KnowledgeCollectionIndexRequest:
-    payload = request.get_json(silent=True) or {}
-    if not isinstance(payload, dict):
-        payload = {}
-    return KnowledgeCollectionIndexRequest.model_validate(payload)
-
-
-def _collection_search_request() -> KnowledgeCollectionSearchRequest:
-    payload = request.get_json(silent=True) or {}
-    if not isinstance(payload, dict):
-        payload = {}
-    return KnowledgeCollectionSearchRequest.model_validate(payload)
-
-
-def _source_index_request() -> KnowledgeSourceIndexRequest:
-    payload = request.get_json(silent=True) or {}
-    if not isinstance(payload, dict):
-        payload = {}
-    return KnowledgeSourceIndexRequest.model_validate(payload)
-
-
-def _wiki_import_request() -> dict:
-    payload = request.get_json(silent=True) or {}
-    if not isinstance(payload, dict):
-        raise BadRequestError("invalid_payload")
-    corpus_path = str(payload.get("corpus_path") or "").strip()
-    if not corpus_path:
-        raise BadRequestError("corpus_path_required")
-    source_id = str(payload.get("source_id") or "").strip() or None
-    index_path = str(payload.get("index_path") or "").strip() or None
-    import_format = str(payload.get("import_format") or "").strip() or None
-    profile_name = str(payload.get("profile_name") or "").strip() or None
-    language = str(payload.get("language") or "en").strip().lower() or "en"
-    strict = bool(payload.get("strict", False))
-    async_mode = bool(payload.get("async", True))
-    codecompass_prerender = bool(payload.get("codecompass_prerender", False))
-    raw_source_metadata = payload.get("source_metadata") or {}
-    if not isinstance(raw_source_metadata, dict):
-        raise BadRequestError("invalid_source_metadata")
-    source_metadata = dict(raw_source_metadata)
-    return {
-        "corpus_path": corpus_path,
-        "source_id": source_id,
-        "index_path": index_path,
-        "import_format": import_format,
-        "profile_name": profile_name,
-        "language": language,
-        "strict": strict,
-        "async_mode": async_mode,
-        "codecompass_prerender": codecompass_prerender,
-        "source_metadata": source_metadata,
-    }
-
-
-def _wiki_import_url_request() -> dict:
-    payload = request.get_json(silent=True) or {}
-    if not isinstance(payload, dict):
-        raise BadRequestError("invalid_payload")
-    preset_id = str(payload.get("preset_id") or "").strip()
-    corpus_url = str(payload.get("corpus_url") or "").strip()
-    index_url = str(payload.get("index_url") or "").strip()
-    if not preset_id and not corpus_url:
-        raise BadRequestError("wiki_corpus_url_required")
-    selected_preset = next((item for item in WIKI_IMPORT_PRESETS if item["id"] == preset_id), None) if preset_id else None
-    if preset_id and selected_preset is None:
-        raise BadRequestError("invalid_wiki_preset")
-    effective_url = str(selected_preset.get("corpus_url") if selected_preset else corpus_url).strip()
-    if not effective_url:
-        raise BadRequestError("wiki_corpus_url_required")
-    source_id = str(payload.get("source_id") or "").strip() or (
-        str(selected_preset.get("source_id") or "").strip() if selected_preset else None
-    )
-    profile_name = str(payload.get("profile_name") or "").strip() or None
-    language = str(payload.get("language") or (selected_preset.get("language") if selected_preset else "en")).strip().lower() or "en"
-    strict = bool(payload.get("strict", False))
-    async_mode = bool(payload.get("async", True))
-    codecompass_prerender = bool(payload.get("codecompass_prerender", selected_preset.get("codecompass_prerender", False) if selected_preset else False))
-    raw_source_metadata = payload.get("source_metadata") or {}
-    if not isinstance(raw_source_metadata, dict):
-        raise BadRequestError("invalid_source_metadata")
-    source_metadata = dict(raw_source_metadata)
-    if selected_preset is not None:
-        index_url = str(selected_preset.get("index_url") or index_url).strip()
-        if selected_preset.get("supported") is False:
-            raise BadRequestError("wiki_preset_not_supported")
-        source_metadata.setdefault("preset_id", selected_preset["id"])
-        source_metadata.setdefault("preset_label", selected_preset["label"])
-        source_metadata.setdefault("import_format", selected_preset.get("import_format"))
-    return {
-        "corpus_url": effective_url,
-        "index_url": index_url or None,
-        "source_id": source_id or None,
-        "profile_name": profile_name,
-        "language": language,
-        "strict": strict,
-        "async_mode": async_mode,
-        "codecompass_prerender": codecompass_prerender,
-        "source_metadata": source_metadata,
-    }
-
-
-def _current_username() -> str:
-    user = getattr(g, "user", {}) or {}
-    return str(user.get("sub") or user.get("username") or "anonymous")
-
-
-def _file_type_support_filter() -> FileTypeSupportFilter:
-    unknown_fields = sorted(set(request.args) - _FILE_TYPE_SUPPORT_QUERY_FIELDS)
-    if unknown_fields:
-        raise BadRequestError(
-            "invalid_file_type_support_filter",
-            {"unknown_fields": unknown_fields},
-        )
-    support_levels = [
-        *request.args.getlist("support_level"),
-        *request.args.getlist("level"),
-    ]
-    try:
-        return FileTypeSupportFilter.build(
-            priorities=request.args.getlist("priority"),
-            support_levels=support_levels,
-            dimensions=request.args.getlist("dimension"),
-            pipelines=request.args.getlist("pipeline"),
-            missing_parser=parse_optional_boolean(
-                request.args.get("missing_parser"),
-                field_name="missing_parser",
-            ),
-            missing_runtime=parse_optional_boolean(
-                request.args.get("missing_runtime"),
-                field_name="missing_runtime",
-            ),
-            enabled=parse_optional_boolean(
-                request.args.get("enabled"),
-                field_name="enabled",
-            ),
-        )
-    except FileTypeSupportFilterError as exc:
-        raise BadRequestError("invalid_file_type_support_filter") from exc
-
-
-def _normalize_security_metadata_patch(raw: dict) -> dict:
-    if not isinstance(raw, dict):
-        raise BadRequestError("invalid_security_metadata_patch")
-    allowed_keys = {"classification", "source_origin", "sensitivity", "tenancy", "approval_class", "chunk_security_tags"}
-    patch: dict = {}
-    for key, value in raw.items():
-        normalized_key = str(key or "").strip()
-        if normalized_key not in allowed_keys:
-            continue
-        if normalized_key == "chunk_security_tags":
-            if not isinstance(value, list):
-                raise BadRequestError("invalid_chunk_security_tags")
-            patch[normalized_key] = [str(item).strip().lower() for item in value if str(item).strip()]
-        else:
-            patch[normalized_key] = str(value or "").strip().lower() or None
-    if not patch:
-        raise BadRequestError("empty_security_metadata_patch")
-    return patch
-
-
-def _apply_security_metadata_patch(*, knowledge_index, patch: dict, actor: str):
-    metadata = dict(getattr(knowledge_index, "index_metadata", None) or {})
-    security_metadata = dict(metadata.get("security_metadata") or {})
-    security_metadata.update({key: value for key, value in patch.items() if value is not None})
-    metadata["security_metadata"] = security_metadata
-    metadata["security_metadata_updated_by"] = actor
-    metadata["security_metadata_updated_at"] = time.time()
-    knowledge_index.index_metadata = metadata
-    return knowledge_index
-
-
-def _index_payload(item) -> dict:
-    payload = item.model_dump()
-    metadata = dict(payload.get("index_metadata") or {})
-    payload["security_metadata"] = dict(metadata.get("security_metadata") or {})
-    return payload
 
 
 def _metadata_batch_candidates(payload: dict) -> list:
@@ -362,68 +159,6 @@ def _collection_payload(collection_id: str) -> dict | None:
         "knowledge_links": [link.model_dump() for link in links],
         "knowledge_indices": indices,
     }
-
-
-def _model_status(item) -> str:
-    direct = getattr(item, "status", None)
-    if isinstance(direct, str) and direct.strip():
-        return direct
-    if hasattr(item, "model_dump"):
-        payload = item.model_dump()
-        if isinstance(payload, dict):
-            value = payload.get("status")
-            if isinstance(value, str):
-                return value
-    return ""
-
-
-_KNOWLEDGE_ACTIONS = {
-    "list_knowledge_collections": SourceControlAction.list,
-    "create_knowledge_collection": SourceControlAction.index,
-    "get_knowledge_collection": SourceControlAction.detail,
-    "index_knowledge_collection": SourceControlAction.index,
-    "list_knowledge_index_profiles": SourceControlAction.list,
-    "get_knowledge_index_job": SourceControlAction.detail,
-    "reconcile_expired_knowledge_index_dispatch": SourceControlAction.index,
-    "reconcile_knowledge_index_completion": SourceControlAction.index,
-    "list_wiki_import_jobs": SourceControlAction.list,
-    "get_wiki_import_job": SourceControlAction.detail,
-    "pause_wiki_import_job": SourceControlAction.index,
-    "resume_wiki_import_job": SourceControlAction.index,
-    "cancel_wiki_import_job": SourceControlAction.delete,
-    "retry_interrupted_wiki_import_job": SourceControlAction.index,
-    "wiki_disk_state": SourceControlAction.artifact,
-    "list_wiki_import_presets": SourceControlAction.list,
-    "index_knowledge_source_records": SourceControlAction.index,
-    "import_wiki_corpus": SourceControlAction.index,
-    "import_wiki_corpus_from_url": SourceControlAction.download,
-    "search_knowledge_collection": SourceControlAction.query,
-    "search_wiki": SourceControlAction.query,
-    "get_knowledge_retrieval_preflight": SourceControlAction.list,
-    "list_knowledge_indices": SourceControlAction.list,
-    "update_knowledge_index_security_metadata": SourceControlAction.policy,
-    "batch_update_knowledge_index_security_metadata": SourceControlAction.policy,
-    "get_knowledge_orchestration_contract": SourceControlAction.list,
-    "get_file_type_support": SourceControlAction.list,
-}
-_KNOWLEDGE_COLLECTION_ENDPOINTS = {
-    "list_knowledge_collections",
-    "create_knowledge_collection",
-    "list_knowledge_index_profiles",
-    "list_wiki_import_jobs",
-    "list_wiki_import_presets",
-    "get_knowledge_retrieval_preflight",
-    "list_knowledge_indices",
-    "batch_update_knowledge_index_security_metadata",
-    "get_knowledge_orchestration_contract",
-    "get_file_type_support",
-}
-_KNOWLEDGE_GLOBAL_ENDPOINTS = {
-    "wiki_disk_state",
-    "import_wiki_corpus",
-    "import_wiki_corpus_from_url",
-    "search_wiki",
-}
 
 
 def _knowledge_job(job_id: str):
@@ -640,18 +375,7 @@ def reconcile_knowledge_index_completion(job_id: str):
             data={"reason_code": "if_match_required"},
             code=428,
         )
-    if raw_if_match.startswith("W/"):
-        raise BadRequestError("if_match_invalid")
-    normalized = raw_if_match[1:-1] if (
-        len(raw_if_match) >= 2
-        and raw_if_match[0] == raw_if_match[-1] == '"'
-    ) else raw_if_match
-    try:
-        expected_projection_lock_version = int(normalized)
-    except (TypeError, ValueError) as exc:
-        raise BadRequestError("if_match_invalid") from exc
-    if expected_projection_lock_version < 1:
-        raise BadRequestError("if_match_invalid")
+    expected_projection_lock_version = strict_if_match_version(raw_if_match)
 
     try:
         result = job_service.reconcile_completion_projection(
@@ -761,18 +485,7 @@ def reconcile_expired_knowledge_index_dispatch(job_id: str):
             data={"reason_code": "if_match_required"},
             code=428,
         )
-    if raw_if_match.startswith("W/"):
-        raise BadRequestError("if_match_invalid")
-    normalized_if_match = raw_if_match[1:-1] if (
-        len(raw_if_match) >= 2
-        and raw_if_match[0] == raw_if_match[-1] == '"'
-    ) else raw_if_match
-    try:
-        expected_lock_version = int(normalized_if_match)
-    except (TypeError, ValueError) as exc:
-        raise BadRequestError("if_match_invalid") from exc
-    if expected_lock_version < 1:
-        raise BadRequestError("if_match_invalid")
+    expected_lock_version = strict_if_match_version(raw_if_match)
 
     try:
         result = (
@@ -891,95 +604,7 @@ def retry_interrupted_wiki_import_job(job_id: str):
 @check_auth
 def wiki_disk_state():
     """Returns the real on-disk state of wiki import files — independent of any job."""
-    wiki_dir = Path(settings.data_dir) / "wiki_corpora"
-    checkpoint_dir = Path(settings.data_dir) / "wiki_checkpoints"
-
-    def _file_info(p: Path) -> dict | None:
-        if not p.exists():
-            return None
-        stat = p.stat()
-        return {"path": p.name, "size_bytes": stat.st_size, "mtime": stat.st_mtime}
-
-    files = []
-    if wiki_dir.exists():
-        for f in sorted(wiki_dir.iterdir()):
-            info = _file_info(f)
-            if info is None:
-                continue
-            name = f.name
-            if name.endswith(".partial.chunks_cache.json"):
-                kind = "chunks_cache"
-            elif name.endswith(".partial.links.jsonl"):
-                kind = "partial_links_jsonl"
-            elif name.endswith(".links.jsonl"):
-                kind = "links_jsonl"
-            elif name.endswith(".partial.jsonl"):
-                kind = "partial_jsonl"
-            elif name.endswith(".compact.jsonl"):
-                kind = "compact_jsonl"
-            elif name.endswith(".normalized.jsonl"):
-                kind = "normalized_jsonl"
-            elif name.endswith(".xml.bz2") or name.endswith(".xml.gz"):
-                kind = "corpus_compressed"
-            elif name.endswith(".xml"):
-                kind = "corpus_xml"
-            elif name.endswith(".txt.bz2"):
-                kind = "index_compressed"
-            elif name.endswith(".txt"):
-                kind = "index_txt"
-            else:
-                kind = "other"
-            files.append({**info, "kind": kind})
-
-    # CodeCompass output files from knowledge_indices/wiki/
-    cc_outputs: list[dict] = []
-    ki_wiki_dir = Path(settings.data_dir) / "knowledge_indices" / "wiki"
-    if ki_wiki_dir.exists():
-        import json as _json_cc
-        for index_dir in sorted(ki_wiki_dir.iterdir()):
-            if not index_dir.is_dir():
-                continue
-            for run_dir in sorted(index_dir.iterdir(), reverse=True):
-                if not run_dir.is_dir():
-                    continue
-                run_files = {}
-                manifest = {}
-                for rf in sorted(run_dir.iterdir()):
-                    if rf.name == "manifest.json":
-                        try:
-                            manifest = _json_cc.loads(rf.read_text(encoding="utf-8"))
-                        except Exception:
-                            pass
-                        continue
-                    info = _file_info(rf)
-                    if info:
-                        run_files[rf.name] = info
-                if run_files:
-                    cc_outputs.append({
-                        "index_id": index_dir.name,
-                        "run_id": run_dir.name,
-                        "files": run_files,
-                        "manifest": {
-                            "index_record_count": manifest.get("index_record_count"),
-                            "node_count": manifest.get("node_count"),
-                            "relation_record_count": manifest.get("relation_record_count"),
-                            "link_edge_count": manifest.get("link_edge_count"),
-                            "profile_name": manifest.get("profile_name"),
-                            "generated_at": manifest.get("generated_at"),
-                        } if manifest else None,
-                    })
-
-    checkpoints = []
-    if checkpoint_dir.exists():
-        import json as _json
-        for f in sorted(checkpoint_dir.glob("*.json")):
-            try:
-                data = _json.loads(f.read_text(encoding="utf-8"))
-                checkpoints.append({"file": f.name, **data})
-            except Exception:
-                pass
-
-    return api_response(data={"files": files, "checkpoints": checkpoints, "codecompass_outputs": cc_outputs})
+    return api_response(data=collect_wiki_disk_state(Path(settings.data_dir)))
 
 
 @knowledge_bp.route("/knowledge/wiki/presets", methods=["GET"])
