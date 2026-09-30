@@ -12,6 +12,7 @@ from rag_helper.extractors.sql_ddl_lexer import SqlDdlLexer
 from rag_helper.extractors.structured_support import (
     StructuredRecordFactory,
     line_number,
+    normalize_extraction_records,  # noqa: F401 - historic export of this module
     stats_for,
 )
 

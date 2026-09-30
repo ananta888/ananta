@@ -9,6 +9,34 @@ from rag_helper.extractors.typescript_module_outline_parser import TypeScriptMod
 from rag_helper.utils.embedding_text import build_embedding_text, compact_list
 from rag_helper.utils.ids import safe_id
 
+# Compatibility re-exports: pattern tables that were importable from this
+# module before the language outline parsers were extracted.
+from rag_helper.extractors.code_outline_fallback import (  # noqa: E402,F401,I001
+    PYTHON_SYMBOL_PATTERNS,
+    TYPESCRIPT_SYMBOL_PATTERNS,
+)
+from rag_helper.extractors.typescript_framework_annotator import (  # noqa: E402,F401
+    ANGULAR_IMPORTS_PATTERN,
+    ANGULAR_LIFECYCLE_METHODS,
+    ANGULAR_SELECTOR_PATTERN,
+    ANGULAR_STANDALONE_PATTERN,
+    ANGULAR_TEMPLATE_URL_PATTERN,
+    JSX_TAG_PATTERN,
+    REACT_CLASS_LIFECYCLE_METHODS,
+    REACT_COMPONENT_NAME_PATTERN,
+    REACT_HOOK_CALL_PATTERN,
+    REACT_HOOK_NAME_PATTERN,
+)
+from rag_helper.extractors.typescript_module_outline_parser import (  # noqa: E402,F401
+    TYPESCRIPT_IMPORT_PATTERN,
+    TYPESCRIPT_METHOD_PATTERN,
+    TYPESCRIPT_TOP_LEVEL_PATTERNS,
+)
+from rag_helper.extractors.typescript_test_case_collector import (  # noqa: E402,F401
+    TYPESCRIPT_FIXTURE_ARGUMENT_PATTERN,
+    TYPESCRIPT_TEST_CASE_PATTERN,
+)
+
 
 class TextFileExtractor:
     SUPPORTED_EXTENSIONS = {"properties", "yaml", "yml", "sql", "md", "py", "ts", "tsx", "gradle", "kts"}
