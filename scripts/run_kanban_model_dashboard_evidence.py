@@ -15,7 +15,6 @@ import os
 import platform
 import re
 import shutil
-import subprocess
 import sys
 import tempfile
 import time
@@ -24,27 +23,71 @@ from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any, Callable, Mapping, Sequence
 
-from scripts.kanban_evidence_contracts import (
-    CandidateSourcePort as CandidateSourcePort,
-)
-from scripts.kanban_evidence_contracts import (
-    CommandExecutorPort as CommandExecutorPort,
-)
-from scripts.kanban_evidence_contracts import (
-    CommandSpec as CommandSpec,
-)
-from scripts.kanban_evidence_contracts import (
-    EvidenceBlocked as EvidenceBlocked,
-)
-from scripts.kanban_evidence_contracts import (
-    EvidenceProducerError as EvidenceProducerError,
-)
-from scripts.kanban_evidence_contracts import (
-    ExecutionResult as ExecutionResult,
-)
-from scripts.kanban_evidence_contracts import (
-    SuiteSpec as SuiteSpec,
-)
+if __package__:
+    from scripts.kanban_evidence_adapters import (
+        SHA_PATTERN,
+        GitCandidateSource,
+        SubprocessCommandExecutor,
+    )
+    from scripts.kanban_evidence_contracts import (
+        CandidateSourcePort,
+        CommandExecutorPort,
+        CommandSpec,
+        EvidenceBlocked,
+        EvidenceProducerError,
+        ExecutionResult,
+        SuiteSpec,
+    )
+    from scripts.kanban_evidence_suite_specs import (
+        COMMON_INPUTS,
+        REQUIRED_SUITES,
+        SUITE_SPECS,
+    )
+else:
+    from kanban_evidence_adapters import (  # type: ignore
+        SHA_PATTERN,
+        GitCandidateSource,
+        SubprocessCommandExecutor,
+    )
+    from kanban_evidence_contracts import (  # type: ignore
+        CandidateSourcePort,
+        CommandExecutorPort,
+        CommandSpec,
+        EvidenceBlocked,
+        EvidenceProducerError,
+        ExecutionResult,
+        SuiteSpec,
+    )
+    from kanban_evidence_suite_specs import (  # type: ignore
+        COMMON_INPUTS,
+        REQUIRED_SUITES,
+        SUITE_SPECS,
+    )
+
+__all__ = [
+    "ARTIFACT_BOUNDARY",
+    "COMMON_INPUTS",
+    "EVIDENCE_RELATIVE_DIR",
+    "EVIDENCE_SCHEMA",
+    "PRODUCER_NAME",
+    "REQUIRED_SUITES",
+    "SHA_PATTERN",
+    "SUITE_SPECS",
+    "CandidateSourcePort",
+    "CommandExecutorPort",
+    "CommandSpec",
+    "EvidenceBlocked",
+    "EvidenceProducer",
+    "EvidenceProducerError",
+    "ExecutionResult",
+    "GitCandidateSource",
+    "SubprocessCommandExecutor",
+    "SuiteSpec",
+    "main",
+    "recorded_commands_match_allowlist",
+    "run_producer",
+    "suite_allowlist_sha256",
+]
 
 ROOT = Path(__file__).resolve().parents[1]
 EVIDENCE_SCHEMA = "ananta.kanban-model-dashboard.evidence.v1"
@@ -53,15 +96,6 @@ PRODUCER_VERSION = "1"
 ARTIFACT_BOUNDARY = "post_candidate_ci_release_artifact"
 EVIDENCE_RELATIVE_DIR = PurePosixPath(
     "artifacts/e2e/kanban-model-dashboard"
-)
-REQUIRED_SUITES = (
-    "contract",
-    "backend",
-    "angular",
-    "tui",
-    "security",
-    "accessibility",
-    "performance",
 )
 MAX_INPUT_COUNT = 160
 MAX_INPUT_BYTES = 12_000_000
@@ -72,536 +106,8 @@ MAX_EVIDENCE_BYTES = 2_000_000
 MAX_PATH_LENGTH = 512
 MAX_COMMAND_TOKENS = 128
 MAX_TOKEN_LENGTH = 1_024
-SHA_PATTERN = re.compile(r"^[0-9a-f]{40}(?:[0-9a-f]{24})?$")
 HEX_64_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 ANSI_PATTERN = re.compile(rb"\x1b\[[0-?]*[ -/]*[@-~]")
-
-
-COMMON_INPUTS = (
-    "scripts/run_kanban_model_dashboard_evidence.py",
-    "scripts/run_kanban_model_dashboard_release_gate.py",
-    "config/test-profiles/kanban-model-dashboard/release-gate.v1.json",
-    "pyproject.toml",
-    "requirements.txt",
-)
-
-
-def _suite(
-    suite: str,
-    *,
-    commands: tuple[CommandSpec, ...],
-    inputs: tuple[str, ...],
-) -> SuiteSpec:
-    return SuiteSpec(
-        suite=suite,
-        commands=commands,
-        inputs=tuple(dict.fromkeys((*COMMON_INPUTS, *inputs))),
-    )
-
-
-SUITE_SPECS: Mapping[str, SuiteSpec] = {
-    "contract": _suite(
-        "contract",
-        commands=(
-            CommandSpec(
-                argv=(
-                    "{python}",
-                    "-m",
-                    "pytest",
-                    "-q",
-                    "tests/test_kanban_contracts.py",
-                    "tests/test_model_catalog_contract.py",
-                    "tests/test_kanban_model_dashboard_shared_contract.py",
-                    "tests/client_surfaces/operator_tui/"
-                    "test_dashboard_shared_contract_fixture.py",
-                ),
-                minimum_passed=4,
-            ),
-        ),
-        inputs=(
-            "ananta_contracts/kanban.py",
-            "ananta_contracts/kanban_events.py",
-            "ananta_contracts/model_catalog.py",
-            "tests/test_kanban_contracts.py",
-            "tests/test_model_catalog_contract.py",
-            "tests/test_kanban_model_dashboard_shared_contract.py",
-            "tests/client_surfaces/operator_tui/"
-            "test_dashboard_shared_contract_fixture.py",
-        ),
-    ),
-    "backend": _suite(
-        "backend",
-        commands=(
-            CommandSpec(
-                argv=(
-                    "{python}",
-                    "-m",
-                    "pytest",
-                    "-q",
-                    "tests/test_kanban_projection_service.py",
-                    "tests/test_kanban_api.py",
-                    "tests/test_kanban_durable_outbox.py",
-                    "tests/test_kanban_outbox_migration.py",
-                    "tests/test_kanban_event_stream_service.py",
-                    "tests/test_kanban_event_api.py",
-                    "tests/test_model_catalog_service.py",
-                    "tests/test_model_catalog_api.py",
-                ),
-                timeout_seconds=900,
-                minimum_passed=12,
-            ),
-        ),
-        inputs=(
-            "agent/db_models/kanban_projection.py",
-            "agent/repositories/kanban_projection.py",
-            "agent/services/kanban_projection_service.py",
-            "agent/services/kanban_event_stream_service.py",
-            "agent/services/model_catalog_service.py",
-            "agent/routes/tasks/kanban.py",
-            "agent/routes/config/providers.py",
-            "migrations/versions/b8d0f2a4c6e8_add_kanban_event_outbox.py",
-            "tests/test_kanban_projection_service.py",
-            "tests/test_kanban_api.py",
-            "tests/test_kanban_durable_outbox.py",
-            "tests/test_kanban_outbox_migration.py",
-            "tests/test_kanban_event_stream_service.py",
-            "tests/test_kanban_event_api.py",
-            "tests/test_model_catalog_service.py",
-            "tests/test_model_catalog_api.py",
-        ),
-    ),
-    "angular": _suite(
-        "angular",
-        commands=(
-            CommandSpec(
-                argv=(
-                    "{npx}",
-                    "vitest",
-                    "run",
-                    "src/app/contracts/"
-                    "kanban-model-dashboard.fixture.spec.ts",
-                    "src/app/features/tasks/kanban/kanban.store.spec.ts",
-                    "src/app/features/system/model-dashboard/"
-                    "model-catalog.client.spec.ts",
-                ),
-                cwd="frontend-angular",
-                timeout_seconds=600,
-                validator="vitest",
-                minimum_passed=3,
-            ),
-        ),
-        inputs=(
-            "frontend-angular/package.json",
-            "frontend-angular/package-lock.json",
-            "frontend-angular/src/app/contracts/"
-            "kanban-model-dashboard.fixture.spec.ts",
-            "frontend-angular/src/app/features/tasks/kanban/"
-            "kanban-api.client.ts",
-            "frontend-angular/src/app/features/tasks/kanban/kanban.store.ts",
-            "frontend-angular/src/app/features/tasks/kanban/"
-            "kanban.store.spec.ts",
-            "frontend-angular/src/app/features/system/model-dashboard/"
-            "model-catalog.client.ts",
-            "frontend-angular/src/app/features/system/model-dashboard/"
-            "model-catalog.client.spec.ts",
-            "frontend-angular/src/app/features/system/model-dashboard/"
-            "model-dashboard.component.ts",
-            "frontend-angular/src/app/features/system/model-dashboard/"
-            "model-dashboard.store.ts",
-        ),
-    ),
-    "tui": _suite(
-        "tui",
-        commands=(
-            CommandSpec(
-                argv=(
-                    "{python}",
-                    "-m",
-                    "pytest",
-                    "-q",
-                    "tests/client_surfaces/operator_tui/"
-                    "test_dashboard_atomic_snapshot.py",
-                    "tests/client_surfaces/operator_tui/test_dashboard_auth.py",
-                    "tests/client_surfaces/operator_tui/"
-                    "test_dashboard_autoload.py",
-                    "tests/client_surfaces/operator_tui/"
-                    "test_dashboard_event_transport.py",
-                    "tests/client_surfaces/operator_tui/"
-                    "test_dashboard_http_adapter.py",
-                    "tests/client_surfaces/operator_tui/"
-                    "test_dashboard_live_lifecycle.py",
-                    "tests/client_surfaces/operator_tui/"
-                    "test_dashboard_live_sync.py",
-                    "tests/client_surfaces/operator_tui/"
-                    "test_dashboard_surfaces.py",
-                    "tests/client_surfaces/operator_tui/"
-                    "test_external_window_view_models.py",
-                    "tests/client_surfaces/operator_tui/"
-                    "test_kanban_windowing.py",
-                    "tests/e2e/test_tui_kanban_pty_resize.py",
-                ),
-                env=(("RUN_INTEGRATION_TESTS", "1"),),
-                timeout_seconds=900,
-                minimum_passed=10,
-            ),
-        ),
-        inputs=(
-            "client_surfaces/operator_tui/dashboard_surfaces.py",
-            "client_surfaces/operator_tui/dashboard_http_adapter.py",
-            "client_surfaces/operator_tui/dashboard_autoload.py",
-            "client_surfaces/operator_tui/interactive.py",
-            "client_surfaces/operator_tui/renderer.py",
-            "scripts/e2e/tui_kanban_pty_resize.py",
-            "tests/client_surfaces/operator_tui/"
-            "test_dashboard_atomic_snapshot.py",
-            "tests/client_surfaces/operator_tui/test_dashboard_auth.py",
-            "tests/client_surfaces/operator_tui/test_dashboard_autoload.py",
-            "tests/client_surfaces/operator_tui/"
-            "test_dashboard_event_transport.py",
-            "tests/client_surfaces/operator_tui/"
-            "test_dashboard_http_adapter.py",
-            "tests/client_surfaces/operator_tui/"
-            "test_dashboard_live_lifecycle.py",
-            "tests/client_surfaces/operator_tui/"
-            "test_dashboard_live_sync.py",
-            "tests/client_surfaces/operator_tui/"
-            "test_dashboard_surfaces.py",
-            "tests/client_surfaces/operator_tui/"
-            "test_external_window_view_models.py",
-            "tests/client_surfaces/operator_tui/test_kanban_windowing.py",
-            "tests/e2e/test_tui_kanban_pty_resize.py",
-        ),
-    ),
-    "security": _suite(
-        "security",
-        commands=(
-            CommandSpec(
-                argv=(
-                    "{python}",
-                    "-m",
-                    "pytest",
-                    "-q",
-                    "tests/security/test_kanban_model_surface_security.py",
-                    "tests/test_surface_rate_limits.py",
-                ),
-                timeout_seconds=600,
-                minimum_passed=10,
-            ),
-        ),
-        inputs=(
-            "agent/services/kanban_authorization_service.py",
-            "agent/services/surface_rate_limit_policy.py",
-            "agent/routes/tasks/kanban.py",
-            "agent/routes/config/providers.py",
-            "tests/security/test_kanban_model_surface_security.py",
-            "tests/test_surface_rate_limits.py",
-        ),
-    ),
-    "accessibility": _suite(
-        "accessibility",
-        commands=(
-            CommandSpec(
-                argv=(
-                    "{npx}",
-                    "playwright",
-                    "test",
-                    "tests/kanban-model-dashboard.spec.ts",
-                    "--retries=0",
-                    "--workers=1",
-                    "--reporter=json",
-                ),
-                cwd="frontend-angular",
-                env=(
-                    ("E2E_BROWSERS", "chromium,firefox"),
-                    ("E2E_PORT", "4217"),
-                    (
-                        "E2E_RESULTS_DIR",
-                        "/tmp/ananta-kanban-model-dashboard-accessibility-v1",
-                    ),
-                ),
-                timeout_seconds=1_200,
-                validator="playwright",
-                minimum_passed=4,
-            ),
-        ),
-        inputs=(
-            "frontend-angular/package.json",
-            "frontend-angular/package-lock.json",
-            "frontend-angular/playwright.config.ts",
-            "frontend-angular/tests/kanban-model-dashboard.spec.ts",
-            "frontend-angular/src/app/features/tasks/kanban/"
-            "kanban.store.ts",
-            "frontend-angular/src/app/features/system/model-dashboard/"
-            "model-dashboard.component.ts",
-        ),
-    ),
-    "performance": _suite(
-        "performance",
-        commands=(
-            CommandSpec(
-                argv=(
-                    "{python}",
-                    "scripts/performance/"
-                    "run_kanban_projection_local_diagnostic.py",
-                    "--profile",
-                    "config/test-profiles/kanban-model-dashboard/"
-                    "local-performance.v1.json",
-                    "--output",
-                    "artifacts/kanban-local-performance-diagnostic.json",
-                ),
-                timeout_seconds=900,
-                validator="performance_backend",
-                result_path=(
-                    "artifacts/kanban-local-performance-diagnostic.json"
-                ),
-            ),
-            CommandSpec(
-                argv=(
-                    "{python}",
-                    "scripts/performance/"
-                    "run_angular_kanban_local_diagnostic.py",
-                    "--output",
-                    "artifacts/angular-kanban-local-performance-diagnostic.json",
-                ),
-                timeout_seconds=1_200,
-                validator="performance_angular",
-                result_path=(
-                    "artifacts/angular-kanban-local-performance-diagnostic.json"
-                ),
-            ),
-            CommandSpec(
-                argv=(
-                    "{python}",
-                    "scripts/performance/"
-                    "run_tui_kanban_local_diagnostic.py",
-                    "--profile",
-                    "config/test-profiles/kanban-model-dashboard/"
-                    "local-tui-performance.v1.json",
-                    "--output",
-                    "artifacts/tui-kanban-local-performance-diagnostic.json",
-                ),
-                timeout_seconds=900,
-                validator="performance_tui",
-                result_path=(
-                    "artifacts/tui-kanban-local-performance-diagnostic.json"
-                ),
-            ),
-            CommandSpec(
-                argv=(
-                    "{python}",
-                    "scripts/e2e/tui_kanban_pty_resize.py",
-                    "--cards",
-                    "1000",
-                    "--timeout-seconds",
-                    "15",
-                    "--output",
-                    "artifacts/tui-kanban-pty-resize-local-diagnostic.json",
-                ),
-                timeout_seconds=300,
-                validator="performance_pty",
-                result_path=(
-                    "artifacts/tui-kanban-pty-resize-local-diagnostic.json"
-                ),
-            ),
-            CommandSpec(
-                argv=(
-                    "{python}",
-                    "scripts/performance/"
-                    "run_kanban_model_dashboard_performance_suite.py",
-                    "evaluate",
-                    "--profile",
-                    "config/test-profiles/kanban-model-dashboard/"
-                    "formal-performance.v1.json",
-                    "--baseline",
-                    "config/test-profiles/kanban-model-dashboard/baselines/"
-                    "formal-performance-approved.v1.json",
-                    "--backend-result",
-                    "artifacts/kanban-local-performance-diagnostic.json",
-                    "--angular-result",
-                    "artifacts/angular-kanban-local-performance-diagnostic.json",
-                    "--tui-result",
-                    "artifacts/tui-kanban-local-performance-diagnostic.json",
-                    "--pty-result",
-                    "artifacts/tui-kanban-pty-resize-local-diagnostic.json",
-                    "--output",
-                    "artifacts/test-gates/"
-                    "kanban-model-dashboard-performance-gate.v1.json",
-                ),
-                timeout_seconds=300,
-                validator="performance_gate",
-                result_path=(
-                    "artifacts/test-gates/"
-                    "kanban-model-dashboard-performance-gate.v1.json"
-                ),
-            ),
-        ),
-        inputs=(
-            "scripts/performance/run_kanban_projection_local_diagnostic.py",
-            "scripts/performance/run_angular_kanban_local_diagnostic.py",
-            "scripts/performance/run_tui_kanban_local_diagnostic.py",
-            "scripts/performance/"
-            "run_kanban_model_dashboard_performance_suite.py",
-            "scripts/performance/kanban_baseline_approval_policy.py",
-            "scripts/e2e/tui_kanban_pty_resize.py",
-            "frontend-angular/tests/kanban-performance.local.spec.ts",
-            "config/test-profiles/kanban-model-dashboard/"
-            "local-performance.v1.json",
-            "config/test-profiles/kanban-model-dashboard/"
-            "local-tui-performance.v1.json",
-            "config/test-profiles/kanban-model-dashboard/"
-            "formal-performance.v1.json",
-            "config/test-profiles/kanban-model-dashboard/"
-            "baseline-approval-policy.v1.json",
-            "config/test-profiles/kanban-model-dashboard/baselines/"
-            "formal-performance-approved.v1.json",
-        ),
-    ),
-}
-
-
-class SubprocessCommandExecutor:
-    """Execute fixed argv without a shell and without inherited test options."""
-
-    _PASSTHROUGH = (
-        "PATH",
-        "HOME",
-        "LANG",
-        "LC_ALL",
-        "TMPDIR",
-        "TMP",
-        "TEMP",
-        "DISPLAY",
-        "WAYLAND_DISPLAY",
-        "XDG_RUNTIME_DIR",
-        "DBUS_SESSION_BUS_ADDRESS",
-        "SSL_CERT_FILE",
-        "SSL_CERT_DIR",
-        "HTTP_PROXY",
-        "HTTPS_PROXY",
-        "NO_PROXY",
-    )
-
-    def run(
-        self,
-        argv: Sequence[str],
-        *,
-        cwd: Path,
-        env_overrides: Mapping[str, str],
-        timeout_seconds: int,
-    ) -> ExecutionResult:
-        environment = {
-            name: os.environ[name]
-            for name in self._PASSTHROUGH
-            if name in os.environ
-        }
-        environment.update(
-            {
-                "CI": "true",
-                "NO_COLOR": "1",
-                "PYTHONHASHSEED": "0",
-                **env_overrides,
-            }
-        )
-        try:
-            completed = subprocess.run(
-                list(argv),
-                cwd=str(cwd),
-                env=environment,
-                capture_output=True,
-                check=False,
-                shell=False,
-                timeout=timeout_seconds,
-            )
-        except FileNotFoundError:
-            return ExecutionResult(
-                exit_code=None,
-                failure_code="command_executable_missing",
-            )
-        except subprocess.TimeoutExpired as exc:
-            return ExecutionResult(
-                exit_code=None,
-                stdout=bytes(exc.stdout or b""),
-                stderr=bytes(exc.stderr or b""),
-                failure_code="command_timeout",
-            )
-        return ExecutionResult(
-            exit_code=completed.returncode,
-            stdout=completed.stdout,
-            stderr=completed.stderr,
-        )
-
-
-class GitCandidateSource:
-    """Read candidate blobs with argv-only Git plumbing commands."""
-
-    def __init__(self, root: Path):
-        self._root = root
-        executable = shutil.which("git")
-        if executable is None:
-            raise EvidenceBlocked("candidate_git_unavailable")
-        self._git = executable
-
-    def _run(
-        self,
-        *arguments: str,
-        allow_failure: bool = False,
-    ) -> subprocess.CompletedProcess[bytes]:
-        completed = subprocess.run(
-            [self._git, "-C", str(self._root), *arguments],
-            capture_output=True,
-            check=False,
-            shell=False,
-        )
-        if completed.returncode != 0 and not allow_failure:
-            raise EvidenceBlocked("candidate_git_read_failed")
-        return completed
-
-    def current_commit(self) -> str:
-        value = self._run("rev-parse", "--verify", "HEAD").stdout.decode(
-            "ascii",
-            errors="strict",
-        ).strip()
-        if not SHA_PATTERN.fullmatch(value):
-            raise EvidenceBlocked("candidate_checkout_sha_invalid")
-        return value
-
-    def path_exists(self, commit_sha: str, relative_path: str) -> bool:
-        return (
-            self._run(
-                "cat-file",
-                "-e",
-                f"{commit_sha}:{relative_path}",
-                allow_failure=True,
-            ).returncode
-            == 0
-        )
-
-    def read_path(
-        self,
-        commit_sha: str,
-        relative_path: str,
-        *,
-        max_bytes: int,
-    ) -> bytes | None:
-        object_name = f"{commit_sha}:{relative_path}"
-        size_result = self._run(
-            "cat-file",
-            "-s",
-            object_name,
-            allow_failure=True,
-        )
-        if size_result.returncode != 0:
-            return None
-        try:
-            size = int(size_result.stdout.decode("ascii").strip())
-        except (UnicodeDecodeError, ValueError) as exc:
-            raise EvidenceBlocked("candidate_blob_size_invalid") from exc
-        if size < 0 or size > max_bytes:
-            raise EvidenceBlocked("candidate_blob_oversized")
-        content = self._run("show", object_name).stdout
-        if len(content) != size:
-            raise EvidenceBlocked("candidate_blob_size_mismatch")
-        return content
 
 
 def _safe_relative_path(value: str) -> PurePosixPath:

@@ -1,0 +1,416 @@
+"""Code-owned command and input allowlist of the Kanban release evidence.
+
+Each required suite binds its fixed argv commands and the exact candidate
+files whose digests the evidence producer records. This allowlist is data,
+not user input; changing it changes the suite allowlist digest.
+"""
+
+from __future__ import annotations
+
+from typing import Mapping
+
+if __package__:
+    from scripts.kanban_evidence_contracts import CommandSpec, SuiteSpec
+else:
+    from kanban_evidence_contracts import CommandSpec, SuiteSpec  # type: ignore
+
+REQUIRED_SUITES = (
+    "contract",
+    "backend",
+    "angular",
+    "tui",
+    "security",
+    "accessibility",
+    "performance",
+)
+
+
+COMMON_INPUTS = (
+    "scripts/run_kanban_model_dashboard_evidence.py",
+    "scripts/kanban_evidence_contracts.py",
+    "scripts/kanban_evidence_suite_specs.py",
+    "scripts/kanban_evidence_adapters.py",
+    "scripts/run_kanban_model_dashboard_release_gate.py",
+    "config/test-profiles/kanban-model-dashboard/release-gate.v1.json",
+    "pyproject.toml",
+    "requirements.txt",
+)
+
+
+def _suite(
+    suite: str,
+    *,
+    commands: tuple[CommandSpec, ...],
+    inputs: tuple[str, ...],
+) -> SuiteSpec:
+    return SuiteSpec(
+        suite=suite,
+        commands=commands,
+        inputs=tuple(dict.fromkeys((*COMMON_INPUTS, *inputs))),
+    )
+
+
+SUITE_SPECS: Mapping[str, SuiteSpec] = {
+    "contract": _suite(
+        "contract",
+        commands=(
+            CommandSpec(
+                argv=(
+                    "{python}",
+                    "-m",
+                    "pytest",
+                    "-q",
+                    "tests/test_kanban_contracts.py",
+                    "tests/test_model_catalog_contract.py",
+                    "tests/test_kanban_model_dashboard_shared_contract.py",
+                    "tests/client_surfaces/operator_tui/"
+                    "test_dashboard_shared_contract_fixture.py",
+                ),
+                minimum_passed=4,
+            ),
+        ),
+        inputs=(
+            "ananta_contracts/kanban.py",
+            "ananta_contracts/kanban_events.py",
+            "ananta_contracts/model_catalog.py",
+            "tests/test_kanban_contracts.py",
+            "tests/test_model_catalog_contract.py",
+            "tests/test_kanban_model_dashboard_shared_contract.py",
+            "tests/client_surfaces/operator_tui/"
+            "test_dashboard_shared_contract_fixture.py",
+        ),
+    ),
+    "backend": _suite(
+        "backend",
+        commands=(
+            CommandSpec(
+                argv=(
+                    "{python}",
+                    "-m",
+                    "pytest",
+                    "-q",
+                    "tests/test_kanban_projection_service.py",
+                    "tests/test_kanban_api.py",
+                    "tests/test_kanban_durable_outbox.py",
+                    "tests/test_kanban_outbox_migration.py",
+                    "tests/test_kanban_event_stream_service.py",
+                    "tests/test_kanban_event_api.py",
+                    "tests/test_model_catalog_service.py",
+                    "tests/test_model_catalog_api.py",
+                ),
+                timeout_seconds=900,
+                minimum_passed=12,
+            ),
+        ),
+        inputs=(
+            "agent/db_models/kanban_projection.py",
+            "agent/repositories/kanban_projection.py",
+            "agent/services/kanban_projection_service.py",
+            "agent/services/kanban_board_projection.py",
+            "agent/services/kanban_mutation_rules.py",
+            "agent/services/kanban_event_stream_service.py",
+            "agent/services/model_catalog_service.py",
+            "agent/routes/tasks/kanban.py",
+            "agent/routes/config/providers.py",
+            "migrations/versions/b8d0f2a4c6e8_add_kanban_event_outbox.py",
+            "tests/test_kanban_projection_service.py",
+            "tests/test_kanban_api.py",
+            "tests/test_kanban_durable_outbox.py",
+            "tests/test_kanban_outbox_migration.py",
+            "tests/test_kanban_event_stream_service.py",
+            "tests/test_kanban_event_api.py",
+            "tests/test_model_catalog_service.py",
+            "tests/test_model_catalog_api.py",
+        ),
+    ),
+    "angular": _suite(
+        "angular",
+        commands=(
+            CommandSpec(
+                argv=(
+                    "{npx}",
+                    "vitest",
+                    "run",
+                    "src/app/contracts/"
+                    "kanban-model-dashboard.fixture.spec.ts",
+                    "src/app/features/tasks/kanban/kanban.store.spec.ts",
+                    "src/app/features/system/model-dashboard/"
+                    "model-catalog.client.spec.ts",
+                ),
+                cwd="frontend-angular",
+                timeout_seconds=600,
+                validator="vitest",
+                minimum_passed=3,
+            ),
+        ),
+        inputs=(
+            "frontend-angular/package.json",
+            "frontend-angular/package-lock.json",
+            "frontend-angular/src/app/contracts/"
+            "kanban-model-dashboard.fixture.spec.ts",
+            "frontend-angular/src/app/features/tasks/kanban/"
+            "kanban-api.client.ts",
+            "frontend-angular/src/app/features/tasks/kanban/kanban.store.ts",
+            "frontend-angular/src/app/features/tasks/kanban/"
+            "kanban.store.spec.ts",
+            "frontend-angular/src/app/features/system/model-dashboard/"
+            "model-catalog.client.ts",
+            "frontend-angular/src/app/features/system/model-dashboard/"
+            "model-catalog.client.spec.ts",
+            "frontend-angular/src/app/features/system/model-dashboard/"
+            "model-dashboard.component.ts",
+            "frontend-angular/src/app/features/system/model-dashboard/"
+            "model-dashboard.store.ts",
+        ),
+    ),
+    "tui": _suite(
+        "tui",
+        commands=(
+            CommandSpec(
+                argv=(
+                    "{python}",
+                    "-m",
+                    "pytest",
+                    "-q",
+                    "tests/client_surfaces/operator_tui/"
+                    "test_dashboard_atomic_snapshot.py",
+                    "tests/client_surfaces/operator_tui/test_dashboard_auth.py",
+                    "tests/client_surfaces/operator_tui/"
+                    "test_dashboard_autoload.py",
+                    "tests/client_surfaces/operator_tui/"
+                    "test_dashboard_event_transport.py",
+                    "tests/client_surfaces/operator_tui/"
+                    "test_dashboard_http_adapter.py",
+                    "tests/client_surfaces/operator_tui/"
+                    "test_dashboard_live_lifecycle.py",
+                    "tests/client_surfaces/operator_tui/"
+                    "test_dashboard_live_sync.py",
+                    "tests/client_surfaces/operator_tui/"
+                    "test_dashboard_surfaces.py",
+                    "tests/client_surfaces/operator_tui/"
+                    "test_external_window_view_models.py",
+                    "tests/client_surfaces/operator_tui/"
+                    "test_kanban_windowing.py",
+                    "tests/e2e/test_tui_kanban_pty_resize.py",
+                ),
+                env=(("RUN_INTEGRATION_TESTS", "1"),),
+                timeout_seconds=900,
+                minimum_passed=10,
+            ),
+        ),
+        inputs=(
+            "client_surfaces/operator_tui/dashboard_surfaces.py",
+            "client_surfaces/operator_tui/dashboard_http_adapter.py",
+            "client_surfaces/operator_tui/dashboard_autoload.py",
+            "client_surfaces/operator_tui/interactive.py",
+            "client_surfaces/operator_tui/renderer.py",
+            "scripts/e2e/tui_kanban_pty_resize.py",
+            "tests/client_surfaces/operator_tui/"
+            "test_dashboard_atomic_snapshot.py",
+            "tests/client_surfaces/operator_tui/test_dashboard_auth.py",
+            "tests/client_surfaces/operator_tui/test_dashboard_autoload.py",
+            "tests/client_surfaces/operator_tui/"
+            "test_dashboard_event_transport.py",
+            "tests/client_surfaces/operator_tui/"
+            "test_dashboard_http_adapter.py",
+            "tests/client_surfaces/operator_tui/"
+            "test_dashboard_live_lifecycle.py",
+            "tests/client_surfaces/operator_tui/"
+            "test_dashboard_live_sync.py",
+            "tests/client_surfaces/operator_tui/"
+            "test_dashboard_surfaces.py",
+            "tests/client_surfaces/operator_tui/"
+            "test_external_window_view_models.py",
+            "tests/client_surfaces/operator_tui/test_kanban_windowing.py",
+            "tests/e2e/test_tui_kanban_pty_resize.py",
+        ),
+    ),
+    "security": _suite(
+        "security",
+        commands=(
+            CommandSpec(
+                argv=(
+                    "{python}",
+                    "-m",
+                    "pytest",
+                    "-q",
+                    "tests/security/test_kanban_model_surface_security.py",
+                    "tests/test_surface_rate_limits.py",
+                ),
+                timeout_seconds=600,
+                minimum_passed=10,
+            ),
+        ),
+        inputs=(
+            "agent/services/kanban_authorization_service.py",
+            "agent/services/surface_rate_limit_policy.py",
+            "agent/routes/tasks/kanban.py",
+            "agent/routes/config/providers.py",
+            "tests/security/test_kanban_model_surface_security.py",
+            "tests/test_surface_rate_limits.py",
+        ),
+    ),
+    "accessibility": _suite(
+        "accessibility",
+        commands=(
+            CommandSpec(
+                argv=(
+                    "{npx}",
+                    "playwright",
+                    "test",
+                    "tests/kanban-model-dashboard.spec.ts",
+                    "--retries=0",
+                    "--workers=1",
+                    "--reporter=json",
+                ),
+                cwd="frontend-angular",
+                env=(
+                    ("E2E_BROWSERS", "chromium,firefox"),
+                    ("E2E_PORT", "4217"),
+                    (
+                        "E2E_RESULTS_DIR",
+                        "/tmp/ananta-kanban-model-dashboard-accessibility-v1",
+                    ),
+                ),
+                timeout_seconds=1_200,
+                validator="playwright",
+                minimum_passed=4,
+            ),
+        ),
+        inputs=(
+            "frontend-angular/package.json",
+            "frontend-angular/package-lock.json",
+            "frontend-angular/playwright.config.ts",
+            "frontend-angular/tests/kanban-model-dashboard.spec.ts",
+            "frontend-angular/src/app/features/tasks/kanban/"
+            "kanban.store.ts",
+            "frontend-angular/src/app/features/system/model-dashboard/"
+            "model-dashboard.component.ts",
+        ),
+    ),
+    "performance": _suite(
+        "performance",
+        commands=(
+            CommandSpec(
+                argv=(
+                    "{python}",
+                    "scripts/performance/"
+                    "run_kanban_projection_local_diagnostic.py",
+                    "--profile",
+                    "config/test-profiles/kanban-model-dashboard/"
+                    "local-performance.v1.json",
+                    "--output",
+                    "artifacts/kanban-local-performance-diagnostic.json",
+                ),
+                timeout_seconds=900,
+                validator="performance_backend",
+                result_path=(
+                    "artifacts/kanban-local-performance-diagnostic.json"
+                ),
+            ),
+            CommandSpec(
+                argv=(
+                    "{python}",
+                    "scripts/performance/"
+                    "run_angular_kanban_local_diagnostic.py",
+                    "--output",
+                    "artifacts/angular-kanban-local-performance-diagnostic.json",
+                ),
+                timeout_seconds=1_200,
+                validator="performance_angular",
+                result_path=(
+                    "artifacts/angular-kanban-local-performance-diagnostic.json"
+                ),
+            ),
+            CommandSpec(
+                argv=(
+                    "{python}",
+                    "scripts/performance/"
+                    "run_tui_kanban_local_diagnostic.py",
+                    "--profile",
+                    "config/test-profiles/kanban-model-dashboard/"
+                    "local-tui-performance.v1.json",
+                    "--output",
+                    "artifacts/tui-kanban-local-performance-diagnostic.json",
+                ),
+                timeout_seconds=900,
+                validator="performance_tui",
+                result_path=(
+                    "artifacts/tui-kanban-local-performance-diagnostic.json"
+                ),
+            ),
+            CommandSpec(
+                argv=(
+                    "{python}",
+                    "scripts/e2e/tui_kanban_pty_resize.py",
+                    "--cards",
+                    "1000",
+                    "--timeout-seconds",
+                    "15",
+                    "--output",
+                    "artifacts/tui-kanban-pty-resize-local-diagnostic.json",
+                ),
+                timeout_seconds=300,
+                validator="performance_pty",
+                result_path=(
+                    "artifacts/tui-kanban-pty-resize-local-diagnostic.json"
+                ),
+            ),
+            CommandSpec(
+                argv=(
+                    "{python}",
+                    "scripts/performance/"
+                    "run_kanban_model_dashboard_performance_suite.py",
+                    "evaluate",
+                    "--profile",
+                    "config/test-profiles/kanban-model-dashboard/"
+                    "formal-performance.v1.json",
+                    "--baseline",
+                    "config/test-profiles/kanban-model-dashboard/baselines/"
+                    "formal-performance-approved.v1.json",
+                    "--backend-result",
+                    "artifacts/kanban-local-performance-diagnostic.json",
+                    "--angular-result",
+                    "artifacts/angular-kanban-local-performance-diagnostic.json",
+                    "--tui-result",
+                    "artifacts/tui-kanban-local-performance-diagnostic.json",
+                    "--pty-result",
+                    "artifacts/tui-kanban-pty-resize-local-diagnostic.json",
+                    "--output",
+                    "artifacts/test-gates/"
+                    "kanban-model-dashboard-performance-gate.v1.json",
+                ),
+                timeout_seconds=300,
+                validator="performance_gate",
+                result_path=(
+                    "artifacts/test-gates/"
+                    "kanban-model-dashboard-performance-gate.v1.json"
+                ),
+            ),
+        ),
+        inputs=(
+            "scripts/performance/run_kanban_projection_local_diagnostic.py",
+            "scripts/performance/run_angular_kanban_local_diagnostic.py",
+            "scripts/performance/run_tui_kanban_local_diagnostic.py",
+            "scripts/performance/"
+            "run_kanban_model_dashboard_performance_suite.py",
+            "scripts/performance/kanban_performance_io.py",
+            "scripts/performance/kanban_performance_validation.py",
+            "scripts/performance/kanban_performance_environment.py",
+            "scripts/performance/kanban_performance_measurements.py",
+            "scripts/performance/kanban_baseline_approval_policy.py",
+            "scripts/e2e/tui_kanban_pty_resize.py",
+            "frontend-angular/tests/kanban-performance.local.spec.ts",
+            "config/test-profiles/kanban-model-dashboard/"
+            "local-performance.v1.json",
+            "config/test-profiles/kanban-model-dashboard/"
+            "local-tui-performance.v1.json",
+            "config/test-profiles/kanban-model-dashboard/"
+            "formal-performance.v1.json",
+            "config/test-profiles/kanban-model-dashboard/"
+            "baseline-approval-policy.v1.json",
+            "config/test-profiles/kanban-model-dashboard/baselines/"
+            "formal-performance-approved.v1.json",
+        ),
+    ),
+}
