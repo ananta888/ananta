@@ -6,11 +6,12 @@ import json
 import re
 
 from rag_helper.extractors.base import FileSkipped
+from rag_helper.extractors.json_schema_contract_parser import JsonSchemaContractParser, is_json_schema
 from rag_helper.extractors.planning_todo_extractor import PlanningTodoExtractor
+from rag_helper.extractors.sql_ddl_lexer import SqlDdlLexer
 from rag_helper.extractors.structured_support import (
     StructuredRecordFactory,
     line_number,
-    normalize_extraction_records,
     stats_for,
 )
 
@@ -25,6 +26,8 @@ class JsonDocumentExtractor:
         max_nodes: int = 20_000,
         max_depth: int = 64,
         planning_todo_extractor: PlanningTodoExtractor | None = None,
+        *,
+        schema_parser: JsonSchemaContractParser | None = None,
     ) -> None:
         self.fallback_extractor = fallback_extractor
         self.embedding_text_mode = embedding_text_mode
@@ -36,6 +39,11 @@ class JsonDocumentExtractor:
                 embedding_text_mode=embedding_text_mode,
                 max_records=max_nodes,
             )
+        )
+        self.schema_parser = schema_parser or JsonSchemaContractParser(
+            embedding_text_mode=embedding_text_mode,
+            max_nodes=max_nodes,
+            max_depth=max_depth,
         )
 
     def parse(self, rel_path: str, text: str):
@@ -50,285 +58,33 @@ class JsonDocumentExtractor:
             )
         if self.planning_todo_extractor.supports(rel_path, parsed):
             return self.planning_todo_extractor.parse(rel_path, text, parsed)
-        if not self._is_json_schema(parsed):
+        if not is_json_schema(parsed):
             if self.fallback_extractor is not None:
                 return self.fallback_extractor.parse(rel_path, text)
             raise FileSkipped(
                 "unsupported_extension",
                 {"format_candidate": "json_schema", "diagnostic": "not_json_schema"},
             )
-        return self._parse_schema(rel_path, text, parsed)
-
-    @staticmethod
-    def _is_json_schema(value: object) -> bool:
-        return isinstance(value, dict) and (
-            "$schema" in value
-            or "$defs" in value
-            or "definitions" in value
-            or (value.get("type") == "object" and "properties" in value)
-        )
-
-    def _parse_schema(self, rel_path: str, text: str, schema: dict):
-        factory = StructuredRecordFactory(rel_path, "json_schema", self.embedding_text_mode)
-        details: list[dict] = []
-        relations: list[dict] = []
-        diagnostics: list[dict] = []
-        symbols: dict[str, str] = {"#": factory.file_id}
-        node_count = 0
-        cursor_by_token: dict[str, int] = {}
-
-        def locate(token: str) -> tuple[int, int]:
-            encoded = json.dumps(token)
-            start = cursor_by_token.get(encoded, 0)
-            offset = text.find(encoded, start)
-            if offset < 0:
-                offset = text.find(encoded)
-            if offset < 0:
-                return 1, 1
-            cursor_by_token[encoded] = offset + len(encoded)
-            previous_newline = text.rfind("\n", 0, offset)
-            return line_number(text, offset), offset - previous_newline
-
-        def visit(value: object, pointer: str, parent_id: str, depth: int) -> None:
-            nonlocal node_count
-            node_count += 1
-            if node_count > self.max_nodes:
-                raise ValueError("json_schema_node_limit_exceeded")
-            if depth > self.max_depth:
-                raise ValueError("json_schema_depth_limit_exceeded")
-            if not isinstance(value, dict):
-                return
-
-            pointer_token = pointer.rsplit("/", 1)[-1] if "/" in pointer else "#"
-            pointer_line, pointer_column = (1, 1) if pointer == "#" else locate(
-                pointer_token.replace("~1", "/").replace("~0", "~")
-            )
-            pointer_record = factory.symbol(
-                kind="json_schema_pointer",
-                name=pointer,
-                line=pointer_line,
-                column=pointer_column,
-                parent_id=parent_id,
-                ordinal=node_count,
-                pointer=pointer,
-                schema_type=self._schema_type(value),
-            )
-            details.append(pointer_record)
-
-            node_schema_id = value.get("$id")
-            if isinstance(node_schema_id, str):
-                id_line, id_column = locate("$id")
-                details.append(
-                    factory.symbol(
-                        kind="json_schema_id",
-                        name=node_schema_id,
-                        line=id_line,
-                        column=id_column,
-                        parent_id=pointer_record["id"],
-                        ordinal=node_count,
-                        pointer=f"{pointer}/$id" if pointer != "#" else "#/$id",
-                        schema_id=node_schema_id,
-                    )
-                )
-
-            ref = value.get("$ref")
-            if isinstance(ref, str):
-                ref_line, ref_column = locate("$ref")
-                details.append(
-                    factory.symbol(
-                        kind="json_schema_ref",
-                        name=ref,
-                        line=ref_line,
-                        column=ref_column,
-                        parent_id=pointer_record["id"],
-                        ordinal=node_count,
-                        pointer=f"{pointer}/$ref" if pointer != "#" else "#/$ref",
-                        ref=ref,
-                    )
-                )
-                relations.append(
-                    factory.relation(
-                        source_id=parent_id,
-                        source_kind="json_schema_node",
-                        source_name=pointer,
-                        relation="references_schema",
-                        target=ref,
-                        target_resolved=symbols.get(ref),
-                        line=ref_line,
-                    )
-                )
-
-            for composition in ("allOf", "anyOf", "oneOf"):
-                options = value.get(composition)
-                if not isinstance(options, list):
-                    continue
-                for option_index, option in enumerate(options):
-                    option_pointer = f"{pointer}/{composition}/{option_index}"
-                    relations.append(
-                        factory.relation(
-                            source_id=parent_id,
-                            source_kind="json_schema_node",
-                            source_name=pointer,
-                            relation=f"composes_{composition}",
-                            target=option_pointer,
-                            line=locate(composition)[0],
-                        )
-                    )
-                    visit(option, option_pointer, parent_id, depth + 1)
-
-            definitions = value.get("$defs") if isinstance(value.get("$defs"), dict) else value.get("definitions")
-            if isinstance(definitions, dict):
-                container = "$defs" if "$defs" in value else "definitions"
-                for ordinal, (name, definition) in enumerate(definitions.items(), start=1):
-                    definition_pointer = f"#/{container}/{self._escape_pointer(str(name))}"
-                    line, column = locate(str(name))
-                    record = factory.symbol(
-                        kind="json_schema_definition",
-                        name=str(name),
-                        line=line,
-                        column=column,
-                        parent_id=parent_id,
-                        ordinal=ordinal,
-                        pointer=definition_pointer,
-                        schema_type=self._schema_type(definition),
-                    )
-                    details.append(record)
-                    symbols[definition_pointer] = record["id"]
-                    relations.append(
-                        factory.relation(
-                            source_id=parent_id,
-                            source_kind="json_schema_node",
-                            source_name=pointer,
-                            relation="defines_schema",
-                            target=definition_pointer,
-                            target_resolved=record["id"],
-                            line=line,
-                        )
-                    )
-                    visit(definition, definition_pointer, record["id"], depth + 1)
-
-            properties = value.get("properties")
-            required = set(value.get("required") if isinstance(value.get("required"), list) else [])
-            if isinstance(properties, dict):
-                for ordinal, (name, property_schema) in enumerate(properties.items(), start=1):
-                    property_pointer = f"{pointer}/properties/{self._escape_pointer(str(name))}"
-                    line, column = locate(str(name))
-                    record = factory.symbol(
-                        kind="json_schema_property",
-                        name=str(name),
-                        line=line,
-                        column=column,
-                        parent_id=parent_id,
-                        ordinal=ordinal,
-                        pointer=property_pointer,
-                        schema_type=self._schema_type(property_schema),
-                        required=name in required,
-                    )
-                    details.append(record)
-                    symbols[property_pointer] = record["id"]
-                    relations.append(
-                        factory.relation(
-                            source_id=parent_id,
-                            source_kind="json_schema_node",
-                            source_name=pointer,
-                            relation="defines_property",
-                            target=str(name),
-                            target_resolved=record["id"],
-                            line=line,
-                        )
-                    )
-                    visit(property_schema, property_pointer, record["id"], depth + 1)
-
-            items = value.get("items")
-            if isinstance(items, dict):
-                visit(items, f"{pointer}/items", parent_id, depth + 1)
-
-        try:
-            visit(schema, "#", factory.file_id, 1)
-        except ValueError as exc:
-            diagnostic = factory.diagnostic(
-                str(exc),
-                "JSON Schema resource limit reached; partial records were retained.",
-                fallback="partial_structured_index",
-            )
-            diagnostics.append(diagnostic)
-            details.append(diagnostic)
-
-        # Resolve local refs after every definition has been visited.
-        for relation in relations:
-            if relation["relation"] == "references_schema" and relation["target"] in symbols:
-                relation["target_resolved"] = symbols[relation["target"]]
-                relation["resolution_status"] = "resolved"
-
-        schema_id = schema.get("$id") if isinstance(schema.get("$id"), str) else None
-        index = [
-            factory.file_record(
-                summary={
-                    "schema_id": schema_id,
-                    "definition_count": sum(item.get("kind") == "json_schema_definition" for item in details),
-                    "property_count": sum(item.get("kind") == "json_schema_property" for item in details),
-                    "reference_count": sum(item.get("relation") == "references_schema" for item in relations),
-                    "pointer_count": sum(item.get("kind") == "json_schema_pointer" for item in details),
-                    "id_record_count": sum(item.get("kind") == "json_schema_id" for item in details),
-                    "diagnostic_count": len(diagnostics),
-                },
-                labels=[item["name"] for item in details if item.get("name")],
-                parser_mode="stdlib_json",
-            )
-        ]
-        normalize_extraction_records(
-            (index, details, relations),
-            rel_path=rel_path,
-            source_text=text,
-            extractor=type(self).__name__,
-        )
-        return (
-            index,
-            details,
-            relations,
-            stats_for(
-                "json_schema",
-                rel_path,
-                index,
-                details,
-                relations,
-                parser_mode="stdlib_json",
-                diagnostics=diagnostics,
-                schema_id=schema_id,
-                definition_count=sum(item.get("kind") == "json_schema_definition" for item in details),
-                property_count=sum(item.get("kind") == "json_schema_property" for item in details),
-                reference_count=sum(item.get("relation") == "references_schema" for item in relations),
-                pointer_count=sum(item.get("kind") == "json_schema_pointer" for item in details),
-                id_record_count=sum(item.get("kind") == "json_schema_id" for item in details),
-            ),
-        )
-
-    @staticmethod
-    def _escape_pointer(value: str) -> str:
-        return value.replace("~", "~0").replace("/", "~1")
-
-    @staticmethod
-    def _schema_type(value: object) -> str | list[str] | None:
-        if not isinstance(value, dict):
-            return None
-        schema_type = value.get("type")
-        if isinstance(schema_type, str) or (
-            isinstance(schema_type, list) and all(isinstance(item, str) for item in schema_type)
-        ):
-            return schema_type
-        return None
+        return self.schema_parser.parse(rel_path, text, parsed, extractor_name=type(self).__name__)
 
 
 class SqlExtractor:
     """Bounded DDL outline parser; SQL is tokenized but never sent to a DB."""
 
-    def __init__(self, embedding_text_mode: str = "verbose", max_statements: int = 2_000) -> None:
+    def __init__(
+        self,
+        embedding_text_mode: str = "verbose",
+        max_statements: int = 2_000,
+        *,
+        lexer: SqlDdlLexer | None = None,
+    ) -> None:
         self.embedding_text_mode = embedding_text_mode
         self.max_statements = max_statements
+        self.lexer = lexer or SqlDdlLexer()
 
     def parse(self, rel_path: str, text: str):
         factory = StructuredRecordFactory(rel_path, "sql", self.embedding_text_mode)
-        statements, lexer_diagnostics = self._split_statements(text)
+        statements, lexer_diagnostics = self.lexer.split_statements(text)
         details: list[dict] = []
         relations: list[dict] = []
         diagnostics: list[dict] = []
@@ -338,17 +94,17 @@ class SqlExtractor:
         column_count = 0
 
         for code, offset in statements[: self.max_statements]:
-            normalized = self._without_leading_comments(code).strip()
+            normalized = self.lexer.without_leading_comments(code).strip()
             if not normalized:
                 continue
             line = line_number(text, offset)
             table_match = re.match(
-                rf"CREATE\s+(?:TEMP(?:ORARY)?\s+)?TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?({self._IDENTIFIER})\s*\(",
+                rf"CREATE\s+(?:TEMP(?:ORARY)?\s+)?TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?({self.lexer.IDENTIFIER})\s*\(",
                 normalized,
                 re.IGNORECASE | re.DOTALL,
             )
             if table_match:
-                name = self._clean_identifier(table_match.group(1))
+                name = self.lexer.clean_identifier(table_match.group(1))
                 record = factory.symbol(
                     kind="sql_table",
                     name=name,
@@ -357,7 +113,7 @@ class SqlExtractor:
                 )
                 details.append(record)
                 tables[name.lower()] = record["id"]
-                body = self._parenthesized_body(normalized, table_match.end() - 1)
+                body = self.lexer.parenthesized_body(normalized, table_match.end() - 1)
                 if body is None:
                     diagnostic = factory.diagnostic(
                         "sql_unbalanced_table_definition",
@@ -369,16 +125,16 @@ class SqlExtractor:
                     diagnostics.append(diagnostic)
                     details.append(diagnostic)
                     continue
-                for part_ordinal, part in enumerate(self._split_top_level(body), start=1):
+                for part_ordinal, part in enumerate(self.lexer.split_top_level(body), start=1):
                     part_text = part.strip()
                     part_line = line + body[: body.find(part)].count("\n") if part else line
-                    reference = re.search(rf"\bREFERENCES\s+({self._IDENTIFIER})", part_text, re.IGNORECASE)
+                    reference = re.search(rf"\bREFERENCES\s+({self.lexer.IDENTIFIER})", part_text, re.IGNORECASE)
                     constraint_prefix = re.match(
                         r"^(?:CONSTRAINT\s+\S+\s+)?(PRIMARY|FOREIGN|UNIQUE|CHECK)\b", part_text, re.IGNORECASE
                     )
                     if constraint_prefix:
                         if reference:
-                            target = self._clean_identifier(reference.group(1))
+                            target = self.lexer.clean_identifier(reference.group(1))
                             relations.append(
                                 factory.relation(
                                     source_id=record["id"],
@@ -391,11 +147,11 @@ class SqlExtractor:
                             )
                         continue
                     column_match = re.match(
-                        rf"({self._IDENTIFIER})\s+([^\s,()]+(?:\s*\([^)]*\))?)", part_text, re.IGNORECASE
+                        rf"({self.lexer.IDENTIFIER})\s+([^\s,()]+(?:\s*\([^)]*\))?)", part_text, re.IGNORECASE
                     )
                     if not column_match:
                         continue
-                    column_name = self._clean_identifier(column_match.group(1))
+                    column_name = self.lexer.clean_identifier(column_match.group(1))
                     column_count += 1
                     column = factory.symbol(
                         kind="sql_column",
@@ -420,7 +176,7 @@ class SqlExtractor:
                         )
                     )
                     if reference:
-                        target = self._clean_identifier(reference.group(1))
+                        target = self.lexer.clean_identifier(reference.group(1))
                         relations.append(
                             factory.relation(
                                 source_id=column["id"],
@@ -434,12 +190,12 @@ class SqlExtractor:
                 continue
 
             view_match = re.match(
-                rf"CREATE\s+(?:OR\s+REPLACE\s+)?VIEW\s+({self._IDENTIFIER})\s+AS\s+",
+                rf"CREATE\s+(?:OR\s+REPLACE\s+)?VIEW\s+({self.lexer.IDENTIFIER})\s+AS\s+",
                 normalized,
                 re.IGNORECASE | re.DOTALL,
             )
             if view_match:
-                name = self._clean_identifier(view_match.group(1))
+                name = self.lexer.clean_identifier(view_match.group(1))
                 record = factory.symbol(
                     kind="sql_view",
                     name=name,
@@ -449,8 +205,8 @@ class SqlExtractor:
                 details.append(record)
                 views[name.lower()] = record["id"]
                 query = normalized[view_match.end() :]
-                for target_match in re.finditer(rf"\b(?:FROM|JOIN)\s+({self._IDENTIFIER})", query, re.IGNORECASE):
-                    target = self._clean_identifier(target_match.group(1))
+                for target_match in re.finditer(rf"\b(?:FROM|JOIN)\s+({self.lexer.IDENTIFIER})", query, re.IGNORECASE):
+                    target = self.lexer.clean_identifier(target_match.group(1))
                     relations.append(
                         factory.relation(
                             source_id=record["id"],
@@ -464,13 +220,13 @@ class SqlExtractor:
                 continue
 
             index_match = re.match(
-                rf"CREATE\s+(?:UNIQUE\s+)?INDEX\s+(?:IF\s+NOT\s+EXISTS\s+)?({self._IDENTIFIER})\s+ON\s+({self._IDENTIFIER})",
+                rf"CREATE\s+(?:UNIQUE\s+)?INDEX\s+(?:IF\s+NOT\s+EXISTS\s+)?({self.lexer.IDENTIFIER})\s+ON\s+({self.lexer.IDENTIFIER})",
                 normalized,
                 re.IGNORECASE | re.DOTALL,
             )
             if index_match:
-                name = self._clean_identifier(index_match.group(1))
-                table = self._clean_identifier(index_match.group(2))
+                name = self.lexer.clean_identifier(index_match.group(1))
+                table = self.lexer.clean_identifier(index_match.group(2))
                 indexes.append(name)
                 record = factory.symbol(
                     kind="sql_index",
@@ -550,135 +306,6 @@ class SqlExtractor:
                 column_count=column_count,
             ),
         )
-
-    _IDENTIFIER_PART = r'(?:(?:"(?:""|[^"])+")|(?:`[^`]+`)|(?:\[[^\]]+\])|(?:[A-Za-z_][\w$]*))'
-    _IDENTIFIER = rf"{_IDENTIFIER_PART}(?:\.{_IDENTIFIER_PART})*"
-
-    @staticmethod
-    def _split_statements(text: str) -> tuple[list[tuple[str, int]], list[tuple[str, int]]]:
-        statements: list[tuple[str, int]] = []
-        diagnostics: list[tuple[str, int]] = []
-        start = 0
-        i = 0
-        quote: str | None = None
-        dollar_tag: str | None = None
-        block_comment = False
-        line_comment = False
-        while i < len(text):
-            char = text[i]
-            next_char = text[i + 1] if i + 1 < len(text) else ""
-            if line_comment:
-                if char == "\n":
-                    line_comment = False
-                i += 1
-                continue
-            if block_comment:
-                if char == "*" and next_char == "/":
-                    block_comment = False
-                    i += 2
-                else:
-                    i += 1
-                continue
-            if dollar_tag is not None:
-                if text.startswith(dollar_tag, i):
-                    i += len(dollar_tag)
-                    dollar_tag = None
-                else:
-                    i += 1
-                continue
-            if quote is not None:
-                if char == quote:
-                    if next_char == quote:
-                        i += 2
-                        continue
-                    quote = None
-                elif char == "\\" and quote in {"'", '"'}:
-                    i += 2
-                    continue
-                i += 1
-                continue
-            if char == "-" and next_char == "-":
-                line_comment = True
-                i += 2
-                continue
-            if char == "/" and next_char == "*":
-                block_comment = True
-                i += 2
-                continue
-            if char in {"'", '"', "`"}:
-                quote = char
-                i += 1
-                continue
-            if char == "$":
-                tag_match = re.match(r"\$[A-Za-z_][A-Za-z0-9_]*\$|\$\$", text[i:])
-                if tag_match:
-                    dollar_tag = tag_match.group(0)
-                    i += len(dollar_tag)
-                    continue
-            if char == ";":
-                statements.append((text[start:i], start))
-                start = i + 1
-            i += 1
-        if text[start:].strip():
-            statements.append((text[start:], start))
-        if quote is not None:
-            diagnostics.append(("sql_unterminated_quote", max(start, len(text) - 1)))
-        if dollar_tag is not None:
-            diagnostics.append(("sql_unterminated_dollar_quote", max(start, len(text) - 1)))
-        if block_comment:
-            diagnostics.append(("sql_unterminated_comment", max(start, len(text) - 1)))
-        return statements, diagnostics
-
-    @staticmethod
-    def _without_leading_comments(value: str) -> str:
-        return re.sub(r"\A(?:\s|--[^\n]*(?:\n|$)|/\*.*?\*/)*", "", value, flags=re.DOTALL)
-
-    @staticmethod
-    def _parenthesized_body(text: str, opening: int) -> str | None:
-        depth = 0
-        quote: str | None = None
-        for index in range(opening, len(text)):
-            char = text[index]
-            if quote:
-                if char == quote and (index + 1 >= len(text) or text[index + 1] != quote):
-                    quote = None
-                continue
-            if char in {"'", '"', "`"}:
-                quote = char
-            elif char == "(":
-                depth += 1
-            elif char == ")":
-                depth -= 1
-                if depth == 0:
-                    return text[opening + 1 : index]
-        return None
-
-    @staticmethod
-    def _split_top_level(text: str) -> list[str]:
-        parts: list[str] = []
-        start = 0
-        depth = 0
-        quote: str | None = None
-        for index, char in enumerate(text):
-            if quote:
-                if char == quote:
-                    quote = None
-                continue
-            if char in {"'", '"', "`"}:
-                quote = char
-            elif char == "(":
-                depth += 1
-            elif char == ")":
-                depth = max(0, depth - 1)
-            elif char == "," and depth == 0:
-                parts.append(text[start:index])
-                start = index + 1
-        parts.append(text[start:])
-        return parts
-
-    @staticmethod
-    def _clean_identifier(value: str) -> str:
-        return ".".join(part.strip('"`[]').replace('""', '"') for part in value.split("."))
 
 
 class ProtoExtractor:
