@@ -23,15 +23,15 @@ from agent.db_models.speech_adaptation import (
 )
 from agent.db_models.speech_evidence import SpeechEvidenceConsentDB
 from agent.models.semantic_media_audit import SemanticMediaAuditEvent
-from agent.ports.semantic_media_audit import SemanticMediaAuditPort
-from agent.repositories.semantic_media_audit_outbox import SqlSemanticMediaAuditOutbox
-from agent.services.speech_adaptation_job_service import (
+from agent.models.speech_adaptation_admission import (
     SpeechAdaptationDecisionConflict,
     SpeechAdmissionDecision,
     SpeechCapacityLease,
     SpeechPrincipal,
     restore_speech_adaptation_job,
 )
+from agent.ports.semantic_media_audit import SemanticMediaAuditPort
+from agent.repositories.semantic_media_audit_outbox import SqlSemanticMediaAuditOutbox
 from ananta_contracts.speech_adaptation import SpeechAdaptationResult
 
 _WRITE_LOCK = threading.RLock()

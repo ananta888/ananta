@@ -22,6 +22,7 @@ from agent.db_models.speech_reconciliation import (
     SpeechReconciliationMutationDB,
 )
 from agent.models.semantic_media_audit import SemanticMediaAuditEvent
+from agent.models.speech_reconciliation_state_machine import SpeechReconciliationStateMachine
 from agent.ports.semantic_media_audit import SemanticMediaAuditPort
 from agent.repositories.semantic_media_audit_outbox import SqlSemanticMediaAuditOutbox
 from agent.repositories.speech_evidence_lineage import (
@@ -30,7 +31,6 @@ from agent.repositories.speech_evidence_lineage import (
     SpeechLineageNode,
     get_speech_evidence_lineage_repository,
 )
-from agent.services.speech_reconciliation_state_machine import SpeechReconciliationStateMachine
 from ananta_contracts.speech_reconciliation import (
     CONTRACT_VERSION,
     SpeechReconciliationBudgetLedger,
@@ -1477,9 +1477,7 @@ class SpeechReconciliationRepository:
         if not 1 <= limit <= 1000:
             raise ValueError("speech_reconciliation_recovery_batch_invalid")
         from agent.db_models.speech_evidence import SpeechEvidenceConsentDB
-        from agent.services.background.speech_reconciliation_reconciler import (
-            SpeechReconciliationRecoveryCandidate,
-        )
+        from agent.ports.speech_reconciliation_recovery import SpeechReconciliationRecoveryCandidate
 
         with Session(engine) as session:
             pairs = session.exec(

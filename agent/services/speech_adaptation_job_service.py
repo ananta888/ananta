@@ -8,6 +8,13 @@ import time
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Protocol
 
+from agent.models.speech_adaptation_admission import (
+    SpeechAdaptationDecisionConflict,
+    SpeechAdmissionDecision,
+    SpeechCapacityLease,
+    SpeechPrincipal,
+    restore_speech_adaptation_job,  # noqa: F401 - compatibility re-export
+)
 from agent.services.semantic_media_audit_service import SemanticMediaAuditPort
 from agent.services.speech_adaptation_task_port import SpeechAdaptationTaskPort
 from agent.services.voice_governance_domain import VoicePrincipal
@@ -42,16 +49,6 @@ class SpeechAdaptationAdmissionError(ValueError):
 
 
 @dataclass(frozen=True)
-class SpeechPrincipal:
-    tenant_id: str
-    subject: str
-
-    def __post_init__(self) -> None:
-        if not self.tenant_id.strip() or not self.subject.strip():
-            raise ValueError("speech principal requires tenant and subject")
-
-
-@dataclass(frozen=True)
 class AdmittedSpeechDataset:
     dataset_id: str
     dataset_version: str
@@ -79,13 +76,6 @@ class ActiveSpeechConsent:
     expires_at_ms: int
     export_allowed: bool
     granted: bool = True
-
-
-@dataclass(frozen=True)
-class SpeechCapacityLease:
-    lease_id: str
-    epoch: int
-    expires_at_ms: int
 
 
 class SpeechDatasetAdmissionPort(Protocol):
@@ -119,10 +109,6 @@ class SpeechAdaptationLineagePort(Protocol):
         *,
         authority: str = "hub",
     ) -> str: ...
-
-
-class SpeechAdaptationDecisionConflict(RuntimeError):
-    """Stable persistence conflict raised by a decision-store adapter."""
 
 
 class SpeechAdaptationDecisionStorePort(Protocol):
@@ -186,18 +172,6 @@ class SpeechAdaptationResultArtifactPort(Protocol):
         job: SpeechAdaptationJob,
         evaluation_digest: str,
     ) -> Mapping[str, Any]: ...
-
-
-@dataclass(frozen=True)
-class SpeechAdmissionDecision:
-    job_id: str
-    task_id: str
-    status: str
-    reason_code: str
-    job: SpeechAdaptationJob | None
-    request_digest: str
-    admission_request: Mapping[str, Any] | None = None
-    result: SpeechAdaptationResult | None = None
 
 
 class InMemorySpeechAdaptationDecisionStore:
@@ -985,18 +959,6 @@ class SpeechAdaptationJobService:
                 "speech training audit is unavailable",
                 status_code=503,
             ) from exc
-
-
-def restore_speech_adaptation_job(payload: Mapping[str, Any]) -> SpeechAdaptationJob:
-    """Validate a persisted contract without pretending its deadline is new."""
-
-    deadline = int(payload.get("deadline_at_ms") or 0)
-    budget = payload.get("budget") if isinstance(payload.get("budget"), Mapping) else {}
-    wall_ms = int(budget.get("max_wall_seconds") or 0) * 1000
-    fencing = payload.get("fencing") if isinstance(payload.get("fencing"), Mapping) else {}
-    lease_expiry = int(fencing.get("lease_expires_at_ms") or 0)
-    historical_now = max(0, min(deadline - wall_ms, lease_expiry - wall_ms))
-    return SpeechAdaptationJob.from_mapping(payload, now_ms=historical_now)
 
 
 def _validate_prelease_bindings(

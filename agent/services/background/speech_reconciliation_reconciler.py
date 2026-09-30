@@ -7,51 +7,17 @@ import os
 import threading
 import time
 from dataclasses import dataclass
-from typing import Any, Callable, Mapping, Protocol, Sequence
+from typing import Any, Callable, Mapping
 
 from agent.config import settings
+from agent.ports.speech_reconciliation_recovery import (
+    SpeechReconciliationRecoveryAction,
+    SpeechReconciliationRecoveryCandidate,
+    SpeechReconciliationRecoveryPort,
+)
 from agent.services.semantic_media_audit_service import SemanticMediaAuditPort
 
 _EXTENSION_KEY = "speech_reconciliation_reconciler"
-
-
-@dataclass(frozen=True, slots=True)
-class SpeechReconciliationRecoveryCandidate:
-    job_id: str
-    attempt_id: str
-    state: str
-    stage: str
-    expected_version: int
-    fencing_epoch: int
-    retry_count: int
-    max_retries: int
-    checkpoint_ref: str | None
-    condition: str
-
-
-@dataclass(frozen=True, slots=True)
-class SpeechReconciliationRecoveryAction:
-    action: str
-    target_state: str
-    reason_code: str
-    resume_checkpoint_ref: str | None = None
-
-
-class SpeechReconciliationRecoveryPort(Protocol):
-    def list_recovery_candidates(
-        self,
-        *,
-        now_ms: int,
-        limit: int,
-    ) -> Sequence[SpeechReconciliationRecoveryCandidate]: ...
-
-    def apply_recovery(
-        self,
-        candidate: SpeechReconciliationRecoveryCandidate,
-        action: SpeechReconciliationRecoveryAction,
-        *,
-        authority: str,
-    ) -> bool: ...
 
 
 @dataclass(frozen=True, slots=True)

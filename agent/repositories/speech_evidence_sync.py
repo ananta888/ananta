@@ -26,13 +26,13 @@ from agent.db_models.speech_evidence_sync import (
     SpeechEvidenceTransferDB,
 )
 from agent.models.semantic_media_audit import SemanticMediaAuditEvent
-from agent.repositories.semantic_media_audit_outbox import SqlSemanticMediaAuditOutbox
-from agent.services.speech_evidence_offer_service import (
+from agent.models.speech_evidence_offer import (
     SpeechEvidenceGroupPreview,
     SpeechEvidenceOfferError,
     SpeechEvidenceOfferRecord,
     group_preview_digest,
 )
+from agent.repositories.semantic_media_audit_outbox import SqlSemanticMediaAuditOutbox
 from ananta_contracts.speech_evidence_sync import (
     GROUP_PREVIEW_VERSION,
     MAX_SEQUENCE,
