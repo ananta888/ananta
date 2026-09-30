@@ -1,7 +1,7 @@
 """Snake execution endpoint implementations — chat API, ask, worker-context."""
-# This module is also the historical ``snakes_execution_routes`` compatibility
-# surface (see that module's ``sys.modules`` alias), so selected imports are
-# intentionally re-exported even when this implementation does not call them.
+# ``snakes_execution_routes`` re-exports selected names of this module as the
+# historical compatibility surface, so some imports are intentionally kept
+# even when this implementation does not call them.
 # ruff: noqa: F401
 
 from __future__ import annotations
@@ -129,150 +129,17 @@ from .snakes_worker_routing import (
     snake_profile_routing_enabled,
 )
 
-# In-memory UI state pushed by the browser via PUT /snakes/<id>/ui-state.
-# Keyed by snake_id; used to enrich LLM prompts with current navigation context.
-_snake_ui_state: dict[str, dict] = {}
-
-
-def _background_threads_disabled() -> bool:
-    return bool(
-        (has_app_context() and bool(getattr(current_app, "testing", False)))
-        or str(getattr(settings, "role", "")).strip().lower() == "test"
-        or os.environ.get("PYTEST_CURRENT_TEST")
-        or str(os.environ.get("ANANTA_DISABLE_BACKGROUND_THREADS") or "").strip().lower() in {"1", "true", "yes", "on"}
-    )
-
-
-def _resolve_ai_snake_chat_provider(config: dict[str, Any] | None = None) -> tuple[str, str | None, str | None]:
-    provider = "lmstudio"
-    model: str | None = None
-    api_base: str | None = None
-    cfg: dict[str, Any] = {}
-    try:
-        from agent.routes.ai_snake_config import _current_config
-
-        cfg = dict(config) if config is not None else _current_config()
-        configured_backend = str(cfg.get("chat_backend") or "").strip().lower()
-        configured_model = str(cfg.get("chat_backend_model") or "").strip() or None
-        configured_api_base = str(cfg.get("chat_backend_api_base") or "").strip() or None
-        if configured_model:
-            model = configured_model
-
-        _openai_models = ("gpt-4", "gpt-3.5", "gpt-4o", "o1", "o3")
-        is_openai_model = any(model.startswith(m) for m in _openai_models) if model else False
-        is_openai_url = configured_api_base and "openai.com" in configured_api_base.lower()
-
-        def _chat_completions_url(base_url: str) -> str:
-            normalized = base_url.rstrip("/")
-            return normalized if normalized.endswith("/chat/completions") else f"{normalized}/chat/completions"
-
-        if configured_backend in {"openai", "codex"} or (
-            not configured_backend and (is_openai_url or is_openai_model)
-        ):
-            provider = "openai"
-            api_base = bind_openai_credential_endpoint(
-                client_api_base=configured_api_base,
-                trusted_api_url=str(settings.openai_url),
-                credential_ref=str(cfg.get("chat_backend_credential_ref") or ""),
-            ).chat_completions_url
-        elif configured_backend in {"ollama", "lmstudio"}:
-            provider = configured_backend
-            if configured_api_base:
-                api_base = _chat_completions_url(configured_api_base)
-    except OpenAICredentialEndpointBindingError:
-        raise
-    except Exception:
-        pass
-
-    central = _resolve_central_ai_snake_model(cfg)
-    if central is not None:
-        provider, model = central.provider_id, central.model_id
-        configured_api_base = central.base_url
-        if provider == "openai":
-            api_base = bind_openai_credential_endpoint(
-                client_api_base=configured_api_base,
-                trusted_api_url=str(settings.openai_url),
-                credential_ref=str(cfg.get("chat_backend_credential_ref") or ""),
-            ).chat_completions_url
-        elif configured_api_base:
-            normalized = configured_api_base.rstrip("/")
-            api_base = (
-                normalized
-                if normalized.endswith("/chat/completions")
-                else f"{normalized}/chat/completions"
-            )
-    return provider, model, api_base
-
-
-def _resolve_central_ai_snake_model(config: dict[str, Any]):
-    """Resolve an explicit central assignment; otherwise preserve legacy config."""
-
-    if not has_app_context():
-        return None
-    from agent.services.model_runtime_selection_service import (
-        ModelRuntimeSelectionError,
-        resolve_explicit_hub_model,
-    )
-    from ananta_contracts.model_selection import ModelRoutingDryRunCommand
-
-    configured_backend = str(config.get("chat_backend") or "").strip().lower()
-    try:
-        return resolve_explicit_hub_model(ModelRoutingDryRunCommand(
-            consumer_id="chat.ai_snake",
-            requires_streaming=True,
-            allow_cloud=configured_backend in {"openai", "codex", "openrouter"},
-        ))
-    except ModelRuntimeSelectionError:
-        raise
-    except Exception as exc:
-        current_app.logger.warning(
-            "Central AI-Snake model route unavailable; using legacy fallback: %s",
-            type(exc).__name__,
-        )
-        return None
-
-
-# Defaults defer to this module's (monkeypatchable) names at call time.
-_chat_reply_runner = SnakeChatReplyRunner(
-    ui_state=_snake_ui_state,
-    resolve_chat_provider=lambda config: _resolve_ai_snake_chat_provider(config),
-    append_room_message=lambda **kwargs: _append_room_ai_message(**kwargs),
-    worker_propose=lambda *args, **kwargs: _worker_propose(*args, **kwargs),
-    worker_picker_provider=lambda: _pick_worker_for_ask,
-    generate_text=lambda **kwargs: generate_text(**kwargs),
-    logger=logging.getLogger(__name__),
+from .snakes_chat_provider import (  # historical names of this module
+    _resolve_ai_snake_chat_provider,
+    _resolve_central_ai_snake_model,
 )
-
-
-def _spawn_ai_chat_reply(
-    *,
-    user_text: str,
-    snake_id: str | None = None,
-    ui_context: dict | None = None,
-    client_session_id: str = "",
-    context_history: list[dict[str, str]] | None = None,
-    session_snapshot: dict[str, Any] | None = None,
-    owner_principal: dict[str, str] | None = None,
-) -> None:
-    prompt = str(user_text or "").strip()
-    if not prompt:
-        return
-    if _background_threads_disabled():
-        return
-
-    def _runner() -> None:
-        _chat_reply_runner.run(
-            prompt=prompt,
-            snake_id=snake_id,
-            ui_context=ui_context,
-            client_session_id=client_session_id,
-            context_history=context_history,
-            session_snapshot=session_snapshot,
-            owner_principal=owner_principal,
-        )
-
-    thread = threading.Thread(target=_runner, name="snake-chat-reply", daemon=True)
-    thread.start()
+from .snakes_chat_reply_spawner import (
+    _background_threads_disabled,
+    _chat_reply_runner,
+    _snake_ui_state,
+    _spawn_ai_chat_reply,
+)
+from .snakes_execution_dependencies import SNAKE_EXECUTION_DEPENDENCIES
 
 
 # ── Route endpoints ────────────────────────────────────────────────────────────
@@ -281,6 +148,7 @@ def _spawn_ai_chat_reply(
 @snakes_bp.route("/snakes/<snake_id>/chat/messages", methods=["POST"])
 def chat_send(snake_id: str):
     """POST /snakes/<id>/chat/messages -- ChatMessage-v1 senden."""
+    dependencies = SNAKE_EXECUTION_DEPENDENCIES.resolve()
     if not _verify_token(snake_id):
         return jsonify({"error": "Ungültiger Token"}), 401
     auth = _optional_user_auth()
@@ -303,7 +171,7 @@ def chat_send(snake_id: str):
     if channel_type in {"room", "direct"} and not client_session_id:
         return jsonify({"error": "chat_session_required", "error_code": "chat_session_required"}), 400
     session_snapshot = (
-        _owned_chat_session_snapshot(client_session_id, principal)
+        dependencies.owned_chat_session_snapshot(client_session_id, principal)
         if client_session_id
         else None
     )
@@ -353,7 +221,7 @@ def chat_send(snake_id: str):
         # Candidate selection from a multi-candidate guide is logged but does not
         # trigger another LLM round-trip; the chosen candidate already contains steps.
         if text.startswith("[region-explain] candidate:"):
-            _append_room_ai_message(
+            dependencies.append_room_message(
                 text=text[:500],
                 session_id=_VISUAL_SESSION_ID,
                 visibility="system",
@@ -362,7 +230,7 @@ def chat_send(snake_id: str):
             )
             return jsonify({"ok": True, "id": str(body.get("id") or "")}), 202
 
-        _append_room_ai_message(
+        dependencies.append_room_message(
             text=text[:500],
             session_id=_VISUAL_SESSION_ID,
             visibility="system",
@@ -416,7 +284,7 @@ def chat_send(snake_id: str):
             _room_messages.append(msg)
             if len(_room_messages) > _MAX_ROOM_MSGS:
                 _room_messages = _room_messages[-_MAX_ROOM_MSGS:]
-            _spawn_ai_chat_reply(
+            dependencies.spawn_ai_chat_reply(
                 user_text=text,
                 snake_id=snake_id,
                 ui_context=ui_context,
@@ -448,6 +316,7 @@ def chat_send(snake_id: str):
 @snakes_bp.route("/snakes/<snake_id>/chat/messages", methods=["GET"])
 def chat_receive(snake_id: str):
     """GET /snakes/<id>/chat/messages?since=<cursor> -- Chat-Nachrichten abrufen."""
+    dependencies = SNAKE_EXECUTION_DEPENDENCIES.resolve()
     snake = _snakes.get(snake_id)
     if not snake:
         return jsonify({"error": "Snake nicht gefunden"}), 404
@@ -470,7 +339,7 @@ def chat_receive(snake_id: str):
     requested_session_id = str(request.args.get("session_id") or "").strip()
     if not requested_session_id:
         return jsonify({"error": "chat_session_required", "error_code": "chat_session_required"}), 400
-    if _owned_chat_session_snapshot(requested_session_id, principal) is None:
+    if dependencies.owned_chat_session_snapshot(requested_session_id, principal) is None:
         return jsonify({"error": "chat_session_not_found", "error_code": "chat_session_not_found"}), 404
 
     expected_owner = principal.to_dict()
@@ -761,6 +630,7 @@ def snake_ask():
     Antwortet mit {"answer": "..."}. Routet über einen registrierten Worker-Prozess;
     fällt auf direkten LMStudio-Aufruf zurück falls kein Worker verfügbar.
     """
+    dependencies = SNAKE_EXECUTION_DEPENDENCIES.resolve()
     body: dict[str, Any] = request.get_json(force=True, silent=True) or {}
     question = str(body.get("question") or "").strip()[:1000]
     debug = bool(body.get("debug"))
@@ -815,7 +685,7 @@ def snake_ask():
     }
 
     try:
-        provider, hub_model, api_base = _resolve_ai_snake_chat_provider()
+        provider, hub_model, api_base = dependencies.resolve_chat_provider()
     except OpenAICredentialEndpointBindingError as exc:
         return jsonify({"error": "provider_configuration_invalid", "error_code": exc.error_code}), 503
     model = request_model or hub_model
@@ -886,7 +756,7 @@ def snake_ask():
                     resp["trace"] = {"worker": worker_trace}
                 return jsonify(resp), 200
         elif _is_full_scan_intent(question, "", _eff_cfg):
-            answer, worker_trace = _worker_chat_full_scan(question, provider=provider, model=model, limits=limits, cancel_key="snake_ask")
+            answer, worker_trace = dependencies.worker_chat_full_scan(question, provider=provider, model=model, limits=limits, cancel_key="snake_ask")
             if answer:
                 files_found = worker_trace.get("files_found", 0)
                 batches_done = worker_trace.get("batches_completed", 0)
@@ -909,15 +779,15 @@ def snake_ask():
     except Exception as exc:
         logging.getLogger(__name__).debug("full_scan routing failed, falling back: %s", exc)
 
-    answer, worker_trace = _worker_propose(
+    answer, worker_trace = dependencies.worker_propose(
         grounded_prompt,
         model,
         provider=provider,
         limits=limits,
         retrieval_profile_trace=rag_trace.get("retrieval_profile") if isinstance(rag_trace.get("retrieval_profile"), dict) else None,
         allow_profile_routing=request_model is None,
-        worker_picker=_pick_worker_for_ask,
-        model_resolver=_resolve_lmstudio_model_for_worker,
+        worker_picker=dependencies.pick_worker_for_ask,
+        model_resolver=dependencies.resolve_lmstudio_model_for_worker,
     )
     if answer:
         resp = {"answer": answer, "path": "worker", **domain_scope_info}
@@ -928,9 +798,9 @@ def snake_ask():
         return jsonify(resp), 200
 
     try:
-        _, _, api_base = _resolve_ai_snake_chat_provider()
+        _, _, api_base = dependencies.resolve_chat_provider()
         timeout = min(int(getattr(settings, "http_timeout", 120) or 120), 180)
-        raw = generate_text(
+        raw = dependencies.generate_text(
             prompt=_with_answer_budget_instruction(
                 grounded_prompt,
                 limits.answer_chars,
@@ -952,7 +822,7 @@ def snake_ask():
             timeout=timeout,
             overflow_policy=limits.answer_overflow_policy,
             never_truncate=limits.never_truncate_answers,
-            text_generator=generate_text,
+            text_generator=dependencies.generate_text,
         )
         if not text:
             return jsonify({"error": "Keine Antwort generiert"}), 503

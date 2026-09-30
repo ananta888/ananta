@@ -4,6 +4,8 @@ from unittest.mock import patch
 
 import pytest
 
+from agent.routes.snakes_execution_dependencies import SNAKE_EXECUTION_DEPENDENCIES
+
 pytestmark = pytest.mark.manual_full_scan
 
 
@@ -111,12 +113,13 @@ def test_off_mode_disables_full_scan_even_with_keywords():
 
 
 def test_snake_ask_debug_trace_contains_full_scan_profile(client, auth_header):
-    with (
-        patch("agent.routes.ai_snake_config._current_config", return_value=_cfg(analysis_mode="full_scan")),
-        patch("agent.routes.snakes._pick_worker_for_ask", return_value=("", None)),
-        patch("agent.routes.snakes._worker_chat_full_scan", return_value=("", {"files_found": 0, "batches_completed": 0})),
-        patch("agent.routes.snakes.generate_text", return_value="fallback answer"),
-    ):
+    SNAKE_EXECUTION_DEPENDENCIES.install(
+        client.application,
+        pick_worker_for_ask=lambda *args, **kwargs: ("", None),
+        worker_chat_full_scan=lambda *args, **kwargs: ("", {"files_found": 0, "batches_completed": 0}),
+        generate_text=lambda **kwargs: "fallback answer",
+    )
+    with patch("agent.routes.ai_snake_config._current_config", return_value=_cfg(analysis_mode="full_scan")):
         resp = client.post(
             "/snake/ask",
             headers=auth_header,
@@ -137,11 +140,12 @@ def test_snake_ask_debug_trace_contains_full_scan_profile(client, auth_header):
 
 
 def test_snake_ask_payload_can_disable_full_scan_profile(client, auth_header):
-    with (
-        patch("agent.routes.ai_snake_config._current_config", return_value=_cfg()),
-        patch("agent.routes.snakes._pick_worker_for_ask", return_value=("", None)),
-        patch("agent.routes.snakes.generate_text", return_value="fallback answer"),
-    ):
+    SNAKE_EXECUTION_DEPENDENCIES.install(
+        client.application,
+        pick_worker_for_ask=lambda *args, **kwargs: ("", None),
+        generate_text=lambda **kwargs: "fallback answer",
+    )
+    with patch("agent.routes.ai_snake_config._current_config", return_value=_cfg()):
         resp = client.post(
             "/snake/ask",
             headers=auth_header,
@@ -158,11 +162,12 @@ def test_snake_ask_payload_can_disable_full_scan_profile(client, auth_header):
 
 
 def test_snake_ask_payload_can_force_full_scan_profile(client, auth_header):
-    with (
-        patch("agent.routes.ai_snake_config._current_config", return_value=_cfg()),
-        patch("agent.routes.snakes._pick_worker_for_ask", return_value=("", None)),
-        patch("agent.routes.snakes.generate_text", return_value="fallback answer"),
-    ):
+    SNAKE_EXECUTION_DEPENDENCIES.install(
+        client.application,
+        pick_worker_for_ask=lambda *args, **kwargs: ("", None),
+        generate_text=lambda **kwargs: "fallback answer",
+    )
+    with patch("agent.routes.ai_snake_config._current_config", return_value=_cfg()):
         resp = client.post(
             "/snake/ask",
             headers=auth_header,

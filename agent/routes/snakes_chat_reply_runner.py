@@ -4,8 +4,8 @@
 resolves the session-bound provider, enriches the prompt with UI/settings
 context, picks the answer strategy (Ananta-config tool loop, bounded agentic
 RAG, full scan or grounded single-shot delegation) and writes the answer plus
-trace events. The route module owns the thread, the UI-state store and the
-monkeypatchable compatibility names; it injects them here as narrow callables.
+trace events. :mod:`.snakes_chat_reply_spawner` owns the thread and the
+UI-state store and injects the collaborators here as narrow callables.
 """
 
 from __future__ import annotations
@@ -66,7 +66,7 @@ class SnakeChatReplyRunner:
         resolve_chat_provider: Callable[[dict[str, Any]], tuple[str, str | None, str | None]],
         append_room_message: Callable[..., Any],
         worker_propose: Callable[..., tuple[Any, Any]],
-        worker_picker_provider: Callable[[], Any],
+        worker_picker: Callable[..., Any],
         generate_text: Callable[..., Any],
         logger: logging.Logger,
     ) -> None:
@@ -74,9 +74,9 @@ class SnakeChatReplyRunner:
         self._resolve_chat_provider = resolve_chat_provider
         self._append_room_message = append_room_message
         self._worker_propose = worker_propose
-        # Returns the picker object itself: worker routing compares it by
+        # Passed through unchanged: worker routing compares the picker by
         # identity to decide whether a failed worker may be retried.
-        self._worker_picker_provider = worker_picker_provider
+        self._worker_picker = worker_picker
         self._generate_text = generate_text
         self._logger = logger
 
@@ -567,7 +567,7 @@ class SnakeChatReplyRunner:
                     answer_overflow_policy=_answer_overflow_policy(),
                     never_truncate_answers=_chat_never_truncate_answers(),
                 ),
-                worker_picker=self._worker_picker_provider(),
+                worker_picker=self._worker_picker,
                 routing_task_kind=resolve_snake_routing_task_kind(prompt),
             )
             if not answer and not snake_profile_routing_enabled():

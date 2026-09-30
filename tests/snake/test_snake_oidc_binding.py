@@ -5,6 +5,8 @@ import time
 import jwt
 import pytest
 
+from agent.routes.snakes_execution_dependencies import SNAKE_EXECUTION_DEPENDENCIES
+
 
 def _user_jwt(username: str, tenant_id: str | None = None) -> str:
     from agent.config import settings
@@ -164,8 +166,6 @@ def test_snake_ask_rejects_unauthenticated_private_network_caller(client):
 
 
 def test_chat_send_rejects_user_mismatch_and_requires_owned_session(client, monkeypatch):
-    from agent.routes import snakes_execution_handlers as handlers
-
     alice_token = _user_jwt("alice")
     bob_token = _user_jwt("bob")
 
@@ -179,10 +179,9 @@ def test_chat_send_rejects_user_mismatch_and_requires_owned_session(client, monk
     snake_id = snake["id"]
     snake_token = snake["token"]
 
-    monkeypatch.setattr(
-        handlers,
-        "_owned_chat_session_snapshot",
-        lambda session_id, principal: (
+    SNAKE_EXECUTION_DEPENDENCIES.install(
+        client.application,
+        owned_chat_session_snapshot=lambda session_id, principal: (
             {"id": session_id, "settings": {}, "profile_id": "general"}
             if session_id == "session-a"
             and (principal.tenant_id, principal.subject_id) == ("alice", "alice")
@@ -231,8 +230,6 @@ def test_chat_send_rejects_user_mismatch_and_requires_owned_session(client, monk
 
 
 def test_message_reads_are_exactly_tenant_session_bound_and_non_draining(client, monkeypatch):
-    from agent.routes import snakes_execution_handlers as handlers
-
     alice_token = _user_jwt("shared-user", "tenant-a")
     foreign_token = _user_jwt("shared-user", "tenant-b")
     created = client.post(
@@ -249,7 +246,7 @@ def test_message_reads_are_exactly_tenant_session_bound_and_non_draining(client,
             return {"id": session_id, "settings": {}, "profile_id": "general"}
         return None
 
-    monkeypatch.setattr(handlers, "_owned_chat_session_snapshot", owned_snapshot)
+    SNAKE_EXECUTION_DEPENDENCIES.install(client.application, owned_chat_session_snapshot=owned_snapshot)
     sent = client.post(
         f"/snakes/{created['id']}/chat/messages",
         headers={
@@ -296,8 +293,6 @@ def test_message_reads_are_exactly_tenant_session_bound_and_non_draining(client,
 
 
 def test_direct_message_cannot_target_foreign_principal(client, monkeypatch):
-    from agent.routes import snakes_execution_handlers as handlers
-
     alice_token = _user_jwt("alice", "tenant-a")
     bob_token = _user_jwt("bob", "tenant-b")
     alice = client.post(
@@ -310,10 +305,9 @@ def test_direct_message_cannot_target_foreign_principal(client, monkeypatch):
         headers={"Authorization": f"Bearer {bob_token}"},
         json={"name": "Bob", "role": "player"},
     ).get_json()
-    monkeypatch.setattr(
-        handlers,
-        "_owned_chat_session_snapshot",
-        lambda session_id, principal: (
+    SNAKE_EXECUTION_DEPENDENCIES.install(
+        client.application,
+        owned_chat_session_snapshot=lambda session_id, principal: (
             {"id": session_id, "settings": {}, "profile_id": "general"}
             if session_id == "session-a"
             and (principal.tenant_id, principal.subject_id) == ("tenant-a", "alice")

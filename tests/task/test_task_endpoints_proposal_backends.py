@@ -8,7 +8,7 @@ import pytest
 
 @pytest.fixture(autouse=True)
 def _disable_snake_chat_background_threads(monkeypatch):
-    monkeypatch.setattr("agent.routes.snakes._spawn_ai_chat_reply", lambda **kwargs: None)
+    monkeypatch.setenv("ANANTA_DISABLE_BACKGROUND_THREADS", "1")
 
 
 @pytest.fixture(autouse=True)

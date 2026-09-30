@@ -5,6 +5,8 @@ import copy
 
 import pytest
 
+from agent.routes.snakes_execution_dependencies import SNAKE_EXECUTION_DEPENDENCIES
+
 
 @pytest.fixture
 def app(monkeypatch):
@@ -12,7 +14,6 @@ def app(monkeypatch):
 
     import client_surfaces.operator_tui.config.user_config_manager as config_manager
     from agent.config import settings
-    from agent.routes import snakes_execution_handlers as handlers
     from agent.routes.snakes import _chat_messages, _messages, _room_messages, _snakes, snakes_bp
     from client_surfaces.operator_tui.chat_state import make_session
 
@@ -48,10 +49,10 @@ def app(monkeypatch):
             None,
         )
 
-    monkeypatch.setattr(handlers, "_owned_chat_session_snapshot", _snapshot)
     a = Flask(__name__)
     a.config["TESTING"] = True
     a.register_blueprint(snakes_bp)
+    SNAKE_EXECUTION_DEPENDENCIES.install(a, owned_chat_session_snapshot=_snapshot)
     # Reset in-memory stores before each test
     _snakes.clear()
     _messages.clear()
@@ -147,10 +148,11 @@ def test_send_room_message_empty_text_rejected(client):
 
 
 def test_send_room_message_accepts_bounded_client_context(client, monkeypatch):
-    import agent.routes.snakes_execution_handlers as handlers
-
     captured = []
-    monkeypatch.setattr(handlers, "_spawn_ai_chat_reply", lambda **kwargs: captured.append(kwargs))
+    SNAKE_EXECUTION_DEPENDENCIES.install(
+        client.application,
+        spawn_ai_chat_reply=lambda **kwargs: captured.append(kwargs),
+    )
     s1 = _register(client, "ContextController")
     response = client.post(
         f"/snakes/{s1['id']}/chat/messages",
@@ -352,14 +354,13 @@ def test_fit_answer_to_chars_marks_last_resort_truncation(client, monkeypatch):
     import agent.routes.snakes_execution_routes as ser
 
     del client
-    monkeypatch.setattr(ser, "generate_text", lambda **kwargs: "B" * 1500)
-
     stored = ser._fit_answer_to_chars(
         "B" * 1500,
         limit=1000,
         provider="lmstudio",
         model=None,
         overflow_policy="truncate",
+        text_generator=lambda **kwargs: "B" * 1500,
     )
 
     assert len(stored) <= 1000
@@ -370,9 +371,13 @@ def test_fit_answer_to_chars_allows_overlong_answer_by_default(client, monkeypat
     import agent.routes.snakes_execution_routes as ser
 
     del client
-    monkeypatch.setattr(ser, "generate_text", lambda **kwargs: "short")
-
-    stored = ser._fit_answer_to_chars("C" * 1500, limit=1000, provider="lmstudio", model=None)
+    stored = ser._fit_answer_to_chars(
+        "C" * 1500,
+        limit=1000,
+        provider="lmstudio",
+        model=None,
+        text_generator=lambda **kwargs: "short",
+    )
 
     assert stored == "C" * 1500
 
@@ -433,9 +438,12 @@ def test_snake_ask_forwards_v2_limits_to_worker(client, monkeypatch):
 
     monkeypatch.setattr(rps, "_is_full_scan_intent", lambda *a, **kw: False)
     monkeypatch.setattr(rps, "_is_rag_iterative_intent", lambda *a, **kw: False)
-    monkeypatch.setattr(ser, "_pick_worker_for_ask", lambda: ("http://worker.test", "tok"))
-    monkeypatch.setattr(ser, "_resolve_lmstudio_model_for_worker", lambda model: model)
-    monkeypatch.setattr(ser, "_resolve_ai_snake_chat_provider", lambda: ("lmstudio", "hub-model", None))
+    SNAKE_EXECUTION_DEPENDENCIES.install(
+        client.application,
+        pick_worker_for_ask=lambda: ("http://worker.test", "tok"),
+        resolve_lmstudio_model_for_worker=lambda model: model,
+        resolve_chat_provider=lambda: ("lmstudio", "hub-model", None),
+    )
 
     def _fake_forward(worker_url, path, payload, token=None):
         captured["worker_url"] = worker_url
@@ -483,14 +491,16 @@ def test_snake_ask_applies_limits_to_hub_fallback(client, monkeypatch):
 
     monkeypatch.setattr(rps, "_is_full_scan_intent", lambda *a, **kw: False)
     monkeypatch.setattr(rps, "_is_rag_iterative_intent", lambda *a, **kw: False)
-    monkeypatch.setattr(ser, "_worker_propose", lambda *args, **kwargs: ("", {"error": "test"}))
-    monkeypatch.setattr(ser, "_resolve_ai_snake_chat_provider", lambda: ("lmstudio", "hub-model", None))
-
     def _fake_generate_text(**kwargs):
         captured_calls.append(dict(kwargs))
         return "y" * 900
 
-    monkeypatch.setattr(ser, "generate_text", _fake_generate_text)
+    SNAKE_EXECUTION_DEPENDENCIES.install(
+        client.application,
+        worker_propose=lambda *args, **kwargs: ("", {"error": "test"}),
+        resolve_chat_provider=lambda: ("lmstudio", "hub-model", None),
+        generate_text=_fake_generate_text,
+    )
 
     resp = client.post(
         "/snake/ask",
@@ -523,14 +533,16 @@ def test_snake_ask_summarizes_overlong_hub_answer_before_truncating(client, monk
 
     monkeypatch.setattr(rps, "_is_full_scan_intent", lambda *a, **kw: False)
     monkeypatch.setattr(rps, "_is_rag_iterative_intent", lambda *a, **kw: False)
-    monkeypatch.setattr(ser, "_worker_propose", lambda *args, **kwargs: ("", {"error": "test"}))
-    monkeypatch.setattr(ser, "_resolve_ai_snake_chat_provider", lambda: ("lmstudio", "hub-model", None))
-
     def _fake_generate_text(**kwargs):
         calls.append(dict(kwargs))
         return "z" * 900 if len(calls) == 1 else "kurze zusammenfassung"
 
-    monkeypatch.setattr(ser, "generate_text", _fake_generate_text)
+    SNAKE_EXECUTION_DEPENDENCIES.install(
+        client.application,
+        worker_propose=lambda *args, **kwargs: ("", {"error": "test"}),
+        resolve_chat_provider=lambda: ("lmstudio", "hub-model", None),
+        generate_text=_fake_generate_text,
+    )
 
     resp = client.post(
         "/snake/ask",
@@ -631,21 +643,18 @@ def test_explicit_central_ai_snake_assignment_overrides_legacy_session(monkeypat
 
     import agent.routes.snakes_execution_routes as ser
 
-    monkeypatch.setattr(
-        ser,
-        "_resolve_central_ai_snake_model",
-        lambda _config: SimpleNamespace(
+    provider, model, api_base = ser._resolve_ai_snake_chat_provider(
+        {
+            "chat_backend": "lmstudio",
+            "chat_backend_model": "legacy-model",
+            "chat_backend_api_base": "http://legacy:1234/v1",
+        },
+        central_model_resolver=lambda _config: SimpleNamespace(
             provider_id="lmstudio",
             model_id="lfm2.5-central",
             base_url="http://mini-pc:1234/v1",
         ),
     )
-
-    provider, model, api_base = ser._resolve_ai_snake_chat_provider({
-        "chat_backend": "lmstudio",
-        "chat_backend_model": "legacy-model",
-        "chat_backend_api_base": "http://legacy:1234/v1",
-    })
 
     assert (provider, model) == ("lmstudio", "lfm2.5-central")
     assert api_base == "http://mini-pc:1234/v1/chat/completions"
@@ -730,7 +739,10 @@ def test_snake_ask_rejects_foreign_openai_endpoint_before_generate_text(client, 
             "chat_backend_api_base": "https://attacker.invalid/v1",
         },
     )
-    monkeypatch.setattr(ser, "generate_text", lambda **kwargs: pytest.fail("generate_text called"))
+    SNAKE_EXECUTION_DEPENDENCIES.install(
+        client.application,
+        generate_text=lambda **kwargs: pytest.fail("generate_text called"),
+    )
 
     response = client.post("/snake/ask", json={"question": "hello", "context": "trusted context"})
 

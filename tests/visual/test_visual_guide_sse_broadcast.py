@@ -11,7 +11,7 @@ Covers:
 
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -161,10 +161,12 @@ class TestCandidateSelectionLogging:
         _snakes.pop("sel-snake", None)
 
     def test_candidate_selection_does_not_spawn_region_explain(self, client):
+        from agent.routes.snakes_execution_dependencies import SNAKE_EXECUTION_DEPENDENCIES
         from agent.routes.snakes_execution_routes import _VISUAL_GUIDE_EXECUTOR
 
-        with patch("agent.routes.snakes_execution_routes._append_room_ai_message") as mock_append, \
-             patch.object(_VISUAL_GUIDE_EXECUTOR, "submit") as mock_submit:
+        mock_append = MagicMock()
+        SNAKE_EXECUTION_DEPENDENCIES.install(client.application, append_room_message=mock_append)
+        with patch.object(_VISUAL_GUIDE_EXECUTOR, "submit") as mock_submit:
             resp = client.post(
                 "/snakes/sel-snake/chat/messages",
                 json={
