@@ -97,8 +97,8 @@ def test_resolve_claude_runtime_config_defaults_are_safe():
 
     app = _fake_app({})
     settings = _fake_settings()
-    with app.app_context(), patch("agent.cli_backends.opencode.settings", settings):
-        res = resolve_claude_runtime_config()
+    with app.app_context():
+        res = resolve_claude_runtime_config(backend_settings=settings)
     assert res["enabled"] is False
     assert res["auth_mode"] == "claude_login"
     assert res["api_key_required"] is False
@@ -111,12 +111,11 @@ def test_resolve_claude_runtime_config_api_key_mode_requires_key():
 
     app = _fake_app({"claude_cli": {"enabled": True, "auth_mode": "api_key"}})
     settings = _fake_settings()
-    with app.app_context(), patch("agent.cli_backends.opencode.settings", settings), \
-         patch.dict("os.environ", {}, clear=False):
+    with app.app_context(), patch.dict("os.environ", {}, clear=False):
         import os
 
         os.environ.pop("ANTHROPIC_API_KEY", None)
-        res = resolve_claude_runtime_config()
+        res = resolve_claude_runtime_config(backend_settings=settings)
     assert res["auth_mode"] == "api_key"
     assert res["api_key_required"] is True
     assert "claude_runtime_missing_api_key" in res["diagnostics"]
@@ -127,8 +126,8 @@ def test_resolve_claude_runtime_config_unknown_auth_mode_falls_back_to_claude_lo
 
     app = _fake_app({"claude_cli": {"enabled": True, "auth_mode": "oauth-magic"}})
     settings = _fake_settings()
-    with app.app_context(), patch("agent.cli_backends.opencode.settings", settings):
-        res = resolve_claude_runtime_config()
+    with app.app_context():
+        res = resolve_claude_runtime_config(backend_settings=settings)
     assert res["auth_mode"] == "claude_login"
     assert res["api_key_required"] is False
 
@@ -139,8 +138,8 @@ def test_resolve_claude_runtime_config_rejects_bypass_permissions():
 
     app = _fake_app({"claude_cli": {"enabled": True, "permission_mode": "bypassPermissions"}})
     settings = _fake_settings()
-    with app.app_context(), patch("agent.cli_backends.opencode.settings", settings):
-        res = resolve_claude_runtime_config()
+    with app.app_context():
+        res = resolve_claude_runtime_config(backend_settings=settings)
     assert res["permission_mode"] == "plan"
 
 
@@ -157,10 +156,8 @@ def test_resolve_claude_runtime_config_accepts_supported_permission_modes(
         {"claude_cli": {"enabled": True, "permission_mode": permission_mode}}
     )
     settings = _fake_settings()
-    with app.app_context(), patch(
-        "agent.cli_backends.opencode.settings", settings
-    ):
-        result = resolve_claude_runtime_config()
+    with app.app_context():
+        result = resolve_claude_runtime_config(backend_settings=settings)
 
     assert result["permission_mode"] == permission_mode
 
@@ -172,10 +169,8 @@ def test_resolve_claude_runtime_config_maps_legacy_default_to_manual():
         {"claude_cli": {"enabled": True, "permission_mode": "default"}}
     )
     settings = _fake_settings()
-    with app.app_context(), patch(
-        "agent.cli_backends.opencode.settings", settings
-    ):
-        result = resolve_claude_runtime_config()
+    with app.app_context():
+        result = resolve_claude_runtime_config(backend_settings=settings)
 
     assert result["permission_mode"] == "manual"
 
@@ -185,8 +180,8 @@ def test_resolve_claude_runtime_config_bounds_timeout_and_concurrency():
 
     app = _fake_app({"claude_cli": {"enabled": True, "timeout_seconds": 999999, "max_concurrent_runs": 99}})
     settings = _fake_settings()
-    with app.app_context(), patch("agent.cli_backends.opencode.settings", settings):
-        res = resolve_claude_runtime_config()
+    with app.app_context():
+        res = resolve_claude_runtime_config(backend_settings=settings)
     assert res["timeout_seconds"] == 14400
     assert res["max_concurrent_runs"] == 8
 
@@ -200,8 +195,8 @@ def test_run_claude_command_disabled_returns_clear_error():
 
     app = _fake_app({"claude_cli": {"enabled": False}})
     settings = _fake_settings()
-    with app.app_context(), patch("agent.cli_backends.opencode.settings", settings):
-        rc, out, err = run_claude_command("analyse this")
+    with app.app_context():
+        rc, out, err = run_claude_command("analyse this", backend_settings=settings)
     assert rc == -1
     assert "claude_cli.enabled" in err
 
@@ -211,9 +206,8 @@ def test_run_claude_command_not_installed_returns_install_hint():
 
     app = _fake_app({"claude_cli": {"enabled": True}})
     settings = _fake_settings()
-    with app.app_context(), patch("agent.cli_backends.opencode.settings", settings), \
-         patch("agent.cli_backends.opencode.shutil.which", return_value=None):
-        rc, out, err = run_claude_command("analyse this")
+    with app.app_context(), patch("agent.cli_backends.opencode.shutil.which", return_value=None):
+        rc, out, err = run_claude_command("analyse this", backend_settings=settings)
     assert rc == -1
     assert "@anthropic-ai/claude-code" in err
 
@@ -234,11 +228,10 @@ def test_run_claude_command_claude_login_strips_anthropic_api_key_from_env():
         captured["shell"] = kwargs.get("shell", False)
         return _completed()
 
-    with app.app_context(), patch("agent.cli_backends.opencode.settings", settings), \
-         patch("agent.cli_backends.opencode.shutil.which", return_value="/usr/bin/claude"), \
+    with app.app_context(), patch("agent.cli_backends.opencode.shutil.which", return_value="/usr/bin/claude"), \
          patch.dict("os.environ", {"ANTHROPIC_API_KEY": "sk-should-not-leak"}, clear=False), \
          patch("agent.cli_backends.opencode.subprocess.run", side_effect=_capture):
-        rc, out, err = run_claude_command("analyse this", timeout=10)
+        rc, out, err = run_claude_command("analyse this", timeout=10, backend_settings=settings)
     assert rc == 0
     assert "ANTHROPIC_API_KEY" not in captured["env"]
     assert captured["shell"] is False
@@ -257,14 +250,13 @@ def test_run_claude_command_api_key_mode_injects_settings_key():
         captured["env"] = kwargs.get("env")
         return _completed()
 
-    with app.app_context(), patch("agent.cli_backends.opencode.settings", settings), \
-         patch("agent.cli_backends.opencode.shutil.which", return_value="/usr/bin/claude"), \
+    with app.app_context(), patch("agent.cli_backends.opencode.shutil.which", return_value="/usr/bin/claude"), \
          patch.dict("os.environ", {}, clear=False), \
          patch("agent.cli_backends.opencode.subprocess.run", side_effect=_capture):
         import os
 
         os.environ.pop("ANTHROPIC_API_KEY", None)
-        rc, out, err = run_claude_command("analyse this", timeout=10)
+        rc, out, err = run_claude_command("analyse this", timeout=10, backend_settings=settings)
     assert rc == 0
     assert captured["env"].get("ANTHROPIC_API_KEY") == "sk-from-settings"
 
@@ -280,10 +272,9 @@ def test_run_claude_command_default_model_sentinel_skips_model_flag():
         captured["args"] = args
         return _completed()
 
-    with app.app_context(), patch("agent.cli_backends.opencode.settings", settings), \
-         patch("agent.cli_backends.opencode.shutil.which", return_value="/usr/bin/claude"), \
+    with app.app_context(), patch("agent.cli_backends.opencode.shutil.which", return_value="/usr/bin/claude"), \
          patch("agent.cli_backends.opencode.subprocess.run", side_effect=_capture):
-        run_claude_command("analyse this", timeout=10)
+        run_claude_command("analyse this", timeout=10, backend_settings=settings)
     assert "--model" not in captured["args"]
     assert "--permission-mode" in captured["args"]
     assert "plan" in captured["args"]
@@ -300,10 +291,9 @@ def test_run_claude_command_explicit_model_is_passed():
         captured["args"] = args
         return _completed()
 
-    with app.app_context(), patch("agent.cli_backends.opencode.settings", settings), \
-         patch("agent.cli_backends.opencode.shutil.which", return_value="/usr/bin/claude"), \
+    with app.app_context(), patch("agent.cli_backends.opencode.shutil.which", return_value="/usr/bin/claude"), \
          patch("agent.cli_backends.opencode.subprocess.run", side_effect=_capture):
-        run_claude_command("analyse this", model="claude-sonnet-5", timeout=10)
+        run_claude_command("analyse this", model="claude-sonnet-5", timeout=10, backend_settings=settings)
     idx = captured["args"].index("--model")
     assert captured["args"][idx + 1] == "claude-sonnet-5"
 
@@ -315,13 +305,12 @@ def test_run_claude_command_timeout_maps_to_clean_error():
 
     app = _fake_app({"claude_cli": {"enabled": True}})
     settings = _fake_settings()
-    with app.app_context(), patch("agent.cli_backends.opencode.settings", settings), \
-         patch("agent.cli_backends.opencode.shutil.which", return_value="/usr/bin/claude"), \
+    with app.app_context(), patch("agent.cli_backends.opencode.shutil.which", return_value="/usr/bin/claude"), \
          patch(
              "agent.cli_backends.opencode.subprocess.run",
              side_effect=real_subprocess.TimeoutExpired(cmd="claude", timeout=10),
          ):
-        rc, out, err = run_claude_command("analyse this", timeout=10)
+        rc, out, err = run_claude_command("analyse this", timeout=10, backend_settings=settings)
     assert rc == -1
     assert err == "Timeout"
 
@@ -335,9 +324,8 @@ def test_run_claude_command_workdir_outside_allowed_paths_is_rejected(tmp_path):
     outside.mkdir()
     app = _fake_app({"claude_cli": {"enabled": True, "allowed_paths": [str(allowed)]}})
     settings = _fake_settings()
-    with app.app_context(), patch("agent.cli_backends.opencode.settings", settings), \
-         patch("agent.cli_backends.opencode.shutil.which", return_value="/usr/bin/claude"):
-        rc, out, err = run_claude_command("analyse this", timeout=10, workdir=str(outside))
+    with app.app_context(), patch("agent.cli_backends.opencode.shutil.which", return_value="/usr/bin/claude"):
+        rc, out, err = run_claude_command("analyse this", timeout=10, workdir=str(outside), backend_settings=settings)
     assert rc == -1
     assert "allowed_paths" in err
 
@@ -374,7 +362,6 @@ def test_preflight_contains_claude_provider_block():
     settings = _fake_settings()
     with app.app_context(), \
          patch("agent.cli_backends.routing.settings", settings), \
-         patch("agent.cli_backends.opencode.settings", settings), \
          patch("agent.cli_backends.routing.shutil.which", return_value="/usr/bin/claude"):
         preflight = get_cli_backend_preflight(runtime_scope="worker")
     claude = preflight["providers"]["claude"]
@@ -394,7 +381,6 @@ def test_preflight_claude_not_installed_shows_hint_without_error():
     settings = _fake_settings()
     with app.app_context(), \
          patch("agent.cli_backends.routing.settings", settings), \
-         patch("agent.cli_backends.opencode.settings", settings), \
          patch("agent.cli_backends.routing.shutil.which", return_value=None):
         preflight = get_cli_backend_preflight(runtime_scope="worker")
     claude = preflight["providers"]["claude"]
@@ -413,7 +399,6 @@ def test_preflight_claude_api_key_mode_has_no_login_command():
     settings = _fake_settings(anthropic_api_key="sk-x")
     with app.app_context(), \
          patch("agent.cli_backends.routing.settings", settings), \
-         patch("agent.cli_backends.opencode.settings", settings), \
          patch("agent.cli_backends.routing.shutil.which", return_value="/usr/bin/claude"):
         preflight = get_cli_backend_preflight(runtime_scope="worker")
     claude = preflight["providers"]["claude"]
@@ -432,8 +417,7 @@ def test_choose_candidates_auto_excludes_disabled_claude():
     app = _fake_app({})
     settings = _fake_settings()
     with app.app_context(), \
-         patch("agent.cli_backends.routing.settings", settings), \
-         patch("agent.cli_backends.opencode.settings", settings):
+         patch("agent.cli_backends.routing.settings", settings):
         candidates = _choose_candidates(requested="auto", prompt="hello")
     assert "claude_code" not in candidates
 
@@ -445,7 +429,6 @@ def test_choose_candidates_auto_excludes_enabled_installed_claude_without_paid_f
     settings = _fake_settings()
     with app.app_context(), \
          patch("agent.cli_backends.routing.settings", settings), \
-         patch("agent.cli_backends.opencode.settings", settings), \
          patch("agent.cli_backends.routing.shutil.which", return_value="/usr/bin/claude"):
         candidates = _choose_candidates(requested="auto", prompt="hello")
     assert "claude_code" not in candidates
@@ -458,7 +441,6 @@ def test_choose_candidates_auto_includes_enabled_installed_claude_when_paid_fall
     settings = _fake_settings()
     with app.app_context(), \
          patch("agent.cli_backends.routing.settings", settings), \
-         patch("agent.cli_backends.opencode.settings", settings), \
          patch("agent.cli_backends.routing.shutil.which", return_value="/usr/bin/claude"):
         candidates = _choose_candidates(
             requested="auto",
@@ -658,8 +640,8 @@ def test_run_claude_write_armed_produces_diff_and_leaves_original_untouched(tmp_
 
     app = _fake_app({"claude_cli": {"enabled": True, "allowed_paths": [str(tmp_path)]}})
     settings = _fake_settings(claude_path=mock_claude)
-    with app.app_context(), patch("agent.cli_backends.opencode.settings", settings):
-        result = run_claude_write_armed("aendere hello.txt", timeout=60, workdir=str(repo))
+    with app.app_context():
+        result = run_claude_write_armed("aendere hello.txt", timeout=60, workdir=str(repo), backend_settings=settings)
 
     assert result["status"] == "awaiting_diff_review"
     assert result["rc"] == 0
@@ -681,8 +663,8 @@ def test_run_claude_write_armed_no_changes(tmp_path):
 
     app = _fake_app({"claude_cli": {"enabled": True, "allowed_paths": [str(tmp_path)]}})
     settings = _fake_settings(claude_path=mock_claude)
-    with app.app_context(), patch("agent.cli_backends.opencode.settings", settings):
-        result = run_claude_write_armed("nichts tun", timeout=60, workdir=str(repo))
+    with app.app_context():
+        result = run_claude_write_armed("nichts tun", timeout=60, workdir=str(repo), backend_settings=settings)
 
     assert result["status"] == "no_changes"
     assert result["changed_files"] == []
@@ -694,8 +676,8 @@ def test_run_claude_write_armed_requires_allowed_paths(tmp_path):
 
     app = _fake_app({"claude_cli": {"enabled": True}})
     settings = _fake_settings()
-    with app.app_context(), patch("agent.cli_backends.opencode.settings", settings):
-        result = run_claude_write_armed("x", workdir=str(tmp_path))
+    with app.app_context():
+        result = run_claude_write_armed("x", workdir=str(tmp_path), backend_settings=settings)
     assert result["status"] == "error"
     assert "allowed_paths" in result["stderr"]
 
@@ -707,8 +689,8 @@ def test_run_claude_write_armed_requires_git_repo(tmp_path):
     plain.mkdir()
     app = _fake_app({"claude_cli": {"enabled": True, "allowed_paths": [str(tmp_path)]}})
     settings = _fake_settings()
-    with app.app_context(), patch("agent.cli_backends.opencode.settings", settings):
-        result = run_claude_write_armed("x", workdir=str(plain))
+    with app.app_context():
+        result = run_claude_write_armed("x", workdir=str(plain), backend_settings=settings)
     assert result["status"] == "error"
     assert "Git-Repository" in result["stderr"]
 
@@ -727,8 +709,8 @@ def test_run_claude_write_armed_uses_accept_edits_permission_mode(tmp_path):
 
     app = _fake_app({"claude_cli": {"enabled": True, "allowed_paths": [str(tmp_path)]}})
     settings = _fake_settings(claude_path=mock_claude)
-    with app.app_context(), patch("agent.cli_backends.opencode.settings", settings):
-        run_claude_write_armed("pruefe args", timeout=60, workdir=str(repo))
+    with app.app_context():
+        run_claude_write_armed("pruefe args", timeout=60, workdir=str(repo), backend_settings=settings)
 
     logged = args_log.read_text()
     assert "--permission-mode acceptEdits" in logged
@@ -747,10 +729,10 @@ def test_apply_reviewed_diff_e2e_roundtrip(tmp_path):
 
     app = _fake_app({"claude_cli": {"enabled": True, "allowed_paths": [str(tmp_path)]}})
     settings = _fake_settings(claude_path=mock_claude)
-    with app.app_context(), patch("agent.cli_backends.opencode.settings", settings):
-        armed = run_claude_write_armed("aendere hello.txt", timeout=60, workdir=str(repo))
+    with app.app_context():
+        armed = run_claude_write_armed("aendere hello.txt", timeout=60, workdir=str(repo), backend_settings=settings)
         assert armed["status"] == "awaiting_diff_review"
-        applied = apply_reviewed_diff(armed["diff"], workdir=str(repo))
+        applied = apply_reviewed_diff(armed["diff"], workdir=str(repo), backend_settings=settings)
 
     assert applied["status"] == "applied"
     assert applied["applied"] is True
@@ -774,11 +756,11 @@ def test_apply_reviewed_diff_conflict_when_local_state_changed(tmp_path):
 
     app = _fake_app({"claude_cli": {"enabled": True, "allowed_paths": [str(tmp_path)]}})
     settings = _fake_settings(claude_path=mock_claude)
-    with app.app_context(), patch("agent.cli_backends.opencode.settings", settings):
-        armed = run_claude_write_armed("aendere hello.txt", timeout=60, workdir=str(repo))
+    with app.app_context():
+        armed = run_claude_write_armed("aendere hello.txt", timeout=60, workdir=str(repo), backend_settings=settings)
         # Lokaler Stand aendert sich zwischen Review und Apply:
         (repo / "hello.txt").write_text("diverged locally\n")
-        applied = apply_reviewed_diff(armed["diff"], workdir=str(repo))
+        applied = apply_reviewed_diff(armed["diff"], workdir=str(repo), backend_settings=settings)
 
     assert applied["status"] == "conflict"
     assert applied["applied"] is False
@@ -791,9 +773,11 @@ def test_apply_reviewed_diff_rejects_empty_and_oversized_diff(tmp_path):
 
     app = _fake_app({"claude_cli": {"enabled": True, "allowed_paths": [str(tmp_path)]}})
     settings = _fake_settings()
-    with app.app_context(), patch("agent.cli_backends.opencode.settings", settings):
-        empty = apply_reviewed_diff("", workdir=str(tmp_path))
-        oversized = apply_reviewed_diff("x" * (_WRITE_ARMED_MAX_DIFF_CHARS + 1), workdir=str(tmp_path))
+    with app.app_context():
+        empty = apply_reviewed_diff("", workdir=str(tmp_path), backend_settings=settings)
+        oversized = apply_reviewed_diff(
+            "x" * (_WRITE_ARMED_MAX_DIFF_CHARS + 1), workdir=str(tmp_path), backend_settings=settings
+        )
     assert empty["status"] == "error"
     assert "Leerer Diff" in empty["stderr"]
     assert oversized["status"] == "error"
@@ -806,15 +790,15 @@ def test_apply_reviewed_diff_requires_allowed_paths_and_git_repo(tmp_path):
     diff = "diff --git a/x b/x\n"
     settings = _fake_settings()
     app = _fake_app({"claude_cli": {"enabled": True}})
-    with app.app_context(), patch("agent.cli_backends.opencode.settings", settings):
-        no_paths = apply_reviewed_diff(diff, workdir=str(tmp_path))
+    with app.app_context():
+        no_paths = apply_reviewed_diff(diff, workdir=str(tmp_path), backend_settings=settings)
     assert "allowed_paths" in no_paths["stderr"]
 
     plain = tmp_path / "plain"
     plain.mkdir()
     app = _fake_app({"claude_cli": {"enabled": True, "allowed_paths": [str(tmp_path)]}})
-    with app.app_context(), patch("agent.cli_backends.opencode.settings", settings):
-        no_git = apply_reviewed_diff(diff, workdir=str(plain))
+    with app.app_context():
+        no_git = apply_reviewed_diff(diff, workdir=str(plain), backend_settings=settings)
     assert "Git-Repository" in no_git["stderr"]
 
 

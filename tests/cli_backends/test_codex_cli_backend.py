@@ -14,9 +14,9 @@ def test_run_codex_command_injects_lmstudio_openai_compatible_env():
     def _fake_permit(*a, **kw):
         yield _NS(acquired=True)
 
+    mock_settings = MagicMock()
     with (
         patch("agent.cli_backends.opencode.shutil.which", return_value=r"C:\tools\codex.cmd"),
-        patch("agent.cli_backends.opencode.settings") as mock_settings,
         patch("agent.cli_backends.helpers.settings") as mock_settings_h,
         patch("agent.cli_backends.opencode.subprocess.run") as mock_run,
         patch("agent.cli_backends.opencode._acquire_backend_permit", _fake_permit),
@@ -41,7 +41,7 @@ def test_run_codex_command_injects_lmstudio_openai_compatible_env():
         mock_result.stderr = ""
         mock_run.return_value = mock_result
 
-        rc, out, err = run_codex_command("analyze repository")
+        rc, out, err = run_codex_command("analyze repository", backend_settings=mock_settings)
 
     assert rc == 0
     assert out == "ok"
@@ -141,8 +141,8 @@ def test_resolve_codex_runtime_config_exposes_source_metadata_for_local_runtime(
 def test_resolve_codex_runtime_config_falls_back_to_openai_when_lmstudio_not_preferred():
     from agent.cli_backends.sgpt import resolve_codex_runtime_config
 
+    mock_settings = MagicMock()
     with (
-        patch("agent.cli_backends.opencode.settings") as mock_settings,
         patch("agent.cli_backends.helpers.settings") as mock_settings_h,
     ):
         mock_settings.default_provider = "openai"
@@ -155,7 +155,7 @@ def test_resolve_codex_runtime_config_falls_back_to_openai_when_lmstudio_not_pre
         mock_settings_h.anthropic_url = ""
         mock_settings_h.mock_url = ""
 
-        resolved = resolve_codex_runtime_config()
+        resolved = resolve_codex_runtime_config(backend_settings=mock_settings)
 
     assert resolved["base_url"] == "https://api.openai.com/v1"
     assert resolved["base_url_source"] == "default_provider"
@@ -386,8 +386,8 @@ def test_resolve_opencode_runtime_config_forces_target_provider_over_lmstudio_pr
             "opencode_runtime": {"tool_mode": "toolless", "execution_mode": "interactive_terminal", "target_provider": "ollama"},
         }
         app.config["PROVIDER_URLS"] = {"ollama": "http://127.0.0.1:11434/api/chat", "lmstudio": "http://127.0.0.1:1234/v1"}
+        mock_settings = MagicMock()
         with (
-            patch("agent.cli_backends.opencode.settings") as mock_settings,
             patch("agent.cli_backends.opencode.resolve_ollama_model", return_value="ananta-default"),
         ):
             mock_settings.default_provider = "lmstudio"
@@ -396,7 +396,7 @@ def test_resolve_opencode_runtime_config_forces_target_provider_over_lmstudio_pr
             mock_settings.ollama_url = "http://127.0.0.1:11434/api/chat"
             mock_settings.lmstudio_url = "http://127.0.0.1:1234/v1"
             mock_settings.http_timeout = 30
-            resolved = resolve_opencode_runtime_config()
+            resolved = resolve_opencode_runtime_config(backend_settings=mock_settings)
 
     assert resolved["target_provider"] == "ollama"
     assert resolved["model"] == "ollama/ananta-default"
@@ -434,8 +434,8 @@ def test_resolve_opencode_runtime_config_resolves_short_ollama_model_to_installe
             "opencode_default_model": "qwen2.5-coder:7b",
         }
         app.config["PROVIDER_URLS"] = {"ollama": "http://127.0.0.1:11434/api/chat"}
+        mock_settings = MagicMock()
         with (
-            patch("agent.cli_backends.opencode.settings") as mock_settings,
             patch(
                 "agent.cli_backends.opencode.resolve_ollama_model",
                 return_value="bartowski-qwen2.5-coder-7b-instruct-gguf-qwen2.5-coder-7b-instruct-q4_k_s:latest",
@@ -445,7 +445,7 @@ def test_resolve_opencode_runtime_config_resolves_short_ollama_model_to_installe
             mock_settings.opencode_default_model = "qwen2.5-coder:7b"
             mock_settings.ollama_url = "http://127.0.0.1:11434/api/chat"
             mock_settings.http_timeout = 30
-            resolved = resolve_opencode_runtime_config()
+            resolved = resolve_opencode_runtime_config(backend_settings=mock_settings)
 
     assert resolved["model"] == "ollama/bartowski-qwen2.5-coder-7b-instruct-gguf-qwen2.5-coder-7b-instruct-q4_k_s:latest"
     assert resolved["target_model"] == "bartowski-qwen2.5-coder-7b-instruct-gguf-qwen2.5-coder-7b-instruct-q4_k_s:latest"
@@ -460,8 +460,8 @@ def test_resolve_opencode_runtime_config_falls_back_to_settings_provider_urls(ap
             "opencode_default_model": "qwen2.5-coder:7b",
         }
         app.config["PROVIDER_URLS"] = {}
+        mock_settings = MagicMock()
         with (
-            patch("agent.cli_backends.opencode.settings") as mock_settings,
             patch("agent.cli_backends.helpers.settings") as mock_settings_h,
             patch(
                 "agent.cli_backends.opencode.resolve_ollama_model",
@@ -477,7 +477,7 @@ def test_resolve_opencode_runtime_config_falls_back_to_settings_provider_urls(ap
             mock_settings_h.openai_url = ""
             mock_settings_h.anthropic_url = ""
             mock_settings_h.mock_url = ""
-            resolved = resolve_opencode_runtime_config()
+            resolved = resolve_opencode_runtime_config(backend_settings=mock_settings)
 
     assert resolved["base_url"] == "http://ollama:11434/v1"
     assert resolved["model"] == "ollama/bartowski-qwen2.5-coder-7b-instruct-gguf-qwen2.5-coder-7b-instruct-q4_k_s:latest"
@@ -494,8 +494,8 @@ def test_resolve_opencode_runtime_config_infers_local_provider_for_bare_opencode
             "opencode_default_model": "qwen2.5-coder:7b",
         }
         app.config["PROVIDER_URLS"] = {"ollama": "http://127.0.0.1:11434/api/chat"}
+        mock_settings = MagicMock()
         with (
-            patch("agent.cli_backends.opencode.settings") as mock_settings,
             patch(
                 "agent.cli_backends.opencode.probe_ollama_runtime",
                 return_value={"ok": True, "models": [{"name": "qwen2.5-coder:7b"}]},
@@ -507,7 +507,7 @@ def test_resolve_opencode_runtime_config_infers_local_provider_for_bare_opencode
             mock_settings.opencode_default_model = "qwen2.5-coder:7b"
             mock_settings.ollama_url = "http://127.0.0.1:11434/api/chat"
             mock_settings.http_timeout = 30
-            resolved = resolve_opencode_runtime_config()
+            resolved = resolve_opencode_runtime_config(backend_settings=mock_settings)
 
     assert resolved["target_provider"] == "ollama"
     assert resolved["target_model"] == "qwen2.5-coder:7b"
@@ -525,8 +525,8 @@ def test_resolve_opencode_runtime_config_builds_lmstudio_provider_for_inferred_l
             "opencode_default_model": "qwen2.5-coder:7b",
         }
         app.config["PROVIDER_URLS"] = {"lmstudio": "http://127.0.0.1:1234/v1"}
+        mock_settings = MagicMock()
         with (
-            patch("agent.cli_backends.opencode.settings") as mock_settings,
             patch(
                 "agent.cli_backends.opencode.probe_lmstudio_runtime",
                 return_value={"ok": True, "candidates": [{"id": "qwen2.5-coder-7b-instruct"}]},
@@ -537,7 +537,7 @@ def test_resolve_opencode_runtime_config_builds_lmstudio_provider_for_inferred_l
             mock_settings.opencode_default_model = "qwen2.5-coder:7b"
             mock_settings.lmstudio_url = "http://127.0.0.1:1234/v1"
             mock_settings.http_timeout = 30
-            resolved = resolve_opencode_runtime_config()
+            resolved = resolve_opencode_runtime_config(backend_settings=mock_settings)
 
     assert resolved["target_provider"] == "lmstudio"
     assert resolved["target_model"] == "qwen2.5-coder-7b-instruct"
@@ -558,8 +558,8 @@ def test_resolve_opencode_runtime_config_preserves_namespaced_lmstudio_model(app
         app.config["PROVIDER_URLS"] = {
             "lmstudio": "http://127.0.0.1:1234/v1"
         }
+        mock_settings = MagicMock()
         with (
-            patch("agent.cli_backends.opencode.settings") as mock_settings,
             patch(
                 "agent.cli_backends.opencode._infer_local_opencode_target",
                 return_value=("lmstudio", "qwen/qwen3.5-9b"),
@@ -573,6 +573,7 @@ def test_resolve_opencode_runtime_config_preserves_namespaced_lmstudio_model(app
                 model="qwen/qwen3.5-9b",
                 context_token_limit=32768,
                 output_token_limit=4096,
+                           backend_settings=mock_settings,
             )
 
     assert resolved["target_provider"] == "lmstudio"

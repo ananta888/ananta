@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import functools
 import logging
 import os
 import shlex
@@ -10,6 +11,7 @@ import subprocess
 import tempfile
 import threading
 from pathlib import Path
+from typing import Any
 
 from flask import current_app, has_app_context
 
@@ -72,6 +74,8 @@ from agent.cli_backends.opencode_runtime_helpers import (
 )
 from agent.cli_backends.provisioning import resolve_provisioned_backend_binary
 from agent.cli_backends.semaphore import _acquire_backend_permit
+# Production default of every ``backend_settings=`` parameter below; callers
+# and tests pass their own settings object explicitly.
 from agent.config import settings
 from agent.llm_integration import (
     _find_matching_lmstudio_candidate,
@@ -143,7 +147,9 @@ def resolve_opencode_runtime_config(
     tool_mode: str | None = None,
     context_token_limit: int | None = None,
     output_token_limit: int | None = None,
+    backend_settings: Any | None = None,
 ) -> dict[str, object]:
+    backend_settings = settings if backend_settings is None else backend_settings
     agent_cfg = _get_agent_config()
     provider_urls = _get_runtime_provider_urls()
     opencode_runtime_cfg = agent_cfg.get("opencode_runtime") if isinstance(agent_cfg.get("opencode_runtime"), dict) else {}
@@ -183,7 +189,7 @@ def resolve_opencode_runtime_config(
         forced_target_model
         or str(agent_cfg.get("opencode_default_model") or "").strip()
         or str(agent_cfg.get("default_model") or agent_cfg.get("model") or "").strip()
-        or str(settings.opencode_default_model or "").strip()
+        or str(backend_settings.opencode_default_model or "").strip()
     )
     default_provider = str(agent_cfg.get("default_provider") or _get_runtime_default_provider() or "").strip() or None
     known_provider_prefixes = _native_passthrough | {
@@ -215,7 +221,7 @@ def resolve_opencode_runtime_config(
         # part of that model ID, not an OpenCode provider identifier.
         explicit_provider = None
         explicit_model = None
-    inference_timeout = max(1, min(int(getattr(settings, "http_timeout", 120) or 120), 5))
+    inference_timeout = max(1, min(int(getattr(backend_settings, "http_timeout", 120) or 120), 5))
     inferred_provider, inferred_model = (None, None)
     if not explicit_provider and raw_model:
         inferred_provider, inferred_model = _infer_local_opencode_target(
@@ -264,18 +270,18 @@ def resolve_opencode_runtime_config(
     elif target_provider == "ollama":
         if tool_mode != "toolless":
             tool_mode = "toolless"
-        base_url = _normalize_ollama_openai_base_url(provider_urls.get("ollama") or getattr(settings, "ollama_url", None))
+        base_url = _normalize_ollama_openai_base_url(provider_urls.get("ollama") or getattr(backend_settings, "ollama_url", None))
         base_url_source = "ollama_url"
         target_provider_type = "local_openai_compatible"
         target_kind = "local_openai" if _is_probably_local_base_url(base_url) else "remote_openai_compatible"
         if target_model and base_url:
             try:
-                resolve_timeout = float(getattr(settings, "http_timeout", 120) or 120)
+                resolve_timeout = float(getattr(backend_settings, "http_timeout", 120) or 120)
             except (TypeError, ValueError):
                 resolve_timeout = 120.0
             target_model = resolve_ollama_model(target_model, base_url, timeout=min(resolve_timeout, 10.0))
     elif target_provider == "lmstudio":
-        base_url = _normalize_openai_base_url(provider_urls.get("lmstudio") or getattr(settings, "lmstudio_url", None))
+        base_url = _normalize_openai_base_url(provider_urls.get("lmstudio") or getattr(backend_settings, "lmstudio_url", None))
         base_url_source = "lmstudio_url"
         target_provider_type = "local_openai_compatible"
         target_kind = "local_openai" if _is_probably_local_base_url(base_url) else "remote_openai_compatible"
@@ -365,8 +371,11 @@ def run_opencode_command(
     cancellation: threading.Event | None = None,
     event_sink: EventSink | None = None,
     maximum_output_chars: int = _OPENCODE_MAXIMUM_OUTPUT_CHARS,
+    *,
+    backend_settings: Any | None = None,
 ) -> tuple[int, str, str]:
     """Führt einen OpenCode-CLI-Aufruf aus. Gibt (returncode, stdout, stderr) zurück."""
+    backend_settings = settings if backend_settings is None else backend_settings
     budget_error = check_prompt_budget(
         prompt,
         max_tokens=prompt_token_limit("opencode", model=model),
@@ -374,7 +383,7 @@ def run_opencode_command(
     if budget_error is not None:
         return budget_error
 
-    opencode_bin = settings.opencode_path or "opencode"
+    opencode_bin = backend_settings.opencode_path or "opencode"
     opencode_resolved = shutil.which(opencode_bin)
     if opencode_resolved is None:
         return -1, "", (f"OpenCode binary '{opencode_bin}' not found. Install with: npm i -g opencode-ai")
@@ -405,6 +414,7 @@ def run_opencode_command(
         terminal_service = _ctx.live_terminal_session_service
         session_info = terminal_service.ensure_session_for_cli(session, workdir=workdir) or {}
         rc, out, err, command_label = _run_opencode_subprocess(
+            backend_settings=backend_settings,
             prompt=prompt,
             model=model,
             timeout=timeout,
@@ -423,6 +433,7 @@ def run_opencode_command(
                 terminal_service.append_output(terminal_session_id, f"{err}\n")
         return rc, out, err
     rc, out, err, _ = _run_opencode_subprocess(
+        backend_settings=backend_settings,
         prompt=prompt,
         model=model,
         timeout=timeout,
@@ -452,8 +463,10 @@ def _run_opencode_subprocess(
     event_sink: EventSink | None = None,
     maximum_output_chars: int = _OPENCODE_MAXIMUM_OUTPUT_CHARS,
     process_runner: ProcessRunnerPort | None = None,
+    backend_settings: Any | None = None,
 ) -> tuple[int, str, str, str]:
-    opencode_bin = settings.opencode_path or "opencode"
+    backend_settings = settings if backend_settings is None else backend_settings
+    opencode_bin = backend_settings.opencode_path or "opencode"
     opencode_resolved = shutil.which(opencode_bin)
     if opencode_resolved is None:
         hint = f"OpenCode binary '{opencode_bin}' not found. Install with: npm i -g opencode-ai"
@@ -469,6 +482,7 @@ def _run_opencode_subprocess(
         }
         env.update({"CI": "1", "NO_COLOR": "1"})
         runtime_cfg = resolve_opencode_runtime_config(
+            backend_settings=backend_settings,
             model=model,
             tool_mode=tool_mode,
             context_token_limit=context_token_limit,
@@ -532,7 +546,8 @@ def _run_opencode_subprocess(
             return -1, "", str(e), " ".join(shlex.quote(part) for part in args)
 
 
-def resolve_codex_runtime_config() -> dict:
+def resolve_codex_runtime_config(*, backend_settings: Any | None = None) -> dict:
+    backend_settings = settings if backend_settings is None else backend_settings
     agent_cfg = _get_agent_config()
     provider_urls = _get_runtime_provider_urls()
     if has_app_context() and "PROVIDER_URLS" in current_app.config:
@@ -557,7 +572,7 @@ def resolve_codex_runtime_config() -> dict:
         base_url = _normalize_openai_base_url(local_target.get("base_url"))
         base_url_source = f"codex_cli.target_provider:{local_target['provider']}"
     elif prefer_lmstudio:
-        base_url = _normalize_openai_base_url(provider_urls.get("lmstudio") or settings.lmstudio_url)
+        base_url = _normalize_openai_base_url(provider_urls.get("lmstudio") or backend_settings.lmstudio_url)
         base_url_source = "lmstudio_url"
     elif provider_urls == {}:
         base_url = None
@@ -585,7 +600,7 @@ def resolve_codex_runtime_config() -> dict:
         api_key = "sk-no-key-needed"
         api_key_source = "local_dummy"
     if not api_key:
-        api_key = os.environ.get("OPENAI_API_KEY") or settings.openai_api_key
+        api_key = os.environ.get("OPENAI_API_KEY") or backend_settings.openai_api_key
         if api_key:
             api_key_source = "openai_api_key"
     target_kind = "local_openai"
@@ -606,7 +621,7 @@ def resolve_codex_runtime_config() -> dict:
     if raw_auth_mode is not None:
         auth_mode = raw_auth_mode.strip().lower() or "api_key"
     else:
-        auth_mode = str(getattr(settings, "codex_auth_mode", "api_key") or "api_key").strip().lower() or "api_key"
+        auth_mode = str(getattr(backend_settings, "codex_auth_mode", "api_key") or "api_key").strip().lower() or "api_key"
     if auth_mode not in ("api_key", "chatgpt_login"):
         auth_mode = "api_key"
     sandbox_mode = str(codex_cfg.get("sandbox_mode") or "read-only").strip()
@@ -619,7 +634,7 @@ def resolve_codex_runtime_config() -> dict:
     ):
         api_key_required = bool(codex_cli_cfg["api_key_required"])
     else:
-        api_key_required = bool(getattr(settings, "codex_require_api_key", True))
+        api_key_required = bool(getattr(backend_settings, "codex_require_api_key", True))
     if auth_mode == "chatgpt_login":
         api_key_required = False
     return {
@@ -643,10 +658,17 @@ def resolve_codex_runtime_config() -> dict:
     }
 
 
-def run_codex_command(prompt: str, model: str | None = None, timeout: int = 60) -> tuple[int, str, str]:
+def run_codex_command(
+    prompt: str,
+    model: str | None = None,
+    timeout: int = 60,
+    *,
+    backend_settings: Any | None = None,
+) -> tuple[int, str, str]:
     """Fuehrt einen OpenAI Codex CLI exec-Aufruf aus."""
+    backend_settings = settings if backend_settings is None else backend_settings
     try:  # a codex pointed at a local runtime is gated by the Ananta window, a subscription model by its own
-        codex_local = bool(resolve_codex_runtime_config().get("is_local"))
+        codex_local = bool(resolve_codex_runtime_config(backend_settings=backend_settings).get("is_local"))
     except Exception:  # noqa: BLE001
         codex_local = None
     budget_error = check_prompt_budget(
@@ -656,7 +678,7 @@ def run_codex_command(prompt: str, model: str | None = None, timeout: int = 60) 
     if budget_error is not None:
         return budget_error
 
-    codex_bin = settings.codex_path or "codex"
+    codex_bin = backend_settings.codex_path or "codex"
     codex_resolved = shutil.which(codex_bin) or resolve_provisioned_backend_binary("codex")
     if codex_resolved is None:
         return -1, "", (f"Codex binary '{codex_bin}' not found. Install with: npm i -g @openai/codex")
@@ -675,7 +697,7 @@ def run_codex_command(prompt: str, model: str | None = None, timeout: int = 60) 
         if not ticket.acquired:
             return -1, "", "Backend 'codex' ist ausgelastet (semaphore_exhausted)"
         env = os.environ.copy()
-        runtime_cfg = resolve_codex_runtime_config()
+        runtime_cfg = resolve_codex_runtime_config(backend_settings=backend_settings)
         base_url = runtime_cfg["base_url"]
         api_key = runtime_cfg["api_key"]
         diagnostics = list(runtime_cfg.get("diagnostics") or [])
@@ -708,7 +730,7 @@ def run_codex_command(prompt: str, model: str | None = None, timeout: int = 60) 
         selected_model = (
             model
             if auth_mode == "chatgpt_login"
-            else model or settings.codex_default_model
+            else model or backend_settings.codex_default_model
         )
         if selected_model:
             args.extend(["--model", selected_model])
@@ -752,12 +774,13 @@ def run_codex_command(prompt: str, model: str | None = None, timeout: int = 60) 
             return -1, "", str(e)
 
 
-def resolve_claude_runtime_config() -> dict:
+def resolve_claude_runtime_config(*, backend_settings: Any | None = None) -> dict:
     """Resolve Claude Code settings without inspecting its local login files."""
+    backend_settings = settings if backend_settings is None else backend_settings
 
     return _resolve_claude_runtime_config(
         agent_config=_get_agent_config(),
-        settings=settings,
+        settings=backend_settings,
         environ=os.environ,
     )
 
@@ -767,8 +790,11 @@ def run_claude_command(
     model: str | None = None,
     timeout: int | None = None,
     workdir: str | None = None,
+    *,
+    backend_settings: Any | None = None,
 ) -> tuple[int, str, str]:
     """Run one non-interactive Claude Code request through the bounded backend."""
+    backend_settings = settings if backend_settings is None else backend_settings
 
     budget_error = check_prompt_budget(
         prompt,
@@ -781,8 +807,8 @@ def run_claude_command(
         model=model,
         timeout=timeout,
         workdir=workdir,
-        runtime_config=resolve_claude_runtime_config(),
-        settings=settings,
+        runtime_config=resolve_claude_runtime_config(backend_settings=backend_settings),
+        settings=backend_settings,
         which=shutil.which,
         provisioned_binary=resolve_provisioned_backend_binary,
         acquire_permit=_acquire_backend_permit,
@@ -797,28 +823,40 @@ def run_claude_write_armed(
     model: str | None = None,
     timeout: int | None = None,
     workdir: str | None = None,
+    *,
+    backend_settings: Any | None = None,
 ) -> dict:
     """Write-armed Claude run in an isolated workspace; see :mod:`agent.cli_backends.claude_write_armed`."""
+    backend_settings = settings if backend_settings is None else backend_settings
     return _claude_write_armed.run_claude_write_armed(
         prompt,
         model=model,
         timeout=timeout,
         workdir=workdir,
         budget_error=check_prompt_budget(prompt, max_tokens=prompt_token_limit("claude", model=model)),
-        resolve_runtime_config=resolve_claude_runtime_config,
-        settings=settings,
+        resolve_runtime_config=functools.partial(
+            resolve_claude_runtime_config, backend_settings=backend_settings
+        ),
+        settings=backend_settings,
         provisioned_binary=resolve_provisioned_backend_binary,
         acquire_permit=_acquire_backend_permit,
         logger=log,
     )
 
 
-def apply_reviewed_diff(diff: str, workdir: str | None = None) -> dict:
+def apply_reviewed_diff(
+    diff: str,
+    workdir: str | None = None,
+    *,
+    backend_settings: Any | None = None,
+) -> dict:
     """Apply a reviewed write-armed diff; see :mod:`agent.cli_backends.claude_write_armed`."""
     return _claude_write_armed.apply_reviewed_diff(
         diff,
         workdir=workdir,
-        resolve_runtime_config=resolve_claude_runtime_config,
+        resolve_runtime_config=functools.partial(
+            resolve_claude_runtime_config, backend_settings=backend_settings
+        ),
     )
 
 
@@ -830,8 +868,11 @@ def run_aider_command(
     cancellation: threading.Event | None = None,
     event_sink: EventSink | None = None,
     maximum_output_chars: int = 1_000_000,
+    *,
+    backend_settings: Any | None = None,
 ) -> tuple[int, str, str]:
     """Führt einen Aider-CLI-Aufruf aus (non-interactive)."""
+    backend_settings = settings if backend_settings is None else backend_settings
     target = resolve_aider_inference_target(model)
     with _acquire_backend_permit("aider", timeout=timeout) as ticket:
         if not ticket.acquired:
@@ -847,7 +888,7 @@ def run_aider_command(
             )
             provider = build_cli_coding_agent_provider(
                 "aider",
-                binary_resolver=lambda _name: shutil.which(settings.aider_path or "aider"),
+                binary_resolver=lambda _name: shutil.which(backend_settings.aider_path or "aider"),
                 environment={**os.environ, **target.process_environment()},
             )
             result = provider.run(request, event_sink=event_sink)
@@ -860,13 +901,20 @@ def run_aider_command(
         return result.return_code, result.stdout, result.stderr or ("" if result.succeeded else result.reason_code)
 
 
-def run_mistral_code_command(prompt: str, model: str | None = None, timeout: int = 60) -> tuple[int, str, str]:
+def run_mistral_code_command(
+    prompt: str,
+    model: str | None = None,
+    timeout: int = 60,
+    *,
+    backend_settings: Any | None = None,
+) -> tuple[int, str, str]:
     """Führt einen Mistral-Code-CLI-Aufruf aus."""
+    backend_settings = settings if backend_settings is None else backend_settings
     return simple_command_runners.run_mistral_code_command(
         prompt,
         model,
         timeout,
-        settings=settings,
+        settings=backend_settings,
         which=shutil.which,
         run_process=subprocess.run,
         acquire_permit=_acquire_backend_permit,

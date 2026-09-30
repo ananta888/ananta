@@ -256,7 +256,7 @@ def get_cli_backend_runtime_status() -> dict[str, dict]:
             **rt,
         }
         if name == "codex":
-            codex_runtime = resolve_codex_runtime_config()
+            codex_runtime = resolve_codex_runtime_config(backend_settings=settings)
             runtime_entry["target_base_url"] = codex_runtime["base_url"]
             runtime_entry["target_provider"] = codex_runtime["target_provider"]
             runtime_entry["target_base_url_source"] = codex_runtime["base_url_source"]
@@ -271,7 +271,7 @@ def get_cli_backend_runtime_status() -> dict[str, dict]:
             runtime_entry["prefer_lmstudio"] = codex_runtime["prefer_lmstudio"]
             runtime_entry["diagnostics"] = list(codex_runtime.get("diagnostics") or [])
         if name == "opencode":
-            opencode_runtime = resolve_opencode_runtime_config()
+            opencode_runtime = resolve_opencode_runtime_config(backend_settings=settings)
             runtime_entry["target_base_url"] = opencode_runtime.get("base_url")
             runtime_entry["target_provider"] = opencode_runtime.get("target_provider")
             runtime_entry["target_base_url_source"] = opencode_runtime.get("base_url_source")
@@ -283,7 +283,7 @@ def get_cli_backend_runtime_status() -> dict[str, dict]:
         if name == "claude_code":
             from agent.cli_backends.opencode import resolve_claude_runtime_config
 
-            claude_runtime = resolve_claude_runtime_config()
+            claude_runtime = resolve_claude_runtime_config(backend_settings=settings)
             runtime_entry["enabled"] = bool(claude_runtime.get("enabled"))
             runtime_entry["auth_mode"] = claude_runtime.get("auth_mode")
             runtime_entry["api_key_required"] = bool(claude_runtime.get("api_key_required"))
@@ -338,8 +338,8 @@ def get_cli_backend_preflight(*, runtime_scope: str = "full") -> dict[str, dict]
     from agent.llm_integration import _normalize_ollama_base_url
 
     ollama_base_url = _normalize_ollama_base_url(provider_urls.get("ollama") or getattr(settings, "ollama_url", None))
-    codex_runtime = resolve_codex_runtime_config()
-    claude_runtime = resolve_claude_runtime_config()
+    codex_runtime = resolve_codex_runtime_config(backend_settings=settings)
+    claude_runtime = resolve_claude_runtime_config(backend_settings=settings)
     agent_cfg = _get_agent_config()
 
     cli_backends: dict[str, dict] = {}
@@ -705,7 +705,7 @@ def _choose_candidates(
         if "claude_code" in candidates:
             from agent.cli_backends.opencode import resolve_claude_runtime_config
 
-            claude_ready = bool(resolve_claude_runtime_config().get("enabled")) and bool(
+            claude_ready = bool(resolve_claude_runtime_config(backend_settings=settings).get("enabled")) and bool(
                 _resolve_backend_binary("claude_code")
             )
             if not claude_ready:

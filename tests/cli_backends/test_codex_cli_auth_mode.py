@@ -87,8 +87,8 @@ def test_resolve_codex_runtime_config_default_auth_mode_is_api_key():
     from agent.cli_backends.opencode import resolve_codex_runtime_config
     app = _fake_app({"codex_cli": {"base_url": "http://localhost:8317/v1"}})
     settings = _fake_settings()
-    with app.app_context(), patch("agent.cli_backends.opencode.settings", settings):
-        res = resolve_codex_runtime_config()
+    with app.app_context():
+        res = resolve_codex_runtime_config(backend_settings=settings)
     assert res["auth_mode"] == "api_key"
     assert res["api_key_required"] is True
 
@@ -105,8 +105,8 @@ def test_resolve_codex_runtime_config_chatgpt_login_disables_api_key_requirement
         }
     })
     settings = _fake_settings()
-    with app.app_context(), patch("agent.cli_backends.opencode.settings", settings):
-        res = resolve_codex_runtime_config()
+    with app.app_context():
+        res = resolve_codex_runtime_config(backend_settings=settings)
     assert res["auth_mode"] == "chatgpt_login"
     assert res["api_key_required"] is False
 
@@ -125,8 +125,8 @@ def test_resolve_codex_runtime_config_chatgpt_login_keeps_api_key_optional():
         "llm_api_key_profiles": {"codex-account": {"api_key": "***"}},
     })
     settings = _fake_settings()
-    with app.app_context(), patch("agent.cli_backends.opencode.settings", settings):
-        res = resolve_codex_runtime_config()
+    with app.app_context():
+        res = resolve_codex_runtime_config(backend_settings=settings)
     assert res["auth_mode"] == "chatgpt_login"
     assert res["api_key_required"] is False
     # The api_key is still resolved if a profile is configured —
@@ -145,8 +145,8 @@ def test_resolve_codex_runtime_config_unknown_auth_mode_falls_back():
         }
     })
     settings = _fake_settings()
-    with app.app_context(), patch("agent.cli_backends.opencode.settings", settings):
-        res = resolve_codex_runtime_config()
+    with app.app_context():
+        res = resolve_codex_runtime_config(backend_settings=settings)
     assert res["auth_mode"] == "api_key"
 
 
@@ -156,8 +156,8 @@ def test_resolve_codex_runtime_config_chatgpt_login_via_settings_only():
     from agent.cli_backends.opencode import resolve_codex_runtime_config
     app = _fake_app({"codex_cli": {"base_url": "http://localhost:8317/v1"}})
     settings = _fake_settings(codex_auth_mode="chatgpt_login")
-    with app.app_context(), patch("agent.cli_backends.opencode.settings", settings):
-        res = resolve_codex_runtime_config()
+    with app.app_context():
+        res = resolve_codex_runtime_config(backend_settings=settings)
     assert res["auth_mode"] == "chatgpt_login"
     assert res["api_key_required"] is False
 
@@ -183,11 +183,10 @@ def test_run_codex_command_api_key_remote_requires_key():
     app = _fake_app(agent_cfg, provider_urls={})
     settings = _fake_settings()
 
-    with app.app_context(), patch("agent.cli_backends.opencode.settings", settings), \
-         patch("agent.cli_backends.sgpt.settings", settings), \
+    with app.app_context(), patch("agent.cli_backends.sgpt.settings", settings), \
          patch("agent.cli_backends.opencode.shutil.which", return_value="/usr/bin/codex"), \
          patch("agent.cli_backends.sgpt.shutil.which", return_value="/usr/bin/codex"):
-        rc, out, err = sgpt_mod.run_codex_command(prompt="hi", timeout=5)
+        rc, out, err = sgpt_mod.run_codex_command(prompt="hi", timeout=5, backend_settings=settings)
     assert rc == -1
     assert "api key" in err.lower()
 
@@ -209,12 +208,11 @@ def test_run_codex_command_chatgpt_login_skips_api_key_for_remote():
 
     fake_result = type("R", (), {"returncode": 0, "stdout": "ok", "stderr": ""})()
 
-    with app.app_context(), patch("agent.cli_backends.opencode.settings", settings), \
-         patch("agent.cli_backends.sgpt.settings", settings), \
+    with app.app_context(), patch("agent.cli_backends.sgpt.settings", settings), \
          patch("agent.cli_backends.opencode.shutil.which", return_value="/usr/bin/codex"), \
          patch("agent.cli_backends.sgpt.shutil.which", return_value="/usr/bin/codex"), \
          patch("subprocess.run", return_value=fake_result) as mock_run:
-        rc, out, err = sgpt_mod.run_codex_command(prompt="hi", timeout=5)
+        rc, out, err = sgpt_mod.run_codex_command(prompt="hi", timeout=5, backend_settings=settings)
 
     assert rc == 0
     assert out == "ok"
@@ -252,12 +250,11 @@ def test_run_codex_command_chatgpt_login_local_works_without_any_key():
 
     fake_result = type("R", (), {"returncode": 0, "stdout": "ok", "stderr": ""})()
 
-    with app.app_context(), patch("agent.cli_backends.opencode.settings", settings), \
-         patch("agent.cli_backends.sgpt.settings", settings), \
+    with app.app_context(), patch("agent.cli_backends.sgpt.settings", settings), \
          patch("agent.cli_backends.opencode.shutil.which", return_value="/usr/bin/codex"), \
          patch("agent.cli_backends.sgpt.shutil.which", return_value="/usr/bin/codex"), \
          patch("subprocess.run", return_value=fake_result) as mock_run:
-        rc, out, err = sgpt_mod.run_codex_command(prompt="hi", timeout=5)
+        rc, out, err = sgpt_mod.run_codex_command(prompt="hi", timeout=5, backend_settings=settings)
     assert rc == 0
     env_passed = mock_run.call_args.kwargs.get("env") or {}
     assert "OPENAI_API_KEY" not in env_passed
@@ -275,7 +272,7 @@ def test_preflight_codex_exposes_auth_mode_for_api_key():
         "codex_cli": {"base_url": "http://localhost:8317/v1"},
     })
     settings = _fake_settings()
-    with app.app_context(), patch("agent.cli_backends.opencode.settings", settings), \
+    with app.app_context(), \
          patch("agent.cli_backends.routing.settings", settings):
         result = get_cli_backend_preflight()
     codex = result["providers"]["codex"]
@@ -293,7 +290,7 @@ def test_preflight_codex_exposes_login_command_for_chatgpt_login():
         },
     })
     settings = _fake_settings()
-    with app.app_context(), patch("agent.cli_backends.opencode.settings", settings), \
+    with app.app_context(), \
          patch("agent.cli_backends.routing.settings", settings):
         result = get_cli_backend_preflight()
     codex = result["providers"]["codex"]
@@ -314,7 +311,7 @@ def test_preflight_codex_login_command_respects_codex_path():
         },
     })
     settings = _fake_settings(codex_path="/opt/bin/codex")
-    with app.app_context(), patch("agent.cli_backends.opencode.settings", settings), \
+    with app.app_context(), \
          patch("agent.cli_backends.routing.settings", settings):
         result = get_cli_backend_preflight()
     codex = result["providers"]["codex"]
@@ -350,12 +347,11 @@ def test_run_codex_command_timeout_returns_clear_error():
         "codex_cli": {"base_url": "http://localhost:8317/v1"},
     })
     settings = _fake_settings()
-    with app.app_context(), patch("agent.cli_backends.opencode.settings", settings), \
-         patch("agent.cli_backends.sgpt.settings", settings), \
+    with app.app_context(), patch("agent.cli_backends.sgpt.settings", settings), \
          patch("agent.cli_backends.opencode.shutil.which", return_value="/usr/bin/codex"), \
          patch("agent.cli_backends.sgpt.shutil.which", return_value="/usr/bin/codex"), \
          patch("subprocess.run", side_effect=subprocess.TimeoutExpired("codex", 5)):
-        rc, out, err = sgpt_mod.run_codex_command(prompt="hi", timeout=5)
+        rc, out, err = sgpt_mod.run_codex_command(prompt="hi", timeout=5, backend_settings=settings)
     assert rc == -1
     assert "timeout" in err.lower()
 
