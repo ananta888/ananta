@@ -1,520 +1,202 @@
+"""Offline ``--fixture`` transport of the TUI runtime.
+
+:func:`build_fixture_transport` returns the transport callable
+``transport(method, url, headers, body, timeout) -> (status, body)``. Requests
+are answered by the first matching entry of an ordered route table (path
+suffix plus optional HTTP method), then by the static endpoint payloads, and
+finally with 404. The payloads live in ``fixture_payloads``; this module only
+routes (SRP), and a new fixture endpoint is one more route row (OCP).
+"""
 from __future__ import annotations
 
 import json
 from copy import deepcopy
+from dataclasses import dataclass
+from typing import Any, Callable
 from urllib.parse import parse_qs, urlsplit
 
+from client_surfaces.tui_runtime.ananta_tui.fixture_payloads import FixturePayloads, build_fixture_payloads
 
-def build_fixture_transport():  # noqa: C901
-    config_payload = {
-        "runtime_profile": "balanced",
-        "governance_mode": "strict",
-        "goal_workflow_enabled": True,
-        "persisted_plans_enabled": True,
-        "feature_flags": {"goal_workflow_enabled": True, "persisted_plans_enabled": True},
-        "providers": {"default": "ananta-default"},
-        "api_token": "fixture-secret-token",
-    }
-    goals_payload = {
-        "items": [
-            {
-                "id": "G-1",
-                "title": "Runtime parity",
-                "status": "in_progress",
-                "team": "core",
-                "mode": "guided",
-                "summary": "Expand TUI parity shell",
-            },
-            {
-                "id": "G-2",
-                "title": "Schema hardening",
-                "status": "todo",
-                "team": "governance",
-                "mode": "quick",
-                "summary": "Align todo validators",
-            },
-        ]
-    }
-    goal_modes_payload = {"items": [{"id": "guided"}, {"id": "quick"}, {"id": "strict"}]}
-    goal_detail_payload = {
-        "id": "G-1",
-        "title": "Runtime parity",
-        "plan_ref": "GP-1",
-        "trace_ref": "trace-11",
-        "related_task_ids": ["T-1", "T-2"],
-        "related_artifact_ids": ["A-1"],
-    }
-    goal_plan_payload = {
-        "id": "GP-1",
-        "nodes": [
-            {"id": "N-1", "title": "Map APIs", "status": "done", "depends_on": []},
-            {"id": "N-2", "title": "Render sections", "status": "in_progress", "depends_on": ["N-1"]},
-            {"id": "N-3", "title": "Harden tests", "status": "todo", "depends_on": ["N-2"]},
-        ],
-    }
-    goal_governance_payload = {
-        "goal_id": "G-1",
-        "governance_mode": "strict",
-        "risk_level": "high",
-        "policy_state": "approved_with_guards",
-    }
-    tasks_payload = {
-        "items": [
-            {
-                "id": "T-1",
-                "title": "Inspect runtime surface",
-                "status": "in_progress",
-                "team_id": "team-core",
-                "agent": "agent-alpha",
-                "proposal_state": "pending_review",
-                "execution_state": "running",
-                "artifact_ids": ["A-1"],
-            },
-            {
-                "id": "T-2",
-                "title": "Run smoke flow",
-                "status": "todo",
-                "team_id": "team-core",
-                "agent": "agent-beta",
-                "proposal_state": "stale",
-                "execution_state": "queued",
-                "artifact_ids": [],
-            },
-            {
-                "id": "T-3",
-                "title": "Policy-gated review case",
-                "status": "in_progress",
-                "team_id": "team-core",
-                "agent": "agent-gamma",
-                "proposal_state": "pending_review",
-                "execution_state": "running",
-                "artifact_ids": [],
-            },
-        ]
-    }
-    task_detail_payload = {
-        "id": "T-1",
-        "title": "Inspect runtime surface",
-        "status": "in_progress",
-        "owner": "team-core",
-        "agent": "agent-alpha",
-        "proposal_state": "pending_review",
-        "execution_state": "running",
-        "artifact_ids": ["A-1"],
-        "timeline_ref": "TL-1",
-    }
-    task_detail_stale_payload = {
-        "id": "T-2",
-        "title": "Run smoke flow",
-        "status": "todo",
-        "owner": "team-core",
-        "agent": "agent-beta",
-        "proposal_state": "stale",
-        "execution_state": "queued",
-        "artifact_ids": [],
-        "timeline_ref": "TL-2",
-    }
-    task_detail_denied_payload = {
-        "id": "T-3",
-        "title": "Policy-gated review case",
-        "status": "in_progress",
-        "owner": "team-core",
-        "agent": "agent-gamma",
-        "proposal_state": "pending_review",
-        "execution_state": "running",
-        "artifact_ids": [],
-        "timeline_ref": "TL-3",
-    }
-    task_timeline_payload = {
-        "items": [
-            {"event_id": "TL-1", "task_id": "T-1", "status": "running", "agent": "agent-alpha"},
-            {"event_id": "TL-2", "task_id": "T-2", "status": "queued", "agent": "agent-beta"},
-        ]
-    }
-    task_orchestration_payload = {
-        "state": "active",
-        "queues": {
-            "normal": [{"task_id": "T-2"}],
-            "blocked": [{"task_id": "T-9", "reason": "awaiting_approval"}],
-            "failed": [{"task_id": "T-8", "reason": "runtime_error"}],
-            "stale": [{"task_id": "T-5", "reason": "heartbeat_timeout"}],
-        },
-    }
-    task_logs_payload = {"items": [{"ts": "2026-04-24T22:00:00Z", "line": "step started"}]}
-    archived_tasks_payload = {
-        "items": [{"id": "TA-1", "title": "Old task", "status": "archived", "archived_at": "2026-04-20T10:00:00Z"}]
-    }
-    artifacts_payload = {
-        "items": [
-            {"id": "A-1", "title": "Runtime summary", "type": "markdown", "task_id": "T-1"},
-            {"id": "A-2", "title": "Trace dump", "type": "text", "task_id": "T-2"},
-        ]
-    }
-    artifact_detail_payload = {
-        "id": "A-1",
-        "title": "Runtime summary",
-        "type": "markdown",
-        "size_bytes": 1824,
-        "preview": "### Runtime summary...",
-        "task_id": "T-1",
-    }
-    artifact_rag_status_payload = {"artifact_id": "A-1", "indexed": True, "chunks": 12}
-    artifact_rag_preview_payload = {"items": [{"chunk_id": "C-1", "score": 0.93, "text": "Runtime shell summary"}]}
-    knowledge_collections_payload = {"items": [{"id": "KC-1", "name": "ops-notes", "documents": 12}]}
-    knowledge_index_profiles_payload = {"items": [{"id": "KIP-1", "name": "default", "chunk_size": 600}]}
-    knowledge_collection_detail_payload = {
-        "id": "KC-1",
-        "name": "ops-notes",
-        "description": "Operator notes",
-        "documents": 12,
-        "last_indexed_at": "2026-04-24T20:00:00Z",
-    }
-    knowledge_search_payload = {"items": [{"source": "ops-notes.md", "score": 0.88, "snippet": "TUI parity baseline"}]}
-    templates_payload = {
-        "items": [
-            {"id": "TPL-1", "name": "Planner Template", "kind": "planner", "version": 3},
-            {"id": "TPL-2", "name": "Reviewer Template", "kind": "reviewer", "version": 2},
-        ]
-    }
-    template_variable_registry_payload = {"variables": [{"name": "goal_text"}, {"name": "context"}]}
-    template_sample_contexts_payload = {"samples": [{"name": "default-goal", "payload": {"goal_text": "Improve docs"}}]}
-    providers_payload = {
-        "items": [
-            {"id": "ananta-default", "provider": "ollama", "model": "qwen2.5-coder:7b", "status": "healthy"},
-            {"id": "ananta-smoke", "provider": "ollama", "model": "qwen2.5-coder:14b", "status": "healthy"},
-        ]
-    }
-    teams_payload = {"items": [{"id": "team-core", "name": "Core Team", "mode": "active", "blueprint_id": "BP-1"}]}
-    blueprints_payload = {
-        "items": [
-            {"id": "BP-1", "name": "Core Blueprint", "team_type_id": "TT-1", "version": 4},
-            {"id": "BP-2", "name": "Ops Blueprint", "team_type_id": "TT-2", "version": 2},
-        ]
-    }
-    blueprint_catalog_payload = {"items": [{"id": "BPC-1", "name": "Default Catalog", "blueprint_count": 2}]}
-    blueprint_detail_payload = {
-        "id": "BP-1",
-        "name": "Core Blueprint",
-        "team_type_id": "TT-1",
-        "roles": ["RL-1", "RL-2"],
-        "composition": {"agents": 3, "mode": "balanced"},
-    }
-    team_types_payload = {"items": [{"id": "TT-1", "name": "Engineering"}, {"id": "TT-2", "name": "Operations"}]}
-    team_roles_payload = {"items": [{"id": "RL-1", "name": "Architect"}, {"id": "RL-2", "name": "Reviewer"}]}
-    roles_for_type_payload = {"items": [{"id": "RL-1", "name": "Architect"}, {"id": "RL-2", "name": "Reviewer"}]}
-    instruction_model_payload = {
-        "schema": "instruction_layer_model_v1",
-        "layers": [
-            {"id": "base", "kind": "system", "overridable": False},
-            {"id": "governance", "kind": "safety", "overridable": False},
-            {"id": "profile", "kind": "user_profile", "overridable": True},
-            {"id": "overlay", "kind": "task_overlay", "overridable": True},
-        ],
-    }
-    instruction_effective_payload = {
-        "effective_stack": [
-            {"layer": "base", "source": "system"},
-            {"layer": "governance", "source": "strict"},
-            {"layer": "profile", "source": "IP-1"},
-            {"layer": "overlay", "source": "IO-1"},
-        ],
-        "non_overridable_layers": ["base", "governance"],
-    }
-    instruction_profiles_payload = {"items": [{"id": "IP-1", "name": "Default Profile", "owner_username": "ops"}]}
-    instruction_overlays_payload = {
-        "items": [
-            {"id": "IO-1", "name": "Task Overlay", "attachment_kind": "task", "attachment_id": "T-1"},
-            {"id": "IO-2", "name": "Goal Overlay", "attachment_kind": "goal", "attachment_id": "G-1"},
-        ]
-    }
-    audit_logs_payload = {
-        "items": [
-            {
-                "id": "AUD-1",
-                "kind": "approval",
-                "target_id": "T-1",
-                "task_id": "T-1",
-                "goal_id": "G-1",
-                "artifact_id": "A-1",
-                "trace_ref": "trace-11",
-                "message": "token=abc123 decision=approved",
-            },
-            {
-                "id": "AUD-2",
-                "kind": "automation",
-                "target_id": "G-1",
-                "task_id": "T-2",
-                "goal_id": "G-1",
-                "trace_ref": "trace-22",
-                "message": "password=very-secret trigger=fired",
-            },
-        ]
-    }
-    fixture_payloads = {
-        "/health": {"state": "ready"},
-        "/capabilities": {
-            "capabilities": [
-                "dashboard",
-                "goals",
-                "tasks",
-                "artifacts",
-                "knowledge",
-                "templates",
-                "config",
-                "system",
-                "teams",
-                "automation",
-                "audit",
-                "approvals",
-                "repairs",
-            ]
-        },
-        "/dashboard/read-model": {
-            "health_state": "ready",
-            "governance_mode": "strict",
-            "active_profile": "balanced",
-            "recent_tasks": [{"id": "T-1", "status": "in_progress"}],
-            "warnings": [],
-        },
-        "/assistant/read-model": {"active_mode": "operator", "hint": "Terminal-safe control surface."},
-        "/goals": goals_payload,
-        "/goals/modes": goal_modes_payload,
-        "/tasks": tasks_payload,
-        "/tasks/timeline": task_timeline_payload,
-        "/tasks/orchestration/read-model": task_orchestration_payload,
-        "/tasks/archived": archived_tasks_payload,
-        "/artifacts": artifacts_payload,
-        "/knowledge/collections": knowledge_collections_payload,
-        "/knowledge/index-profiles": knowledge_index_profiles_payload,
-        "/templates": templates_payload,
-        "/templates/variable-registry": template_variable_registry_payload,
-        "/templates/sample-contexts": template_sample_contexts_payload,
-        "/providers": providers_payload,
-        "/providers/catalog": {"providers": ["ollama", "openai_compat"], "defaults": {"provider": "ollama"}},
-        "/llm/benchmarks": {
-            "items": [
-                {"provider": "ollama", "model": "qwen2.5-coder:7b", "task_kind": "analysis", "score": 0.79},
-                {"provider": "ollama", "model": "qwen2.5-coder:14b", "task_kind": "analysis", "score": 0.83},
-            ]
-        },
-        "/llm/benchmarks/config": {"enabled": True, "providers": ["ollama"], "auto_trigger": {"enabled": True}},
-        "/api/system/contracts": {"contracts_version": "v1", "compatibility": "ok"},
-        "/api/system/agents": {
-            "items": [{"id": "agent-alpha", "state": "ready"}, {"id": "agent-beta", "state": "idle"}]
-        },
-        "/api/system/stats": {"tasks_total": 22, "tasks_in_progress": 4, "queue_depth": 2},
-        "/api/system/stats/history": {"items": [{"ts": 1, "queue_depth": 3}, {"ts": 2, "queue_depth": 2}]},
-        "/api/system/audit-logs": audit_logs_payload,
-        "/teams": teams_payload,
-        "/teams/blueprints": blueprints_payload,
-        "/teams/blueprints/catalog": blueprint_catalog_payload,
-        "/teams/types": team_types_payload,
-        "/teams/roles": team_roles_payload,
-        "/teams/types/TT-1/roles": roles_for_type_payload,
-        "/instruction-layers/model": instruction_model_payload,
-        "/instruction-layers/effective": instruction_effective_payload,
-        "/instruction-profiles": instruction_profiles_payload,
-        "/instruction-overlays": instruction_overlays_payload,
-        "/tasks/autopilot/status": {
-            "running": False,
-            "max_concurrency": 2,
-            "security_level": "safe",
-            "budget_label": "daily-default",
-        },
-        "/tasks/auto-planner/status": {"enabled": True, "last_plan_at": "2026-04-24T20:00:00Z"},
-        "/triggers/status": {"enabled": True, "sources": ["webhook", "schedule"]},
-        "/approvals": {
-            "items": [
-                {
-                    "id": "AP-1",
-                    "scope": "task_proposal",
-                    "state": "pending",
-                    "risk_level": "high",
-                    "task_id": "T-1",
-                    "goal_id": "G-1",
-                },
-                {
-                    "id": "AP-2",
-                    "scope": "task_proposal",
-                    "state": "stale",
-                    "risk_level": "medium",
-                    "task_id": "T-2",
-                    "goal_id": "G-1",
-                },
-                {
-                    "id": "AP-3",
-                    "scope": "task_proposal",
-                    "state": "denied",
-                    "risk_level": "critical",
-                    "task_id": "T-3",
-                    "goal_id": "G-1",
-                },
-            ]
-        },
-        "/repairs": {
-            "items": [
-                {
-                    "session_id": "R-1",
-                    "diagnosis": "disk pressure",
-                    "proposed_steps": ["clean temp data"],
-                    "risk_level": "high",
-                    "dry_run_status": "available",
-                    "approval_state": "pending",
-                    "execution_result": "not_started",
-                    "verification_result": "pending",
-                    "outcome": "not_executed",
-                    "blocked_reason": "approval_required",
-                }
-            ]
-        },
-    }
+Response = tuple[int, str]
 
-    def _merge_dict(target: dict, patch: dict) -> dict:
-        merged = deepcopy(target)
-        for key, value in patch.items():
-            if isinstance(value, dict) and isinstance(merged.get(key), dict):
-                merged[key] = _merge_dict(merged[key], value)
-            else:
-                merged[key] = value
-        return merged
 
-    def _transport(  # noqa: C901
+@dataclass(frozen=True)
+class FixtureRequest:
+    method: str
+    path: str
+    query: dict[str, list[str]]
+    body: bytes | None
+
+    def json_body(self) -> Any:
+        return json.loads((self.body or b"{}").decode("utf-8", "replace"))
+
+
+Responder = Callable[["FixtureTransport", FixtureRequest], Response]
+
+
+@dataclass(frozen=True)
+class FixtureRoute:
+    """Answer requests whose path ends with ``suffix`` (and whose method is ``method``, if set)."""
+
+    suffix: str
+    method: str | None
+    respond: Responder
+
+    def matches(self, request: FixtureRequest) -> bool:
+        return request.path.endswith(self.suffix) and (self.method is None or request.method == self.method)
+
+
+def _merge_dict(target: dict, patch: dict) -> dict:
+    merged = deepcopy(target)
+    for key, value in patch.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = _merge_dict(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
+
+
+def _reply(status: int, payload: Any) -> Responder:
+    """A fixed JSON response."""
+    return lambda transport, request: (status, json.dumps(payload))
+
+
+def _updated(action: str, **extra: Any) -> Responder:
+    return _reply(200, {"updated": True, "action": action, **extra})
+
+
+def _payload(field: str) -> Responder:
+    """The payload named ``field`` of this transport's :class:`FixturePayloads`."""
+    return lambda transport, request: (200, json.dumps(getattr(transport.payloads, field)))
+
+
+def _create_goal(transport: "FixtureTransport", request: FixtureRequest) -> Response:
+    payload = request.json_body()
+    if isinstance(payload, dict) and payload.get("goal_text"):
+        return 201, json.dumps({"goal_id": "G-3", "task_id": "T-3", "accepted": True, "mode": payload.get("mode")})
+    return 201, json.dumps({"goal_id": "G-1", "task_id": "T-1", "accepted": True})
+
+
+def _review_task(transport: "FixtureTransport", request: FixtureRequest) -> Response:
+    action = str(request.json_body().get("action") or "").strip().lower()
+    if action not in {"approve", "reject"}:
+        return 400, json.dumps({"error": "invalid_review_action"})
+    return 200, json.dumps({"updated": True, "action": action})
+
+
+def _rag_preview(transport: "FixtureTransport", request: FixtureRequest) -> Response:
+    limit = int((request.query.get("limit") or ["5"])[0])
+    payload = deepcopy(transport.payloads.artifact_rag_preview)
+    payload["items"] = payload["items"][: max(1, limit)]
+    return 200, json.dumps(payload)
+
+
+def _patch_config(transport: "FixtureTransport", request: FixtureRequest) -> Response:
+    patch = request.json_body()
+    if isinstance(patch, dict):
+        transport.config = _merge_dict(transport.config, patch)
+    return 200, json.dumps({"updated": True, "config": transport.config})
+
+
+def _read_config(transport: "FixtureTransport", request: FixtureRequest) -> Response:
+    return 200, json.dumps(transport.config)
+
+
+def _route(suffix: str, respond: Responder, method: str | None = None) -> FixtureRoute:
+    return FixtureRoute(suffix=suffix, method=method, respond=respond)
+
+
+def _post(suffix: str, respond: Responder) -> FixtureRoute:
+    return _route(suffix, respond, "POST")
+
+
+# First match wins; the order mirrors the former if-chain (e.g. GET-or-any
+# ``/tasks/T-1`` precedes the PATCH route of the same suffix).
+FIXTURE_ROUTES: tuple[FixtureRoute, ...] = (
+    _post("/goals", _create_goal),
+    _route("/goals/G-1/detail", _payload("goal_detail")),
+    _route("/goals/G-1/plan", _payload("goal_plan")),
+    _route("/goals/G-1/governance-summary", _payload("goal_governance")),
+    _route("/tasks/T-1", _payload("task_detail")),
+    _route("/tasks/T-2", _payload("task_detail_stale")),
+    _route("/tasks/T-3", _payload("task_detail_denied")),
+    _route("/tasks/T-1/logs", _payload("task_logs")),
+    _route("/tasks/T-2/logs", _reply(200, {"items": [{"ts": "2026-04-24T22:01:00Z", "line": "waiting for review"}]})),
+    _route(
+        "/tasks/T-3/logs", _reply(200, {"items": [{"ts": "2026-04-24T22:02:00Z", "line": "review gated by policy"}]})
+    ),
+    _post("/tasks/T-1/assign", _updated("assign")),
+    _post("/tasks/T-1/review", _review_task),
+    _post("/tasks/T-2/review", _reply(409, {"error": "stale_proposal"})),
+    _post("/tasks/T-3/review", _reply(403, {"error": "policy_denied"})),
+    _post("/tasks/T-1/step/propose", _updated("propose")),
+    _post("/tasks/T-1/step/execute", _updated("execute")),
+    _route("/tasks/T-1", _updated("patch"), "PATCH"),
+    _post("/tasks/archived/TA-1/restore", _updated("restore")),
+    _post("/tasks/archived/cleanup", _updated("cleanup", affected=1)),
+    _route("/tasks/archived/TA-1", _updated("delete_archived"), "DELETE"),
+    _route("/artifacts/A-1", _payload("artifact_detail")),
+    _post("/artifacts/A-1/extract", _updated("extract")),
+    _post("/artifacts/A-1/rag-index", _updated("rag-index")),
+    _route("/artifacts/A-1/rag-status", _payload("artifact_rag_status")),
+    _route("/artifacts/A-1/rag-preview", _rag_preview),
+    _route("/knowledge/collections/KC-1", _payload("knowledge_collection_detail")),
+    _post("/knowledge/collections/KC-1/index", _updated("index_collection")),
+    _post("/knowledge/collections/KC-1/search", _payload("knowledge_search")),
+    _route("/teams/blueprints/BP-1", _payload("blueprint_detail")),
+    _post("/teams/team-core/activate", _updated("activate_team")),
+    _post("/instruction-profiles/IP-1/select", _updated("select_profile")),
+    _post("/instruction-overlays/IO-1/select", _updated("select_overlay")),
+    _post("/instruction-overlays/IO-1/attach", _updated("attach_overlay")),
+    _post("/instruction-overlays/IO-1/detach", _updated("detach_overlay")),
+    _post("/goals/G-1/instruction-selection", _updated("set_goal_instruction_selection")),
+    _post("/tasks/T-1/instruction-selection", _updated("set_task_instruction_selection")),
+    _post("/templates/validate", _reply(200, {"valid": True, "errors": []})),
+    _post("/templates/preview", _reply(200, {"rendered": "Preview output text"})),
+    _post(
+        "/templates/validation-diagnostics",
+        _reply(200, {"diagnostics": [{"severity": "info", "message": "all good"}]}),
+    ),
+    _post("/config", _patch_config),
+    _post("/tasks/autopilot/start", _reply(200, {"updated": True, "running": True})),
+    _post("/tasks/autopilot/stop", _reply(200, {"updated": True, "running": False})),
+    _post("/tasks/autopilot/tick", _reply(200, {"updated": True, "tick": "ok"})),
+    _post("/tasks/auto-planner/configure", _updated("configure_auto_planner")),
+    _post("/triggers/configure", _updated("configure_triggers")),
+    _post(
+        "/api/system/audit/analyze",
+        _reply(200, {"summary": {"total": 2, "high_risk": 1}, "top_patterns": ["approval", "automation"]}),
+    ),
+    _route("/config", _read_config),
+)
+
+
+class FixtureTransport:
+    """Stateful fixture transport; only the config can be changed (via ``POST /config``)."""
+
+    def __init__(self, payloads: FixturePayloads, routes: tuple[FixtureRoute, ...] = FIXTURE_ROUTES) -> None:
+        self.payloads = payloads
+        self.config = payloads.config
+        self._routes = routes
+
+    def __call__(
+        self,
         method: str,
         url: str,
         _headers: dict[str, str],
         body: bytes | None,
         _timeout: float,
-    ) -> tuple[int, str]:
+    ) -> Response:
         parsed_url = urlsplit(url)
-        path = parsed_url.path
-        query = parse_qs(parsed_url.query)
-
-        if method == "POST" and path.endswith("/goals"):
-            payload = json.loads((body or b"{}").decode("utf-8", "replace"))
-            if isinstance(payload, dict) and payload.get("goal_text"):
-                return 201, json.dumps(
-                    {"goal_id": "G-3", "task_id": "T-3", "accepted": True, "mode": payload.get("mode")}
-                )
-            return 201, json.dumps({"goal_id": "G-1", "task_id": "T-1", "accepted": True})
-
-        if path.endswith("/goals/G-1/detail"):
-            return 200, json.dumps(goal_detail_payload)
-        if path.endswith("/goals/G-1/plan"):
-            return 200, json.dumps(goal_plan_payload)
-        if path.endswith("/goals/G-1/governance-summary"):
-            return 200, json.dumps(goal_governance_payload)
-
-        if path.endswith("/tasks/T-1"):
-            return 200, json.dumps(task_detail_payload)
-        if path.endswith("/tasks/T-2"):
-            return 200, json.dumps(task_detail_stale_payload)
-        if path.endswith("/tasks/T-3"):
-            return 200, json.dumps(task_detail_denied_payload)
-        if path.endswith("/tasks/T-1/logs"):
-            return 200, json.dumps(task_logs_payload)
-        if path.endswith("/tasks/T-2/logs"):
-            return 200, json.dumps({"items": [{"ts": "2026-04-24T22:01:00Z", "line": "waiting for review"}]})
-        if path.endswith("/tasks/T-3/logs"):
-            return 200, json.dumps({"items": [{"ts": "2026-04-24T22:02:00Z", "line": "review gated by policy"}]})
-
-        if path.endswith("/tasks/T-1/assign") and method == "POST":
-            return 200, json.dumps({"updated": True, "action": "assign"})
-        if path.endswith("/tasks/T-1/review") and method == "POST":
-            payload = json.loads((body or b"{}").decode("utf-8", "replace"))
-            action = str(payload.get("action") or "").strip().lower()
-            if action not in {"approve", "reject"}:
-                return 400, json.dumps({"error": "invalid_review_action"})
-            return 200, json.dumps({"updated": True, "action": action})
-        if path.endswith("/tasks/T-2/review") and method == "POST":
-            return 409, json.dumps({"error": "stale_proposal"})
-        if path.endswith("/tasks/T-3/review") and method == "POST":
-            return 403, json.dumps({"error": "policy_denied"})
-        if path.endswith("/tasks/T-1/step/propose") and method == "POST":
-            return 200, json.dumps({"updated": True, "action": "propose"})
-        if path.endswith("/tasks/T-1/step/execute") and method == "POST":
-            return 200, json.dumps({"updated": True, "action": "execute"})
-        if path.endswith("/tasks/T-1") and method == "PATCH":
-            return 200, json.dumps({"updated": True, "action": "patch"})
-
-        if path.endswith("/tasks/archived/TA-1/restore") and method == "POST":
-            return 200, json.dumps({"updated": True, "action": "restore"})
-        if path.endswith("/tasks/archived/cleanup") and method == "POST":
-            return 200, json.dumps({"updated": True, "action": "cleanup", "affected": 1})
-        if path.endswith("/tasks/archived/TA-1") and method == "DELETE":
-            return 200, json.dumps({"updated": True, "action": "delete_archived"})
-
-        if path.endswith("/artifacts/A-1"):
-            return 200, json.dumps(artifact_detail_payload)
-        if path.endswith("/artifacts/A-1/extract") and method == "POST":
-            return 200, json.dumps({"updated": True, "action": "extract"})
-        if path.endswith("/artifacts/A-1/rag-index") and method == "POST":
-            return 200, json.dumps({"updated": True, "action": "rag-index"})
-        if path.endswith("/artifacts/A-1/rag-status"):
-            return 200, json.dumps(artifact_rag_status_payload)
-        if path.endswith("/artifacts/A-1/rag-preview"):
-            limit = int((query.get("limit") or ["5"])[0])
-            payload = deepcopy(artifact_rag_preview_payload)
-            payload["items"] = payload["items"][: max(1, limit)]
-            return 200, json.dumps(payload)
-
-        if path.endswith("/knowledge/collections/KC-1"):
-            return 200, json.dumps(knowledge_collection_detail_payload)
-        if path.endswith("/knowledge/collections/KC-1/index") and method == "POST":
-            return 200, json.dumps({"updated": True, "action": "index_collection"})
-        if path.endswith("/knowledge/collections/KC-1/search") and method == "POST":
-            return 200, json.dumps(knowledge_search_payload)
-
-        if path.endswith("/teams/blueprints/BP-1"):
-            return 200, json.dumps(blueprint_detail_payload)
-        if path.endswith("/teams/team-core/activate") and method == "POST":
-            return 200, json.dumps({"updated": True, "action": "activate_team"})
-
-        if path.endswith("/instruction-profiles/IP-1/select") and method == "POST":
-            return 200, json.dumps({"updated": True, "action": "select_profile"})
-        if path.endswith("/instruction-overlays/IO-1/select") and method == "POST":
-            return 200, json.dumps({"updated": True, "action": "select_overlay"})
-        if path.endswith("/instruction-overlays/IO-1/attach") and method == "POST":
-            return 200, json.dumps({"updated": True, "action": "attach_overlay"})
-        if path.endswith("/instruction-overlays/IO-1/detach") and method == "POST":
-            return 200, json.dumps({"updated": True, "action": "detach_overlay"})
-        if path.endswith("/goals/G-1/instruction-selection") and method == "POST":
-            return 200, json.dumps({"updated": True, "action": "set_goal_instruction_selection"})
-        if path.endswith("/tasks/T-1/instruction-selection") and method == "POST":
-            return 200, json.dumps({"updated": True, "action": "set_task_instruction_selection"})
-
-        if path.endswith("/templates/validate") and method == "POST":
-            return 200, json.dumps({"valid": True, "errors": []})
-        if path.endswith("/templates/preview") and method == "POST":
-            return 200, json.dumps({"rendered": "Preview output text"})
-        if path.endswith("/templates/validation-diagnostics") and method == "POST":
-            return 200, json.dumps({"diagnostics": [{"severity": "info", "message": "all good"}]})
-
-        if method == "POST" and path.endswith("/config"):
-            patch = json.loads((body or b"{}").decode("utf-8", "replace"))
-            if isinstance(patch, dict):
-                nonlocal config_payload
-                config_payload = _merge_dict(config_payload, patch)
-            return 200, json.dumps({"updated": True, "config": config_payload})
-        if path.endswith("/tasks/autopilot/start") and method == "POST":
-            return 200, json.dumps({"updated": True, "running": True})
-        if path.endswith("/tasks/autopilot/stop") and method == "POST":
-            return 200, json.dumps({"updated": True, "running": False})
-        if path.endswith("/tasks/autopilot/tick") and method == "POST":
-            return 200, json.dumps({"updated": True, "tick": "ok"})
-        if path.endswith("/tasks/auto-planner/configure") and method == "POST":
-            return 200, json.dumps({"updated": True, "action": "configure_auto_planner"})
-        if path.endswith("/triggers/configure") and method == "POST":
-            return 200, json.dumps({"updated": True, "action": "configure_triggers"})
-        if path.endswith("/api/system/audit/analyze") and method == "POST":
-            return 200, json.dumps(
-                {"summary": {"total": 2, "high_risk": 1}, "top_patterns": ["approval", "automation"]}
-            )
-        if path.endswith("/config"):
-            return 200, json.dumps(config_payload)
-
-        for endpoint, payload in fixture_payloads.items():
-            if path.endswith(endpoint):
+        request = FixtureRequest(method=method, path=parsed_url.path, query=parse_qs(parsed_url.query), body=body)
+        for route in self._routes:
+            if route.matches(request):
+                return route.respond(self, request)
+        for endpoint, payload in self.payloads.static_endpoints.items():
+            if request.path.endswith(endpoint):
                 return 200, json.dumps(payload)
         return 404, json.dumps({"error": "not_found"})
 
-    return _transport
+
+def build_fixture_transport() -> FixtureTransport:
+    return FixtureTransport(build_fixture_payloads())
