@@ -249,7 +249,7 @@ def run_propose_orchestrator_path(
         from agent.services.model_invocation_service import ModelInvocationService
 
         configured_recovery = list(
-            ModelInvocationService.get_context_recovery_policy().get(
+            ModelInvocationService.default_instance().get_context_recovery_policy().get(
                 "context_recovery_strategies"
             )
             or []

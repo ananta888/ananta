@@ -220,7 +220,7 @@ def _model_routing_service() -> ModelRoutingAssignmentService:
 
 
 def _effective_model_routing_service() -> EffectiveModelRoutingService:
-    resolver = ModelInvocationService.get_profile_resolver()
+    resolver = ModelInvocationService.default_instance().get_profile_resolver()
     if resolver is None:
         raise ModelRoutingConfigurationError("model_profiles_not_configured")
     return build_persisted_effective_model_routing_service(

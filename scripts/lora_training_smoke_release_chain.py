@@ -610,7 +610,7 @@ def complete_unsloth_release_chain(
         handoff_plan,
         confirmation_digest=handoff_plan.confirmation_digest,
     )
-    invocation = ModelInvocationService.resolve_runtime_handoff_endpoint(
+    invocation = ModelInvocationService.default_instance().resolve_runtime_handoff_endpoint(
         tenant_id=snapshot.tenant_id,
         endpoint_id="nvidia-smoke-endpoint",
         required_capability="openai_chat",

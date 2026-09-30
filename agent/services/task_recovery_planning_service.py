@@ -302,7 +302,7 @@ class TaskRecoveryPlanningService:
             return dict(self._routing_policy_provider() or {})
         from agent.services.model_invocation_service import ModelInvocationService
 
-        return ModelInvocationService.get_context_recovery_policy()
+        return ModelInvocationService.default_instance().get_context_recovery_policy()
 
     def _model_routing(self, task: Any) -> dict[str, Any]:
         task_routing: dict[str, Any] = {}

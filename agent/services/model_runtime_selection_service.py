@@ -87,7 +87,7 @@ def resolve_explicit_hub_model(
         ModelConsumerRegistry,
     )
 
-    resolver = ModelInvocationService.get_profile_resolver()
+    resolver = ModelInvocationService.default_instance().get_profile_resolver()
     if resolver is None:
         return None
     return HubModelRuntimeSelectionService(EffectiveModelRoutingService(

@@ -388,7 +388,7 @@ def run_ollama_runtime_probe(
             confirmation_digest=plan.confirmation_digest,
             idempotency_key=f"real-ollama-handoff:{run_id}:{gguf_sha256}",
         )
-        resolved = ModelInvocationService.resolve_runtime_handoff_endpoint(
+        resolved = ModelInvocationService.default_instance().resolve_runtime_handoff_endpoint(
             tenant_id="ananta-local",
             endpoint_id=descriptor["endpoint"]["endpoint_id"],
             required_capability="openai_chat",

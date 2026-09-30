@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from typing import Any
 
 from agent.services.context_bundle_service import ContextBundler
 from agent.services.llm_response_normalizer import LLMResponseNormalizer
@@ -60,6 +61,15 @@ def _build_system_prompt(context: ProposeContext) -> str:
 class ToolCallingLLMStrategy(ProposeStrategy):
     """Calls a real OpenAI-compatible endpoint with tools= parameter."""
 
+    def __init__(self, *, invocation_service: Any | None = None) -> None:
+        # None selects the process default ModelInvocationService instance (composition-root default).
+        self._invocation_service = invocation_service
+
+    def _invocation(self) -> Any:
+        if self._invocation_service is not None:
+            return self._invocation_service
+        return ModelInvocationService.default_instance()
+
     def run(self, context: ProposeContext) -> ProposeStrategyResult:
         from agent.config import settings
 
@@ -99,7 +109,7 @@ class ToolCallingLLMStrategy(ProposeStrategy):
                 effective_config=_eff_cfg,
                 task_kind=str((context.task or {}).get("task_kind") or "").strip().lower() or None,
             )
-            llm_response = ModelInvocationService.invoke_with_tools(
+            llm_response = self._invocation().invoke_with_tools(
                 prompt=context.base_prompt,
                 tools=tools,
                 model=None,

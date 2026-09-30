@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
+from typing import Any
 
 from agent.services.model_invocation_service import LLMUnavailableError, ModelInvocationService
 from ananta_contracts.model_recovery import metadata_from_llm_error
@@ -29,6 +30,15 @@ Only raw JSON. No prose. No markdown."""
 
 class JsonSchemaLLMStrategy(ProposeStrategy):
     """Calls LLM with response_format=json_object, parses command/tool_calls."""
+
+    def __init__(self, *, invocation_service: Any | None = None) -> None:
+        # None selects the process default ModelInvocationService instance (composition-root default).
+        self._invocation_service = invocation_service
+
+    def _invocation(self) -> Any:
+        if self._invocation_service is not None:
+            return self._invocation_service
+        return ModelInvocationService.default_instance()
 
     JSON_SCHEMA = {
         "type": "object",
@@ -99,7 +109,7 @@ class JsonSchemaLLMStrategy(ProposeStrategy):
                 effective_config=_eff_cfg,
                 task_kind=str((context.task or {}).get("task_kind") or "").strip().lower() or None,
             )
-            llm_result = ModelInvocationService.invoke_with_json_schema_result(
+            llm_result = self._invocation().invoke_with_json_schema_result(
                 prompt=prompt,
                 json_schema=self.JSON_SCHEMA,
                 model=None,

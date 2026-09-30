@@ -351,7 +351,7 @@ def model_routing_read_model():
 
     try:
         from agent.services.model_invocation_service import ModelInvocationService
-        resolver = ModelInvocationService._get_resolver()
+        resolver = ModelInvocationService.default_instance()._get_resolver()
         if resolver is not None:
             profiles = list(resolver._all_enabled)
             profiles_info = {
@@ -435,7 +435,7 @@ def model_routing_profiles():
     """Safe profile list for UI dropdowns."""
     try:
         from agent.services.model_invocation_service import ModelInvocationService
-        resolver = ModelInvocationService._get_resolver()
+        resolver = ModelInvocationService.default_instance()._get_resolver()
         if resolver is None:
             return api_response(data={"profiles": [], "fallback_groups": {}, "status": "not_configured"})
         return api_response(data={

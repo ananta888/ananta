@@ -46,7 +46,7 @@ def _build_model_plan(graph: VisualProcessGraph) -> dict:
     from agent.services.model_profile_resolver import RoutingContext
 
     try:
-        resolver = ModelInvocationService._get_resolver()
+        resolver = ModelInvocationService.default_instance()._get_resolver()
     except Exception:
         resolver = None
     if resolver is None:

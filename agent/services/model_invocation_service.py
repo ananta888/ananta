@@ -17,7 +17,12 @@ New callers receive a ``ModelInvocationService`` instance through their
 constructor (production default: ``default_instance()``, the documented
 process-wide composition-root instance). Class-level calls
 (``ModelInvocationService.invoke``) remain a deprecated compatibility adapter
-for not yet migrated callers and are served by that same default instance.
+served by that same default instance. As of the second migration step no
+production caller in ``agent/``, ``worker/`` or ``scripts/`` calls through the
+class any more; the adapter stays because out-of-tree callers and tests still
+access the class attributes (e.g. ``patch("...ModelInvocationService.invoke")``
+or ``isinstance(ModelInvocationService.invoke, Mock)`` probes). Remove it only
+once no class-level access remains.
 """
 
 from __future__ import annotations

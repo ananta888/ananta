@@ -458,17 +458,12 @@ def test_hub_signed_attempt_plan_controls_worker_despite_local_retry_drift(
             "usage": {},
         }
 
-    # Class-level calls (the strategy/worker use ModelInvocationService as a
-    # port) are served by the shared default instance; install one composed
-    # with the test doubles.
-    monkeypatch.setattr(
-        ModelInvocationService,
-        "_default_instance",
-        ModelInvocationService(
-            profile_resolver_provider=lambda: resolver,
-            settings_provider=lambda: settings,
-            chat_transport=SimpleNamespace(make_single_chat_call=invoke_once),
-        ),
+    # The strategy/worker receive the invocation service by injection; compose
+    # one with the test doubles instead of replacing the process default.
+    invocation_service = ModelInvocationService(
+        profile_resolver_provider=lambda: resolver,
+        settings_provider=lambda: settings,
+        chat_transport=SimpleNamespace(make_single_chat_call=invoke_once),
     )
     worker = HubProfileRoutedWorkerTextGeneration(
         direct=SimpleNamespace(
@@ -476,7 +471,7 @@ def test_hub_signed_attempt_plan_controls_worker_despite_local_retry_drift(
                 "signed profile route must not use direct provider path"
             )
         ),
-        model_routing=ModelInvocationService,
+        model_routing=invocation_service,
     )
     primary = payload["provider_context"]
     result = worker.generate_text(

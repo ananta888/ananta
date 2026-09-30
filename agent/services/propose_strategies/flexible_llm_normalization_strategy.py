@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from typing import Any
 from unittest.mock import Mock
 
 from agent.services.llm_response_normalizer import LLMResponseNormalizer
@@ -44,8 +45,15 @@ class FlexibleLLMNormalizationStrategy(ProposeStrategy):
     when explicitly enabled in policy (default: False → advisory).
     """
 
-    def __init__(self) -> None:
+    def __init__(self, *, invocation_service: Any | None = None) -> None:
         self._normalizer = LLMResponseNormalizer()
+        # None selects the process default ModelInvocationService instance (composition-root default).
+        self._invocation_service = invocation_service
+
+    def _invocation(self) -> Any:
+        if self._invocation_service is not None:
+            return self._invocation_service
+        return ModelInvocationService.default_instance()
 
     @staticmethod
     def _with_llm_profile(
@@ -103,10 +111,9 @@ class FlexibleLLMNormalizationStrategy(ProposeStrategy):
                 effective_config=context.effective_config,
                 task_kind=str((context.task or {}).get("task_kind") or "").strip().lower() or None,
             )
-            if isinstance(ModelInvocationService.invoke, Mock) and not isinstance(
-                ModelInvocationService.invoke_result, Mock
-            ):
-                raw = ModelInvocationService.invoke(
+            invocation = self._invocation()
+            if isinstance(invocation.invoke, Mock) and not isinstance(invocation.invoke_result, Mock):
+                raw = invocation.invoke(
                     prompt=context.base_prompt,
                     system_prompt=_get_json_system_prompt(),
                     timeout=timeout_seconds,
@@ -120,7 +127,7 @@ class FlexibleLLMNormalizationStrategy(ProposeStrategy):
                     provider_attempt_plan=effective_config.get("provider_attempt_plan"),
                 )
             else:
-                llm_result = ModelInvocationService.invoke_result(
+                llm_result = invocation.invoke_result(
                     prompt=context.base_prompt,
                     system_prompt=_get_json_system_prompt(),
                     timeout=timeout_seconds,

@@ -407,7 +407,7 @@ class VisualGuideService:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_msg},
             ]
-            response = ModelInvocationService._make_chat_call(
+            response = ModelInvocationService.default_instance()._make_chat_call(
                 messages,
                 model=model,
                 timeout=30,
@@ -488,7 +488,7 @@ class VisualGuideService:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_msg},
             ]
-            response = ModelInvocationService._make_chat_call(
+            response = ModelInvocationService.default_instance()._make_chat_call(
                 messages,
                 model=model,
                 timeout=30,
@@ -671,7 +671,7 @@ class VisualGuideService:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_msg},
             ]
-            response = ModelInvocationService._make_chat_call(messages, model=model, timeout=30)
+            response = ModelInvocationService.default_instance()._make_chat_call(messages, model=model, timeout=30)
             choice = (response.get("choices") or [{}])[0]
             return ((choice.get("message") or {}).get("content") or "").strip()
         except Exception as exc:

@@ -14,9 +14,16 @@ from agent.services.model_invocation_service import ModelInvocationService
 class LLMRepairStrategy(ProposeStrategy):
     """Repair strategy: LLM call to fix malformed output, then normalize."""
 
-    def __init__(self):
+    def __init__(self, *, invocation_service: Any | None = None):
         self.normalizer = LLMResponseNormalizer()
-        self.model_service = ModelInvocationService
+        # None selects the process default ModelInvocationService instance (composition-root default).
+        self._invocation_service = invocation_service
+
+    @property
+    def model_service(self) -> Any:
+        if self._invocation_service is not None:
+            return self._invocation_service
+        return ModelInvocationService.default_instance()
 
     def run(self, context: ProposeContext) -> ProposeStrategyResult:
         # FA-T011: bounded single repair attempt per strategy invocation.

@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import importlib
+from types import SimpleNamespace
+
 import pytest
 
 
@@ -163,9 +165,10 @@ def test_spawn_visual_reply_uses_candidates_prompt_for_n_gt_1(app, reset_visual_
         "agent.services.visual_guide.service._background_threads_disabled",
         lambda: False,
     )
+    # The visual guide calls the process default invocation instance; replace it with a double.
     monkeypatch.setattr(
-        "agent.services.model_invocation_service.ModelInvocationService._make_chat_call",
-        _fake_chat_call,
+        "agent.services.model_invocation_service.ModelInvocationService._default_instance",
+        SimpleNamespace(_make_chat_call=_fake_chat_call),
     )
     monkeypatch.setattr(
         "agent.routes.snakes_execution_routes._append_room_ai_message",
@@ -205,9 +208,10 @@ def test_spawn_visual_reply_uses_guide_prompt_for_single_candidate(app, reset_vi
         "agent.services.visual_guide.service._background_threads_disabled",
         lambda: False,
     )
+    # The visual guide calls the process default invocation instance; replace it with a double.
     monkeypatch.setattr(
-        "agent.services.model_invocation_service.ModelInvocationService._make_chat_call",
-        _fake_chat_call,
+        "agent.services.model_invocation_service.ModelInvocationService._default_instance",
+        SimpleNamespace(_make_chat_call=_fake_chat_call),
     )
     monkeypatch.setattr(
         "agent.routes.snakes_execution_routes._append_room_ai_message",

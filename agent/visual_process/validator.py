@@ -355,8 +355,16 @@ _STRUCTURAL_AND_KIND_RULES: tuple[GraphRule, ...] = (
 class GraphValidator:
     """Validates structural integrity of a VisualProcessGraph."""
 
-    def __init__(self, node_fields: NodeDefinitionStepValidator | None = None) -> None:
+    def __init__(
+        self,
+        node_fields: NodeDefinitionStepValidator | None = None,
+        *,
+        invocation_service: Any | None = None,
+    ) -> None:
         self._node_fields = node_fields or NodeDefinitionStepValidator()
+        # Profile source for model-routing checks; None selects the process default
+        # ModelInvocationService instance.
+        self._invocation_service = invocation_service
 
     def validate(self, graph: VisualProcessGraph) -> ValidationResult:
         issues: list[ValidationIssue] = []
@@ -480,16 +488,20 @@ class GraphValidator:
                     step_id=step.id,
                 ))
 
-    @staticmethod
-    def _check_model_routing(graph: VisualProcessGraph, issues: list[ValidationIssue]) -> None:
-        known_profiles: set[str] | None = None
+    def _known_profiles(self) -> set[str] | None:
         try:
-            from agent.services.model_invocation_service import ModelInvocationService
-            resolver = ModelInvocationService._get_resolver()
-            if resolver is not None:
-                known_profiles = set(resolver._by_id.keys())
+            invocation = self._invocation_service
+            if invocation is None:
+                from agent.services.model_invocation_service import ModelInvocationService
+
+                invocation = ModelInvocationService.default_instance()
+            resolver = invocation._get_resolver()
+            return set(resolver._by_id.keys()) if resolver is not None else None
         except Exception:
-            known_profiles = None
+            return None
+
+    def _check_model_routing(self, graph: VisualProcessGraph, issues: list[ValidationIssue]) -> None:
+        known_profiles = self._known_profiles()
 
         graph_routing = None
         graph_routing_valid = True

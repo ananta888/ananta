@@ -98,7 +98,7 @@ class CliBackendContext:
     model_invocation_service = _ServiceProperty(
         lambda: __import__(
             "agent.services.model_invocation_service", fromlist=["ModelInvocationService"]
-        ).ModelInvocationService
+        ).ModelInvocationService.default_instance()
     )
     opencode_runtime_service = _ServiceProperty(
         lambda: __import__(

@@ -102,7 +102,7 @@ def extract_criteria():
     def invoke_json(**kwargs):
         from agent.services.model_invocation_service import ModelInvocationService
 
-        result = ModelInvocationService.invoke_with_json_schema_result(
+        result = ModelInvocationService.default_instance().invoke_with_json_schema_result(
             prompt=kwargs["prompt"], json_schema=kwargs["schema"]
         )
         if not bool(result.get("structured_output_valid", False)):

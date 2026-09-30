@@ -578,17 +578,12 @@ def test_native_command_plan_controls_propose_strategy_despite_worker_drift(
             "usage": {},
         }
 
-    # Class-level calls (the strategy/worker use ModelInvocationService as a
-    # port) are served by the shared default instance; install one composed
-    # with the test doubles.
-    monkeypatch.setattr(
-        ModelInvocationService,
-        "_default_instance",
-        ModelInvocationService(
-            profile_resolver_provider=lambda: resolver,
-            settings_provider=lambda: settings,
-            chat_transport=SimpleNamespace(make_single_chat_call=invoke_once),
-        ),
+    # The strategy/worker receive the invocation service by injection; compose
+    # one with the test doubles instead of replacing the process default.
+    invocation_service = ModelInvocationService(
+        profile_resolver_provider=lambda: resolver,
+        settings_provider=lambda: settings,
+        chat_transport=SimpleNamespace(make_single_chat_call=invoke_once),
     )
     context = ProposeContext(
         goal_id="goal-native",
@@ -598,7 +593,7 @@ def test_native_command_plan_controls_propose_strategy_despite_worker_drift(
         effective_config=effective_config,
     )
 
-    result = FlexibleLLMNormalizationStrategy().run(context)
+    result = FlexibleLLMNormalizationStrategy(invocation_service=invocation_service).run(context)
 
     expected_profiles = ["local_ollama_phi4_mini"] * 3 + ["local_ollama_gemma4_e4b_reasoning"] * 2
     assert result.proposal is not None

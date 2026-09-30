@@ -89,7 +89,7 @@ class ConfigReadModelService:
             from agent.services.model_invocation_service import ModelInvocationService
             from agent.services.model_profile_resolver import RoutingContext
 
-            resolver = ModelInvocationService._get_resolver()
+            resolver = ModelInvocationService.default_instance()._get_resolver()
         except Exception as exc:
             return {"status": "error", "reason": str(exc), "profiles": [], "matrix": [], "effective_winner": None}
         if resolver is None:
