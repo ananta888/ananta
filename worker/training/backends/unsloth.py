@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import logging
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
@@ -12,6 +13,9 @@ from worker.training.backends.peft_trl import PeftTrlTrainingBackend
 from worker.training.backends.unsloth_checkpoint import UnslothCheckpointLifecycle
 from worker.training.exports import ExportError, ExportFormat, ExportRequest, UnslothExportExecutor
 from worker.training.vram_admission import VramAdmissionError, VramAdmissionPolicy
+
+
+logger = logging.getLogger(__name__)
 
 
 class UnslothTrainingBackend(PeftTrlTrainingBackend):
@@ -175,9 +179,13 @@ class UnslothTrainingBackend(PeftTrlTrainingBackend):
                     retryable=True,
                 ) from exc
             except Exception as exc:
+                logger.exception(
+                    "Unsloth post-training export failed for destination %s",
+                    destination,
+                )
                 raise TrainingBackendError(
                     "export_failed",
-                    "Unsloth post-training export failed",
+                    f"Unsloth post-training export failed ({type(exc).__name__}: {exc})",
                     retryable=False,
                 ) from exc
             export_root = (context.artifact_root / result.destination).resolve()
