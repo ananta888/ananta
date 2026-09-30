@@ -2,7 +2,7 @@
   "$schema": "../todo.track.schema.json",
   "id": "todo.self-evolving-harness",
   "title": "Self-Evolving Harness: automatische Optimierung der Agent-Steuerungsschicht",
-  "version": "1.1",
+  "version": "1.2",
   "owner": "Peter Stuiber / Ananta",
   "track": "self-evolving-harness",
   "status": "todo",
@@ -198,6 +198,21 @@
         "SEH-036"
       ],
       "status": "todo"
+    },
+    {
+      "id": "SEH-M9",
+      "title": "EvoMap/GEP-Integration vertiefen und reproduzierbar absichern",
+      "task_ids": [
+        "SEH-037",
+        "SEH-038",
+        "SEH-039",
+        "SEH-040",
+        "SEH-041",
+        "SEH-042",
+        "SEH-043",
+        "SEH-044"
+      ],
+      "status": "todo"
     }
   ],
   "critical_path_tasks": [
@@ -218,7 +233,11 @@
     "SEH-029",
     "SEH-030",
     "SEH-035",
-    "SEH-036"
+    "SEH-036",
+    "SEH-037",
+    "SEH-038",
+    "SEH-039",
+    "SEH-043"
   ],
   "tasks": [
     {
@@ -762,12 +781,141 @@
         "Rollback stellt exakt vorherigen zertifizierten Digest wieder her",
         "Runbook dokumentiert Aktivierung, Budgetierung, Kill-Switch, Recovery und schrittweise Freischaltung der mutierbaren Surfaces"
       ]
+    },
+    {
+      "id": "SEH-037",
+      "title": "EvoMap/Evolver Runtime reproduzierbar auf Release/Commit pinnen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "details": "Den bisherigen unversionierten `git clone https://github.com/EvoMap/evolver.git`-Build durch eine explizit versionierte und digest-/commitgebundene Lieferkette ersetzen. Version, Commit, Lizenzstatus, npm-Abhängigkeiten, SBOM und Image-Digest werden als Provenance gebunden. Wegen der angekündigten künftigen Source-Available-Umstellung dürfen nur konkret geprüfte, rechtlich zulässige Releases automatisiert eingebunden werden.",
+      "acceptance_criteria": [
+        "EvoMap/evolver wird nicht mehr unversioniert von main gebaut",
+        "Release/Commit und resultierendes Container-Image sind reproduzierbar gebunden",
+        "SBOM und Lizenz-/Notice-Daten werden erzeugt und versioniert",
+        "Upgrade auf neue EvoMap-Version erfordert expliziten Compatibility-/License-Gate",
+        "Rollback auf vorherigen bekannten Evolver-Digest ist dokumentiert und getestet"
+      ]
+    },
+    {
+      "id": "SEH-038",
+      "title": "EvoMap-Bridge auf korrektes Git-/Workspace-Modell umstellen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "details": "Evolver benötigt einen Git-Kontext für Rollback, Blast-Radius und Solidify. Der aktuelle temporäre Workdir darf daher nicht als leerer Nicht-Git-Kontext dienen. Einen sicheren, read-mostly Workspace-/Checkout-Mechanismus implementieren, der nur die für Analyse notwendigen Repo-Daten bereitstellt, Secrets und nicht freigegebene Pfade ausschließt und keinen direkten Schreibzugriff auf main oder Host-Arbeitsbaum erlaubt.",
+      "acceptance_criteria": [
+        "Jeder Evolver-Run erhält einen gültigen, reproduzierbaren Git-Kontext",
+        "Der produktive/aktive Arbeitsbaum wird niemals direkt gemountet oder mutiert",
+        "Checkout/Worktree ist an konkreten Commit SHA und Scope gebunden",
+        "Secrets, .env, Credentials und ausgeschlossene Pfade werden nicht an EvoMap weitergegeben",
+        "Cleanup bei Erfolg, Timeout und Crash ist getestet",
+        "Blast-Radius-/Git-Funktionen von Evolver können im Integrationstest tatsächlich ausgeführt werden"
+      ]
+    },
+    {
+      "id": "SEH-039",
+      "title": "Strukturierten GEP-Ausgabeadapter statt stdout-Prompt-Wrapping implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "details": "Die Bridge soll EvoMap-Ergebnisse nicht länger primär als einen zusammengefassten Prompt behandeln. Soweit die EvoMap-Version strukturierte lokale Artefakte/API-Ausgaben bereitstellt, werden Gene, Capsule, EvolutionEvent, Mutation und GEP Prompt getrennt extrahiert, validiert und in stabile Ananta-Verträge überführt. stdout bleibt höchstens Diagnose-/Fallback-Kanal.",
+      "acceptance_criteria": [
+        "Gene, Capsule, Event und Prompt bleiben als unterschiedliche Typen erhalten",
+        "IDs, Parent/Source-Referenzen, Strategy/Mutation-Metadaten und Confidence/Risk werden soweit vorhanden verlustarm übernommen",
+        "Unbekannte EvoMap-Felder bleiben bounded in provider_metadata/raw_payload erhalten",
+        "stdout-only Fallback wird explizit als degraded compatibility mode markiert",
+        "Schemaänderungen des Upstreams führen fail-closed zu Compatibility-Fehlern statt stiller Fehlinterpretation"
+      ]
+    },
+    {
+      "id": "SEH-040",
+      "title": "Genes, Capsules und EvolutionEvents als first-class Ananta-Evolution-Artefakte modellieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "details": "EvoMap-GEP-Assets sollen nicht auf generische Text-Proposals reduziert werden. Ein provider-neutraler Asset-Vertrag speichert Typ, Version, Herkunft, Scope, Aktivierungsbedingungen, Genealogie, Evidenz, Benchmarkresultate und Lifecycle. Die Core-Domäne bleibt EvoMap-unabhängig; EvoMap-spezifische Semantik lebt im Adapter/Metadata.",
+      "acceptance_criteria": [
+        "Assets sind content-addressed, versioniert und lineage-fähig",
+        "Ein Gene/Capsule kann auf konkrete Benchmark- und Run-Evidenz zurückgeführt werden",
+        "Ein Asset kann deaktiviert/quarantänisiert werden ohne Historie zu verlieren",
+        "Core-Schema enthält keine unnötige harte Abhängigkeit von EvoMap-Terminologie",
+        "Migration bestehender EvolutionProposal-Rohdaten ist definiert"
+      ]
+    },
+    {
+      "id": "SEH-041",
+      "title": "EvoMap Memory Graph und Ananta Experiment-/Lineage-Store kontrolliert koppeln",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "details": "Untersuchen und implementieren, welche EvoMap Memory-Graph-/Outcome-Signale sinnvoll in Anantas Experiment-/Lineage-Modell gespiegelt werden. Kein unkontrolliertes doppeltes Gedächtnis: eine kanonische Ownership-Matrix legt fest, welche Daten Ananta besitzt, welche EvoMap intern hält und welche nur referenziert werden.",
+      "acceptance_criteria": [
+        "Ownership für Runs, Assets, Outcomes, Genealogie und Audit ist dokumentiert",
+        "Keine widersprüchlichen Wahrheiten zwischen EvoMap Memory Graph und Ananta Store",
+        "Cross-References verwenden stabile IDs/Digests",
+        "Retention/Deletion/Privacy-Regeln gelten auch für gespiegelt importierte Metadaten",
+        "Ein historischer Evolutionspfad kann engine-übergreifend rekonstruiert werden"
+      ]
+    },
+    {
+      "id": "SEH-042",
+      "title": "EvoMap Strategy Presets und Mutationssignale in Ananta-Policies übersetzen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "details": "EvoMap-Strategien wie balanced/innovate/harden/repair-only sowie Mutation-/Personality-Signale nicht ungeprüft übernehmen, sondern auf Anantas typisierte Evolution Policies abbilden. Sicherheits-/Budgetgrenzen bleiben dominant.",
+      "acceptance_criteria": [
+        "Strategy Mapping ist deklarativ und versioniert",
+        "EvoMap-Strategien können niemals Security-/Budget-/Approval-Policies überschreiben",
+        "Mutation und PersonalityState werden getrennt von Identität/Rollenrechten behandelt",
+        "Benchmark zeigt, ob Strategy Presets gegenüber Ananta-eigener Auswahl messbaren Mehrwert liefern",
+        "Nicht hilfreiche Presets können pro Modell/Task deaktiviert werden"
+      ]
+    },
+    {
+      "id": "SEH-043",
+      "title": "Verpflichtenden EvoMap Live-Compatibility- und Release-Gate etablieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "details": "Den vorhandenen opt-in Live-Compose-Test zu einem kontrollierten Compatibility-Gate für EvoMap-Upgrades ausbauen. Getestet werden reale aktuelle/pinned Runtime, Git-Kontext, strukturierte Outputs, Health, Timeout, Failure, Version-Mismatch und mindestens ein vollständiger Analyze->Proposal->Review-Pfad.",
+      "acceptance_criteria": [
+        "EvoMap-Image wird vor Promotion gegen den realen Ananta-Adapter getestet",
+        "Test schlägt bei fehlendem Git-Kontext oder inkompatiblem Output-Schema fehl",
+        "Pinned Version/Commit und Image Digest erscheinen im Testartefakt",
+        "Mindestens ein Gene-/Capsule- oder strukturierter GEP-Fall wird End-to-End geprüft",
+        "Upgrade darf ohne grünes Compatibility-Gate nicht als Standardimage promoted werden"
+      ]
+    },
+    {
+      "id": "SEH-044",
+      "title": "EvoMap-Netzwerkfunktionen separat bewerten statt implizit aktivieren",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "high",
+      "progress_percent": 0,
+      "details": "EvoMap Hub, Skill Store, Asset Publishing, Evolution Circle und Worker Pool werden als optionale externe Netzwerkfähigkeiten separat hinsichtlich Nutzen, Datenabfluss, Authentisierung, Mandantentrennung, Lizenz, Supply Chain und Überschneidung mit Anantas eigener Worker-/Plugin-/Artifact-Infrastruktur bewertet. Standard bleibt offline/local.",
+      "acceptance_criteria": [
+        "Offline/local Evolver bleibt vollständiger unterstützter Standardpfad",
+        "Keine Hub-Verbindung ohne explizite Konfiguration und dokumentierte Datenflüsse",
+        "Worker Pool wird nur integriert, wenn er gegenüber Anantas Worker-Architektur klaren Mehrwert zeigt",
+        "Skill/Asset Imports benötigen Provenance-, Signatur/Hash- und Security-Prüfung",
+        "Publish/Share-Funktionen sind standardmäßig deaktiviert"
+      ]
     }
   ],
   "tasks_status_summary": {
-    "total": 36,
+    "total": 44,
     "by_status": {
-      "todo": 36,
+      "todo": 44,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
@@ -775,25 +923,25 @@
     },
     "progress_percent_done": 0,
     "by_priority": {
-      "P0": 25,
-      "P1": 9,
-      "P2": 2,
+      "P0": 29,
+      "P1": 12,
+      "P2": 3,
       "P3": 0
     },
     "by_risk": {
       "low": 1,
-      "medium": 5,
-      "high": 13,
-      "critical": 17
+      "medium": 6,
+      "high": 18,
+      "critical": 19
     },
     "critical_path": {
-      "total": 18,
+      "total": 22,
       "done": 0,
-      "remaining": 18
+      "remaining": 22
     },
     "milestones": {
-      "total": 8,
-      "todo": 8,
+      "total": 9,
+      "todo": 9,
       "in_progress": 0,
       "blocked": 0,
       "done": 0
@@ -801,7 +949,7 @@
   },
   "progress_summary": {
     "state": "todo",
-    "todo_remaining": 36,
+    "todo_remaining": 44,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
@@ -813,7 +961,10 @@
     "32k/64k/128k werden als konfigurierbare Context-Profile und Benchmark-Suchraum behandelt; konkrete Werte werden immer mit realen Modell-Capabilities geschnitten.",
     "SoL-Pi dient als technische Referenz, nicht als 1:1-Kopie. Die Mechanismen werden an Anantas bestehende Architektur und Gates angepasst.",
     "Die Evolutionslogik darf Security-Gates, Sandbox Enforcement, Auth, Secrets, Kostenlimits, Benchmark-Holdouts, Audit-Mechanismen oder Promotion-Autorität niemals selbst modifizieren.",
-    "Scaffold- und Code-Evolution muss produktionsreifen, reviewbaren, wiederverwendbaren Quellcode hervorbringen; keine Benchmark-Hacks oder versteckte Runtime-Selbstmodifikation."
+    "Scaffold- und Code-Evolution muss produktionsreifen, reviewbaren, wiederverwendbaren Quellcode hervorbringen; keine Benchmark-Hacks oder versteckte Runtime-Selbstmodifikation.",
+    "EvoMap ist bereits real angebunden, aber aktuell vor allem als analyze/proposal Provider; GEP-Assets und Memory/Lineage werden noch nicht first-class genutzt.",
+    "Der bisherige EvoMap-Bridge-Pfad muss vor tieferer Nutzung insbesondere bei Git-Workspace, Versions-Pinning und strukturiertem Output gehärtet werden.",
+    "EvoMap-Netzwerkfunktionen bleiben optional; lokale/offline Evolution ist der bevorzugte Default."
   ],
   "existing_foundation": {
     "native_prompt_optimization": [
@@ -957,6 +1108,30 @@
       "lost_constraint_failures",
       "truncation_events",
       "task_success"
+    ]
+  },
+  "evomap_gap_analysis": {
+    "current_state": "Ananta besitzt bereits einen echten EvoMap/Evolver-Adapter, HTTP-Transport, Health/Retry/Timeout/Host-Allowlist, Mapping auf generische EvolutionProposal-Modelle, Audit/Metriken und einen opt-in Live-Compose-Test. Der reale Bridge-Pfad reduziert den Evolver-Output derzeit jedoch im Wesentlichen auf einen einzelnen Prompt-Vorschlag und schöpft GEP-Assets, Lineage, Memory Graph und strukturierte Evolutionsereignisse nicht aus.",
+    "confirmed_present": [
+      "plugins/evolver_adapter/ mit EvolutionEngine-Integration",
+      "HTTP /evolution/analyze und /health",
+      "Provider Registry und Config/Env-Overrides",
+      "Fail-closed Validate/Apply",
+      "Mapping von gene/capsule/gep_prompt/prompt/repair/policy",
+      "raw_payload/provider_metadata-Erhalt",
+      "Timeouts, Retries, Payload-Limits und allowed_hosts",
+      "Audit-/Provider-Metriken",
+      "Unit-/API-Tests sowie opt-in tests/test_evolver_live_compose.py"
+    ],
+    "important_gaps": [
+      "Bridge startet Evolver in einem temporären Verzeichnis, ohne sicherzustellen, dass dort ein Git-Repository bzw. ein kontrollierter Projekt-Checkout vorhanden ist",
+      "Dockerfile klont EvoMap/evolver ohne festen Tag/Commit; Builds sind damit nicht reproduzierbar",
+      "Bridge serialisiert Evolver-Ausgabe aktuell weitgehend als stdout-basierten Prompt statt strukturierte GEP-Assets zu übernehmen",
+      "Genes, Capsules, EvolutionEvents, Mutation Objects und PersonalityState sind nicht als first-class Ananta-Artefakte integriert",
+      "Memory Graph und Gene/Capsule-Lineage sind nicht mit Anantas Lineage-/Experiment-Store verbunden",
+      "EvoMap Strategy Presets und Signal-De-duplication/Stagnation-Mechanismen werden nicht explizit abgebildet",
+      "EvoMap Hub, Skill Store, Asset Publishing, Evolution Circle und Worker Pool sind nicht integriert und sollen nur nach Nutzen-/Risikoanalyse optional folgen",
+      "Live-Kompatibilität mit dem aktuell gepinnten bzw. künftig gepinnten EvoMap-Release ist nicht als verpflichtendes Release-Gate etabliert"
     ]
   }
 }
