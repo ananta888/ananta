@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import ast
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Callable
 
 from agent.visual_process.models import (
     ArtifactRef,
@@ -91,6 +91,265 @@ class ValidationResult:
         }
 
 
+# ── Graph rules (VPAD-002) ────────────────────────────────────────────────────
+# Each rule appends its findings to ``issues``; GraphValidator runs them in this order, which keeps the issue
+# order stable. New checks are added as a rule instead of growing GraphValidator.validate (OCP).
+
+GraphRule = Callable[[VisualProcessGraph, "list[ValidationIssue]"], None]
+
+
+def _check_edge_endpoints(graph: VisualProcessGraph, issues: list[ValidationIssue]) -> None:
+    """Dangling edge endpoints and forward self-loops."""
+    step_ids = set(graph.step_ids())
+    for edge in graph.edges:
+        if edge.source not in step_ids:
+            issues.append(ValidationIssue(
+                "error", "dangling_edge_source",
+                f"Edge source '{edge.source}' not found",
+                edge_id=edge.id,
+            ))
+        if edge.target not in step_ids:
+            issues.append(ValidationIssue(
+                "error", "dangling_edge_target",
+                f"Edge target '{edge.target}' not found",
+                edge_id=edge.id,
+            ))
+        if edge.source == edge.target and not edge.is_back_edge():
+            issues.append(ValidationIssue(
+                "error", "self_loop_forward",
+                f"Self-loop on step '{edge.source}' must be a back_edge",
+                edge_id=edge.id,
+            ))
+
+
+def _check_forward_cycles(graph: VisualProcessGraph, issues: list[ValidationIssue]) -> None:
+    if graph.has_cycles():
+        issues.append(ValidationIssue(
+            "error", "cycle_detected",
+            "Graph has a forward-edge cycle. Use back_edge for intentional loops.",
+        ))
+
+
+def _check_back_edge_loop_policies(graph: VisualProcessGraph, issues: list[ValidationIssue]) -> None:
+    for edge in graph.edges:
+        if edge.is_back_edge():
+            lp = edge.condition.loop_policy
+            if lp and lp.kind != "none" and lp.max_iterations > 20:
+                issues.append(ValidationIssue(
+                    "warning", "high_iteration_count",
+                    f"Back edge loop max_iterations={lp.max_iterations} is very high",
+                    edge_id=edge.id,
+                ))
+
+
+def _check_edge_expressions(graph: VisualProcessGraph, issues: list[ValidationIssue]) -> None:
+    """Expression syntax check (VPEXPR-001)."""
+    for edge in graph.edges:
+        if edge.condition.kind == "expression":
+            expr = edge.condition.expression or ""
+            try:
+                ast.parse(expr, mode="eval")
+            except SyntaxError as exc:
+                issues.append(ValidationIssue(
+                    "warning", "expression_syntax_error",
+                    f"Edge expression syntax error: {exc}",
+                    edge_id=edge.id,
+                ))
+
+
+def _forward_degrees(graph: VisualProcessGraph) -> tuple[dict[str, int], dict[str, int]]:
+    outgoing: dict[str, int] = {}
+    incoming: dict[str, int] = {}
+    for edge in graph.edges:
+        if not edge.is_back_edge():
+            outgoing[edge.source] = outgoing.get(edge.source, 0) + 1
+            incoming[edge.target] = incoming.get(edge.target, 0) + 1
+    return outgoing, incoming
+
+
+def _check_control_flow_kinds(graph: VisualProcessGraph, issues: list[ValidationIssue]) -> None:
+    """Fork/join single-outgoing/incoming warnings (VPCF-001, VPPAR-001); approval kind implies gate=true."""
+    outgoing, incoming = _forward_degrees(graph)
+    for step in graph.steps:
+        if step.kind in ("fork", "parallel") and outgoing.get(step.id, 0) <= 1:
+            code = "fork_single_outgoing" if step.kind == "fork" else "parallel_single_outgoing"
+            issues.append(ValidationIssue(
+                "warning", code,
+                f"Step '{step.label}' (kind={step.kind}) has only one outgoing edge; "
+                "parallel/fork semantics require at least two branches",
+                step_id=step.id,
+            ))
+        if step.kind == "join" and incoming.get(step.id, 0) <= 1:
+            issues.append(ValidationIssue(
+                "warning", "join_single_incoming",
+                f"Step '{step.label}' (kind=join) has only one incoming edge; "
+                "join semantics require at least two branches",
+                step_id=step.id,
+            ))
+        if step.kind == "approval" and not step.gate:
+            issues.append(ValidationIssue(
+                "info", "approval_gate_missing",
+                f"Step '{step.label}' (kind=approval) should have gate=true for explicit approval",
+                step_id=step.id,
+            ))
+
+
+def _check_legacy_kinds(graph: VisualProcessGraph, issues: list[ValidationIssue]) -> None:
+    """Legacy kind warnings (VPWRK-001)."""
+    for step in graph.steps:
+        if is_legacy_kind(step.kind):
+            replacement = suggested_replacement(step.kind)
+            issues.append(ValidationIssue(
+                "warning", "legacy_task_kind",
+                f"Step '{step.label}' uses legacy kind '{step.kind}'; "
+                f"consider using '{replacement}' instead",
+                step_id=step.id,
+            ))
+
+
+def _check_high_risk_gates(graph: VisualProcessGraph, issues: list[ValidationIssue]) -> None:
+    """high_risk_no_gate — evolve_project with apply_allowed, evolution_apply or live training without gate."""
+    for step in graph.steps:
+        if step.kind == "evolve_project" and step.metadata.get("apply_allowed") and not step.gate:
+            issues.append(ValidationIssue(
+                "error", "evolve_project_apply_requires_gate",
+                f"Step '{step.label}' has apply_allowed=true but gate=false; "
+                "the Hub requires an approval gate for project mutations",
+                step_id=step.id,
+            ))
+        if step.kind == "evolution_apply" and not step.gate:
+            issues.append(ValidationIssue(
+                "error", "evolution_apply_requires_gate",
+                f"Step '{step.label}' (kind=evolution_apply) must have gate=true — "
+                "EvolutionService.apply() modifies the codebase via MutationGateService",
+                step_id=step.id,
+            ))
+        if (
+            step.kind == "ml_intern_train_lora"
+            and str(step.metadata.get("mode") or "dry_run").strip().lower() == "live"
+            and not step.gate
+        ):
+            issues.append(ValidationIssue(
+                "error",
+                "training_live_requires_gate",
+                f"Step '{step.label}' requests a live training run without an approval gate.",
+                step_id=step.id,
+                path=f"/steps/{step.id}/gate",
+            ))
+
+
+def _note_turboquant_mse(graph: VisualProcessGraph, issues: list[ValidationIssue]) -> None:
+    """turboquant_mse: funktionierender experimenteller Encoder — nur Hinweis, kein Warning."""
+    for step in graph.steps:
+        if step.kind == "turboquant_mse":
+            issues.append(ValidationIssue(
+                "info", "turboquant_mse_experimental",
+                f"Step '{step.label}' verwendet TurboQuantMseEncoder (TQ-012): "
+                "sign-rotation + 4-bit scalar quant, encode/decode funktioniert. "
+                "Experimentell (kein Produktions-Codebook). TQ-013 ProdStub ist ein separater, "
+                "unbenutzter Stub und betrifft diesen Step nicht.",
+                step_id=step.id,
+            ))
+
+
+def _note_domain_cluster(graph: VisualProcessGraph, issues: list[ValidationIssue]) -> None:
+    """domain_cluster accuracy note."""
+    for step in graph.steps:
+        if step.kind == "domain_cluster":
+            issues.append(ValidationIssue(
+                "info", "domain_cluster_deterministic",
+                f"Step '{step.label}': domain_cluster uses deterministic signal-based clustering "
+                "(path/package/graph cohesion). Leiden/Louvain/KMeans are NOT implemented in production.",
+                step_id=step.id,
+            ))
+
+
+def _check_embed_api_step(step: VisualProcessStep, issues: list[ValidationIssue]) -> None:
+    provider = step.metadata.get("provider", "")
+    if "api_key" in step.metadata:
+        issues.append(ValidationIssue(
+            "error", "embed_api_plaintext_secret_quarantined",
+            f"Step '{step.label}' contains deprecated plaintext metadata.api_key. "
+            "Remove it and explicitly configure api_key_secret_ref.",
+            step_id=step.id,
+            path=f"/steps/{step.id}/metadata/api_key",
+        ))
+    if provider not in ("openai", "openai_compatible"):
+        return
+    if not step.metadata.get("base_url"):
+        issues.append(ValidationIssue(
+            "warning", "embed_api_missing_base_url",
+            f"Step '{step.label}' (kind=embed_api) uses provider='{provider}' "
+            "but no base_url is configured in metadata",
+            step_id=step.id,
+            path=f"/steps/{step.id}/metadata/base_url",
+        ))
+    if not step.metadata.get("api_key_secret_ref"):
+        issues.append(ValidationIssue(
+            "error", "embed_api_secret_reference_required",
+            f"Step '{step.label}' requires an opaque api_key_secret_ref.",
+            step_id=step.id,
+            path=f"/steps/{step.id}/metadata/api_key_secret_ref",
+        ))
+    if not bool(step.metadata.get("external_calls_allowed", False)):
+        issues.append(ValidationIssue(
+            "error", "embed_api_external_calls_not_allowed",
+            f"Step '{step.label}' requires an explicit external_calls_allowed opt-in.",
+            step_id=step.id,
+            path=f"/steps/{step.id}/metadata/external_calls_allowed",
+        ))
+
+
+def _check_embed_api_config(graph: VisualProcessGraph, issues: list[ValidationIssue]) -> None:
+    """embed_api requires provider config and opaque secret references."""
+    for step in graph.steps:
+        if step.kind == "embed_api":
+            _check_embed_api_step(step, issues)
+
+
+def _note_codecompass_without_index(graph: VisualProcessGraph, issues: list[ValidationIssue]) -> None:
+    """codecompass_index_build should precede vector/fts search in same graph."""
+    cc_kinds = {"codecompass_vector_search", "codecompass_fts_search", "codecompass_graph_expand"}
+    cc_search_steps = [s for s in graph.steps if s.kind in cc_kinds]
+    if cc_search_steps and not any(s.kind == "codecompass_index_build" for s in graph.steps):
+        for step in cc_search_steps:
+            issues.append(ValidationIssue(
+                "info", "codecompass_no_index_step",
+                f"Step '{step.label}' (kind={step.kind}) uses CodeCompass but no "
+                "codecompass_index_build step is present. Index must exist beforehand.",
+                step_id=step.id,
+            ))
+
+
+def _note_evolution_apply_without_validate(graph: VisualProcessGraph, issues: list[ValidationIssue]) -> None:
+    """evolution_validate should follow evolution_analyze (useful order hint)."""
+    ev_apply = [s for s in graph.steps if s.kind == "evolution_apply"]
+    ev_validate = [s for s in graph.steps if s.kind == "evolution_validate"]
+    if ev_apply and not ev_validate:
+        for step in ev_apply:
+            issues.append(ValidationIssue(
+                "info", "evolution_apply_without_validate",
+                f"Step '{step.label}' (kind=evolution_apply) without a preceding "
+                "evolution_validate step. Recommend: analyze → validate → (gate) → apply",
+                step_id=step.id,
+            ))
+
+
+_STRUCTURAL_AND_KIND_RULES: tuple[GraphRule, ...] = (
+    _check_forward_cycles,
+    _check_back_edge_loop_policies,
+    _check_edge_expressions,
+    _check_control_flow_kinds,
+    _check_legacy_kinds,
+    _check_high_risk_gates,
+    _note_turboquant_mse,
+    _note_domain_cluster,
+    _check_embed_api_config,
+    _note_codecompass_without_index,
+    _note_evolution_apply_without_validate,
+)
+
+
 # ── Graph Validator (VPAD-002) ────────────────────────────────────────────────
 
 class GraphValidator:
@@ -101,7 +360,6 @@ class GraphValidator:
 
     def validate(self, graph: VisualProcessGraph) -> ValidationResult:
         issues: list[ValidationIssue] = []
-        step_ids = set(graph.step_ids())
 
         # Must have at least one step
         if not graph.steps:
@@ -112,27 +370,28 @@ class GraphValidator:
         if not graph.name.strip():
             issues.append(ValidationIssue("error", "missing_name", "Graph name is required"))
 
-        # Dangling edge endpoints
-        for edge in graph.edges:
-            if edge.source not in step_ids:
-                issues.append(ValidationIssue(
-                    "error", "dangling_edge_source",
-                    f"Edge source '{edge.source}' not found",
-                    edge_id=edge.id,
-                ))
-            if edge.target not in step_ids:
-                issues.append(ValidationIssue(
-                    "error", "dangling_edge_target",
-                    f"Edge target '{edge.target}' not found",
-                    edge_id=edge.id,
-                ))
-            if edge.source == edge.target and not edge.is_back_edge():
-                issues.append(ValidationIssue(
-                    "error", "self_loop_forward",
-                    f"Self-loop on step '{edge.source}' must be a back_edge",
-                    edge_id=edge.id,
-                ))
+        _check_edge_endpoints(graph, issues)
+        self._check_reachability(graph, issues)
+        for rule in _STRUCTURAL_AND_KIND_RULES:
+            rule(graph, issues)
 
+        # VPRT-003: Runtime-Truth consistency checks
+        for step in graph.steps:
+            for violation in self._node_fields.validate(step):
+                issues.append(ValidationIssue(
+                    "error",
+                    violation.code,
+                    violation.message,
+                    step_id=step.id,
+                    path=violation.path,
+                ))
+        self._check_runtime_truth(graph, issues)
+        self._check_model_routing(graph, issues)
+
+        errors = [i for i in issues if i.severity == "error"]
+        return ValidationResult(valid=len(errors) == 0, issues=issues)
+
+    def _check_reachability(self, graph: VisualProcessGraph, issues: list[ValidationIssue]) -> None:
         # Unreachable steps (no path from entry via forward edges)
         reachable = self._reachable(graph)
         for step in graph.steps:
@@ -153,210 +412,6 @@ class GraphValidator:
                         f"Step '{step.label}' ({step.id}) has no connections",
                         step_id=step.id,
                     ))
-
-        # Cycles (excluding back_edges)
-        if graph.has_cycles():
-            issues.append(ValidationIssue(
-                "error", "cycle_detected",
-                "Graph has a forward-edge cycle. Use back_edge for intentional loops.",
-            ))
-
-        # Loop policy validation for back_edges
-        for edge in graph.edges:
-            if edge.is_back_edge():
-                lp = edge.condition.loop_policy
-                if lp and lp.kind != "none" and lp.max_iterations > 20:
-                    issues.append(ValidationIssue(
-                        "warning", "high_iteration_count",
-                        f"Back edge loop max_iterations={lp.max_iterations} is very high",
-                        edge_id=edge.id,
-                    ))
-
-        # Expression syntax check (VPEXPR-001)
-        for edge in graph.edges:
-            if edge.condition.kind == "expression":
-                expr = edge.condition.expression or ""
-                try:
-                    ast.parse(expr, mode="eval")
-                except SyntaxError as exc:
-                    issues.append(ValidationIssue(
-                        "warning", "expression_syntax_error",
-                        f"Edge expression syntax error: {exc}",
-                        edge_id=edge.id,
-                    ))
-
-        # Fork/join single-outgoing/incoming warnings (VPCF-001, VPPAR-001)
-        outgoing: dict[str, int] = {}
-        incoming: dict[str, int] = {}
-        for edge in graph.edges:
-            if not edge.is_back_edge():
-                outgoing[edge.source] = outgoing.get(edge.source, 0) + 1
-                incoming[edge.target] = incoming.get(edge.target, 0) + 1
-
-        for step in graph.steps:
-            if step.kind in ("fork", "parallel"):
-                if outgoing.get(step.id, 0) <= 1:
-                    code = "fork_single_outgoing" if step.kind == "fork" else "parallel_single_outgoing"
-                    issues.append(ValidationIssue(
-                        "warning", code,
-                        f"Step '{step.label}' (kind={step.kind}) has only one outgoing edge; "
-                        "parallel/fork semantics require at least two branches",
-                        step_id=step.id,
-                    ))
-            if step.kind == "join":
-                if incoming.get(step.id, 0) <= 1:
-                    issues.append(ValidationIssue(
-                        "warning", "join_single_incoming",
-                        f"Step '{step.label}' (kind=join) has only one incoming edge; "
-                        "join semantics require at least two branches",
-                        step_id=step.id,
-                    ))
-            # approval kind implies gate=true
-            if step.kind == "approval" and not step.gate:
-                issues.append(ValidationIssue(
-                    "info", "approval_gate_missing",
-                    f"Step '{step.label}' (kind=approval) should have gate=true for explicit approval",
-                    step_id=step.id,
-                ))
-
-        # Legacy kind warnings (VPWRK-001)
-        for step in graph.steps:
-            if is_legacy_kind(step.kind):
-                replacement = suggested_replacement(step.kind)
-                issues.append(ValidationIssue(
-                    "warning", "legacy_task_kind",
-                    f"Step '{step.label}' uses legacy kind '{step.kind}'; "
-                    f"consider using '{replacement}' instead",
-                    step_id=step.id,
-                ))
-
-        # high_risk_no_gate — evolve_project with apply_allowed OR evolution_apply without gate
-        for step in graph.steps:
-            if step.kind == "evolve_project" and step.metadata.get("apply_allowed") and not step.gate:
-                issues.append(ValidationIssue(
-                    "error", "evolve_project_apply_requires_gate",
-                    f"Step '{step.label}' has apply_allowed=true but gate=false; "
-                    "the Hub requires an approval gate for project mutations",
-                    step_id=step.id,
-                ))
-            if step.kind == "evolution_apply" and not step.gate:
-                issues.append(ValidationIssue(
-                    "error", "evolution_apply_requires_gate",
-                    f"Step '{step.label}' (kind=evolution_apply) must have gate=true — "
-                    "EvolutionService.apply() modifies the codebase via MutationGateService",
-                    step_id=step.id,
-                ))
-            if (
-                step.kind == "ml_intern_train_lora"
-                and str(step.metadata.get("mode") or "dry_run").strip().lower() == "live"
-                and not step.gate
-            ):
-                issues.append(ValidationIssue(
-                    "error",
-                    "training_live_requires_gate",
-                    f"Step '{step.label}' requests a live training run without an approval gate.",
-                    step_id=step.id,
-                    path=f"/steps/{step.id}/gate",
-                ))
-
-        # turboquant_mse: funktionierender experimenteller Encoder — nur Hinweis, kein Warning
-        for step in graph.steps:
-            if step.kind == "turboquant_mse":
-                issues.append(ValidationIssue(
-                    "info", "turboquant_mse_experimental",
-                    f"Step '{step.label}' verwendet TurboQuantMseEncoder (TQ-012): "
-                    "sign-rotation + 4-bit scalar quant, encode/decode funktioniert. "
-                    "Experimentell (kein Produktions-Codebook). TQ-013 ProdStub ist ein separater, "
-                    "unbenutzter Stub und betrifft diesen Step nicht.",
-                    step_id=step.id,
-                ))
-
-        # domain_cluster accuracy note
-        for step in graph.steps:
-            if step.kind == "domain_cluster":
-                issues.append(ValidationIssue(
-                    "info", "domain_cluster_deterministic",
-                    f"Step '{step.label}': domain_cluster uses deterministic signal-based clustering "
-                    "(path/package/graph cohesion). Leiden/Louvain/KMeans are NOT implemented in production.",
-                    step_id=step.id,
-                ))
-
-        # embed_api requires provider config
-        for step in graph.steps:
-            if step.kind == "embed_api":
-                provider = step.metadata.get("provider", "")
-                if "api_key" in step.metadata:
-                    issues.append(ValidationIssue(
-                        "error", "embed_api_plaintext_secret_quarantined",
-                        f"Step '{step.label}' contains deprecated plaintext metadata.api_key. "
-                        "Remove it and explicitly configure api_key_secret_ref.",
-                        step_id=step.id,
-                        path=f"/steps/{step.id}/metadata/api_key",
-                    ))
-                if provider in ("openai", "openai_compatible") and not step.metadata.get("base_url"):
-                    issues.append(ValidationIssue(
-                        "warning", "embed_api_missing_base_url",
-                        f"Step '{step.label}' (kind=embed_api) uses provider='{provider}' "
-                        "but no base_url is configured in metadata",
-                        step_id=step.id,
-                        path=f"/steps/{step.id}/metadata/base_url",
-                    ))
-                if provider in ("openai", "openai_compatible") and not step.metadata.get("api_key_secret_ref"):
-                    issues.append(ValidationIssue(
-                        "error", "embed_api_secret_reference_required",
-                        f"Step '{step.label}' requires an opaque api_key_secret_ref.",
-                        step_id=step.id,
-                        path=f"/steps/{step.id}/metadata/api_key_secret_ref",
-                    ))
-                if provider in ("openai", "openai_compatible") and not bool(
-                    step.metadata.get("external_calls_allowed", False)
-                ):
-                    issues.append(ValidationIssue(
-                        "error", "embed_api_external_calls_not_allowed",
-                        f"Step '{step.label}' requires an explicit external_calls_allowed opt-in.",
-                        step_id=step.id,
-                        path=f"/steps/{step.id}/metadata/external_calls_allowed",
-                    ))
-
-        # codecompass_index_build should precede vector/fts search in same graph
-        cc_kinds = {"codecompass_vector_search", "codecompass_fts_search", "codecompass_graph_expand"}
-        cc_search_steps = [s for s in graph.steps if s.kind in cc_kinds]
-        if cc_search_steps and not any(s.kind == "codecompass_index_build" for s in graph.steps):
-            for step in cc_search_steps:
-                issues.append(ValidationIssue(
-                    "info", "codecompass_no_index_step",
-                    f"Step '{step.label}' (kind={step.kind}) uses CodeCompass but no "
-                    "codecompass_index_build step is present. Index must exist beforehand.",
-                    step_id=step.id,
-                ))
-
-        # evolution_validate should follow evolution_analyze (useful order hint)
-        ev_apply = [s for s in graph.steps if s.kind == "evolution_apply"]
-        ev_validate = [s for s in graph.steps if s.kind == "evolution_validate"]
-        if ev_apply and not ev_validate:
-            for step in ev_apply:
-                issues.append(ValidationIssue(
-                    "info", "evolution_apply_without_validate",
-                    f"Step '{step.label}' (kind=evolution_apply) without a preceding "
-                    "evolution_validate step. Recommend: analyze → validate → (gate) → apply",
-                    step_id=step.id,
-                ))
-
-        # VPRT-003: Runtime-Truth consistency checks
-        for step in graph.steps:
-            for violation in self._node_fields.validate(step):
-                issues.append(ValidationIssue(
-                    "error",
-                    violation.code,
-                    violation.message,
-                    step_id=step.id,
-                    path=violation.path,
-                ))
-        self._check_runtime_truth(graph, issues)
-        self._check_model_routing(graph, issues)
-
-        errors = [i for i in issues if i.severity == "error"]
-        return ValidationResult(valid=len(errors) == 0, issues=issues)
 
     @staticmethod
     def _check_runtime_truth(graph: VisualProcessGraph, issues: list[ValidationIssue]) -> None:
