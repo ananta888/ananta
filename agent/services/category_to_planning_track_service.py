@@ -5,6 +5,7 @@ import re
 import time
 from collections import deque
 from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass, field
 from typing import Any
 
 from sqlmodel import Session
@@ -301,7 +302,7 @@ class CategoryToPlanningTrackService:
         }
 
     @staticmethod
-    def _validate_candidates(  # noqa: C901 - one deterministic cross-track validation pass
+    def _validate_candidates(
         *,
         category: PlanningArtifactRevisionDB,
         candidates: Sequence[Mapping[str, Any]],
@@ -309,178 +310,15 @@ class CategoryToPlanningTrackService:
         required_source_category_item_ids: Sequence[str] | None = None,
         authority_ceiling: Mapping[str, Any] | None = None,
     ) -> tuple[list[dict[str, Any]], list[dict[str, str]], list[str]]:
-        category_items = {
-            str(item.get("id") or ""): dict(item)
-            for group in list(category.payload.get("categories") or [])
-            if isinstance(group, Mapping)
-            for item in list(group.get("items") or [])
-            if isinstance(item, Mapping) and str(item.get("id") or "")
-        }
-        issues: list[str] = []
-        normalized: list[dict[str, Any]] = []
-        artifact_ids: set[str] = set()
-        ownership: dict[str, str] = {}
-        task_to_item: dict[str, str] = {}
-        task_dependencies: dict[str, set[str]] = {}
-        lineage_specs: list[dict[str, str]] = []
-
+        validation = _TrackCandidateValidation(category_items=_category_items_by_id(category))
         for candidate_index, raw_candidate in enumerate(candidates):
-            artifact_id = str(raw_candidate.get("artifact_id") or "").strip()
-            payload = dict(raw_candidate.get("payload") or {})
-            if not artifact_id:
-                issues.append(f"candidate_{candidate_index}:artifact_id_required")
-                continue
-            if artifact_id in artifact_ids:
-                issues.append(f"planning_track_artifact_id_duplicate:{artifact_id}")
-            artifact_ids.add(artifact_id)
-            source_ids = [str(value) for value in list(payload.get("source_category_item_ids") or []) if str(value)]
-            if not source_ids:
-                issues.append(f"{artifact_id}:source_category_item_ids_required")
-            for source_id in source_ids:
-                if source_id not in category_items:
-                    issues.append(f"{artifact_id}:source_category_item_unknown:{source_id}")
-                if source_id in ownership:
-                    issues.append(f"category_item_mapped_more_than_once:{source_id}")
-                ownership[source_id] = artifact_id
-
-            schema_issues = validate_planning_track_with_details(payload)
-            if authority_ceiling is not None:
-                issues.extend(
-                    CategoryToPlanningTrackService._worker_authority_issues(
-                        artifact_id=artifact_id,
-                        payload=payload,
-                        authority_ceiling=authority_ceiling,
-                    )
-                )
-            summary = validate_summary_consistency(payload, repair_mode=True)
-            repaired_payload = dict(summary.get("repaired_payload") or payload)
-            quality = evaluate_planning_quality_gates(
-                repaired_payload,
-                large_goal_mode=bool(repaired_payload.get("large_goal_mode")),
-                small_goal_mode=bool(repaired_payload.get("small_goal_mode")),
-            )
-            if schema_issues:
-                issues.extend(f"{artifact_id}:{row.get('reason_code')}:{row.get('path')}" for row in schema_issues)
-            if not bool(quality.get("ok")):
-                issues.extend(
-                    f"{artifact_id}:{row.get('reason_code')}:{row.get('path')}"
-                    for row in list(quality.get("blocking_issues") or [])
-                )
-
-            for task in list(repaired_payload.get("tasks") or []):
-                if not isinstance(task, Mapping):
-                    continue
-                task_id = str(task.get("id") or "").strip()
-                raw_task_source_ids = list(task.get("source_category_item_ids") or [])
-                if not raw_task_source_ids and str(task.get("source_category_item_id") or "").strip():
-                    raw_task_source_ids = [str(task.get("source_category_item_id"))]
-                task_source_ids = [str(value).strip() for value in raw_task_source_ids if str(value).strip()]
-                if not task_id or not task_source_ids:
-                    issues.append(f"{artifact_id}:task_lineage_required")
-                    continue
-                if len(set(task_source_ids)) != len(task_source_ids):
-                    issues.append(f"{artifact_id}:task_source_category_item_duplicate:{task_id}")
-                if task_id in task_to_item:
-                    issues.append(f"plan_task_id_duplicate:{task_id}")
-                for source_id in task_source_ids:
-                    if source_id not in source_ids:
-                        issues.append(f"{artifact_id}:task_source_outside_track_scope:{source_id}")
-                task_to_item[task_id] = task_source_ids[0]
-                task_dependencies[task_id] = {
-                    str(dep).split(":", 1)[-1] for dep in list(task.get("depends_on") or []) if str(dep)
-                }
-                lineage_specs.extend(
-                    {
-                        "artifact_id": artifact_id,
-                        "source_category_item_id": source_id,
-                        "plan_task_id": task_id,
-                    }
-                    for source_id in task_source_ids
-                )
-            normalized.append(
-                {
-                    "artifact_id": artifact_id,
-                    "payload": repaired_payload,
-                    "source_category_item_ids": source_ids,
-                    "summary_recalculation_status": str(summary.get("summary_recalculation_status") or "not_needed"),
-                    "quality_gate_warnings": list(quality.get("warnings") or []),
-                }
-            )
-
+            validation.add_candidate(candidate_index, raw_candidate, authority_ceiling=authority_ceiling)
         excluded = {str(key): str(reason or "").strip() for key, reason in exclusions.items()}
-        for item_id, reason in excluded.items():
-            if item_id not in category_items:
-                issues.append(f"excluded_category_item_unknown:{item_id}")
-            if not reason:
-                issues.append(f"excluded_category_item_reason_required:{item_id}")
-            if item_id in ownership:
-                issues.append(f"category_item_both_mapped_and_excluded:{item_id}")
-        required_scope = (
-            {str(value) for value in required_source_category_item_ids or []}
-            if required_source_category_item_ids is not None
-            else {
-                item_id
-                for item_id, item in category_items.items()
-                if str(item.get("status") or "").strip().lower() != "deferred"
-            }
-        )
-        if required_source_category_item_ids is not None:
-            if not required_scope or not required_scope.issubset(category_items):
-                issues.append("track_planning_category_scope_invalid")
-            outside_scope = (set(ownership) | set(excluded)) - required_scope
-            issues.extend(f"track_planning_result_scope_expansion:{item_id}" for item_id in sorted(outside_scope))
-        uncovered = sorted(required_scope - set(ownership) - set(excluded))
-        issues.extend(f"category_item_uncovered:{item_id}" for item_id in uncovered)
-
-        tasks_by_item: dict[str, set[str]] = {}
-        for spec in lineage_specs:
-            tasks_by_item.setdefault(spec["source_category_item_id"], set()).add(spec["plan_task_id"])
-        for item_id in ownership:
-            if not tasks_by_item.get(item_id):
-                issues.append(f"category_item_has_no_track_task:{item_id}")
-        for item_id, item in category_items.items():
-            if item_id not in ownership:
-                continue
-            for parent_item in list(item.get("depends_on") or []):
-                parent_id = str(parent_item or "")
-                if parent_id not in ownership:
-                    continue
-                parent_tasks = tasks_by_item.get(parent_id, set())
-                child_tasks = tasks_by_item.get(item_id, set())
-                translated = any(task_dependencies.get(child_task, set()) & parent_tasks for child_task in child_tasks)
-                if not translated:
-                    issues.append(f"category_dependency_not_translated:{parent_id}->{item_id}")
-
-                inverted = any(task_dependencies.get(parent_task, set()) & child_tasks for parent_task in parent_tasks)
-                if inverted:
-                    issues.append(f"category_dependency_inverted:{parent_id}->{item_id}")
-
-        known_task_ids = set(task_dependencies)
-        for task_id, dependencies in task_dependencies.items():
-            if task_id in dependencies:
-                issues.append(f"planning_task_dependency_self:{task_id}")
-            issues.extend(
-                f"planning_task_dependency_unknown:{task_id}->{dependency}"
-                for dependency in sorted(dependencies - known_task_ids)
-            )
-        incoming = {task_id: 0 for task_id in known_task_ids}
-        outgoing = {task_id: [] for task_id in known_task_ids}
-        for task_id, dependencies in task_dependencies.items():
-            for dependency in dependencies & known_task_ids:
-                outgoing[dependency].append(task_id)
-                incoming[task_id] += 1
-        queue = deque(sorted(task_id for task_id, count in incoming.items() if count == 0))
-        visited = 0
-        while queue:
-            current = queue.popleft()
-            visited += 1
-            for child in sorted(outgoing[current]):
-                incoming[child] -= 1
-                if incoming[child] == 0:
-                    queue.append(child)
-        if visited != len(incoming):
-            issues.append("planning_cross_track_dependency_cycle")
-        return normalized, lineage_specs, issues
+        validation.check_exclusions(excluded)
+        validation.check_required_scope(excluded, required_source_category_item_ids)
+        validation.check_category_dependency_translation()
+        validation.check_task_dependency_graph()
+        return validation.normalized, validation.lineage_specs, validation.issues
 
     @staticmethod
     def _worker_authority_issues(
@@ -613,6 +451,218 @@ class CategoryToPlanningTrackService:
     def _revision_id(*, artifact_id: str, revision: int, digest: str) -> str:
         seed = f"{artifact_id}:{revision}:{digest}".encode("utf-8")
         return f"ptrk-{hashlib.sha256(seed).hexdigest()[:24]}"
+
+
+def _category_items_by_id(category: PlanningArtifactRevisionDB) -> dict[str, dict[str, Any]]:
+    return {
+        str(item.get("id") or ""): dict(item)
+        for group in list(category.payload.get("categories") or [])
+        if isinstance(group, Mapping)
+        for item in list(group.get("items") or [])
+        if isinstance(item, Mapping) and str(item.get("id") or "")
+    }
+
+
+def _task_source_category_item_ids(task: Mapping[str, Any]) -> list[str]:
+    raw_task_source_ids = list(task.get("source_category_item_ids") or [])
+    if not raw_task_source_ids and str(task.get("source_category_item_id") or "").strip():
+        raw_task_source_ids = [str(task.get("source_category_item_id"))]
+    return [str(value).strip() for value in raw_task_source_ids if str(value).strip()]
+
+
+@dataclass
+class _TrackCandidateValidation:
+    """One deterministic cross-track validation pass over Track candidates.
+
+    Candidates are added in order (per-track checks), then the cross-track
+    checks run over the accumulated ownership, lineage and task dependencies.
+    Issue order is part of the contract and matches the check order below.
+    """
+
+    category_items: dict[str, dict[str, Any]]
+    issues: list[str] = field(default_factory=list)
+    normalized: list[dict[str, Any]] = field(default_factory=list)
+    artifact_ids: set[str] = field(default_factory=set)
+    ownership: dict[str, str] = field(default_factory=dict)
+    task_to_item: dict[str, str] = field(default_factory=dict)
+    task_dependencies: dict[str, set[str]] = field(default_factory=dict)
+    lineage_specs: list[dict[str, str]] = field(default_factory=list)
+
+    def add_candidate(
+        self,
+        candidate_index: int,
+        raw_candidate: Mapping[str, Any],
+        *,
+        authority_ceiling: Mapping[str, Any] | None,
+    ) -> None:
+        artifact_id = str(raw_candidate.get("artifact_id") or "").strip()
+        payload = dict(raw_candidate.get("payload") or {})
+        if not artifact_id:
+            self.issues.append(f"candidate_{candidate_index}:artifact_id_required")
+            return
+        if artifact_id in self.artifact_ids:
+            self.issues.append(f"planning_track_artifact_id_duplicate:{artifact_id}")
+        self.artifact_ids.add(artifact_id)
+        source_ids = [str(value) for value in list(payload.get("source_category_item_ids") or []) if str(value)]
+        self._claim_source_items(artifact_id, source_ids)
+
+        schema_issues = validate_planning_track_with_details(payload)
+        if authority_ceiling is not None:
+            self.issues.extend(
+                CategoryToPlanningTrackService._worker_authority_issues(
+                    artifact_id=artifact_id,
+                    payload=payload,
+                    authority_ceiling=authority_ceiling,
+                )
+            )
+        summary = validate_summary_consistency(payload, repair_mode=True)
+        repaired_payload = dict(summary.get("repaired_payload") or payload)
+        quality = evaluate_planning_quality_gates(
+            repaired_payload,
+            large_goal_mode=bool(repaired_payload.get("large_goal_mode")),
+            small_goal_mode=bool(repaired_payload.get("small_goal_mode")),
+        )
+        if schema_issues:
+            self.issues.extend(f"{artifact_id}:{row.get('reason_code')}:{row.get('path')}" for row in schema_issues)
+        if not bool(quality.get("ok")):
+            self.issues.extend(
+                f"{artifact_id}:{row.get('reason_code')}:{row.get('path')}"
+                for row in list(quality.get("blocking_issues") or [])
+            )
+
+        for task in list(repaired_payload.get("tasks") or []):
+            if isinstance(task, Mapping):
+                self._add_task_lineage(artifact_id, source_ids, task)
+        self.normalized.append(
+            {
+                "artifact_id": artifact_id,
+                "payload": repaired_payload,
+                "source_category_item_ids": source_ids,
+                "summary_recalculation_status": str(summary.get("summary_recalculation_status") or "not_needed"),
+                "quality_gate_warnings": list(quality.get("warnings") or []),
+            }
+        )
+
+    def _claim_source_items(self, artifact_id: str, source_ids: list[str]) -> None:
+        if not source_ids:
+            self.issues.append(f"{artifact_id}:source_category_item_ids_required")
+        for source_id in source_ids:
+            if source_id not in self.category_items:
+                self.issues.append(f"{artifact_id}:source_category_item_unknown:{source_id}")
+            if source_id in self.ownership:
+                self.issues.append(f"category_item_mapped_more_than_once:{source_id}")
+            self.ownership[source_id] = artifact_id
+
+    def _add_task_lineage(self, artifact_id: str, source_ids: list[str], task: Mapping[str, Any]) -> None:
+        task_id = str(task.get("id") or "").strip()
+        task_source_ids = _task_source_category_item_ids(task)
+        if not task_id or not task_source_ids:
+            self.issues.append(f"{artifact_id}:task_lineage_required")
+            return
+        if len(set(task_source_ids)) != len(task_source_ids):
+            self.issues.append(f"{artifact_id}:task_source_category_item_duplicate:{task_id}")
+        if task_id in self.task_to_item:
+            self.issues.append(f"plan_task_id_duplicate:{task_id}")
+        for source_id in task_source_ids:
+            if source_id not in source_ids:
+                self.issues.append(f"{artifact_id}:task_source_outside_track_scope:{source_id}")
+        self.task_to_item[task_id] = task_source_ids[0]
+        self.task_dependencies[task_id] = {
+            str(dep).split(":", 1)[-1] for dep in list(task.get("depends_on") or []) if str(dep)
+        }
+        self.lineage_specs.extend(
+            {
+                "artifact_id": artifact_id,
+                "source_category_item_id": source_id,
+                "plan_task_id": task_id,
+            }
+            for source_id in task_source_ids
+        )
+
+    def check_exclusions(self, excluded: dict[str, str]) -> None:
+        for item_id, reason in excluded.items():
+            if item_id not in self.category_items:
+                self.issues.append(f"excluded_category_item_unknown:{item_id}")
+            if not reason:
+                self.issues.append(f"excluded_category_item_reason_required:{item_id}")
+            if item_id in self.ownership:
+                self.issues.append(f"category_item_both_mapped_and_excluded:{item_id}")
+
+    def check_required_scope(
+        self, excluded: dict[str, str], required_source_category_item_ids: Sequence[str] | None
+    ) -> None:
+        if required_source_category_item_ids is not None:
+            required_scope = {str(value) for value in required_source_category_item_ids or []}
+            if not required_scope or not required_scope.issubset(self.category_items):
+                self.issues.append("track_planning_category_scope_invalid")
+            outside_scope = (set(self.ownership) | set(excluded)) - required_scope
+            self.issues.extend(f"track_planning_result_scope_expansion:{item_id}" for item_id in sorted(outside_scope))
+        else:
+            required_scope = {
+                item_id
+                for item_id, item in self.category_items.items()
+                if str(item.get("status") or "").strip().lower() != "deferred"
+            }
+        uncovered = sorted(required_scope - set(self.ownership) - set(excluded))
+        self.issues.extend(f"category_item_uncovered:{item_id}" for item_id in uncovered)
+
+    def check_category_dependency_translation(self) -> None:
+        tasks_by_item: dict[str, set[str]] = {}
+        for spec in self.lineage_specs:
+            tasks_by_item.setdefault(spec["source_category_item_id"], set()).add(spec["plan_task_id"])
+        for item_id in self.ownership:
+            if not tasks_by_item.get(item_id):
+                self.issues.append(f"category_item_has_no_track_task:{item_id}")
+        for item_id, item in self.category_items.items():
+            if item_id not in self.ownership:
+                continue
+            for parent_item in list(item.get("depends_on") or []):
+                parent_id = str(parent_item or "")
+                if parent_id in self.ownership:
+                    self._check_dependency_edge(parent_id, item_id, tasks_by_item)
+
+    def _check_dependency_edge(self, parent_id: str, item_id: str, tasks_by_item: dict[str, set[str]]) -> None:
+        parent_tasks = tasks_by_item.get(parent_id, set())
+        child_tasks = tasks_by_item.get(item_id, set())
+        dependencies = self.task_dependencies
+        translated = any(dependencies.get(child_task, set()) & parent_tasks for child_task in child_tasks)
+        if not translated:
+            self.issues.append(f"category_dependency_not_translated:{parent_id}->{item_id}")
+        inverted = any(dependencies.get(parent_task, set()) & child_tasks for parent_task in parent_tasks)
+        if inverted:
+            self.issues.append(f"category_dependency_inverted:{parent_id}->{item_id}")
+
+    def check_task_dependency_graph(self) -> None:
+        known_task_ids = set(self.task_dependencies)
+        for task_id, dependencies in self.task_dependencies.items():
+            if task_id in dependencies:
+                self.issues.append(f"planning_task_dependency_self:{task_id}")
+            self.issues.extend(
+                f"planning_task_dependency_unknown:{task_id}->{dependency}"
+                for dependency in sorted(dependencies - known_task_ids)
+            )
+        if not _dependency_graph_is_acyclic(self.task_dependencies, known_task_ids):
+            self.issues.append("planning_cross_track_dependency_cycle")
+
+
+def _dependency_graph_is_acyclic(task_dependencies: dict[str, set[str]], known_task_ids: set[str]) -> bool:
+    """Kahn's algorithm over known task ids; unknown dependencies are ignored."""
+    incoming = {task_id: 0 for task_id in known_task_ids}
+    outgoing: dict[str, list[str]] = {task_id: [] for task_id in known_task_ids}
+    for task_id, dependencies in task_dependencies.items():
+        for dependency in dependencies & known_task_ids:
+            outgoing[dependency].append(task_id)
+            incoming[task_id] += 1
+    queue = deque(sorted(task_id for task_id, count in incoming.items() if count == 0))
+    visited = 0
+    while queue:
+        current = queue.popleft()
+        visited += 1
+        for child in sorted(outgoing[current]):
+            incoming[child] -= 1
+            if incoming[child] == 0:
+                queue.append(child)
+    return visited == len(incoming)
 
 
 def validate_authoritative_track_planning_assignment(
