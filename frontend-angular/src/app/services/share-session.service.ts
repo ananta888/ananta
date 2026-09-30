@@ -27,22 +27,13 @@ import type {
   MembershipMutationFence,
   PendingMembershipAuthority,
   PublicPairRuntimeState,
-  ShareChatMessage,
   ShareParticipant,
   ShareSession,
   ShareSessionCatalogEntry,
-  StrictShareChatWireMessage,
 } from './share-session.types';
 import { ShareSessionMutationFences } from './share-session-mutation-fences';
 import { listedSessionRole, listedSessionRuntimeState, shareParticipantStatus } from './share-session.rules';
-import {
-  chatMessageFromStrictPlaintext,
-  createStrictChatPlaintext,
-  newShareChatMessageId,
-  parseLegacyChat,
-  parseStrictChatPlaintext,
-  parseStrictChatWire,
-} from './share-session-chat.codec';
+import { ShareSessionChatChannel } from './share-session-chat.channel';
 
 export type {
   ShareSession,
@@ -87,6 +78,24 @@ export class ShareSessionService implements OnDestroy {
     () => ({ sessionId: this.state$.value.session?.id ?? '', generation: this.sessionGeneration }),
     () => this.publishPublicPairRuntimeState(),
   );
+  private readonly chat = new ShareSessionChatChannel({
+    state$: this.state$,
+    currentGeneration: () => this.sessionGeneration,
+    isCurrentSession: (sessionId, generation) => this.isCurrentSession(sessionId, generation),
+    isStrictSession: session => this.isStrictSession(session),
+    hasChatPermission: () => this.hasPermission('chat'),
+    canSendChat: () => this.canSendChat(),
+    currentUserId: () => this.currentUserId,
+    hubUrl: () => this.hubUrl,
+    closeUnverifiedStrictTransport: () => this.closeUnverifiedStrictTransport(),
+  }, {
+    core: this.core,
+    transport: this.transport,
+    cryptoPort: this.cryptoPort,
+    secureSequences: this.secureSequences,
+    controlPlane: this.controlPlane,
+    publicContract: this.publicContract,
+  });
 
   constructor() {
     this.lifetimeSubscriptions.add(this.state$.subscribe(() => this.publishPublicPairRuntimeState()));
@@ -95,25 +104,7 @@ export class ShareSessionService implements OnDestroy {
       this.profiles.profile$,
     ]).subscribe(() => this.reconcileActivePublicAuthority()));
     this.lifetimeSubscriptions.add(this.transport.message$.subscribe((msg) => {
-      if (msg.type !== 'chat') return;
-      const session = this.state$.value.session;
-      if (!session || msg.session_id !== session.id) return;
-      if (this.controlPlane.isPublicSession(session.id)) {
-        try { this.publicContract.assertValid(session); } catch {
-          this.closeUnverifiedStrictTransport();
-          return;
-        }
-      }
-      if (session && this.isStrictSession(session)) {
-        void this.acceptStrictChatWire(
-          msg.payload,
-          session.id,
-          this.sessionGeneration,
-        ).catch(() => undefined);
-        return;
-      }
-      const item = parseLegacyChat(msg.payload, this.state$.value.session?.id);
-      if (item) this.appendMessage(item);
+      if (msg.type === 'chat') this.chat.receiveTransportChat(msg.payload, msg.session_id);
     }));
     const terminalFailures = this.transport.terminalFailure$;
     if (terminalFailures) {
@@ -342,72 +333,8 @@ export class ShareSessionService implements OnDestroy {
     this.controlPlane.discardPendingPublicMutation('join');
   }
 
-  async sendMessage(text: string): Promise<void> {
-    const { session } = this.state$.value;
-    const normalized = text.trim();
-    if (!session || !normalized) return;
-    if (!this.hasPermission('chat')) throw new Error('chat_permission_required');
-    const publicSession = this.controlPlane.isPublicSession(session.id);
-    if (publicSession) {
-      this.controlPlane.assertSessionAvailable(session.id);
-      this.publicContract.assertValid(session);
-    }
-
-    if (this.isStrictSession(session)) {
-      if (!this.canSendChat() || !session.security_epoch) {
-        throw new Error('confirmed_pair_binding_required');
-      }
-      const senderUserId = this.currentUserId;
-      const id = newShareChatMessageId();
-      const plaintext = createStrictChatPlaintext(id, session.id, senderUserId, normalized, Date.now() / 1000);
-      const encryptedPayload = await this.cryptoPort.seal(JSON.stringify(plaintext), {
-        scopeId: session.id,
-        epoch: session.security_epoch,
-        sequence: await this.secureSequences.next(
-          session.id,
-          session.security_epoch,
-          senderUserId,
-          'semantic',
-        ),
-        payloadType: 'pair.chat_message',
-        trafficClass: 'semantic',
-      });
-      const wire: StrictShareChatWireMessage = { id, encrypted_payload: encryptedPayload };
-      if (this.transport.mode$.value === 'webrtc') {
-        this.transport.send('chat', wire);
-      } else {
-        if (publicSession) {
-          throw new Error('public_pair_datachannel_required');
-        }
-        this.assertHubPayloadRelayAllowed(session.id);
-        const url = this.hubUrl;
-        if (!url) throw new Error('hub_unavailable');
-        await firstValueFrom(this.core.post(
-          `${url}/share-sessions/${session.id}/chat/messages`, wire, url,
-        ));
-      }
-      this.appendMessage(chatMessageFromStrictPlaintext(plaintext));
-      return;
-    }
-
-    if (this.transport.mode$.value === 'webrtc') {
-      this.transport.send('chat', {
-        id: newShareChatMessageId(),
-        session_id: session.id,
-        text: normalized,
-        sender_id: this.currentUserId,
-        created_at: Date.now() / 1000,
-      });
-      return;
-    }
-
-    this.assertHubPayloadRelayAllowed(session.id);
-    const url = this.hubUrl;
-    if (!url) throw new Error('hub_unavailable');
-    await firstValueFrom(this.core.post(`${url}/share-sessions/${session.id}/chat/messages`, {
-      text: normalized, visibility: 'room', channel_type: 'room',
-      id: newShareChatMessageId(),
-    }, url));
+  sendMessage(text: string): Promise<void> {
+    return this.chat.send(text);
   }
 
   revokeParticipant(participantId: string): void {
@@ -562,7 +489,7 @@ export class ShareSessionService implements OnDestroy {
       }
       return;
     }
-    try { this.assertHubPayloadRelayAllowed(session.id); } catch { return; }
+    try { this.chat.assertHubPayloadRelayAllowed(session.id); } catch { return; }
     const url = this.hubUrl;
     if (!url) return;
     const generation = this.sessionGeneration;
@@ -573,7 +500,7 @@ export class ShareSessionService implements OnDestroy {
     ).subscribe({
       next: (r) => {
         if (!this.isCurrentSession(session.id, generation)) return;
-        void this.acceptChatPage(session, r?.messages ?? [], r?.cursor ?? cursor, generation)
+        void this.chat.acceptPage(session, r?.messages ?? [], r?.cursor ?? cursor, generation)
           .finally(() => {
             if (this.isCurrentSession(session.id, generation)) this.messagePollInFlight = false;
           });
@@ -915,79 +842,5 @@ export class ShareSessionService implements OnDestroy {
       return;
     }
     scope.add(request);
-  }
-
-  private async acceptChatPage(
-    session: ShareSession,
-    rawMessages: unknown[],
-    cursor: string,
-    generation: number,
-  ): Promise<void> {
-    if (!this.isCurrentSession(session.id, generation)) return;
-    if (this.isStrictSession(session)) {
-      for (const raw of rawMessages) {
-        if (!this.isCurrentSession(session.id, generation)) return;
-        try {
-          await this.acceptStrictChatWire(raw, session.id, generation);
-        } catch { /* reject and advance the opaque relay cursor */ }
-      }
-    } else {
-      for (const raw of rawMessages) {
-        if (!this.isCurrentSession(session.id, generation)) return;
-        const item = parseLegacyChat(raw, this.state$.value.session?.id);
-        if (item) this.appendMessage(item);
-      }
-    }
-    if (this.isCurrentSession(session.id, generation)) {
-      this.state$.next({ ...this.state$.value, cursor });
-    }
-  }
-
-  private async acceptStrictChatWire(
-    raw: unknown,
-    expectedSessionId: string,
-    generation: number,
-  ): Promise<void> {
-    const wire = parseStrictChatWire(raw);
-    const session = this.state$.value.session;
-    if (
-      !wire
-      || !session
-      || session.id !== expectedSessionId
-      || !this.isCurrentSession(expectedSessionId, generation)
-      || !this.isStrictSession(session)
-      || !session.security_epoch
-    ) return;
-    if (!this.hasPermission('chat') || !this.cryptoPort.ready(session.id, session.security_epoch)) return;
-    const opened = await this.cryptoPort.open(wire.encrypted_payload, {
-      scopeId: session.id,
-      epoch: session.security_epoch,
-    });
-    if (!this.isCurrentSession(expectedSessionId, generation)) return;
-    if (opened.payloadType !== 'pair.chat_message') return;
-    let rawPlaintext: unknown;
-    try { rawPlaintext = JSON.parse(opened.plaintext); } catch { return; }
-    const plaintext = parseStrictChatPlaintext(rawPlaintext);
-    if (
-      !plaintext
-      || plaintext.id !== wire.id
-      || plaintext.sessionId !== session.id
-      || plaintext.senderUserId !== opened.senderId
-    ) return;
-    this.appendMessage(chatMessageFromStrictPlaintext(plaintext));
-  }
-
-  private appendMessage(item: ShareChatMessage): void {
-    const current = this.state$.value;
-    if (!current.session || item.session_id !== current.session.id) return;
-    if (current.messages.some((message) => message.id === item.id)) return;
-    this.state$.next({ ...current, messages: [...current.messages, item].slice(-200) });
-  }
-
-  private assertHubPayloadRelayAllowed(sessionId: string): void {
-    if (this.controlPlane.isPublicSession(sessionId)) {
-      throw new Error('public_pair_hub_relay_forbidden');
-    }
-    this.controlPlane.assertSessionAvailable(sessionId);
   }
 }
