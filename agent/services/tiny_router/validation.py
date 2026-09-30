@@ -59,11 +59,28 @@ def validate_json_value(
     value: Any, schema: Mapping[str, Any], *, path: str = "$",
 ) -> tuple[str, ...]:
     """Validate the registry schema subset and reject unknown object fields."""
-    issues: list[str] = []
     if not isinstance(schema, Mapping):
         return (path + ":schema_not_object",)
     if "$ref" in schema:
         return (path + ":unresolved_schema_ref",)
+    issues = _value_keyword_issues(value, schema, path)
+    if not _declared_type_matches(value, schema.get("type")):
+        issues.append(path + ":type_mismatch")
+        return tuple(issues)
+    if isinstance(value, dict):
+        issues.extend(_object_issues(value, schema, path))
+    elif isinstance(value, list):
+        issues.extend(_array_issues(value, schema, path))
+    elif isinstance(value, str):
+        issues.extend(_string_issues(value, schema, path))
+    elif isinstance(value, (int, float)) and not isinstance(value, bool):
+        issues.extend(_number_issues(value, schema, path))
+    return tuple(issues)
+
+
+def _value_keyword_issues(value: Any, schema: Mapping[str, Any], path: str) -> list[str]:
+    """``const``, ``enum`` and ``oneOf``/``anyOf`` checks, in that order."""
+    issues: list[str] = []
     if "const" in schema and value != schema["const"]:
         issues.append(path + ":const_mismatch")
     if "enum" in schema:
@@ -72,83 +89,99 @@ def validate_json_value(
             issues.append(path + ":enum_mismatch")
     for keyword in ("oneOf", "anyOf"):
         alternatives = schema.get(keyword)
-        if alternatives is not None:
-            if not isinstance(alternatives, list) or not alternatives:
-                issues.append(path + ":" + keyword + "_invalid")
-            else:
-                matches = sum(
-                    not validate_json_value(value, option, path=path)
-                    for option in alternatives if isinstance(option, Mapping)
-                )
-                if (keyword == "oneOf" and matches != 1) or (
-                    keyword == "anyOf" and matches < 1
-                ):
-                    issues.append(path + ":" + keyword + "_mismatch")
-    declared_type = schema.get("type")
+        if alternatives is None:
+            continue
+        if not isinstance(alternatives, list) or not alternatives:
+            issues.append(path + ":" + keyword + "_invalid")
+            continue
+        matches = sum(
+            not validate_json_value(value, option, path=path)
+            for option in alternatives if isinstance(option, Mapping)
+        )
+        if (keyword == "oneOf" and matches != 1) or (keyword == "anyOf" and matches < 1):
+            issues.append(path + ":" + keyword + "_mismatch")
+    return issues
+
+
+def _declared_type_matches(value: Any, declared_type: Any) -> bool:
     if isinstance(declared_type, list):
-        if not any(_type_matches(value, str(item)) for item in declared_type):
-            issues.append(path + ":type_mismatch")
-            return tuple(issues)
-    elif declared_type and not _type_matches(value, str(declared_type)):
-        issues.append(path + ":type_mismatch")
-        return tuple(issues)
-    if isinstance(value, dict):
-        properties = schema.get("properties") or {}
-        if not isinstance(properties, Mapping):
-            return tuple(issues + [path + ":properties_not_object"])
-        required = schema.get("required") or []
-        if not isinstance(required, list):
-            issues.append(path + ":required_not_array")
-            required = []
-        for key in required:
-            if key not in value:
-                issues.append(path + ":missing_required:" + str(key))
-        additional = schema.get("additionalProperties", False)
-        for key, item in value.items():
-            child = str(key)
-            if child in properties:
-                issues.extend(validate_json_value(item, properties[child], path=path + "." + child))
-            elif isinstance(additional, Mapping):
-                issues.extend(validate_json_value(item, additional, path=path + "." + child))
-            else:
-                issues.append(path + ":unknown_property:" + child)
-    elif isinstance(value, list):
-        if "minItems" in schema and len(value) < int(schema["minItems"]):
-            issues.append(path + ":min_items")
-        if "maxItems" in schema and len(value) > int(schema["maxItems"]):
-            issues.append(path + ":max_items")
-        if schema.get("uniqueItems"):
-            serialized = [json.dumps(item, sort_keys=True) for item in value]
-            if len(serialized) != len(set(serialized)):
-                issues.append(path + ":unique_items")
-        items = schema.get("items")
-        if isinstance(items, Mapping):
-            for index, item in enumerate(value):
-                issues.extend(validate_json_value(item, items, path=f"{path}[{index}]"))
-    elif isinstance(value, str):
-        if "minLength" in schema and len(value) < int(schema["minLength"]):
-            issues.append(path + ":min_length")
-        if "maxLength" in schema and len(value) > int(schema["maxLength"]):
-            issues.append(path + ":max_length")
-        if "pattern" in schema:
-            try:
-                if re.search(str(schema["pattern"]), value) is None:
-                    issues.append(path + ":pattern")
-            except re.error:
-                issues.append(path + ":invalid_schema_pattern")
-    elif isinstance(value, (int, float)) and not isinstance(value, bool):
-        numeric = float(value)
-        if not math.isfinite(numeric):
-            issues.append(path + ":non_finite_number")
-        if "minimum" in schema and numeric < float(schema["minimum"]):
-            issues.append(path + ":minimum")
-        if "maximum" in schema and numeric > float(schema["maximum"]):
-            issues.append(path + ":maximum")
-        if "exclusiveMinimum" in schema and numeric <= float(schema["exclusiveMinimum"]):
-            issues.append(path + ":exclusive_minimum")
-        if "exclusiveMaximum" in schema and numeric >= float(schema["exclusiveMaximum"]):
-            issues.append(path + ":exclusive_maximum")
-    return tuple(issues)
+        return any(_type_matches(value, str(item)) for item in declared_type)
+    return not declared_type or _type_matches(value, str(declared_type))
+
+
+def _object_issues(value: dict, schema: Mapping[str, Any], path: str) -> list[str]:
+    properties = schema.get("properties") or {}
+    if not isinstance(properties, Mapping):
+        return [path + ":properties_not_object"]
+    issues: list[str] = []
+    required = schema.get("required") or []
+    if not isinstance(required, list):
+        issues.append(path + ":required_not_array")
+        required = []
+    for key in required:
+        if key not in value:
+            issues.append(path + ":missing_required:" + str(key))
+    additional = schema.get("additionalProperties", False)
+    for key, item in value.items():
+        child = str(key)
+        if child in properties:
+            issues.extend(validate_json_value(item, properties[child], path=path + "." + child))
+        elif isinstance(additional, Mapping):
+            issues.extend(validate_json_value(item, additional, path=path + "." + child))
+        else:
+            issues.append(path + ":unknown_property:" + child)
+    return issues
+
+
+def _array_issues(value: list, schema: Mapping[str, Any], path: str) -> list[str]:
+    issues: list[str] = []
+    if "minItems" in schema and len(value) < int(schema["minItems"]):
+        issues.append(path + ":min_items")
+    if "maxItems" in schema and len(value) > int(schema["maxItems"]):
+        issues.append(path + ":max_items")
+    if schema.get("uniqueItems"):
+        serialized = [json.dumps(item, sort_keys=True) for item in value]
+        if len(serialized) != len(set(serialized)):
+            issues.append(path + ":unique_items")
+    items = schema.get("items")
+    if isinstance(items, Mapping):
+        for index, item in enumerate(value):
+            issues.extend(validate_json_value(item, items, path=f"{path}[{index}]"))
+    return issues
+
+
+def _string_issues(value: str, schema: Mapping[str, Any], path: str) -> list[str]:
+    issues: list[str] = []
+    if "minLength" in schema and len(value) < int(schema["minLength"]):
+        issues.append(path + ":min_length")
+    if "maxLength" in schema and len(value) > int(schema["maxLength"]):
+        issues.append(path + ":max_length")
+    if "pattern" in schema:
+        try:
+            if re.search(str(schema["pattern"]), value) is None:
+                issues.append(path + ":pattern")
+        except re.error:
+            issues.append(path + ":invalid_schema_pattern")
+    return issues
+
+
+_NUMERIC_BOUNDS: tuple[tuple[str, Any, str], ...] = (
+    ("minimum", lambda numeric, bound: numeric < bound, ":minimum"),
+    ("maximum", lambda numeric, bound: numeric > bound, ":maximum"),
+    ("exclusiveMinimum", lambda numeric, bound: numeric <= bound, ":exclusive_minimum"),
+    ("exclusiveMaximum", lambda numeric, bound: numeric >= bound, ":exclusive_maximum"),
+)
+
+
+def _number_issues(value: int | float, schema: Mapping[str, Any], path: str) -> list[str]:
+    issues: list[str] = []
+    numeric = float(value)
+    if not math.isfinite(numeric):
+        issues.append(path + ":non_finite_number")
+    for keyword, violates, suffix in _NUMERIC_BOUNDS:
+        if keyword in schema and violates(numeric, float(schema[keyword])):
+            issues.append(path + suffix)
+    return issues
 
 
 class CandidateValidator:
