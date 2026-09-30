@@ -17,6 +17,11 @@ import time
 from dataclasses import dataclass
 from typing import Callable, Protocol
 
+from agent.models.sfu_fleet_reconciliation import (
+    SfuFleetReconciliationItem,
+    SfuFleetReconciliationPage,
+)
+
 
 class SfuFleetReconciliationError(RuntimeError):
     def __init__(self, reason_code: str, *, retryable: bool = False) -> None:
@@ -66,32 +71,6 @@ class SfuFleetReconciliationLease:
     checkpoint_cursor: str | None
     expires_at_ms: int
     version: int
-
-
-@dataclass(frozen=True, slots=True)
-class SfuFleetReconciliationItem:
-    item_id: str
-    cursor_after: str
-    expected_state_version: int
-    desired_route: bool
-    desired_route_version: int
-    active_route: bool
-    active_route_version: int
-    route_intent_expires_at_ms: int
-    reservation_active: bool
-    reservation_orphaned: bool
-    reservation_expires_at_ms: int
-    observation_fresh_until_ms: int
-    stale_access_expires_at_ms: int
-    node_health: str
-    admission_ready: bool
-    control_plane_consistent: bool
-
-
-@dataclass(frozen=True, slots=True)
-class SfuFleetReconciliationPage:
-    items: tuple[SfuFleetReconciliationItem, ...]
-    next_cursor: str | None
 
 
 @dataclass(frozen=True, slots=True)

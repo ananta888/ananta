@@ -11,12 +11,10 @@ from dataclasses import dataclass
 from threading import Lock
 from typing import Callable, Mapping, Protocol
 
-
-class SfuBroadcastCommandError(ValueError):
-    def __init__(self, reason_code: str, status_code: int = 400) -> None:
-        self.reason_code = reason_code
-        self.status_code = status_code
-        super().__init__(reason_code)
+from agent.models.sfu_broadcast_command import (
+    SfuBroadcastCommandError,
+    SfuBroadcastCommandResult,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -61,27 +59,6 @@ class SfuBroadcastCommandExecution:
     state: str
     reason_code: str
     audit_committed: bool
-
-
-@dataclass(frozen=True, slots=True)
-class SfuBroadcastCommandResult:
-    accepted: bool
-    effective_version: int
-    state: str
-    reason_code: str
-    command_ref: str
-    replayed: bool = False
-
-    def public(self) -> dict[str, object]:
-        return {
-            "ok": self.accepted,
-            "accepted": self.accepted,
-            "effective_version": self.effective_version,
-            "state": self.state,
-            "reason_code": self.reason_code,
-            "command_ref": self.command_ref,
-            "replayed": self.replayed,
-        }
 
 
 class SfuBroadcastCommandAuthorizationPort(Protocol):

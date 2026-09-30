@@ -4,78 +4,23 @@ from __future__ import annotations
 
 import secrets
 import time
-from dataclasses import dataclass
 from typing import Callable, Protocol, runtime_checkable
 
 from agent.services.sfu_broadcast_data_port import AuthorizedSfuDataAudienceV1
 from agent.services.sfu_hub_secret_envelope import (
-    SfuHubSealedSecret,
     SfuHubSecretEnvelopeError,
     SfuHubSecretEnvelopePort,
+)
+from agent.models.sfu_vendor_identity import (
+    SfuVendorDestinationBinding,
+    SfuVendorIdentityBinding,
+    SfuVendorIdentityError,
+    SfuVendorIdentityMutationResult,
 )
 
 
 MAX_VENDOR_IDENTITY_TTL_SECONDS = 3600
 MAX_DESTINATION_TTL_SECONDS = 300
-
-
-class SfuVendorIdentityError(RuntimeError):
-    def __init__(self, reason_code: str, status_code: int = 409) -> None:
-        self.reason_code = reason_code
-        self.status_code = status_code
-        super().__init__(reason_code)
-
-
-@dataclass(frozen=True, slots=True)
-class SfuVendorIdentityBinding:
-    identity_handle: str
-    tenant_id: str
-    room_id: str
-    membership_digest: str
-    sealed_membership: SfuHubSealedSecret | None
-    membership_epoch: int
-    identity_epoch: int
-    status: str
-    fencing_token: int
-    version: int
-    issued_at: float
-    expires_at: float
-    revoked_at: float | None = None
-    membership_digest_key_id: str | None = None
-
-
-@dataclass(frozen=True, slots=True)
-class SfuVendorDestinationBinding:
-    destination_handle: str
-    identity_handle: str
-    tenant_id: str
-    room_id: str
-    route_digest: str
-    publication_digest: str
-    audience_digest: str
-    membership_epoch: int
-    identity_epoch: int
-    route_epoch: int
-    key_epoch: int
-    status: str
-    fencing_token: int
-    version: int
-    issued_at: float
-    expires_at: float
-    revoked_at: float | None = None
-
-
-@dataclass(frozen=True, slots=True)
-class SfuVendorIdentityMutationResult:
-    status: str
-    identity: SfuVendorIdentityBinding | None = None
-    destination: SfuVendorDestinationBinding | None = None
-    replayed: bool = False
-    reason_code: str | None = None
-
-    @property
-    def committed(self) -> bool:
-        return self.status == "saved"
 
 
 @runtime_checkable

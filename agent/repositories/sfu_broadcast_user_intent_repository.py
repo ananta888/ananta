@@ -12,7 +12,7 @@ from agent.db_models.sfu_broadcast_user_intents import (
     SfuBroadcastCommandAuditDB,
     SfuBroadcastUserIntentDB,
 )
-from agent.services.sfu_broadcast_command_repository_port import (
+from agent.models.sfu_broadcast_command import (
     SfuBroadcastCommandMutation,
     SfuBroadcastCommandMutationResult,
     SfuBroadcastCommandRepositoryConflict,

@@ -16,7 +16,7 @@ from agent.db_models.sfu_broadcast_vendor_identities import (
     SfuBroadcastVendorIdentityDB,
 )
 from agent.models.sfu_group_keys import SfuHubSealedSecret
-from agent.services.sfu_vendor_identity_service import (
+from agent.models.sfu_vendor_identity import (
     SfuVendorDestinationBinding,
     SfuVendorIdentityBinding,
     SfuVendorIdentityError,

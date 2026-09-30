@@ -17,7 +17,7 @@ from agent.db_models.sfu_broadcast_flag_projections import (
     SfuBroadcastFlagProjectionDB,
     SfuBroadcastRuntimeProjectionStateDB,
 )
-from agent.services.sfu_broadcast_runtime_control_port import SfuRuntimeControlResult
+from agent.models.sfu_runtime_control import SfuRuntimeControlResult
 
 
 class SfuBroadcastFlagProjectionError(RuntimeError):

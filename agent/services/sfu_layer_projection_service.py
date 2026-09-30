@@ -26,6 +26,7 @@ from agent.services.sfu_projection_signing import (
     HmacSfuProjectionSigner,
     SfuProjectionSignerPort,
 )
+from agent.models.sfu_layer_projection import SfuProjectionScope
 
 
 _SCHEMAS = {
@@ -34,17 +35,6 @@ _SCHEMAS = {
     "receiver": "ananta.sfu-receiver-layer-projection.v1",
 }
 _TTL_MAX = {"room": 30_000, "publisher": 15_000, "receiver": 10_000}
-
-
-@dataclass(frozen=True, slots=True)
-class SfuProjectionScope:
-    tenant_id: str
-    room_id: str
-    actor_id: str
-    membership_epoch: int
-    route_epoch: int = 0
-    topology_epoch: int = 0
-    key_epoch: int = 0
 
 
 class SfuProjectionScopeAuthorizerPort(Protocol):

@@ -21,17 +21,13 @@ from agent.repositories.sfu_capacity_reservation_repository import (
     SqlSfuCapacityReservationRepository,
 )
 from agent.repositories.sfu_node_repository import SqlSfuNodeRepository
-from agent.services.sfu_broadcast_reconciliation_jobs import (
-    SfuRouteReconciliationScopeCandidate,
-    SfuRouteReconciliationScopePage,
+from agent.models.sfu_broadcast_projection import SfuBroadcastRoomScope
+from agent.models.sfu_broadcast_route import RouteKeyV1, RouteVersionV1
+from agent.models.sfu_fleet_reconciliation import (
+    SfuFleetReconciliationItem,
+    SfuFleetReconciliationPage,
 )
-from agent.services.sfu_broadcast_repository_ports import (
-    SfuBroadcastRoomScope,
-    SfuFanoutRoute,
-    SfuFanoutRouteRepositoryPort,
-)
-from agent.services.sfu_broadcast_route_port import RouteKeyV1, RouteVersionV1
-from agent.services.sfu_fanout_reconciliation_service import (
+from agent.models.sfu_route_reconciliation import (
     ReconciliationDesiredState,
     ReconciliationPhase,
     RouteReconciliationAuthority,
@@ -39,16 +35,15 @@ from agent.services.sfu_fanout_reconciliation_service import (
     RouteReconciliationLease,
     RouteReconciliationPage,
     RouteReconciliationScope,
+    SfuRouteReconciliationScopeCandidate,
+    SfuRouteReconciliationScopePage,
 )
-from agent.services.sfu_fleet_reconciliation_ports import (
+from agent.ports.sfu_broadcast_projection import SfuFanoutRouteRepositoryPort
+from agent.ports.sfu_fleet_reconciliation import (
     SfuFleetRuntimeRouteMutationPort,
     SfuFleetRuntimeRouteStatePort,
 )
-from agent.services.sfu_fleet_reconciliation_service import (
-    SfuFleetReconciliationItem,
-    SfuFleetReconciliationPage,
-)
-from agent.services.sfu_route_reconciliation_projection_port import (
+from agent.ports.sfu_route_reconciliation_projection import (
     SfuRouteReconciliationProjectionPort,
 )
 

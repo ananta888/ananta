@@ -11,11 +11,11 @@ from sqlmodel import Session, select
 
 from agent.database import engine as default_engine
 from agent.db_models.sfu_broadcast_background_jobs import SfuBroadcastBackgroundJobDB
-from agent.services.sfu_broadcast_background_job_port import (
+from agent.models.sfu_broadcast_background_job import (
     SfuBroadcastBackgroundJobLease,
-    SfuBroadcastBackgroundJobPort,
     SfuBroadcastBackgroundJobSpec,
 )
+from agent.ports.sfu_broadcast_background_job import SfuBroadcastBackgroundJobPort
 
 
 class SfuBroadcastBackgroundJobError(RuntimeError):

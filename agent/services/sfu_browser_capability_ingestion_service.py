@@ -15,6 +15,7 @@ from agent.services.sfu_browser_capability_port import (
     SfuBrowserCapabilityRepositoryPort,
     SfuBrowserCapabilitySnapshot,
 )
+from agent.models.sfu_browser_capability import SfuCapabilityAdmissionScope
 
 
 _PSEUDONYM = re.compile(r"^room-bip_[A-Za-z0-9_-]{22}$")
@@ -35,15 +36,6 @@ _ENUMS = {
     "decode_bucket": frozenset({"unknown", "unsupported", "audio_realtime", "video_baseline", "video_enhanced"}),
     "evidence_bucket": frozenset({"not_observed", "static_api_presence", "static_capability_query"}),
 }
-
-
-@dataclass(frozen=True, slots=True)
-class SfuCapabilityAdmissionScope:
-    tenant_id: str
-    room_id: str
-    actor_id: str
-    admission_epoch: int
-    membership_epoch: int
 
 
 class SfuCapabilityAdmissionScopePort(Protocol):

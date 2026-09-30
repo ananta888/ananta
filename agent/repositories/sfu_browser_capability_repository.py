@@ -12,7 +12,7 @@ from sqlmodel import Session, select
 
 from agent.database import engine as default_engine
 from agent.db_models.sfu_browser_capabilities import SfuBrowserCapabilityDB
-from agent.services.sfu_browser_capability_port import (
+from agent.models.sfu_browser_capability import (
     SfuBrowserCapabilitySnapshot,
     SfuBrowserCapabilityWriteResult,
     unknown_capability,

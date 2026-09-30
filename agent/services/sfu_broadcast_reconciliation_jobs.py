@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import replace
 from typing import Protocol
 
 from agent.services.sfu_broadcast_reconciler_scheduler import SfuBroadcastJobContext
@@ -19,24 +19,16 @@ from agent.services.sfu_fleet_reconciliation_service import (
     SfuFleetReconciliationService,
     SfuFleetReconciliationStatePort,
 )
+from agent.models.sfu_route_reconciliation import (
+    SfuRouteReconciliationScopeCandidate,
+    SfuRouteReconciliationScopePage,
+)
 
 
 class SfuBroadcastReconciliationJobError(RuntimeError):
     def __init__(self, reason_code: str) -> None:
         self.reason_code = reason_code
         super().__init__(reason_code)
-
-
-@dataclass(frozen=True, slots=True)
-class SfuRouteReconciliationScopeCandidate:
-    scope: RouteReconciliationScope
-    cursor_after: str
-
-
-@dataclass(frozen=True, slots=True)
-class SfuRouteReconciliationScopePage:
-    items: tuple[SfuRouteReconciliationScopeCandidate, ...]
-    next_cursor: str | None
 
 
 class SfuRouteReconciliationScopePagePort(Protocol):

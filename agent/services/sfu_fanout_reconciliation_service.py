@@ -9,7 +9,6 @@ from agent.services.sfu_broadcast_control_observability import (
 )
 
 from dataclasses import dataclass, replace
-from enum import Enum
 from typing import Protocol
 
 from agent.services.sfu_broadcast_route_port import (
@@ -20,45 +19,28 @@ from agent.services.sfu_broadcast_route_port import (
     RevokeRouteCommandV1,
     RevokeRoutePortV1,
     RouteContractViolationV1,
-    RouteKeyV1,
     RouteMutationResultV1,
     RouteObservationResultV1,
     RouteOutcomeV1,
     RoutePresenceV1,
-    RouteProjectionV1,
     RouteReasonCodeV1,
     RouteVersionV1,
     UpdateRouteCommandV1,
     UpdateRoutePortV1,
 )
-
-
-class ReconciliationPhase(str, Enum):
-    REVOKE = "revoke"
-    ENSURE = "ensure"
-
-
-class ReconciliationDesiredState(str, Enum):
-    ACTIVE = "active"
-    REVOKED = "revoked"
-    TOMBSTONED = "tombstoned"
-    UNKNOWN = "unknown"
-
-
-class ReconciliationAction(str, Enum):
-    CONVERGED = "converged"
-    APPLIED = "applied"
-    UPDATED = "updated"
-    REVOKED = "revoked"
-    DEFERRED = "deferred"
-    FAILED = "failed"
-
-
-class ReconciliationRunStatus(str, Enum):
-    COMPLETED = "completed"
-    PARTIAL = "partial"
-    BUSY = "busy"
-    FAILED = "failed"
+from agent.models.sfu_route_reconciliation import (
+    ReconciliationAction,
+    ReconciliationDesiredState,
+    ReconciliationPhase,
+    ReconciliationRunStatus,
+    RouteReconciliationAuthority,
+    RouteReconciliationCandidate,
+    RouteReconciliationCursor,
+    RouteReconciliationItemOutcome,
+    RouteReconciliationLease,
+    RouteReconciliationPage,
+    RouteReconciliationScope,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,69 +63,6 @@ class SfuFanoutReconciliationConfig:
             raise ValueError("sfu_route_reconciliation_config_invalid")
         if self.lease_ttl_ms < self.reconcile_deadline_ms:
             raise ValueError("sfu_route_reconciliation_lease_too_short")
-
-
-@dataclass(frozen=True, slots=True)
-class RouteReconciliationScope:
-    tenant_ref: str
-    room_ref: str
-
-
-@dataclass(frozen=True, slots=True)
-class RouteReconciliationCursor:
-    phase: ReconciliationPhase
-    token: str | None = None
-
-
-@dataclass(frozen=True, slots=True)
-class RouteReconciliationLease:
-    scope: RouteReconciliationScope
-    owner_ref: str
-    fencing_token: str
-    expires_at_ms: int
-
-
-@dataclass(frozen=True, slots=True)
-class RouteReconciliationCandidate:
-    candidate_ref: str
-    key: RouteKeyV1
-    phase: ReconciliationPhase
-    resume_cursor: str | None
-
-
-@dataclass(frozen=True, slots=True)
-class RouteReconciliationPage:
-    items: tuple[RouteReconciliationCandidate, ...]
-    next_cursor: str | None
-
-
-@dataclass(frozen=True, slots=True)
-class RouteReconciliationAuthority:
-    """Atomically revalidated Hub state after runtime observation."""
-
-    candidate_ref: str
-    key: RouteKeyV1
-    desired_state: ReconciliationDesiredState
-    desired: RouteProjectionV1 | None
-    expected_version: RouteVersionV1 | None
-    revoke_version: RouteVersionV1 | None
-    operation_id: str
-    lease_fencing_token: str
-    authorized: bool
-    parent_active: bool
-    epochs_current: bool
-    route_fencing_current: bool
-    reason_code: str
-
-
-@dataclass(frozen=True, slots=True)
-class RouteReconciliationItemOutcome:
-    candidate_ref: str
-    key: RouteKeyV1
-    action: ReconciliationAction
-    reason_code: str
-    retryable: bool
-    mutation: RouteMutationResultV1 | None = None
 
 
 @dataclass(frozen=True, slots=True)

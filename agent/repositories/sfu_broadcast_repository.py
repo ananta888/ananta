@@ -20,7 +20,7 @@ from agent.db_models.sfu_broadcast_retention import (
     SfuAudienceRetentionFenceDB,
     SfuAudienceSnapshotTombstoneDB,
 )
-from agent.services.sfu_broadcast_repository_ports import (
+from agent.models.sfu_broadcast_projection import (
     SfuAudienceRetentionFence,
     SfuAudienceRetentionPurgePage,
     SfuAtomicGroupProjectionMutation,

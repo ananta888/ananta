@@ -25,27 +25,25 @@ from agent.db_models.sfu_hub_control import (
     SfuScopeEpochAuthorityDB,
     SfuScopeEpochGrantDB,
 )
-from agent.services.sfu_broadcast_command_service import (
+from agent.models.sfu_broadcast_command import (
     SfuBroadcastCommandError,
     SfuBroadcastCommandResult,
 )
-from agent.services.sfu_broadcast_operations_read_model import (
+from agent.models.sfu_broadcast_operations import (
     SfuBroadcastOperationsError,
     SfuBroadcastOperationsRecord,
     SfuBroadcastOperationsSnapshot,
     SfuBroadcastOperationsSourceScope,
 )
-from agent.services.sfu_browser_capability_ingestion_service import (
-    SfuCapabilityAdmissionScope,
-)
-from agent.services.sfu_fanout_reconciliation_service import (
+from agent.models.sfu_browser_capability import SfuCapabilityAdmissionScope
+from agent.models.sfu_layer_projection import SfuProjectionScope
+from agent.models.sfu_route_reconciliation import (
     ReconciliationPhase,
     RouteReconciliationCursor,
     RouteReconciliationItemOutcome,
     RouteReconciliationLease,
     RouteReconciliationScope,
 )
-from agent.services.sfu_layer_projection_service import SfuProjectionScope
 
 
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
