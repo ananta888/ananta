@@ -30,11 +30,27 @@ import {
   VoiceLongRunController,
   VoiceLongRunObserver,
 } from './voice-long-run.controller';
+import { VoiceLongRunTimelineSegment } from './voice-long-run-timeline';
 import {
-  VoiceLongRunTimelineSegment,
-  voiceLongRunRevisionLabel,
-  voiceLongRunSegmentIsGap,
-} from './voice-long-run-timeline';
+  VoiceLongRunTimelineRow,
+  VoiceLongRunUploadLedger,
+  applyVoiceLongRunResponse,
+  buildVoiceLongRunTimelineRows,
+  createVoiceConsoleLongRunObserver,
+  formatVoiceLongRunDuration,
+  validLongRunMaxHours,
+  validLongRunSegmentSeconds,
+} from './voice-console-long-run';
+import {
+  VoiceConfigurationTarget,
+  effectiveVoiceSelection,
+  voiceAsrBackends,
+  voiceConfigurationDelta,
+  voiceCorrectorModels,
+  voiceFieldChoices,
+  voiceScopeDelta,
+  voiceScopeVersion,
+} from './voice-console-configuration';
 import {
   VoiceCapabilityStatus,
   VoiceConfiguration,
@@ -45,31 +61,19 @@ import {
   VoiceTranscriptionResult,
 } from './voice.models';
 import {
-  buildCorrectorModels,
   buildCorrectorProviders,
   correctionDefaultLabel as describeCorrectionDefault,
   correctorProviderSupportsManual as providerSupportsManual,
-  isReportedCorrectorModel,
-  isVoiceCorrectionModel,
   validCorrectorModelId,
   VoiceChoice,
 } from './voice-corrector-catalog';
 import { VoiceRuntimeStatusComponent } from './voice-runtime-status.component';
 import { SemanticMediaProgramHostComponent } from './semantic-media-program-host.component';
 import { VoiceTranscriptionResultComponent } from './voice-transcription-result.component';
-import { configurationFields, valueAtPath, voiceError, voiceMutationKey } from './voice-ui.helpers';
+import { voiceError, voiceMutationKey } from './voice-ui.helpers';
 import { ShareSessionService } from '../../services/share-session.service';
 
 type VoiceConsoleTab = 'live' | 'long' | 'batch';
-type VoiceConfigurationTarget = 'profile' | 'session';
-
-interface VoiceLongRunTimelineRow {
-  kind: 'segment' | 'gap';
-  sequence: number;
-  text: string;
-  stateLabel: string;
-  textState: string;
-}
 
 @Component({
   selector: 'app-voice-console',
@@ -103,8 +107,7 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
   private batchOperationGeneration = 0;
   private longRunOperationGeneration = 0;
   private batchOperation: { generation: number; ending: boolean } | null = null;
-  private readonly confirmedLongRunSequences = new Set<number>();
-  private latestLongRunVersion: number | null = null;
+  private readonly longRunLedger = new VoiceLongRunUploadLedger();
 
   hubUrl = '';
   activeTab: VoiceConsoleTab = 'live';
@@ -343,8 +346,8 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
           profile_id: this.profileId.trim(),
           configuration_session_id: this.sessionId.trim() || undefined,
           language: this.language.trim() || undefined,
-          segment_duration_seconds: this.validLongRunSegmentSeconds(),
-          max_duration_seconds: this.validLongRunMaxHours() * 3_600,
+          segment_duration_seconds: validLongRunSegmentSeconds(this.longRunSegmentSeconds),
+          max_duration_seconds: validLongRunMaxHours(this.longRunMaxHours) * 3_600,
           overlap_milliseconds: 1_000,
         };
     const displayMode = normalizeVoiceLongRunDisplayMode(
@@ -361,8 +364,7 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
     this.longRunCorrectedSegments = resume ? this.longRunCorrectedSegments : 0;
     this.longRunGapSequences = [];
     if (!resume) {
-      this.confirmedLongRunSequences.clear();
-      this.latestLongRunVersion = null;
+      this.longRunLedger.reset();
       this.longRunCapturedMilliseconds = 0;
       this.longRunUploadedSegments = 0;
       this.longRunQueuedSegments = 0;
@@ -629,33 +631,7 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
   }
 
   asrBackends(): VoiceChoice[] {
-    const schemaChoices = this.fieldChoices('primary_backend', []);
-    const runtimeModels = [
-      ...(this.capabilities?.models || []),
-      ...(this.capabilities?.model_catalog || []),
-    ].filter((model) => !isVoiceCorrectionModel(model));
-    const runtimeChoices = runtimeModels.map((model) => ({
-      id: String(model.backend || model.engine || model.id),
-      label: String(model.backend || model.engine || model.id),
-      available: modelIsAvailable(model),
-      reason: String(model.reason_code || (modelIsAvailable(model) ? '' : model.status || 'voice.backend.unavailable')),
-    }));
-    const ids = new Set([
-      ...schemaChoices.map((choice) => choice.id),
-      ...runtimeChoices.map((choice) => choice.id),
-    ]);
-    return [...ids].map((id) => {
-      const schema = schemaChoices.find((choice) => choice.id === id);
-      const matching = runtimeChoices.filter((choice) => choice.id === id);
-      const ready = matching.find((choice) => choice.available);
-      const unavailable = matching.find((choice) => !choice.available);
-      return {
-        id,
-        label: asrBackendLabel(id, schema?.label || ready?.label || unavailable?.label),
-        available: schema?.available !== false && Boolean(ready),
-        reason: schema?.reason || ready?.reason || unavailable?.reason || 'voice.backend.not_reported',
-      };
-    });
+    return voiceAsrBackends(this.schema, this.capabilities);
   }
 
   requiresSecondaryBackend(): boolean {
@@ -697,12 +673,7 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
   }
 
   correctorModels(providerId = this.selectedCorrectorProvider): VoiceChoice[] {
-    return buildCorrectorModels(
-      this.capabilities,
-      this.configuration,
-      this.fieldChoices('generative_corrector_model', []),
-      providerId,
-    );
+    return voiceCorrectorModels(this.capabilities, this.configuration, this.schema, providerId);
   }
 
   onCorrectorProviderChange(providerId: string): void {
@@ -756,36 +727,7 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
   }
 
   private applyEffectiveConfiguration(configuration: VoiceConfiguration): void {
-    const effective = configuration.effective || {};
-    this.selectedRecognitionStrategy = String(valueAtPath(effective, 'recognition_strategy') || 'single');
-    this.selectedBackend = String(valueAtPath(effective, 'primary_backend') || 'vosk');
-    const secondary = valueAtPath(effective, 'secondary_backends');
-    this.selectedSecondaryBackend = Array.isArray(secondary) ? String(secondary[0] || '') : 'whisper_cpp';
-    this.generativeCorrection = String(valueAtPath(effective, 'correction_policy') || '') === 'generative_rewrite'
-      || valueAtPath(effective, 'feature_flags.generative_corrector') === true;
-    this.selectedCorrectorProvider = String(
-      valueAtPath(effective, 'generative_corrector_provider') || 'embedded',
-    ).trim().toLowerCase() || 'embedded';
-    this.selectedCorrectorModel = String(valueAtPath(effective, 'generative_corrector_model') || '');
-    this.manualCorrectorModel = false;
-    this.manualCorrectorModelId = '';
-    if (this.selectedCorrectorProvider === 'inherit') {
-      this.selectedCorrectorModel = '';
-    } else if (
-      this.selectedCorrectorModel
-      && !isReportedCorrectorModel(
-        this.capabilities,
-        this.selectedCorrectorProvider,
-        this.selectedCorrectorModel,
-      )
-      && this.correctorProviderSupportsManual(this.selectedCorrectorProvider)
-    ) {
-      this.manualCorrectorModel = true;
-      this.manualCorrectorModelId = this.selectedCorrectorModel;
-    } else if (!this.selectedCorrectorModel) {
-      this.selectedCorrectorModel = this.correctorModels(this.selectedCorrectorProvider)
-        .find((choice) => choice.available)?.id || '';
-    }
+    Object.assign(this, effectiveVoiceSelection(configuration, this.capabilities, this.schema));
   }
 
   private async persistSelectedConfiguration(
@@ -796,37 +738,17 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
       ? 'session'
       : this.configurationTarget;
     const scopeId = scope === 'session' ? this.sessionId.trim() : this.profileId.trim();
-    const existingDelta = this.scopeDelta(scope, scopeId);
-    const existingFlags = valueAtPath(existingDelta, 'feature_flags');
-    const delta: Record<string, unknown> = {
-      ...existingDelta,
-      transport_mode: transportMode,
-      recognition_strategy: this.selectedRecognitionStrategy,
-      primary_backend: this.selectedBackend,
-      secondary_backends: this.requiresSecondaryBackend() && this.selectedSecondaryBackend
-        ? [this.selectedSecondaryBackend]
-        : [],
-      correction_policy: this.generativeCorrection ? 'generative_rewrite' : 'deterministic',
-      review_policy: this.generativeCorrection ? 'always' : 'on_disagreement',
-      feature_flags: {
-        ...(existingFlags && typeof existingFlags === 'object' ? existingFlags as Record<string, unknown> : {}),
-        generative_corrector: this.generativeCorrection,
-        voice_fusion: this.selectedRecognitionStrategy === 'parallel_compare',
-      },
-    };
-    if (this.generativeCorrection) {
-      delta['generative_corrector_provider'] = this.selectedCorrectorProvider;
-      delta['generative_corrector_model'] = this.selectedCorrectorProvider === 'inherit'
-        ? ''
-        : this.manualCorrectorModel
-          ? this.manualCorrectorModelId.trim()
-          : this.selectedCorrectorModel;
-    }
+    const delta = voiceConfigurationDelta(
+      voiceScopeDelta(this.configuration, scope, scopeId),
+      transportMode,
+      this,
+      this.requiresSecondaryBackend(),
+    );
     await firstValueFrom(this.api.saveConfiguration(this.hubUrl, {
       scope,
       scope_id: scopeId,
       delta,
-      expected_version: this.scopeVersion(scope, scopeId),
+      expected_version: voiceScopeVersion(this.configuration, scope, scopeId),
     }, voiceMutationKey(`console-configuration:${scope}`)));
     const refreshed = await firstValueFrom(this.api.getConfiguration(this.hubUrl, {
       profileId: this.profileId.trim(),
@@ -836,46 +758,8 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
     this.applyEffectiveConfiguration(refreshed);
   }
 
-  private scopeDelta(scope: VoiceConfigurationTarget, scopeId: string): Record<string, unknown> {
-    const sources = this.configuration?.sources;
-    if (!sources) return {};
-    const entries = Array.isArray(sources) ? sources : Object.values(sources);
-    const matching = entries.filter((source) => (
-      source.scope === scope && String(source.scope_id || '') === scopeId && source.delta
-    ));
-    return matching.reduce<Record<string, unknown>>((combined, source) => ({
-      ...combined,
-      ...structuredClone(source.delta || {}),
-      feature_flags: {
-        ...(valueAtPath(combined, 'feature_flags') as Record<string, unknown> || {}),
-        ...(valueAtPath(source.delta, 'feature_flags') as Record<string, unknown> || {}),
-      },
-    }), {});
-  }
-
-  private scopeVersion(scope: VoiceConfigurationTarget, scopeId: string): number | undefined {
-    const sources = this.configuration?.sources;
-    if (!sources) return undefined;
-    const entries = Array.isArray(sources) ? sources : Object.values(sources);
-    const source = [...entries].reverse().find((candidate) => (
-      candidate.scope === scope && String(candidate.scope_id || '') === scopeId
-    ));
-    const version = Number(source?.version);
-    return Number.isInteger(version) && version > 0 ? version : undefined;
-  }
-
   private fieldChoices(key: string, fallback: string[]): VoiceChoice[] {
-    const field = configurationFields(this.schema).find((candidate) => candidate.key === key);
-    if (!field) return fallback.map((id) => ({ id, label: id, available: true, reason: '' }));
-    const values = field.options?.map((option) => ({
-      id: String(option.value),
-      label: option.label || String(option.value),
-      available: option.enabled !== false,
-      reason: String(option.reason_code || ''),
-    })) || (field.enum || []).map((value) => ({
-      id: String(value), label: String(value), available: true, reason: '',
-    }));
-    return uniqueChoices(values);
+    return voiceFieldChoices(this.schema, key, fallback);
   }
 
   private onBatchCaptureEnded(generation: number, reason?: string): void {
@@ -1015,162 +899,17 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
   }
 
   private longRunObserver(): VoiceLongRunObserver {
-    return {
-      timelineUpdated: (snapshot) => {
-        if (this.destroyed) return;
-        this.longRunTimeline = snapshot.segments;
-        this.longRunTranscript = snapshot.composedTranscript;
-        this.longRunProvisionalSegments = snapshot.segments
-          .filter((segment) => segment.text_state === 'provisional').length;
-        this.longRunCorrectedSegments = snapshot.segments
-          .filter((segment) => segment.correction_status === 'completed').length;
-        for (const segment of snapshot.segments) {
-          if (segment.status === 'completed') this.confirmedLongRunSequences.add(segment.sequence);
-        }
-        if (snapshot.segments.some((segment) => (
-          segment.sequence === this.longRunPreviewSequence
-          && segment.text_state !== 'none'
-          && Boolean(segment.text)
-        ))) {
-          this.longRunPreviewSequence = -1;
-          this.longRunPreviewText = '';
-          this.longRunPreviewStatus = 'connecting';
-        }
-        this.longRunUploadedSegments = this.confirmedLongRunSequences.size;
-        this.rebuildLongRunTimelineRows();
-        this.cdr.markForCheck();
-      },
-      runUpdated: (response) => {
-        if (this.destroyed) return;
-        this.applyLongRunResponse(response);
-      },
-      progress: (milliseconds) => {
-        if (this.destroyed) return;
-        this.longRunCapturedMilliseconds = milliseconds;
-        this.cdr.markForCheck();
-      },
-      buffered: (_metadata, queued) => {
-        if (this.destroyed) return;
-        this.longRunQueuedSegments = queued;
-        this.cdr.markForCheck();
-      },
-      segmentUploaded: (response, queued) => {
-        if (this.destroyed) return;
-        this.longRunQueuedSegments = queued;
-        this.applyLongRunResponse(response);
-      },
-      segmentFailed: (sequence) => {
-        if (this.destroyed) return;
-        this.longRunWarning = `Segment ${sequence + 1} konnte nicht verarbeitet werden und wurde als Lücke markiert.`;
-        this.cdr.markForCheck();
-      },
-      gap: (sequence) => {
-        if (this.destroyed || this.longRunGapSequences.includes(sequence)) return;
-        this.longRunGapSequences = [...this.longRunGapSequences, sequence].sort((left, right) => left - right);
-        this.longRunWarning = 'Der verschlüsselte Offline-Puffer war ausgelastet. Nicht bestätigte Segmente sind als Lücke markiert.';
-        this.rebuildLongRunTimelineRows();
-        this.cdr.markForCheck();
-      },
-      gapsUpdated: (sequences) => {
-        if (this.destroyed) return;
-        const hadGaps = this.longRunGapSequences.length > 0;
-        this.longRunGapSequences = [...sequences];
-        if (hadGaps && !this.longRunGapSequences.length && this.isLongRunGapWarning()) {
-          this.longRunWarning = '';
-        }
-        this.rebuildLongRunTimelineRows();
-        this.cdr.markForCheck();
-      },
-      recoveryUpdated: (metadata) => {
-        if (this.destroyed) return;
-        this.longRunRecovery = { ...metadata };
-        this.restoreLongRunDisplayMode(this.longRunRecovery);
-        this.cdr.markForCheck();
-      },
-      livePreviewStarted: (segmentSequence) => {
-        if (this.destroyed || this.longRunDisplayMode !== 'live'
-          || this.hasAuthoritativeLongRunText(segmentSequence)) return;
-        this.longRunPreviewSequence = segmentSequence;
-        this.longRunPreviewText = '';
-        this.longRunPreviewStatus = 'connecting';
-        this.cdr.markForCheck();
-      },
-      livePreview: (update) => {
-        if (this.destroyed || this.longRunDisplayMode !== 'live'
-          || this.hasAuthoritativeLongRunText(update.segmentSequence)) return;
-        this.longRunPreviewSequence = update.segmentSequence;
-        this.longRunPreviewText = update.text;
-        this.longRunPreviewStatus = 'live';
-        this.cdr.markForCheck();
-      },
-      livePreviewUnavailable: () => {
-        if (this.destroyed || this.longRunDisplayMode !== 'live') return;
-        this.longRunPreviewStatus = 'unavailable';
-        this.longRunPreviewText = '';
-        this.longRunWarning = 'Die flüchtige Live-Vorschau ist nicht verfügbar. Aufnahme, verschlüsselter Puffer, Segment-ASR und Korrektur laufen weiter.';
-        this.cdr.markForCheck();
-      },
-      connection: (state) => {
-        if (this.destroyed) return;
-        this.longRunConnection = state;
-        this.cdr.markForCheck();
-      },
-      stopping: (reason) => {
-        if (this.destroyed) return;
-        this.longRunBusy = true;
-        this.longRunStatus = reason === 'safety_limit' ? '8-Stunden-Limit erreicht' : 'wird abgeschlossen';
-        this.cdr.markForCheck();
-      },
-      stopped: (response, reason) => {
-        if (this.destroyed) return;
-        this.applyLongRunResponse(response);
-        this.longRunActive = false;
-        this.longRunBusy = false;
-        this.longRunRecovery = null;
-        this.longRunPreviewSequence = -1;
-        this.longRunPreviewText = '';
-        this.longRunPreviewStatus = 'idle';
-        this.successMessage = reason === 'safety_limit'
-          ? 'Das konfigurierte Langzeit-Limit wurde erreicht und der Run automatisch abgeschlossen.'
-          : 'Langzeit-Run abgeschlossen.';
-        this.cdr.markForCheck();
-      },
-      error: (error) => {
-        if (this.destroyed) return;
-        const detail = voiceError(error);
-        this.errorCode = detail.code;
-        this.errorMessage = detail.message;
-        this.cdr.markForCheck();
-      },
-    };
+    return createVoiceConsoleLongRunObserver(this, this.longRunLedger, {
+      destroyed: () => this.destroyed,
+      changed: () => this.cdr.markForCheck(),
+      applyResponse: (response) => this.applyLongRunResponse(response),
+      rebuildRows: () => this.rebuildLongRunTimelineRows(),
+      restoreDisplayMode: (metadata) => this.restoreLongRunDisplayMode(metadata),
+    });
   }
 
   private applyLongRunResponse(response: VoiceLongRunResponse): void {
-    const version = this.normalizedLongRunVersion(response.run.version);
-    const currentProjection = !(
-      (version == null && this.latestLongRunVersion != null)
-      || (version != null && this.latestLongRunVersion != null && version < this.latestLongRunVersion)
-    );
-    if (currentProjection) {
-      if (version != null) this.latestLongRunVersion = version;
-      this.longRunId = response.run.id;
-      this.longRunStatus = response.run.status;
-    }
-    const authoritative = String(response.composed_transcript || '').trim();
-    if (!this.longRunTimeline.length && authoritative) this.longRunTranscript = authoritative;
-    const acknowledged = Number(response.resume?.acknowledged_through_sequence ?? -1);
-    if (Number.isInteger(acknowledged) && acknowledged >= 0) {
-      for (let sequence = 0; sequence <= acknowledged; sequence += 1) {
-        this.confirmedLongRunSequences.add(sequence);
-      }
-    }
-    const upload = response as VoiceLongRunResponse & {
-      segment?: { sequence: number; status: string };
-    };
-    for (const segment of [...(response.segments || []), ...(upload.segment ? [upload.segment] : [])]) {
-      if (segment.status === 'completed') this.confirmedLongRunSequences.add(segment.sequence);
-    }
-    this.longRunUploadedSegments = this.confirmedLongRunSequences.size;
+    applyVoiceLongRunResponse(this, this.longRunLedger, response);
     this.cdr.markForCheck();
   }
 
@@ -1178,38 +917,10 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
     return this.longRunGapSequences.map((sequence) => sequence + 1).join(', ');
   }
 
-  private normalizedLongRunVersion(value: number | undefined): number | null {
-    const numeric = Number(value);
-    return Number.isInteger(numeric) && numeric >= 0 ? numeric : null;
-  }
-
-  private isLongRunGapWarning(): boolean {
-    return this.longRunWarning.startsWith('Der verschlüsselte Offline-Puffer')
-      || this.longRunWarning.startsWith('Segment ');
-  }
-
   private restoreLongRunDisplayMode(metadata: VoiceLongRunRecoveryMetadata | null): void {
     if (metadata) {
       this.longRunDisplayMode = normalizeVoiceLongRunDisplayMode(metadata.displayMode);
     }
-  }
-
-  private hasAuthoritativeLongRunText(sequence: number): boolean {
-    return this.longRunTimeline.some((segment) => (
-      segment.sequence === sequence
-      && segment.text_state !== 'none'
-      && Boolean(String(segment.text || '').trim())
-    ));
-  }
-
-  private validLongRunSegmentSeconds(): number {
-    const value = Math.round(Number(this.longRunSegmentSeconds));
-    return [60, 90, 120].includes(value) ? value : 120;
-  }
-
-  private validLongRunMaxHours(): number {
-    const value = Math.round(Number(this.longRunMaxHours));
-    return [1, 2, 4, 8].includes(value) ? value : 8;
   }
 
   private ensureLongRunOperation(generation: number): void {
@@ -1221,38 +932,11 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
   }
 
   formatLongRunDuration(milliseconds: number): string {
-    const totalSeconds = Math.max(0, Math.floor(milliseconds / 1_000));
-    const hours = Math.floor(totalSeconds / 3_600);
-    const minutes = Math.floor((totalSeconds % 3_600) / 60);
-    const seconds = totalSeconds % 60;
-    return [hours, minutes, seconds].map((value) => String(value).padStart(2, '0')).join(':');
+    return formatVoiceLongRunDuration(milliseconds);
   }
 
   private rebuildLongRunTimelineRows(): void {
-    const rows = this.longRunTimeline.map((segment): VoiceLongRunTimelineRow => {
-      const isGap = voiceLongRunSegmentIsGap(segment);
-      return {
-        kind: isGap ? 'gap' : 'segment',
-        sequence: segment.sequence,
-        text: isGap
-          ? 'Nicht wiederherstellbare Segmentlücke'
-          : segment.display_text || (segment.text_state === 'none' ? 'Segment wird transkribiert …' : ''),
-        stateLabel: voiceLongRunRevisionLabel(segment),
-        textState: isGap ? 'gap' : segment.text_state,
-      };
-    });
-    const present = new Set(rows.map((row) => row.sequence));
-    for (const sequence of this.longRunGapSequences) {
-      if (present.has(sequence)) continue;
-      rows.push({
-        kind: 'gap',
-        sequence,
-        text: 'Nicht wiederherstellbare Segmentlücke',
-        stateLabel: 'Lücke',
-        textState: 'gap',
-      });
-    }
-    this.longRunTimelineRows = rows.sort((left, right) => left.sequence - right.sequence);
+    this.longRunTimelineRows = buildVoiceLongRunTimelineRows(this.longRunTimeline, this.longRunGapSequences);
   }
 
   private onStreamEvent(event: VoiceStreamEvent | null | undefined, sessionId: string): void {
@@ -1298,28 +982,3 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
   }
 }
 
-function modelIsAvailable(model: { available?: boolean; status?: string }): boolean {
-  if (typeof model.available === 'boolean') return model.available;
-  const status = String(model.status || '').toLowerCase();
-  if (!status) return true;
-  return ['ready', 'available', 'configured', 'loaded'].includes(status);
-}
-
-function asrBackendLabel(backendId: string, reportedLabel?: string): string {
-  const labels: Record<string, string> = {
-    vosk: 'Vosk',
-    whisper_cpp: 'whisper.cpp',
-    faster_whisper: 'faster-whisper',
-    voxtral: 'Voxtral',
-  };
-  return labels[backendId] || reportedLabel || backendId;
-}
-
-function uniqueChoices(choices: VoiceChoice[]): VoiceChoice[] {
-  const values = new Map<string, VoiceChoice>();
-  for (const choice of choices) {
-    if (!choice.id || values.has(choice.id)) continue;
-    values.set(choice.id, choice);
-  }
-  return [...values.values()];
-}
