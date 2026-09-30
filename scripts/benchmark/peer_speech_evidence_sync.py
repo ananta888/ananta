@@ -47,6 +47,7 @@ SOURCE_PATHS = (
     "ananta_contracts/speech_evidence_sync_payloads.py",
     "ananta_contracts/speech_evidence_sync_primitives.py",
     "frontend-angular/src/app/features/voice/peer-evidence-sync.facade.ts",
+    "frontend-angular/src/app/features/voice/peer-evidence-hub-curation.flow.ts",
     "frontend-angular/src/app/features/voice/peer-evidence-consent-policy.ts",
     "frontend-angular/src/app/features/voice/peer-evidence-control-messages.ts",
     "frontend-angular/src/app/features/voice/peer-evidence-group-payload.ts",

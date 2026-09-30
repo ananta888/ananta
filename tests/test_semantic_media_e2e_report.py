@@ -415,6 +415,7 @@ def test_pair_source_binding_covers_executed_offer_v2_and_curation_boundaries() 
         "frontend-angular/src/app/features/voice/peer-evidence-acceptance.ts",
         "frontend-angular/src/app/features/voice/peer-evidence-sync-panel.component.ts",
         "frontend-angular/src/app/features/voice/peer-evidence-sync.facade.ts",
+        "frontend-angular/src/app/features/voice/peer-evidence-hub-curation.flow.ts",
         "frontend-angular/src/app/features/voice/peer-evidence-consent-policy.ts",
         "frontend-angular/src/app/features/voice/peer-evidence-control-messages.ts",
         "frontend-angular/src/app/features/voice/peer-evidence-group-payload.ts",
@@ -530,6 +531,7 @@ def test_pair_source_binding_invalidates_evidence_for_each_security_layer(tmp_pa
     for relative in (
         "frontend-angular/src/app/features/voice/peer-evidence-acceptance.ts",
         "frontend-angular/src/app/features/voice/peer-evidence-sync.facade.ts",
+        "frontend-angular/src/app/features/voice/peer-evidence-hub-curation.flow.ts",
         "frontend-angular/src/app/features/voice/peer-evidence-consent-policy.ts",
         "frontend-angular/src/app/features/voice/peer-evidence-control-messages.ts",
         "frontend-angular/src/app/features/voice/peer-evidence-group-payload.ts",
