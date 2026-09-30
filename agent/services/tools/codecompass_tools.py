@@ -49,6 +49,14 @@ from agent.services.tools.codecompass_semantic_translation_tools import (
 from agent.services.tools.codecompass_semantic_translation_tools import (
     codecompass_verify_translation as codecompass_verify_translation,
 )
+from agent.services.tools.codecompass_x86_tools import (  # noqa: F401 - compatibility re-exports
+    _X86_EVIDENCE_KIND_BASIC_BLOCK,
+    _X86_EVIDENCE_KIND_CALLSITE,
+    _X86_EVIDENCE_KIND_CFG_EDGE,
+    _X86_EVIDENCE_KIND_FUNCTION,
+    _X86_EVIDENCE_KIND_INSTRUCTION,
+    _x86_kind_evidence_kind,
+)
 from agent.services.tools.codecompass_x86_tools import (
     codecompass_x86_address_lookup as codecompass_x86_address_lookup,
 )
@@ -63,14 +71,6 @@ from agent.services.tools.codecompass_x86_tools import (
 )
 from agent.services.tools.codecompass_x86_tools import (
     codecompass_x86_overview as codecompass_x86_overview,
-)
-from agent.services.tools.codecompass_x86_tools import (  # noqa: F401 - compatibility re-exports
-    _X86_EVIDENCE_KIND_BASIC_BLOCK,
-    _X86_EVIDENCE_KIND_CALLSITE,
-    _X86_EVIDENCE_KIND_CFG_EDGE,
-    _X86_EVIDENCE_KIND_FUNCTION,
-    _X86_EVIDENCE_KIND_INSTRUCTION,
-    _x86_kind_evidence_kind,
 )
 
 _MAX_SEARCH_LIMIT = 20

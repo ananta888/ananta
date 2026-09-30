@@ -2,20 +2,16 @@ from __future__ import annotations
 
 import re
 
-from rag_helper.extractors.code_outline_fallback import CodeOutlineFallbackParser
-from rag_helper.extractors.python_module_outline_parser import PythonModuleOutlineParser
-from rag_helper.extractors.structured_support import normalize_extraction_records
-from rag_helper.extractors.typescript_module_outline_parser import TypeScriptModuleOutlineParser
-from rag_helper.utils.embedding_text import build_embedding_text, compact_list
-from rag_helper.utils.ids import safe_id
-
-# Compatibility re-exports: pattern tables that were importable from this
-# module before the language outline parsers were extracted.
-from rag_helper.extractors.code_outline_fallback import (  # noqa: E402,F401,I001
+# The upper-case pattern tables are compatibility re-exports: they were
+# importable from this module before the language outline parsers moved out.
+from rag_helper.extractors.code_outline_fallback import (  # noqa: F401
     PYTHON_SYMBOL_PATTERNS,
     TYPESCRIPT_SYMBOL_PATTERNS,
+    CodeOutlineFallbackParser,
 )
-from rag_helper.extractors.typescript_framework_annotator import (  # noqa: E402,F401
+from rag_helper.extractors.python_module_outline_parser import PythonModuleOutlineParser
+from rag_helper.extractors.structured_support import normalize_extraction_records
+from rag_helper.extractors.typescript_framework_annotator import (  # noqa: F401
     ANGULAR_IMPORTS_PATTERN,
     ANGULAR_LIFECYCLE_METHODS,
     ANGULAR_SELECTOR_PATTERN,
@@ -27,15 +23,18 @@ from rag_helper.extractors.typescript_framework_annotator import (  # noqa: E402
     REACT_HOOK_CALL_PATTERN,
     REACT_HOOK_NAME_PATTERN,
 )
-from rag_helper.extractors.typescript_module_outline_parser import (  # noqa: E402,F401
+from rag_helper.extractors.typescript_module_outline_parser import (  # noqa: F401
     TYPESCRIPT_IMPORT_PATTERN,
     TYPESCRIPT_METHOD_PATTERN,
     TYPESCRIPT_TOP_LEVEL_PATTERNS,
+    TypeScriptModuleOutlineParser,
 )
-from rag_helper.extractors.typescript_test_case_collector import (  # noqa: E402,F401
+from rag_helper.extractors.typescript_test_case_collector import (  # noqa: F401
     TYPESCRIPT_FIXTURE_ARGUMENT_PATTERN,
     TYPESCRIPT_TEST_CASE_PATTERN,
 )
+from rag_helper.utils.embedding_text import build_embedding_text, compact_list
+from rag_helper.utils.ids import safe_id
 
 
 class TextFileExtractor:
