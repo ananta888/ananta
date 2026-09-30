@@ -5,8 +5,10 @@ The workspace-mutation loop is split into 4 sub-modules:
 - prompts: parse_mutation_output, build_mode_instructions, build_iteration_prompt
 - loop: public config/run entry points
 - tools: service-boundary adapters for tool execution and policy helpers
-- _orchestrator: the run_ananta_worker_workspace_mutation mega-function
-  (kept in a sub-module to keep the main __init__ thin)
+- _orchestrator: the run_ananta_worker_workspace_mutation loop driver
+- session: per-run state (evidence, hub check, progress detection, report)
+- handlers / tool_actions: one handler per model message kind
+- audit_events: ALWA-014/015 audit emission
 
 All public symbols are re-exported from agent.cli_backends.workspace_mutation
 so callers can use the package as a single import surface.
