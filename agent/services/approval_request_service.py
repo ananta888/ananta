@@ -15,7 +15,6 @@ granted -> consumed | expired. Every transition is audited via
 
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 import time
@@ -26,17 +25,50 @@ from typing import Any
 
 from sqlalchemy import and_, exists, or_
 from sqlalchemy import update as sa_update
-from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from agent.config import settings
 from agent.db_models import ApprovalRequestDB, GoalDB, TaskDB
 from agent.services.approval_auto_grant_policy import ApprovalAutoGrantPolicy
+from agent.services.approval_domain_outcome_reconciler import (
+    ApprovalDomainOutcomeReconciler,
+)
+from agent.services.approval_passive_grant_store import (
+    PASSIVE_PLANNING_APPROVAL_TOOLS as PASSIVE_PLANNING_APPROVAL_TOOLS,
+)
+from agent.services.approval_passive_grant_store import (
+    ApprovalPassiveGrantStore,
+)
+from agent.services.approval_request_digest import (
+    _DIGEST_PREFIX_LEN as _DIGEST_PREFIX_LEN,
+)
+from agent.services.approval_request_digest import (
+    CONTENT_BEARING_FIELDS as CONTENT_BEARING_FIELDS,
+)
+from agent.services.approval_request_digest import (
+    _normalize_value as _normalize_value,
+)
+from agent.services.approval_request_digest import (
+    _sha256_text as _sha256_text,
+)
+from agent.services.approval_request_digest import (
+    canonical_approval_intent_key as canonical_approval_intent_key,
+)
+from agent.services.approval_request_digest import (
+    canonicalize_tool_call as canonicalize_tool_call,
+)
+from agent.services.approval_request_digest import (
+    compute_arguments_digest as compute_arguments_digest,
+)
+from agent.services.approval_request_digest import (
+    digest_prefix as digest_prefix,
+)
+from agent.services.approval_request_errors import (
+    ApprovalDecisionError as ApprovalDecisionError,
+)
 
 log = logging.getLogger(__name__)
 
-CONTENT_BEARING_FIELDS = ("content", "unified_diff")
-_DIGEST_PREFIX_LEN = 12
 _PAYLOAD_REF_PREFIX = "approval-payload:"
 
 AUDIT_APPROVAL_REQUEST_CREATED = "approval_request_created"
@@ -48,112 +80,11 @@ AUDIT_APPROVAL_LEGACY_BYPASS_USED = "approval_legacy_bypass_used"
 AUDIT_APPROVAL_REQUEST_REDISPATCH = "approval_request_redispatch"
 AUDIT_APPROVAL_DOMAIN_ACTION_FAILED = "approval_domain_action_failed"
 
-PASSIVE_PLANNING_APPROVAL_TOOLS = frozenset(
-    {
-        "planning.category.promote",
-        "planning.track.adopt",
-        "planning.track.materialize",
-        "planning.proposal.amend",
-    }
-)
-
-
-class ApprovalDecisionError(ValueError):
-    """Raised for invalid lifecycle transitions (maps to HTTP 400/404/409)."""
-
-    def __init__(self, code: str, http_status: int = 400):
-        super().__init__(code)
-        self.code = code
-        self.http_status = http_status
-
 
 def _engine():
     from agent.database import engine
 
     return engine
-
-
-def _normalize_value(value: Any) -> Any:
-    """Deterministic normalization: dicts sorted via json, None kept, no NaN."""
-    if isinstance(value, dict):
-        return {str(key): _normalize_value(item) for key, item in sorted(value.items(), key=lambda kv: str(kv[0]))}
-    if isinstance(value, (list, tuple)):
-        return [_normalize_value(item) for item in value]
-    if isinstance(value, float) and value != value:  # NaN is not canonicalizable
-        return None
-    return value
-
-
-def _sha256_text(text: str) -> str:
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()
-
-
-def canonicalize_tool_call(
-    tool_name: str,
-    arguments: dict[str, Any] | None,
-) -> tuple[dict[str, Any], dict[str, Any] | None, str | None]:
-    """Return (canonical_arguments, content_payload, content_hash).
-
-    ALWA-DD-007: content-bearing fields are extracted into a payload dict
-    and replaced in the canonical arguments by
-    ``{"__content_hash__": sha256}`` so the digest stays bound to the
-    exact content without persisting it.
-    """
-    normalized = _normalize_value(dict(arguments or {}))
-    payload: dict[str, Any] = {}
-    for field in CONTENT_BEARING_FIELDS:
-        if field in normalized and isinstance(normalized[field], str) and normalized[field]:
-            payload[field] = normalized[field]
-            normalized[field] = {"__content_hash__": _sha256_text(payload[field])}
-    content_hash = None
-    if payload:
-        content_hash = _sha256_text(
-            json.dumps(_normalize_value(payload), sort_keys=True, ensure_ascii=True, separators=(",", ":"))
-        )
-    return normalized, (payload or None), content_hash
-
-
-def compute_arguments_digest(
-    tool_name: str,
-    canonical_arguments: dict[str, Any],
-    target_fingerprint: str | None = None,
-) -> str:
-    canonical_json = json.dumps(
-        _normalize_value(canonical_arguments), sort_keys=True, ensure_ascii=True, separators=(",", ":")
-    )
-    raw = "\x00".join([str(tool_name or "").strip(), canonical_json, str(target_fingerprint or "")])
-    return _sha256_text(raw)
-
-
-def digest_prefix(digest: str | None) -> str:
-    return str(digest or "")[:_DIGEST_PREFIX_LEN]
-
-
-def canonical_approval_intent_key(
-    *,
-    tenant_id: str,
-    project_id: str,
-    organization_id: str,
-    goal_id: str,
-    operation: str,
-    artifact_revision_id: str,
-    artifact_digest: str,
-    policy_hash: str,
-) -> str:
-    fields = (
-        tenant_id,
-        project_id,
-        organization_id,
-        goal_id,
-        operation,
-        artifact_revision_id,
-        artifact_digest,
-        policy_hash,
-    )
-    normalized = tuple(str(value or "").strip() for value in fields)
-    if any(not value for value in normalized):
-        raise ValueError("approval_intent_binding_required")
-    return _sha256_text("\x00".join(normalized))
 
 
 class ApprovalRequestService:
@@ -164,9 +95,16 @@ class ApprovalRequestService:
         *,
         auto_grant_policy: ApprovalAutoGrantPolicy | None = None,
         engine_factory: Callable[[], Any] | None = None,
+        passive_grant_store: ApprovalPassiveGrantStore | None = None,
+        domain_outcome_reconciler: ApprovalDomainOutcomeReconciler | None = None,
     ) -> None:
         self._auto_grant_policy = auto_grant_policy or ApprovalAutoGrantPolicy()
         self._engine_factory = engine_factory  # None: the hub database, resolved at call time
+        self._passive_grants = passive_grant_store or ApprovalPassiveGrantStore()
+        self._domain_outcomes = domain_outcome_reconciler or ApprovalDomainOutcomeReconciler(
+            engine_provider=lambda: self._db(),
+            request_lister=lambda **filters: self.list_requests(**filters),
+        )
 
     def _db(self):
         return self._engine_factory() if self._engine_factory is not None else _engine()
@@ -659,24 +597,7 @@ class ApprovalRequestService:
 
     @staticmethod
     def _bounded_domain_outcome(outcome: dict[str, Any]) -> dict[str, Any]:
-        result: dict[str, Any] = {}
-        for key in (
-            "status",
-            "reason_code",
-            "plan_id",
-            "approval_request_id",
-            "plan_digest",
-        ):
-            value = str(outcome.get(key) or "").strip()
-            if value:
-                result[key] = value[:256]
-        node_count = outcome.get("node_count")
-        if isinstance(node_count, int) and not isinstance(node_count, bool):
-            result["node_count"] = max(0, min(node_count, 10_000))
-        created = outcome.get("created_task_ids")
-        if isinstance(created, list):
-            result["created_task_ids"] = [str(value)[:160] for value in created[:256] if str(value).strip()]
-        return result
+        return ApprovalDomainOutcomeReconciler.bounded_domain_outcome(outcome)
 
     def _persist_domain_outcome(
         self,
@@ -686,125 +607,19 @@ class ApprovalRequestService:
         restore_pending: bool,
     ) -> ApprovalRequestDB | None:
         """Persist a bounded handler result and keep failed actions retryable."""
-        with Session(self._db()) as session:
-            request = session.get(ApprovalRequestDB, str(request_id or ""))
-            if request is None:
-                return None
-            next_scope = {
-                **dict(request.scope or {}),
-                "decision_outcome": self._bounded_domain_outcome(outcome),
-            }
-            session.exec(
-                sa_update(ApprovalRequestDB)
-                .where(ApprovalRequestDB.id == str(request_id or ""))
-                .values(scope=next_scope)
-            )
-            if restore_pending:
-                # Never revive a concurrently consumed or expired grant.
-                session.exec(
-                    sa_update(ApprovalRequestDB)
-                    .where(ApprovalRequestDB.id == str(request_id or ""))
-                    .where(ApprovalRequestDB.status == "granted")
-                    .values(
-                        status="pending",
-                        decided_at=None,
-                        decided_by=None,
-                        decision_reason=None,
-                    )
-                )
-            session.commit()
-            request = session.get(
-                ApprovalRequestDB,
-                str(request_id or ""),
-            )
-            if request is None:
-                return None
-            session.refresh(request)
-            return request
+        return self._domain_outcomes.persist_domain_outcome(
+            request_id=request_id,
+            outcome=outcome,
+            restore_pending=restore_pending,
+        )
 
     def reconcile_granted_domain_actions(
         self,
         *,
         limit: int = 64,
     ) -> dict[str, int]:
-        """Resume durable recovery effects after a Hub interruption.
-
-        The approval row is the outbox marker: ``granted`` means the exact
-        action still needs dispatch, while a ``consumed`` recovery without a
-        persisted domain outcome may still need its paused DAG released.
-        """
-
-        from agent.services.approval_decision_dispatcher_service import (
-            get_approval_decision_dispatcher_service,
-        )
-        from agent.services.task_recovery_planning_service import (
-            RECOVERY_MATERIALIZE_TOOL,
-        )
-
-        bounded_limit = max(1, min(int(limit), 256))
-        candidates = self.list_requests(
-            status="granted",
-            tool_name=RECOVERY_MATERIALIZE_TOOL,
-            limit=bounded_limit,
-        )
-        if len(candidates) < bounded_limit:
-            consumed = self.list_requests(
-                status="consumed",
-                tool_name=RECOVERY_MATERIALIZE_TOOL,
-                limit=bounded_limit - len(candidates),
-            )
-            candidates.extend(
-                row
-                for row in consumed
-                if (
-                    not dict(row.scope or {}).get("decision_outcome")
-                    or str(dict(dict(row.scope or {}).get("decision_outcome") or {}).get("status") or "") == "failed"
-                )
-            )
-        if len(candidates) < bounded_limit:
-            denied = self.list_requests(
-                status="denied",
-                tool_name=RECOVERY_MATERIALIZE_TOOL,
-                limit=bounded_limit - len(candidates),
-            )
-            candidates.extend(
-                row
-                for row in denied
-                if (
-                    not dict(row.scope or {}).get("decision_outcome")
-                    or str(dict(dict(row.scope or {}).get("decision_outcome") or {}).get("status") or "") == "failed"
-                )
-            )
-
-        dispatcher = get_approval_decision_dispatcher_service()
-        counts = {
-            "examined": 0,
-            "completed": 0,
-            "failed": 0,
-            "in_progress": 0,
-        }
-        for request in candidates[:bounded_limit]:
-            if str(request.tool_name or "") != RECOVERY_MATERIALIZE_TOOL:
-                continue
-            counts["examined"] += 1
-            outcome = dispatcher.dispatch(request) or {}
-            status = str(outcome.get("status") or "")
-            reason_code = str(outcome.get("reason_code") or "")
-            if status == "ignored" and reason_code == ("recovery_action_in_progress"):
-                counts["in_progress"] += 1
-                continue
-            if status == "ignored":
-                continue
-            self._persist_domain_outcome(
-                request_id=request.id,
-                outcome=outcome,
-                restore_pending=False,
-            )
-            if status == "failed":
-                counts["failed"] += 1
-            else:
-                counts["completed"] += 1
-        return counts
+        """Resume durable recovery effects after a Hub interruption."""
+        return self._domain_outcomes.reconcile_granted_domain_actions(limit=limit)
 
     def _redispatch_task_after_grant(self, request: ApprovalRequestDB) -> None:
         """ALWA-008: put a pending_approval task back into the dispatch flow."""
@@ -948,39 +763,16 @@ class ApprovalRequestService:
         organization_id: str,
     ) -> ApprovalRequestDB:
         """Consume one exact passive grant inside the caller's Unit of Work."""
-        request = session.get(ApprovalRequestDB, str(request_id or ""))
-        if request is None:
-            raise ApprovalDecisionError("request_not_found", 404)
-        if str(request.tool_name or "") != str(tool_name or ""):
-            raise ApprovalDecisionError("approval_tool_mismatch", 409)
-        if str(request.approval_intent_key or "") != str(approval_intent_key or ""):
-            raise ApprovalDecisionError("approval_intent_mismatch", 409)
-        if str(request.tenant_id or "") != str(tenant_id or ""):
-            raise ApprovalDecisionError("approval_tenant_mismatch", 409)
-        if str(request.project_id or "") != str(project_id or ""):
-            raise ApprovalDecisionError("approval_project_mismatch", 409)
-        if str(request.goal_id or "") != str(goal_id or ""):
-            raise ApprovalDecisionError("approval_goal_mismatch", 409)
-        if str(request.organization_id or "") != str(organization_id or ""):
-            raise ApprovalDecisionError("approval_organization_mismatch", 409)
-        if request.expires_at is not None and float(request.expires_at) < time.time():
-            raise ApprovalDecisionError("request_expired", 409)
-        transition = session.exec(
-            sa_update(ApprovalRequestDB)
-            .where(
-                ApprovalRequestDB.id == str(request_id or ""),
-                ApprovalRequestDB.status == "granted",
-                ApprovalRequestDB.approval_intent_key == str(approval_intent_key or ""),
-            )
-            .values(status="consumed", consumed_at=time.time())
+        return self._passive_grants.consume_bound_request_in_session(
+            session,
+            request_id=request_id,
+            tool_name=tool_name,
+            approval_intent_key=approval_intent_key,
+            tenant_id=tenant_id,
+            project_id=project_id,
+            goal_id=goal_id,
+            organization_id=organization_id,
         )
-        if int(getattr(transition, "rowcount", 0) or 0) != 1:
-            raise ApprovalDecisionError(f"request_not_granted:{request.status}", 409)
-        session.flush()
-        refreshed = session.get(ApprovalRequestDB, str(request_id or ""))
-        if refreshed is None:
-            raise ApprovalDecisionError("request_not_found", 404)
-        return refreshed
 
     def ensure_passive_request_in_session(
         self,
@@ -998,132 +790,24 @@ class ApprovalRequestService:
         ttl_seconds: int = 3600,
     ) -> ApprovalRequestDB:
         """Atomically get/create a passive domain grant marker in a caller UoW."""
-        if str(tool_name or "") not in PASSIVE_PLANNING_APPROVAL_TOOLS:
-            raise ValueError("passive_approval_tool_forbidden")
-        normalized_intent = str(approval_intent_key or "").strip().lower()
-        if len(normalized_intent) != 64 or any(char not in "0123456789abcdef" for char in normalized_intent):
-            raise ValueError("approval_intent_key_invalid")
-        bindings = {
-            "tool_name": str(tool_name or "").strip(),
-            "tenant_id": str(tenant_id or "").strip(),
-            "project_id": str(project_id or "").strip(),
-            "organization_id": str(organization_id or "").strip(),
-            "goal_id": str(goal_id or "").strip(),
-            "target_fingerprint": str(target_fingerprint or "").strip(),
-        }
-        for field, value in bindings.items():
-            if not value:
-                raise ValueError(f"passive_approval_{field}_required")
-        canonical, content_payload, content_hash = canonicalize_tool_call(
-            bindings["tool_name"],
-            arguments,
+        return self._passive_grants.ensure_passive_request_in_session(
+            session,
+            tool_name=tool_name,
+            approval_intent_key=approval_intent_key,
+            tenant_id=tenant_id,
+            project_id=project_id,
+            organization_id=organization_id,
+            goal_id=goal_id,
+            arguments=arguments,
+            target_fingerprint=target_fingerprint,
+            scope=scope,
+            ttl_seconds=ttl_seconds,
         )
-        if content_payload is not None or content_hash is not None:
-            raise ValueError("passive_approval_content_forbidden")
-        arguments_digest = compute_arguments_digest(
-            bindings["tool_name"],
-            canonical,
-            bindings["target_fingerprint"],
-        )
-        existing = session.exec(
-            select(ApprovalRequestDB).where(ApprovalRequestDB.approval_intent_key == normalized_intent)
-        ).one_or_none()
-        if existing is not None:
-            self._validate_passive_request_binding(
-                existing,
-                canonical_arguments=canonical,
-                arguments_digest=arguments_digest,
-                **bindings,
-            )
-            return existing
-        request = ApprovalRequestDB(
-            id=str(uuid.uuid4()),
-            task_id=None,
-            goal_id=bindings["goal_id"],
-            tenant_id=bindings["tenant_id"],
-            project_id=bindings["project_id"],
-            organization_id=bindings["organization_id"],
-            approval_intent_key=normalized_intent,
-            tool_name=bindings["tool_name"],
-            canonical_arguments=canonical,
-            arguments_digest=arguments_digest,
-            target_fingerprint=bindings["target_fingerprint"],
-            risk_class="high",
-            governance_mode="strict",
-            status="pending",
-            scope={
-                key: value
-                for key, value in dict(scope or {}).items()
-                if key
-                not in {
-                    "prompt",
-                    "raw_messages",
-                    "raw_response",
-                    "content",
-                    "unified_diff",
-                    "file_content",
-                }
-            },
-            created_at=time.time(),
-            expires_at=time.time() + max(60, min(int(ttl_seconds), 7 * 24 * 3600)),
-        )
-        request_added_in_savepoint = False
-        try:
-            # The unique approval-intent index is the authoritative concurrency
-            # boundary.  Keep the INSERT in a savepoint so a losing writer can
-            # recover without rolling back unrelated state in the caller's UoW.
-            with session.begin_nested():
-                session.add(request)
-                request_added_in_savepoint = True
-                session.flush([request])
-            return request
-        except IntegrityError as exc:
-            if not request_added_in_savepoint:
-                raise
-            authoritative = session.exec(
-                select(ApprovalRequestDB).where(ApprovalRequestDB.approval_intent_key == normalized_intent)
-            ).one_or_none()
-            if authoritative is None:
-                # An unrelated constraint failed, or the competing transaction
-                # is not visible at this isolation level.  Either way, fail
-                # closed while leaving the outer transaction usable.
-                raise ApprovalDecisionError(
-                    "approval_request_persistence_conflict",
-                    409,
-                ) from exc
-            self._validate_passive_request_binding(
-                authoritative,
-                canonical_arguments=canonical,
-                arguments_digest=arguments_digest,
-                **bindings,
-            )
-            return authoritative
 
-    @staticmethod
-    def _validate_passive_request_binding(
-        request: ApprovalRequestDB,
-        *,
-        tool_name: str,
-        tenant_id: str,
-        project_id: str,
-        organization_id: str,
-        goal_id: str,
-        canonical_arguments: dict[str, Any],
-        arguments_digest: str,
-        target_fingerprint: str,
-    ) -> None:
-        """Fail closed unless an intent-key replay is the exact same request."""
-        if (
-            str(request.tool_name or "") != tool_name
-            or str(request.tenant_id or "") != tenant_id
-            or str(request.project_id or "") != project_id
-            or str(request.organization_id or "") != organization_id
-            or str(request.goal_id or "") != goal_id
-            or _normalize_value(dict(request.canonical_arguments or {})) != _normalize_value(canonical_arguments)
-            or str(request.arguments_digest or "") != arguments_digest
-            or str(request.target_fingerprint or "") != target_fingerprint
-        ):
-            raise ApprovalDecisionError("approval_intent_conflict", 409)
+    _validate_passive_request_binding = staticmethod(
+        ApprovalPassiveGrantStore.validate_passive_request_binding
+    )
+
 
     def expire_old_requests(self) -> int:
         now = time.time()
