@@ -707,6 +707,136 @@ describe('ShareSessionService terminal session lifecycle', () => {
     expect(transport.retireSession).toHaveBeenCalledWith('session-a');
     expect(transport.retireSession).not.toHaveBeenCalledWith('session-b');
   });
+
+  describe('shared owner-end and guest-leave retirement path', () => {
+    type RetirementPath = {
+      name: string;
+      start: () => Promise<unknown>;
+      retire: () => Promise<void>;
+      mutation: () => typeof controlPlane.end;
+      requests: () => Subject<unknown>[];
+      role: 'owner' | 'participant';
+    };
+    const paths: RetirementPath[] = [
+      {
+        name: 'owner end',
+        start: () => service.createSession('Terminal Pair', { chat: true }, null),
+        retire: () => service.endSession(),
+        mutation: () => controlPlane.end,
+        requests: () => controlPlane.endRequests,
+        role: 'owner',
+      },
+      {
+        name: 'guest leave',
+        start: () => service.joinSession('invite-a'),
+        retire: () => service.leaveSession(),
+        mutation: () => controlPlane.leave,
+        requests: () => controlPlane.leaveRequests,
+        role: 'participant',
+      },
+    ];
+
+    async function startFresh(path: RetirementPath): Promise<void> {
+      await path.start();
+      transport.close.mockClear();
+      bootstrap.clear.mockClear();
+    }
+
+    it.each(paths)('$name builds the authenticated request before quiescing the transport', async path => {
+      await startFresh(path);
+      const order: string[] = [];
+      const requestFactory = path.mutation().getMockImplementation()!;
+      path.mutation().mockImplementationOnce(() => {
+        order.push('request');
+        return requestFactory();
+      });
+      transport.close.mockImplementationOnce(() => {
+        order.push('transport.close');
+        transport.mode$.next('idle');
+      });
+      bootstrap.clear.mockImplementationOnce(() => { order.push('bootstrap.clear'); });
+
+      const completion = path.retire();
+
+      expect(order).toEqual(['request', 'transport.close', 'bootstrap.clear']);
+      expect(service.isActive).toBe(true);
+      expect(service.state$.value.role).toBe(path.role);
+      path.requests()[0].next({ ok: true });
+      path.requests()[0].complete();
+      await expect(completion).resolves.toBeUndefined();
+      expect(service.isActive).toBe(false);
+      expect(transport.retireSession).toHaveBeenCalledOnce();
+    });
+
+    it.each(paths)('$name turns a request-construction failure into a rejection after quiescing', async path => {
+      await startFresh(path);
+      const failure = new Error('authority_binding_missing');
+      path.mutation().mockImplementationOnce(() => { throw failure; });
+
+      let completion!: Promise<void>;
+      expect(() => { completion = path.retire(); }).not.toThrow();
+      expect(transport.close).toHaveBeenCalledOnce();
+      expect(bootstrap.clear).toHaveBeenCalledOnce();
+      await expect(completion).rejects.toBe(failure);
+
+      expect(service.isActive).toBe(true);
+      expect(service.state$.value.role).toBe(path.role);
+      expect(controlPlane.forgetSession).not.toHaveBeenCalled();
+      expect(controlPlane.retireSession).not.toHaveBeenCalled();
+      expect(transport.retireSession).not.toHaveBeenCalled();
+
+      const retry = path.retire();
+      expect(path.mutation()).toHaveBeenCalledTimes(2);
+      expect(transport.close).toHaveBeenCalledOnce();
+      path.requests()[0].next({ ok: true });
+      path.requests()[0].complete();
+      await expect(retry).resolves.toBeUndefined();
+      expect(service.isActive).toBe(false);
+      expect(transport.retireSession).toHaveBeenCalledOnce();
+      expect(transport.retireSession).toHaveBeenCalledWith('session-a');
+    });
+
+    it.each(paths)('$name shares one in-flight mutation between concurrent callers', async path => {
+      await startFresh(path);
+
+      const first = path.retire();
+      const second = path.retire();
+
+      expect(second).toBe(first);
+      expect(path.mutation()).toHaveBeenCalledOnce();
+      expect(transport.close).toHaveBeenCalledOnce();
+      path.requests()[0].next({ ok: true });
+      path.requests()[0].complete();
+      await first;
+      expect(transport.retireSession).toHaveBeenCalledOnce();
+    });
+
+    const outcomes = [
+      { reason: 'session_not_found', status: 404, settles: 'resolves', cleared: true },
+      { reason: 'session_expired', status: 410, settles: 'resolves', cleared: true },
+      { reason: 'membership_capability_invalid', status: 401, settles: 'rejects', cleared: true },
+      { reason: 'service_unavailable', status: 503, settles: 'rejects', cleared: false },
+      { reason: 'rate_limited', status: 429, settles: 'rejects', cleared: false },
+    ] as const;
+    const matrix = paths.flatMap(path => outcomes.map(outcome => ({ ...outcome, path, name: path.name })));
+
+    it.each(matrix)('$name maps $status $reason to $settles (cleared: $cleared)', async outcome => {
+      await startFresh(outcome.path);
+      const failure = httpError(outcome.status, outcome.reason);
+
+      const completion = outcome.path.retire();
+      outcome.path.requests()[0].error(failure);
+
+      if (outcome.settles === 'resolves') {
+        await expect(completion).resolves.toBeUndefined();
+      } else {
+        await expect(completion).rejects.toBe(failure);
+      }
+      expect(service.isActive).toBe(!outcome.cleared);
+      expect(transport.retireSession).toHaveBeenCalledTimes(outcome.cleared ? 1 : 0);
+      expect(transport.close).toHaveBeenCalledOnce();
+    });
+  });
 });
 
 function httpError(status: number, reason: string): unknown {
