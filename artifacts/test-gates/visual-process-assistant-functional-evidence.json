@@ -79,7 +79,7 @@
     "agent/config_rag_settings.py": "71efbd13bac0581ba71c8656459923165565e91e80d42f1960cdc7748f278641",
     "agent/db_models/visual_process.py": "8b789b6c74439a6d9c150ab1fa2330b9be18f03b2358c0122da1d0874c28c4f6",
     "agent/db_models/visual_process_assistant.py": "db553b6dd36a2fc90ebada0d082146bff46e1356096f49a78c427eec4c0bd893",
-    "agent/routes/route_dependency_seam.py": "bc34d705ef9edf10213299c2cbeb24fe68b2d9d054fbbdced1284d18b98bd897",
+    "agent/routes/route_dependency_seam.py": "f85d8fcab52d92ddb9d7685db99bc12faef426149415c7b01220bb7a1baf97df",
     "agent/routes/visual_process.py": "8056e6782e6c3442521d79219cc2fd2db068013ade51f52b301dcf8ca46438cb",
     "agent/routes/visual_process_assistant.py": "e4cdd02ae0571062c509c5cb1e890f6f2daee5bad842c799c45d8efbc6311a96",
     "agent/routes/visual_process_blueprint.py": "cef73f327fb681c152cc38065347b9f27f5ec0060f1da36eeacfb9901001fbfb",
@@ -178,5 +178,5 @@
     "worker/visual_process_assistant/evidence_gate.py": "242394c084b2440b852d63cfca3d0ed97b111d2f33ec04f9acad577e37f02be4",
     "worker/visual_process_assistant/handlers.py": "eb2d39f432548753eef3e1e28db91b07a40b53098d30fa44a7445d6794f94476"
   },
-  "source_revision": "worktree-sha256:f8c0e82bf8107b74dd5c25e1fddab5c3fa729730537bc4cabd6fe95676a33cd8"
+  "source_revision": "worktree-sha256:1ee823c0388dd571009726a026f15bcd7fd2dc126cb8f31ed56c8121fc10a167"
 }

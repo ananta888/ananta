@@ -62,7 +62,7 @@
   "passed": true,
   "schema_version": "ananta.semantic-speech-runtime-gate.v1",
   "source_sha256": {
-    "agent/routes/route_dependency_seam.py": "bc34d705ef9edf10213299c2cbeb24fe68b2d9d054fbbdced1284d18b98bd897",
+    "agent/routes/route_dependency_seam.py": "f85d8fcab52d92ddb9d7685db99bc12faef426149415c7b01220bb7a1baf97df",
     "agent/routes/voice.py": "b4876b6b1727c64305f1a41c4c333ddd5ab428b39498c2d6324c8683946497d5",
     "agent/routes/voice_blueprint.py": "8ffe988c5561cc18b92fb17524a5ee262655d2b3dea53a40bbb167158c7f8499",
     "agent/routes/voice_command_routes.py": "4d358ac77d5e56711da17f2f23060443b398b7f78cf885e87eed99b4c9cd1fff",
