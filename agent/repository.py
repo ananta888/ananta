@@ -135,6 +135,20 @@ class _HubTaskCompletionPolicy:
             )).apply(authoritative_task=authoritative_task, candidate_task=candidate_task, session=session)
         return candidate_task
 
+
+class _HubLegacyTeamDeletion:
+    """Wire the legacy Team repository to the Hub-guarded deletion use case.
+
+    The service is resolved lazily, as before, to keep repository import order
+    free of service-layer cycles.
+    """
+
+    def delete_team(self, team_id: str) -> bool:
+        from agent.services.organization_team_deletion_service import LegacyTeamRepositoryDeletionAdapter
+
+        return LegacyTeamRepositoryDeletionAdapter().delete_team(team_id)
+
+
 # Singletons für Repositories
 playbook_repo = PlaybookRepository()
 action_pack_repo = ActionPackRepository()
@@ -160,7 +174,7 @@ worker_slot_lease_repo = WorkerSlotLeaseRepository()
 evolution_run_repo = EvolutionRunRepository()
 evolution_proposal_repo = EvolutionProposalRepository()
 memory_entry_repo = MemoryEntryRepository()
-team_repo = TeamRepository()
+team_repo = TeamRepository(team_deletion=_HubLegacyTeamDeletion())
 template_repo = TemplateRepository()
 scheduled_task_repo = ScheduledTaskRepository()
 task_repo = TaskRepository(completion_policy=_HubTaskCompletionPolicy())

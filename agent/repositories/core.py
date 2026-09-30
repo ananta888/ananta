@@ -6,6 +6,7 @@ from sqlmodel import Session, select
 
 from agent.database import engine
 from agent.db_models import AgentInfoDB, ConfigDB, PlaybookDB, ScheduledTaskDB, TeamDB, TemplateDB
+from agent.ports.legacy_team_deletion import LegacyTeamDeletionPort
 
 
 class AgentRepository:
@@ -26,6 +27,9 @@ class AgentRepository:
 
 
 class TeamRepository:
+    def __init__(self, *, team_deletion: LegacyTeamDeletionPort | None = None) -> None:
+        self._team_deletion = team_deletion
+
     def get_all(self):
         with Session(engine) as session:
             return session.exec(select(TeamDB)).all()
@@ -46,24 +50,15 @@ class TeamRepository:
             return team
 
     def delete(self, team_id: str):
-        """Compatibility adapter; Organization-linked Teams remain guarded."""
+        """Compatibility adapter; Organization-linked Teams remain guarded.
 
-        from agent.services.organization_team_deletion_service import (
-            OrganizationTeamDeletionError,
-            OrganizationTeamDeletionPrincipal,
-            OrganizationTeamDeletionService,
-        )
+        Deletion is delegated to the Hub-composed guard port so the repository
+        never bypasses the Organization link and recovery checks.
+        """
 
-        try:
-            OrganizationTeamDeletionService().delete(
-                team_id=team_id,
-                principal=OrganizationTeamDeletionPrincipal(
-                    principal_id="legacy-team-repository",
-                ),
-            )
-        except OrganizationTeamDeletionError:
-            return False
-        return True
+        if self._team_deletion is None:
+            raise RuntimeError("legacy_team_deletion_port_not_configured")
+        return self._team_deletion.delete_team(team_id)
 
 
 class TemplateRepository:

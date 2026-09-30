@@ -135,7 +135,34 @@ class OrganizationTeamDeletionService:
         )
 
 
+class LegacyTeamRepositoryDeletionAdapter:
+    """Adapt the guarded deletion use case to the legacy ``TeamRepository.delete`` contract."""
+
+    _PRINCIPAL_ID = "legacy-team-repository"
+
+    def __init__(
+        self,
+        *,
+        service_factory: Callable[[], OrganizationTeamDeletionService] | None = None,
+    ) -> None:
+        self._service_factory = service_factory
+
+    def delete_team(self, team_id: str) -> bool:
+        # Resolve the default at call time so the module-level service stays
+        # the single seam (as for the former in-repository lazy import).
+        factory = self._service_factory or OrganizationTeamDeletionService
+        try:
+            factory().delete(
+                team_id=team_id,
+                principal=OrganizationTeamDeletionPrincipal(principal_id=self._PRINCIPAL_ID),
+            )
+        except OrganizationTeamDeletionError:
+            return False
+        return True
+
+
 __all__ = [
+    "LegacyTeamRepositoryDeletionAdapter",
     "OrganizationTeamDeletionError",
     "OrganizationTeamDeletionPrincipal",
     "OrganizationTeamDeletionResult",

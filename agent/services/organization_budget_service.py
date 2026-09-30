@@ -1,57 +1,26 @@
-"""Atomic hierarchical budgets for organization-controlled execution."""
+"""Atomic hierarchical budgets for organization-controlled execution.
+
+Value types and digests live in ``agent.models.organization_budget`` and the
+ledger port in ``agent.ports.organization_budget``; both are re-exported here.
+"""
 
 from __future__ import annotations
 
-import hashlib
-import json
 import threading
 from dataclasses import dataclass, replace
 from decimal import Decimal, InvalidOperation
-from typing import Iterable, Protocol
+from typing import Iterable
 
-
-@dataclass(frozen=True, slots=True)
-class OrganizationBudgetLimit:
-    scope_kind: str
-    scope_id: str
-    max_tokens: int
-    max_cost: Decimal
-    max_wall_seconds: int
-    max_parallelism: int
-    revision: str
-
-
-@dataclass(frozen=True, slots=True)
-class OrganizationBudgetRequest:
-    reservation_id: str
-    organization_id: str
-    unit_id: str | None
-    team_id: str | None
-    workflow_id: str | None
-    task_id: str
-    tokens: int
-    cost: Decimal
-    wall_seconds: int
-    parallel_slots: int
-    model_profile: str
-
-
-@dataclass(frozen=True, slots=True)
-class OrganizationBudgetUsage:
-    tokens: int = 0
-    cost: Decimal = Decimal("0")
-    wall_seconds: int = 0
-    parallel_slots: int = 0
-
-
-@dataclass(frozen=True, slots=True)
-class OrganizationBudgetDecision:
-    allowed: bool
-    reason_code: str
-    reservation_id: str
-    policy_hash: str
-    exceeded_scopes: tuple[str, ...]
-    replayed: bool = False
+from agent.models.organization_budget import (
+    OrganizationBudgetDecision,
+    OrganizationBudgetLimit,
+    OrganizationBudgetRequest,
+    OrganizationBudgetUsage,
+    organization_budget_policy_hash,
+    organization_budget_request_digest,
+    organization_budget_settlement_digest,
+)
+from agent.ports.organization_budget import OrganizationBudgetLedgerPort
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,25 +31,6 @@ class _InMemoryBudgetReservation:
     limits: tuple[OrganizationBudgetLimit, ...]
     decision: OrganizationBudgetDecision
     settlement_digest: str | None = None
-
-
-class OrganizationBudgetLedgerPort(Protocol):
-    def reserve(
-        self,
-        *,
-        request: OrganizationBudgetRequest,
-        limits: tuple[OrganizationBudgetLimit, ...],
-        policy_hash: str,
-    ) -> OrganizationBudgetDecision: ...
-
-    def settle(
-        self,
-        *,
-        reservation_id: str,
-        actual_tokens: int,
-        actual_cost: Decimal,
-        actual_wall_seconds: int,
-    ) -> bool: ...
 
 
 class OrganizationBudgetService:
@@ -154,19 +104,7 @@ class OrganizationBudgetService:
 
     @classmethod
     def policy_hash(cls, limits: Iterable[OrganizationBudgetLimit]) -> str:
-        payload = [
-            {
-                "scope_kind": row.scope_kind,
-                "scope_id": row.scope_id,
-                "max_tokens": row.max_tokens,
-                "max_cost": _canonical_decimal(row.max_cost),
-                "max_wall_seconds": row.max_wall_seconds,
-                "max_parallelism": row.max_parallelism,
-                "revision": row.revision,
-            }
-            for row in sorted(limits, key=lambda item: (item.scope_kind, item.scope_id, item.revision))
-        ]
-        return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+        return organization_budget_policy_hash(limits)
 
     @classmethod
     def _validate(
@@ -337,44 +275,6 @@ def _decimal(value: Decimal | str) -> Decimal:
     return result
 
 
-def organization_budget_request_digest(request: OrganizationBudgetRequest) -> str:
-    payload = {
-        "reservation_id": request.reservation_id,
-        "organization_id": request.organization_id,
-        "unit_id": request.unit_id,
-        "team_id": request.team_id,
-        "workflow_id": request.workflow_id,
-        "task_id": request.task_id,
-        "tokens": request.tokens,
-        "cost": _canonical_decimal(request.cost),
-        "wall_seconds": request.wall_seconds,
-        "parallel_slots": request.parallel_slots,
-        "model_profile": request.model_profile,
-    }
-    return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
-
-
-def organization_budget_settlement_digest(
-    *,
-    actual_tokens: int,
-    actual_cost: Decimal,
-    actual_wall_seconds: int,
-) -> str:
-    payload = {
-        "actual_tokens": actual_tokens,
-        "actual_cost": _canonical_decimal(actual_cost),
-        "actual_wall_seconds": actual_wall_seconds,
-    }
-    return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
-
-
-def _canonical_decimal(value: Decimal) -> str:
-    normalized = value.normalize()
-    if normalized == 0:
-        return "0"
-    return format(normalized, "f")
-
-
 __all__ = [
     "InMemoryOrganizationBudgetLedger",
     "OrganizationBudgetDecision",
@@ -383,6 +283,7 @@ __all__ = [
     "OrganizationBudgetRequest",
     "OrganizationBudgetService",
     "OrganizationBudgetUsage",
+    "organization_budget_policy_hash",
     "organization_budget_request_digest",
     "organization_budget_settlement_digest",
 ]

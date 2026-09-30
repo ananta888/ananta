@@ -19,8 +19,6 @@ from agent.database import engine
 from agent.db_models.organizations import OrganizationInstanceDB
 from agent.models.organization_models import OrganizationBundleImportPlan
 from agent.models.team_models import OrganizationBlueprintBundleV2, TeamBlueprintBundle
-from agent.repositories.organizations.adapters import SqlOrganizationLimitProfileAdapter
-from agent.repositories.organizations.definitions import SqlOrganizationDefinitionRepository
 from agent.routes.organization_route_support import (
     OrganizationRouteError,
     organization_boundary,
@@ -50,8 +48,9 @@ from agent.services.organization_bundle_migration_service import (
     OrganizationBundleMigrationService,
 )
 from agent.services.organization_bundle_service import OrganizationBundlePlanner
-from agent.services.organization_definition_catalog_service import (
-    FileCatalogDefinitionRepositoryAdapter,
+from agent.services.organization_session_adapters import (
+    catalog_definition_repository,
+    limit_profile_adapter,
 )
 from agent.services.organization_template_security_service import (
     installed_template_appendix_refs,
@@ -284,13 +283,9 @@ def apply_organization_bundle_import():
 
     with Session(engine) as session:
         catalog = organization_catalog()
-        definitions = FileCatalogDefinitionRepositoryAdapter(
-            SqlOrganizationDefinitionRepository(session),
-            catalog,
-            session,
-        )
+        definitions = catalog_definition_repository(session, catalog)
         apply_service = OrganizationBundleApplyService(
-            limit_profiles=SqlOrganizationLimitProfileAdapter(definitions),
+            limit_profiles=limit_profile_adapter(definitions),
             uow_factory=organization_uow_factory(),
             catalog=catalog,
         )
@@ -387,12 +382,8 @@ def _build_import_plan(
     clock=None,
 ) -> OrganizationBundleImportPlan:
     catalog = organization_catalog()
-    definitions = FileCatalogDefinitionRepositoryAdapter(
-        SqlOrganizationDefinitionRepository(session),
-        catalog,
-        session,
-    )
-    limits = SqlOrganizationLimitProfileAdapter(definitions).resolve_limit_profile(
+    definitions = catalog_definition_repository(session, catalog)
+    limits = limit_profile_adapter(definitions).resolve_limit_profile(
         tenant_id=tenant_id,
         project_id=project_id,
         policy_ref=_preview_limit_ref(),

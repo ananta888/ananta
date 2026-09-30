@@ -32,17 +32,17 @@ from agent.db_models.organization_runtime import (
 from agent.db_models.organizations import OrganizationInstanceDB
 from agent.db_models.tasks import TaskDB
 from agent.db_models.workers import WorkerJobDB, WorkerSlotLeaseDB
-from agent.ports.artifact_handoff import VerifiedArtifactVersion
-from agent.services.organization_budget_service import (
+from agent.models.organization_budget import (
     OrganizationBudgetDecision,
     OrganizationBudgetLimit,
     OrganizationBudgetRequest,
-    OrganizationBudgetService,
     OrganizationBudgetUsage,
+    organization_budget_policy_hash,
     organization_budget_request_digest,
     organization_budget_settlement_digest,
 )
-from agent.services.organization_event_service import OrganizationEvent
+from agent.models.organization_event import OrganizationEvent
+from agent.ports.artifact_handoff import VerifiedArtifactVersion
 
 SessionFactory = Callable[[], Session]
 _GROUNDING_REF = re.compile(r"^(?:SRC|RUN)_[0-9]{4}$")
@@ -457,7 +457,7 @@ class SqlOrganizationBudgetLedger:
         base_valid = (
             len(limits) == len(list(row.limits_json or []))
             and row.request_digest == organization_budget_request_digest(request)
-            and row.policy_hash == OrganizationBudgetService.policy_hash(limits)
+            and row.policy_hash == organization_budget_policy_hash(limits)
         )
         if not base_valid:
             return False

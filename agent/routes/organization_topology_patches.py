@@ -13,9 +13,6 @@ from werkzeug.exceptions import RequestEntityTooLarge
 from agent.auth import check_auth
 from agent.common.errors import api_response
 from agent.database import engine
-from agent.repositories.organizations.adapters import SqlOrganizationLimitProfileAdapter
-from agent.repositories.organizations.definitions import SqlOrganizationDefinitionRepository
-from agent.repositories.organizations.topology import SqlOrganizationTopologyReadRepository
 from agent.routes.organization_route_support import (
     OrganizationRouteError,
     organization_boundary,
@@ -26,10 +23,12 @@ from agent.routes.organization_route_support import (
     require_if_match,
     require_organization_scope,
 )
-from agent.services.organization_definition_catalog_service import (
-    FileCatalogDefinitionRepositoryAdapter,
-)
 from agent.services.organization_projection_service import OrganizationProjectionService
+from agent.services.organization_session_adapters import (
+    catalog_definition_repository,
+    limit_profile_adapter,
+    topology_read_repository,
+)
 from agent.services.organization_topology_apply_service import (
     OrganizationTopologyApplyService,
     OrganizationTopologyPatchDocument,
@@ -106,12 +105,8 @@ def apply_organization_topology_patch(organization_id: str):
             raise OrganizationRouteError(exc.reason_code, status_code=exc.public_status) from exc
 
         catalog = organization_catalog()
-        definitions = FileCatalogDefinitionRepositoryAdapter(
-            SqlOrganizationDefinitionRepository(session),
-            catalog,
-            session,
-        )
-        limit_profiles = SqlOrganizationLimitProfileAdapter(definitions)
+        definitions = catalog_definition_repository(session, catalog)
+        limit_profiles = limit_profile_adapter(definitions)
         organization = scope.organization
         limit_ref = str(organization.effective_limit_profile_ref)
         if "@" not in limit_ref:
@@ -121,7 +116,7 @@ def apply_organization_topology_patch(organization_id: str):
             project_id=scope.project_id,
             policy_ref=limit_ref,
         )
-        page = OrganizationProjectionService(topology_reader=SqlOrganizationTopologyReadRepository(session)).project(
+        page = OrganizationProjectionService(topology_reader=topology_read_repository(session)).project(
             tenant_id=scope.tenant_id,
             project_id=scope.project_id,
             organization_id=scope.organization_id,
@@ -204,14 +199,10 @@ def _require_preview_digest_headers(
 
 def _service(session: Session) -> OrganizationTopologyApplyService:
     catalog = organization_catalog()
-    definitions = FileCatalogDefinitionRepositoryAdapter(
-        SqlOrganizationDefinitionRepository(session),
-        catalog,
-        session,
-    )
+    definitions = catalog_definition_repository(session, catalog)
     return OrganizationTopologyApplyService(
         reader=SqlOrganizationPatchReadAdapter(catalog=catalog),
-        limit_profiles=SqlOrganizationLimitProfileAdapter(definitions),
+        limit_profiles=limit_profile_adapter(definitions),
         uow_factory=organization_uow_factory(),
         catalog=catalog,
     )
