@@ -757,22 +757,40 @@ class SfuBroadcastCorpusVerifier:
         if not isinstance(declared_categories, list) or set(declared_categories) != self.REQUIRED_CATEGORIES:
             issues.append(CorpusIssue("corpus_categories_invalid"))
 
+        structural_cases = self._inspect_structural_cases(manifest, issues)
+        artifact_paths: set[str] = set()
+        contracts, contract_fixture_count = self._inspect_contracts(manifest, issues, artifact_paths)
+        blocker_ids = self._inspect_blockers(manifest, issues, artifact_paths)
+        version = CorpusVersion(
+            int(schema_version),
+            int(corpus_version),
+            _corpus_digest(manifest, source, artifact_paths, issues),
+        )
+        if expected_version is not None:
+            for field_name, reason in _CORPUS_VERSION_FIELDS:
+                if getattr(version, field_name) != getattr(expected_version, field_name):
+                    issues.append(CorpusIssue(reason))
+
+        return CorpusReport(
+            version=version,
+            contract_count=len(contracts),
+            fixture_count=len(structural_cases) + contract_fixture_count,
+            integrity_issues=tuple(issues),
+            fail_closed_blockers=tuple(blocker_ids),
+        )
+
+    def _inspect_structural_cases(self, manifest: JsonMapping, issues: list[CorpusIssue]) -> list[Any]:
         structural_cases = manifest.get("structural_parity_cases")
         structural_ids: set[str] = set()
         if not isinstance(structural_cases, list):
             issues.append(CorpusIssue("corpus_structural_parity_cases_invalid"))
             structural_cases = []
         for case in structural_cases:
-            if not isinstance(case, Mapping) or set(case) != {
-                "id",
-                "raw_document",
-                "expected_code",
-            }:
-                issues.append(CorpusIssue("corpus_structural_parity_case_invalid"))
-                continue
-            case_id = case.get("id")
+            case_id = case.get("id") if isinstance(case, Mapping) else None
             if (
-                not isinstance(case_id, str)
+                not isinstance(case, Mapping)
+                or set(case) != {"id", "raw_document", "expected_code"}
+                or not isinstance(case_id, str)
                 or case_id in structural_ids
                 or not isinstance(case.get("raw_document"), str)
                 or not isinstance(case.get("expected_code"), str)
@@ -782,13 +800,17 @@ class SfuBroadcastCorpusVerifier:
             structural_ids.add(case_id)
         if structural_ids != self.REQUIRED_STRUCTURAL_PARITY_CASES:
             issues.append(CorpusIssue("corpus_structural_parity_coverage_incomplete"))
+        return structural_cases
 
+    def _inspect_contracts(
+        self, manifest: JsonMapping, issues: list[CorpusIssue], artifact_paths: set[str]
+    ) -> tuple[list[Any], int]:
+        """Validate contract entries; return the contracts and their case fixture count."""
         contracts = manifest.get("contracts")
         if not isinstance(contracts, list):
             contracts = []
             issues.append(CorpusIssue("corpus_contracts_invalid"))
-        fixture_count = len(structural_cases)
-        artifact_paths: set[str] = set()
+        fixture_count = 0
         contract_ids: set[str] = set()
         for contract in contracts:
             if not isinstance(contract, Mapping):
@@ -818,10 +840,12 @@ class SfuBroadcastCorpusVerifier:
                     issues.append(CorpusIssue("corpus_probe_invalid", str(contract_id)))
                 if not isinstance(case.get("expected_code"), str):
                     issues.append(CorpusIssue("corpus_expectation_missing", str(contract_id)))
-                fixture = case.get("fixture")
-                if isinstance(fixture, str):
-                    artifact_paths.add(fixture)
+                if isinstance(case.get("fixture"), str):
+                    artifact_paths.add(case.get("fixture"))
+        return contracts, fixture_count
 
+    @staticmethod
+    def _inspect_blockers(manifest: JsonMapping, issues: list[CorpusIssue], artifact_paths: set[str]) -> list[str]:
         blocker_ids: list[str] = []
         blockers = manifest.get("known_blockers")
         if not isinstance(blockers, list):
@@ -838,39 +862,33 @@ class SfuBroadcastCorpusVerifier:
                 continue
             blocker_ids.append(blocker_id)
             artifact_paths.add(artifact)
+        return blocker_ids
 
-        digest = hashlib.sha256(_canonical_json(manifest))
-        for artifact in sorted(artifact_paths):
-            digest.update(b"\x00")
-            digest.update(artifact.encode("utf-8"))
-            digest.update(b"\x00")
-            try:
-                artifact_bytes = source.read_bytes(artifact)
-            except Exception:
-                issues.append(CorpusIssue("corpus_artifact_unavailable", artifact))
-                digest.update(b"unavailable")
-            else:
-                digest.update(hashlib.sha256(artifact_bytes).digest())
-        version = CorpusVersion(
-            int(schema_version),
-            int(corpus_version),
-            "sha256:" + digest.hexdigest(),
-        )
-        if expected_version is not None:
-            if version.schema_version != expected_version.schema_version:
-                issues.append(CorpusIssue("corpus_schema_version_mismatch"))
-            if version.corpus_version != expected_version.corpus_version:
-                issues.append(CorpusIssue("corpus_version_mismatch"))
-            if version.corpus_digest != expected_version.corpus_digest:
-                issues.append(CorpusIssue("corpus_digest_mismatch"))
 
-        return CorpusReport(
-            version=version,
-            contract_count=len(contracts),
-            fixture_count=fixture_count,
-            integrity_issues=tuple(issues),
-            fail_closed_blockers=tuple(blocker_ids),
-        )
+def _corpus_digest(
+    manifest: JsonMapping, source: CorpusArtifactSource, artifact_paths: set[str], issues: list[CorpusIssue]
+) -> str:
+    """Bind the manifest and every referenced artifact's bytes (or its unavailability) into one digest."""
+    digest = hashlib.sha256(_canonical_json(manifest))
+    for artifact in sorted(artifact_paths):
+        digest.update(b"\x00")
+        digest.update(artifact.encode("utf-8"))
+        digest.update(b"\x00")
+        try:
+            artifact_bytes = source.read_bytes(artifact)
+        except Exception:
+            issues.append(CorpusIssue("corpus_artifact_unavailable", artifact))
+            digest.update(b"unavailable")
+        else:
+            digest.update(hashlib.sha256(artifact_bytes).digest())
+    return "sha256:" + digest.hexdigest()
+
+
+_CORPUS_VERSION_FIELDS = (
+    ("schema_version", "corpus_schema_version_mismatch"),
+    ("corpus_version", "corpus_version_mismatch"),
+    ("corpus_digest", "corpus_digest_mismatch"),
+)
 
 
 def _reject_non_finite(value: str) -> None:
