@@ -16,7 +16,6 @@ import {
 import {
   VOICE_LONG_RUN_LIVE_PREVIEW,
   VoiceLongRunLivePreviewPort,
-  VoiceLongRunLivePreviewUpdate,
 } from './voice-long-run-live-preview';
 import {
   VOICE_LONG_RUN_RECOVERY,
@@ -31,57 +30,58 @@ import {
 } from './voice-long-run-segmenter';
 import {
   VOICE_LONG_RUN_SPOOL,
-  VoiceLongRunSpoolMetadata,
   VoiceLongRunSpoolPort,
   VoiceLongRunSpoolPutResult,
-  VOICE_PROFILE_DELETION_EVENT,
-  VOICE_PROFILE_DELETION_STORAGE_PREFIX,
 } from './voice-long-run-spool';
 import {
   VoiceLongRunCreateRequest,
-  VoiceLongRunLease,
   VoiceLongRunResponse,
-  VoiceLongRunSegmentUploadResponse,
   VoiceLongRunState,
 } from './voice.models';
+import { VoiceLongRunDurableCursor } from './voice-long-run-durable-cursor';
+import { VoiceLongRunGapProjection } from './voice-long-run-gap-projection';
+import { VoiceLongRunRecoveryInspection } from './voice-long-run-recovery-inspection';
+import { VoiceLongRunRevisionFeed } from './voice-long-run-revision-feed';
+import { VoiceLongRunSegmentUploader } from './voice-long-run-segment-uploader';
 import {
-  VoiceLongRunTimeline,
-  VoiceLongRunTimelineSnapshot,
-} from './voice-long-run-timeline';
+  HEARTBEAT_MILLISECONDS,
+  MAX_PENDING_PLAINTEXT_BYTES,
+  MAX_PENDING_PLAINTEXT_SEGMENTS,
+  MAX_STOP_CORRECTION_ATTEMPTS,
+  MAX_STOP_UPLOAD_ATTEMPTS,
+  RETRY_DELAYS_MILLISECONDS,
+  SPOOL_WRITE_TIMEOUT_MILLISECONDS,
+  STOP_CORRECTION_POLL_MILLISECONDS,
+  VoiceLongRunCursor,
+  VoiceLongRunObserver,
+  captureDeadlineAt,
+  captureDeadlineExpired,
+  delay,
+  ensureOperation,
+  isNotFound,
+  isSegmentsInFlight,
+  reconciledCursor,
+  requestFromRun,
+  runExpired,
+  sameRecoveryRequest,
+  segmentIdempotencyKey,
+  terminalRun,
+  validLeaseToken,
+  withTimeout,
+} from './voice-long-run.policy';
+import { startVoiceLongRunLivePreview } from './voice-long-run-preview-bridge';
+import { VoiceProfileDeletionWatcher } from './voice-profile-deletion-watcher';
 
 export { appendVoiceLongRunTranscript } from './voice-long-run-timeline';
+export type { VoiceLongRunObserver } from './voice-long-run.policy';
 
-const HEARTBEAT_MILLISECONDS = 15_000;
-const MAX_STOP_UPLOAD_ATTEMPTS = 6;
-const RETRY_DELAYS_MILLISECONDS = [1_000, 2_000, 5_000, 10_000, 30_000] as const;
-const MAX_PENDING_PLAINTEXT_SEGMENTS = 2;
-const MAX_PENDING_PLAINTEXT_BYTES = 8 * 1024 * 1024;
-const SPOOL_WRITE_TIMEOUT_MILLISECONDS = 10_000;
-const REVISION_POLL_MILLISECONDS = 1_500;
-const REVISION_POLL_LIMIT = 100;
-const REVISION_RETRY_DELAYS_MILLISECONDS = [1_000, 2_000, 5_000, 10_000, 15_000] as const;
-const MAX_STOP_CORRECTION_ATTEMPTS = 240;
-const STOP_CORRECTION_POLL_MILLISECONDS = 2_500;
-
-export interface VoiceLongRunObserver {
-  runUpdated?(response: VoiceLongRunResponse): void;
-  timelineUpdated?(snapshot: VoiceLongRunTimelineSnapshot): void;
-  progress?(capturedMilliseconds: number): void;
-  buffered?(metadata: VoiceLongRunSpoolMetadata, queuedSegments: number): void;
-  segmentUploaded?(response: VoiceLongRunSegmentUploadResponse, queuedSegments: number): void;
-  segmentFailed?(sequence: number, error: unknown): void;
-  gap?(sequence: number): void;
-  gapsUpdated?(sequences: readonly number[]): void;
-  recoveryUpdated?(metadata: VoiceLongRunRecoveryMetadata): void;
-  livePreviewStarted?(segmentSequence: number): void;
-  livePreview?(update: VoiceLongRunLivePreviewUpdate): void;
-  livePreviewUnavailable?(error: unknown): void;
-  connection?(state: 'online' | 'retrying'): void;
-  stopping?(reason: string): void;
-  stopped?(response: VoiceLongRunResponse, reason: string): void;
-  error?(error: unknown): void;
-}
-
+/**
+ * Owns one long-run capture session end to end: start/resume/drain/stop
+ * lifecycle, capture segmentation into the encrypted spool, heartbeats and
+ * the local recovery descriptor. Uploading, revision polling, gap
+ * projection, recovery inspection and profile-deletion notifications are
+ * delegated to the collaborators imported above (SRP).
+ */
 @Injectable()
 export class VoiceLongRunController {
   private readonly api = inject(VoiceApiService);
@@ -90,22 +90,15 @@ export class VoiceLongRunController {
   private readonly recovery: VoiceLongRunRecoveryPort = inject(VOICE_LONG_RUN_RECOVERY);
   private readonly createSegmenter: VoiceLongRunSegmenterFactory = inject(VOICE_LONG_RUN_SEGMENTER_FACTORY);
   private readonly livePreview: VoiceLongRunLivePreviewPort = inject(VOICE_LONG_RUN_LIVE_PREVIEW);
-  private readonly timeline = new VoiceLongRunTimeline();
 
   private hubUrl = '';
   private run: VoiceLongRunState | null = null;
   private segmenter: VoiceLongRunPcmSegmenter | null = null;
   private observer: VoiceLongRunObserver = {};
   private persistenceQueue: Promise<void> = Promise.resolve();
-  private uploadOperation: Promise<void> | null = null;
   private stoppingOperation: Promise<VoiceLongRunResponse> | null = null;
-  private retryTimer: ReturnType<typeof setTimeout> | null = null;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private captureDeadlineTimer: ReturnType<typeof setTimeout> | null = null;
-  private localGapSequences = new Set<number>();
-  private hubGapSequences = new Set<number>();
-  private latestRunVersion: number | null = null;
-  private retryAttempt = 0;
   private lastLocalSequence = -1;
   private operationGeneration = 0;
   private starting = false;
@@ -114,46 +107,48 @@ export class VoiceLongRunController {
   private currentRequest: VoiceLongRunCreateRequest | null = null;
   private displayMode: VoiceLongRunDisplayMode = DEFAULT_VOICE_LONG_RUN_DISPLAY_MODE;
   private createIdempotencyKey = '';
-  private inFlightSequence: number | null = null;
-  private deferredEvictions = new Set<number>();
   private secureStorageReady = false;
-  private inspectedRecovery: { response: VoiceLongRunResponse; inspectedAt: number } | null = null;
+  private readonly inspection = new VoiceLongRunRecoveryInspection(this.recovery);
   private pendingPersistenceSegments = 0;
   private pendingPersistenceBytes = 0;
-  private latestTimelineMilliseconds = 0;
-  private completedTimelineMilliseconds = 0;
-  private durableNextSequence = 0;
-  private durableTimelineMilliseconds = 0;
+  private readonly durable = new VoiceLongRunDurableCursor();
   private profileGeneration = 0;
   private profileDeletionAborting = false;
   private pendingProfileId = '';
-  private revisionPollTimer: ReturnType<typeof setTimeout> | null = null;
-  private revisionPollInFlight = false;
-  private revisionPollingNeeded = false;
-  private revisionPollingBlocked = false;
-  private revisionPollFailure = 0;
-  private timelineRevisionCursor = 0;
+  private readonly gaps = new VoiceLongRunGapProjection((sequences) => this.observer.gapsUpdated?.(sequences));
+  private readonly uploader = new VoiceLongRunSegmentUploader(this.api, this.spool, {
+    hubUrl: () => this.hubUrl,
+    runId: () => this.run?.id ?? null,
+    generation: () => this.operationGeneration,
+    stopping: () => this.stopping,
+    observer: () => this.observer,
+    publishResponse: (response) => this.publishResponse(response),
+    reportGap: (sequence) => this.reportGap(sequence),
+    clearLocalGap: (sequence) => this.gaps.clearLocal(sequence),
+    failed: (error) => this.requestAutomaticStop('secure_spool_failed', error),
+  });
+  private readonly revisions = new VoiceLongRunRevisionFeed(this.api, {
+    hubUrl: () => this.hubUrl,
+    runId: () => this.run?.id ?? null,
+    generation: () => this.operationGeneration,
+    stopping: () => this.stopping,
+    observer: () => this.observer,
+    acceptRunProjection: (response) => this.updateHubGapProjection(response),
+  });
 
-  private readonly profileDeletionListener = (event: StorageEvent) => {
-    if (!event.key?.startsWith(VOICE_PROFILE_DELETION_STORAGE_PREFIX)) return;
-    const profileId = event.key.slice(VOICE_PROFILE_DELETION_STORAGE_PREFIX.length);
-    if (profileId && this.profileDeletionRelevant(profileId)) this.abortForProfileDeletion();
-  };
-  private readonly sameDocumentProfileDeletionListener = (event: Event) => {
-    const profileId = String((event as CustomEvent<{ profileId?: string }>).detail?.profileId || '');
-    if (profileId && this.profileDeletionRelevant(profileId)) this.abortForProfileDeletion();
-  };
+  private readonly profileDeletions = new VoiceProfileDeletionWatcher((profileId) => {
+    if (this.profileDeletionRelevant(profileId)) this.abortForProfileDeletion();
+  });
   private readonly visibilityListener = () => {
     if (globalThis.document?.visibilityState === 'hidden') {
-      this.clearRevisionPollTimer();
+      this.revisions.clearTimer();
       return;
     }
-    this.scheduleRevisionPoll(0);
+    this.revisions.schedule(0);
   };
 
   constructor() {
-    globalThis.addEventListener?.('storage', this.profileDeletionListener);
-    globalThis.addEventListener?.(VOICE_PROFILE_DELETION_EVENT, this.sameDocumentProfileDeletionListener);
+    this.profileDeletions.attach();
     globalThis.document?.addEventListener('visibilitychange', this.visibilityListener);
   }
 
@@ -174,37 +169,15 @@ export class VoiceLongRunController {
   }
 
   recoveryReadyForConsent(): boolean {
-    const descriptor = this.recovery.load();
-    const inspected = this.inspectedRecovery;
-    return Boolean(
-      descriptor?.runId
-      && inspected?.response.run.id === descriptor.runId
-      && inspected.response.run.status === 'active'
-      && !this.captureDeadlineExpired(inspected.response.run)
-      && Date.now() - inspected.inspectedAt <= 30_000,
-    );
+    return this.inspection.readyForConsent();
   }
 
   recoveryDrainOnly(): boolean {
-    const descriptor = this.recovery.load();
-    const inspected = this.inspectedRecovery;
-    return Boolean(
-      descriptor?.runId
-      && inspected?.response.run.id === descriptor.runId
-      && inspected.response.run.status === 'active'
-      && this.captureDeadlineExpired(inspected.response.run)
-      && !this.runExpired(inspected.response.run)
-      && Date.now() - inspected.inspectedAt <= 30_000,
-    );
+    return this.inspection.drainOnly();
   }
 
   recoveryFinalizing(): boolean {
-    const descriptor = this.recovery.load();
-    return Boolean(
-      descriptor?.runId
-      && this.inspectedRecovery?.response.run.id === descriptor.runId
-      && this.inspectedRecovery.response.run.status === 'finalizing',
-    );
+    return this.inspection.finalizing();
   }
 
   supportsSource(source: VoiceCaptureSource): boolean {
@@ -236,28 +209,26 @@ export class VoiceLongRunController {
       this.ensureOperation(generation);
     } catch (error) {
       this.ensureOperation(generation);
-      if (!this.isNotFound(error)) throw error;
+      if (!isNotFound(error)) throw error;
       await this.spool.clearRun(descriptor.runId);
       this.ensureOperation(generation);
       this.recovery.clear(descriptor.runId);
-      this.inspectedRecovery = null;
+      this.inspection.forget();
       return null;
     }
-    if (this.terminalRun(response.run) || this.runExpired(response.run)) {
+    if (terminalRun(response.run) || runExpired(response.run)) {
       await this.spool.clearRun(descriptor.runId);
       this.ensureOperation(generation);
       this.recovery.clear(descriptor.runId);
-      this.inspectedRecovery = null;
+      this.inspection.forget();
       return response;
     }
-    this.inspectedRecovery = { response, inspectedAt: Date.now() };
+    this.inspection.record(response);
     return response;
   }
 
   async prepareCapture(source: VoiceCaptureSource, profileId = ''): Promise<void> {
-    if (this.run || this.starting || this.stoppingOperation) {
-      throw new Error('voice.long_run.already_active');
-    }
+    this.assertIdle();
     const generation = this.operationGeneration;
     this.pendingProfileId = profileId.trim();
     try {
@@ -286,16 +257,14 @@ export class VoiceLongRunController {
     observer: VoiceLongRunObserver = {},
     displayMode: VoiceLongRunDisplayMode = DEFAULT_VOICE_LONG_RUN_DISPLAY_MODE,
   ): Promise<VoiceLongRunState> {
-    if (this.run || this.starting || this.stoppingOperation) {
-      throw new Error('voice.long_run.already_active');
-    }
+    this.assertIdle();
     const generation = this.operationGeneration;
     this.starting = true;
     this.hubUrl = hubUrl;
     this.observer = observer;
-    this.resetTimelineProjection();
+    this.revisions.reset();
     this.resetGapProjection();
-    this.retryAttempt = 0;
+    this.uploader.resetRetries();
     this.lastLocalSequence = -1;
     this.pendingAutomaticStopReason = '';
     this.persistenceQueue = Promise.resolve();
@@ -307,7 +276,7 @@ export class VoiceLongRunController {
       this.ensureOperation(generation);
       const pendingCreate = this.recovery.load();
       if (pendingCreate?.runId) throw new Error('voice.long_run.resume_required');
-      if (pendingCreate && !this.sameRecoveryRequest(pendingCreate, hubUrl, request)) {
+      if (pendingCreate && !sameRecoveryRequest(pendingCreate, hubUrl, request)) {
         throw new Error('voice.long_run.pending_create_conflict');
       }
       this.createIdempotencyKey = pendingCreate?.createIdempotencyKey || idempotencyKey;
@@ -322,7 +291,7 @@ export class VoiceLongRunController {
       this.ensureOperation(generation);
       const lease = await firstValueFrom(this.api.acquireLongRunLease(hubUrl, request.profile_id));
       this.ensureOperation(generation);
-      const leaseToken = this.validLeaseToken(lease, request.profile_id);
+      const leaseToken = validLeaseToken(lease, request.profile_id);
       this.recovery.save({
         schemaVersion: 1,
         runId: '',
@@ -342,39 +311,26 @@ export class VoiceLongRunController {
       ));
       this.ensureOperation(generation);
       this.run = created.run;
-      if (created.run.status !== 'active' || this.captureDeadlineExpired(created.run)) {
+      if (created.run.status !== 'active' || captureDeadlineExpired(created.run)) {
         this.recovery.clear();
         throw new Error('voice.long_run.create_replay_terminal');
       }
       this.publishResponse(created);
       const buffered = await this.spool.list(created.run.id);
       this.ensureOperation(generation);
-      const cursor = this.reconciledCursor(created, buffered);
-      this.lastLocalSequence = cursor.nextSequence - 1;
-      for (const sequence of cursor.gaps) this.reportGap(sequence);
-      this.applyCursorState(cursor);
+      const cursor = reconciledCursor(created, buffered);
+      this.adoptCursor(cursor);
       this.saveRecovery(cursor.nextSequence, cursor.timelineMilliseconds);
-      this.segmenter = this.createSegmenter({
-        segmentDurationSeconds: request.segment_duration_seconds,
-        overlapMilliseconds: request.overlap_milliseconds,
-        maxDurationSeconds: request.max_duration_seconds,
-        initialSequence: cursor.nextSequence,
-        initialTimelineMilliseconds: cursor.timelineMilliseconds,
-      });
+      this.segmenter = this.createRunSegmenter(request, cursor);
       await this.startLivePreview(created.run, cursor.nextSequence);
       this.ensureOperation(generation);
       this.startCaptureDeadline(created.run, request.max_duration_seconds, cursor.timelineMilliseconds);
       this.ensureOperation(generation);
-      await this.capture.start(
-        (chunk) => this.onCaptureChunk(chunk),
-        (error) => this.requestAutomaticStop('capture_error', error),
-        (reason) => this.requestAutomaticStop(reason || 'source_ended'),
-        { maxDurationSeconds: request.max_duration_seconds },
-      );
+      await this.startCapture(request.max_duration_seconds);
       this.ensureOperation(generation);
       this.pendingProfileId = '';
       this.startHeartbeat();
-      this.kickUploader();
+      this.uploader.kick();
       const pendingReason = this.pendingAutomaticStopReason;
       if (pendingReason) queueMicrotask(() => void this.stop(pendingReason));
       return created.run;
@@ -410,8 +366,7 @@ export class VoiceLongRunController {
 
   async dispose(): Promise<void> {
     this.operationGeneration += 1;
-    globalThis.removeEventListener?.('storage', this.profileDeletionListener);
-    globalThis.removeEventListener?.(VOICE_PROFILE_DELETION_EVENT, this.sameDocumentProfileDeletionListener);
+    this.profileDeletions.detach();
     globalThis.document?.removeEventListener('visibilitychange', this.visibilityListener);
     if (this.run) {
       await this.stop('ui_closed').catch(() => undefined);
@@ -428,9 +383,7 @@ export class VoiceLongRunController {
     runId: string,
     observer: VoiceLongRunObserver = {},
   ): Promise<VoiceLongRunResponse> {
-    if (this.run || this.starting || this.stoppingOperation) {
-      throw new Error('voice.long_run.already_active');
-    }
+    this.assertIdle();
     const generation = this.operationGeneration;
     const descriptor = this.recovery.load();
     this.pendingProfileId = descriptor?.runId === runId ? descriptor.request.profile_id : '';
@@ -445,9 +398,9 @@ export class VoiceLongRunController {
     this.hubUrl = hubUrl;
     this.run = snapshot.run;
     this.observer = observer;
-    this.resetTimelineProjection();
+    this.revisions.reset();
     this.resetGapProjection();
-    this.currentRequest = this.requestFromRun(snapshot.run);
+    this.currentRequest = requestFromRun(snapshot.run);
     this.createIdempotencyKey = descriptor?.createIdempotencyKey || '';
     const buffered = await this.spool.list(runId);
     this.ensureOperation(generation);
@@ -456,7 +409,7 @@ export class VoiceLongRunController {
       ...buffered.map((item) => item.sequence),
     );
     if (this.updateHubGapProjection(snapshot)) this.observer.runUpdated?.(snapshot);
-    await this.drainAvailable();
+    await this.uploader.drain();
     this.ensureOperation(generation);
     await this.sendHeartbeat();
     this.ensureOperation(generation);
@@ -469,9 +422,7 @@ export class VoiceLongRunController {
 
   /** Reconciles the Hub cursor and encrypted spool, then requests one new capture lease. */
   async resumeCapture(observer: VoiceLongRunObserver = {}): Promise<VoiceLongRunState> {
-    if (this.run || this.starting || this.stoppingOperation) {
-      throw new Error('voice.long_run.already_active');
-    }
+    this.assertIdle();
     const descriptor = this.recovery.load();
     if (!descriptor?.runId) throw new Error('voice.long_run.recovery_not_found');
     if (!descriptor.profileGeneration) throw new Error('voice.long_run.recovery_generation_missing');
@@ -479,7 +430,7 @@ export class VoiceLongRunController {
     this.starting = true;
     this.hubUrl = descriptor.hubUrl;
     this.observer = observer;
-    this.resetTimelineProjection();
+    this.revisions.reset();
     this.resetGapProjection();
     this.currentRequest = descriptor.request;
     this.displayMode = normalizeVoiceLongRunDisplayMode(descriptor.displayMode);
@@ -491,8 +442,7 @@ export class VoiceLongRunController {
       this.ensureOperation(generation);
       if (!this.capture.prepared) await this.capture.prepare(descriptor.request.source);
       this.ensureOperation(generation);
-      const inspected = this.inspectedRecovery;
-      if (!this.recoveryReadyForConsent() || inspected?.response.run.id !== descriptor.runId) {
+      if (!this.recoveryReadyForConsent() || this.inspection.response?.run.id !== descriptor.runId) {
         throw new Error('voice.long_run.recovery_check_required');
       }
       const snapshot = await firstValueFrom(this.api.getLongRun(
@@ -507,23 +457,15 @@ export class VoiceLongRunController {
         this.recovery.clear(descriptor.runId);
         throw new Error('voice.long_run.recovery_terminal');
       }
-      if (this.captureDeadlineExpired(snapshot.run)) {
+      if (captureDeadlineExpired(snapshot.run)) {
         throw new Error('voice.long_run.capture_deadline_expired');
       }
       const buffered = await this.spool.list(descriptor.runId);
       this.ensureOperation(generation);
-      const cursor = this.reconciledCursor(snapshot, buffered, descriptor);
+      const cursor = reconciledCursor(snapshot, buffered, descriptor);
       this.run = snapshot.run;
-      this.lastLocalSequence = cursor.nextSequence - 1;
-      for (const sequence of cursor.gaps) this.reportGap(sequence);
-      this.applyCursorState(cursor);
-      this.segmenter = this.createSegmenter({
-        segmentDurationSeconds: descriptor.request.segment_duration_seconds,
-        overlapMilliseconds: descriptor.request.overlap_milliseconds,
-        maxDurationSeconds: descriptor.request.max_duration_seconds,
-        initialSequence: cursor.nextSequence,
-        initialTimelineMilliseconds: cursor.timelineMilliseconds,
-      });
+      this.adoptCursor(cursor);
+      this.segmenter = this.createRunSegmenter(descriptor.request, cursor);
       this.saveRecovery(cursor.nextSequence, cursor.timelineMilliseconds);
       this.publishResponse(snapshot);
       await this.startLivePreview(snapshot.run, cursor.nextSequence);
@@ -533,16 +475,11 @@ export class VoiceLongRunController {
         descriptor.request.max_duration_seconds,
         cursor.timelineMilliseconds,
       );
-      await this.capture.start(
-        (chunk) => this.onCaptureChunk(chunk),
-        (error) => this.requestAutomaticStop('capture_error', error),
-        (reason) => this.requestAutomaticStop(reason || 'source_ended'),
-        { maxDurationSeconds: descriptor.request.max_duration_seconds },
-      );
+      await this.startCapture(descriptor.request.max_duration_seconds);
       this.ensureOperation(generation);
       this.pendingProfileId = '';
       this.startHeartbeat();
-      this.kickUploader();
+      this.uploader.kick();
       return snapshot.run;
     } catch (error) {
       await this.capture.stop().catch(() => undefined);
@@ -578,12 +515,12 @@ export class VoiceLongRunController {
           ));
           this.ensureOperation(generation);
           hubConfirmedEnded = true;
-        } else if (this.terminalRun(snapshot.run) || this.runExpired(snapshot.run)) {
+        } else if (terminalRun(snapshot.run) || runExpired(snapshot.run)) {
           hubConfirmedEnded = true;
         }
       } catch (error) {
         this.ensureOperation(generation);
-        if (this.isNotFound(error)) hubConfirmedEnded = true;
+        if (isNotFound(error)) hubConfirmedEnded = true;
         else remoteFailure = error;
       }
       await this.spool.clearRun(descriptor.runId);
@@ -602,9 +539,7 @@ export class VoiceLongRunController {
    * No microphone or MediaProjection permission is requested in this mode.
    */
   async drainRecovery(observer: VoiceLongRunObserver = {}): Promise<VoiceLongRunResponse> {
-    if (this.run || this.starting || this.stoppingOperation) {
-      throw new Error('voice.long_run.already_active');
-    }
+    this.assertIdle();
     const descriptor = this.recovery.load();
     if (!descriptor?.runId) throw new Error('voice.long_run.recovery_not_found');
     if (!descriptor.profileGeneration) throw new Error('voice.long_run.recovery_generation_missing');
@@ -624,34 +559,34 @@ export class VoiceLongRunController {
         this.ensureOperation(generation);
       } catch (error) {
         this.ensureOperation(generation);
-        if (this.isNotFound(error)) {
+        if (isNotFound(error)) {
           await this.spool.clearRun(descriptor.runId);
           this.ensureOperation(generation);
           this.recovery.clear(descriptor.runId);
-          this.inspectedRecovery = null;
+          this.inspection.forget();
         }
         throw error;
       }
-      if (this.terminalRun(snapshot.run) || this.runExpired(snapshot.run)) {
+      if (terminalRun(snapshot.run) || runExpired(snapshot.run)) {
         await this.spool.clearRun(descriptor.runId);
         this.ensureOperation(generation);
         this.recovery.clear(descriptor.runId);
-        this.inspectedRecovery = null;
+        this.inspection.forget();
         return snapshot;
       }
       if (snapshot.run.status !== 'active') {
-        this.inspectedRecovery = { response: snapshot, inspectedAt: Date.now() };
+        this.inspection.record(snapshot);
         throw new Error('voice.long_run.recovery_finalizing');
       }
-      if (!this.captureDeadlineExpired(snapshot.run)) {
-        this.inspectedRecovery = { response: snapshot, inspectedAt: Date.now() };
+      if (!captureDeadlineExpired(snapshot.run)) {
+        this.inspection.record(snapshot);
         throw new Error('voice.long_run.capture_still_available');
       }
 
       this.hubUrl = descriptor.hubUrl;
       this.run = snapshot.run;
       this.observer = observer;
-      this.resetTimelineProjection();
+      this.revisions.reset();
       this.resetGapProjection();
       this.currentRequest = descriptor.request;
       this.displayMode = normalizeVoiceLongRunDisplayMode(descriptor.displayMode);
@@ -659,10 +594,8 @@ export class VoiceLongRunController {
       this.profileGeneration = descriptor.profileGeneration;
       const buffered = await this.spool.list(descriptor.runId);
       this.ensureOperation(generation);
-      const cursor = this.reconciledCursor(snapshot, buffered, descriptor);
-      this.lastLocalSequence = cursor.nextSequence - 1;
-      for (const sequence of cursor.gaps) this.reportGap(sequence);
-      this.applyCursorState(cursor);
+      const cursor = reconciledCursor(snapshot, buffered, descriptor);
+      this.adoptCursor(cursor);
       this.saveRecovery(cursor.nextSequence, cursor.timelineMilliseconds);
       this.publishResponse(snapshot);
       const response = await this.stopOnce('recovery_drain');
@@ -680,26 +613,14 @@ export class VoiceLongRunController {
 
   private async startLivePreview(run: VoiceLongRunState, initialSegmentSequence: number): Promise<void> {
     if (this.displayMode !== 'live' || !this.currentRequest) return;
-    try {
-      await this.livePreview.start({
-        hubUrl: this.hubUrl,
-        liveRunId: run.id,
-        profileId: this.currentRequest.profile_id,
-        configurationSessionId: this.currentRequest.configuration_session_id,
-        language: this.currentRequest.language,
-        segmentDurationSeconds: this.currentRequest.segment_duration_seconds,
-        initialSegmentSequence,
-      }, {
-        segmentStarted: (segmentSequence) => (
-          this.observer.livePreviewStarted?.(segmentSequence)
-        ),
-        preview: (update) => this.observer.livePreview?.(update),
-        error: (error) => this.observer.livePreviewUnavailable?.(error),
-      });
-    } catch (error) {
-      // Preview is an explicitly non-authoritative projection. The encrypted
-      // segment spool and Hub-owned ASR/correction flow must keep running.
-      this.observer.livePreviewUnavailable?.(error);
+    await startVoiceLongRunLivePreview(this.livePreview, {
+      hubUrl: this.hubUrl, runId: run.id, request: this.currentRequest, initialSegmentSequence,
+    }, () => this.observer);
+  }
+
+  private assertIdle(): void {
+    if (this.run || this.starting || this.stoppingOperation) {
+      throw new Error('voice.long_run.already_active');
     }
   }
 
@@ -717,8 +638,8 @@ export class VoiceLongRunController {
     }
     if (this.displayMode === 'live') this.livePreview.acceptPcm(chunk);
     this.observer.progress?.(this.segmenter.capturedDurationMs);
-    this.latestTimelineMilliseconds = this.segmenter.capturedDurationMs;
-    this.saveRecovery(this.lastLocalSequence + 1, this.latestTimelineMilliseconds);
+    this.durable.latestTimelineMilliseconds = this.segmenter.capturedDurationMs;
+    this.saveRecovery(this.lastLocalSequence + 1, this.durable.latestTimelineMilliseconds);
     for (const segment of ready) {
       if (this.displayMode === 'live' && this.livePreview.segmentSequence === segment.sequence) {
         void this.livePreview.endSegment().catch((error) => {
@@ -735,8 +656,8 @@ export class VoiceLongRunController {
     if (!runId) return;
     const generation = this.operationGeneration;
     this.lastLocalSequence = Math.max(this.lastLocalSequence, segment.sequence);
-    this.completedTimelineMilliseconds = Math.max(this.completedTimelineMilliseconds, segment.endedAtMs);
-    this.saveRecovery(segment.sequence + 1, this.latestTimelineMilliseconds);
+    this.durable.segmentCompleted(segment.endedAtMs);
+    this.saveRecovery(segment.sequence + 1, this.durable.latestTimelineMilliseconds);
     const plaintextBytes = segment.pcmBytes + 44;
     if (this.pendingPersistenceSegments >= MAX_PENDING_PLAINTEXT_SEGMENTS
       || this.pendingPersistenceBytes + plaintextBytes > MAX_PENDING_PLAINTEXT_BYTES) {
@@ -760,12 +681,12 @@ export class VoiceLongRunController {
         endedAtMs: segment.endedAtMs,
         durationMs: segment.durationMs,
         overlapMilliseconds: segment.overlapMs,
-        idempotencyKey: this.segmentIdempotencyKey(runId, segment.sequence),
+        idempotencyKey: segmentIdempotencyKey(runId, segment.sequence),
         audio: wav,
       });
       let result: VoiceLongRunSpoolPutResult;
       try {
-        result = await this.withTimeout(write, SPOOL_WRITE_TIMEOUT_MILLISECONDS);
+        result = await withTimeout(write, SPOOL_WRITE_TIMEOUT_MILLISECONDS);
         this.ensureOperation(generation);
       } catch (error) {
         // A timed-out IndexedDB transaction may still complete. Remove that
@@ -776,19 +697,14 @@ export class VoiceLongRunController {
       }
       for (const evicted of result.evicted) {
         if (evicted.runId !== runId) continue;
-        if (evicted.sequence === this.inFlightSequence) {
-          this.deferredEvictions.add(evicted.sequence);
-        } else {
-          this.reportGap(evicted.sequence);
-        }
+        this.uploader.evicted(evicted.sequence);
       }
       const stats = await this.spool.stats(runId);
       this.ensureOperation(generation);
-      this.durableNextSequence = Math.max(this.durableNextSequence, segment.sequence + 1);
-      this.durableTimelineMilliseconds = Math.max(this.durableTimelineMilliseconds, segment.endedAtMs);
-      this.saveRecovery(this.lastLocalSequence + 1, this.latestTimelineMilliseconds);
+      this.durable.segmentDurable(segment.sequence, segment.endedAtMs);
+      this.saveRecovery(this.lastLocalSequence + 1, this.durable.latestTimelineMilliseconds);
       this.observer.buffered?.(result.stored, stats.segments);
-      this.kickUploader();
+      this.uploader.kick();
     }).catch((error) => this.requestAutomaticStop('secure_spool_failed', error))
       .finally(() => {
         this.pendingPersistenceSegments = Math.max(0, this.pendingPersistenceSegments - 1);
@@ -796,150 +712,8 @@ export class VoiceLongRunController {
       });
   }
 
-  private kickUploader(): void {
-    if (!this.run || this.retryTimer || this.uploadOperation) return;
-    void this.drainAvailable().catch((error) => this.requestAutomaticStop('secure_spool_failed', error));
-  }
-
-  private async drainAvailable(): Promise<void> {
-    if (this.uploadOperation) return this.uploadOperation;
-    const operation = this.uploadUntilFailure();
-    this.uploadOperation = operation;
-    try {
-      await operation;
-    } finally {
-      if (this.uploadOperation === operation) this.uploadOperation = null;
-    }
-  }
-
-  private async uploadUntilFailure(): Promise<void> {
-    const runId = this.run?.id;
-    if (!runId) return;
-    const generation = this.operationGeneration;
-    while (this.run?.id === runId && generation === this.operationGeneration) {
-      const pending = await this.spool.list(runId);
-      if (generation !== this.operationGeneration) return;
-      const metadata = pending[0];
-      if (!metadata) {
-        this.retryAttempt = 0;
-        this.observer.connection?.('online');
-        return;
-      }
-      const segment = await this.spool.read(runId, metadata.sequence);
-      if (generation !== this.operationGeneration) return;
-      if (!segment) continue;
-      this.inFlightSequence = segment.sequence;
-      try {
-        const response = await firstValueFrom(this.api.uploadLongRunSegment(
-          this.hubUrl,
-          runId,
-          segment.sequence,
-          {
-            file: new Blob([segment.audio], { type: 'audio/wav' }),
-            fileName: `voice-live-${String(segment.sequence).padStart(6, '0')}.wav`,
-            startedAtMs: segment.startedAtMs,
-            endedAtMs: segment.endedAtMs,
-            durationMs: segment.durationMs,
-            overlapMilliseconds: segment.overlapMilliseconds,
-          },
-          segment.idempotencyKey,
-        ));
-        if (generation !== this.operationGeneration) return;
-        await this.spool.delete(runId, segment.sequence);
-        if (generation !== this.operationGeneration) return;
-        this.deferredEvictions.delete(segment.sequence);
-        this.localGapSequences.delete(segment.sequence);
-        this.retryAttempt = 0;
-        const stats = await this.spool.stats(runId);
-        if (generation !== this.operationGeneration) return;
-        this.observer.connection?.('online');
-        this.publishResponse(response);
-        this.observer.segmentUploaded?.(response, stats.segments);
-      } catch (error) {
-        if (generation !== this.operationGeneration) return;
-        const stillBuffered = Boolean(await this.spool.read(runId, segment.sequence));
-        if (generation !== this.operationGeneration) return;
-        if (!this.isRetriable(error) || !stillBuffered) {
-          await this.spool.delete(runId, segment.sequence).catch(() => undefined);
-          if (generation !== this.operationGeneration) return;
-          this.deferredEvictions.delete(segment.sequence);
-          this.reportGap(segment.sequence);
-          this.observer.segmentFailed?.(segment.sequence, error);
-          continue;
-        }
-        this.observer.connection?.('retrying');
-        if (!this.stopping) this.scheduleRetry();
-        return;
-      } finally {
-        this.inFlightSequence = null;
-      }
-    }
-  }
-
   private publishResponse(response: VoiceLongRunResponse): void {
-    const acceptedRunProjection = this.updateHubGapProjection(response);
-    const snapshot = this.timeline.apply(response);
-    this.timelineRevisionCursor = Math.max(
-      this.timelineRevisionCursor,
-      snapshot.highestTimelineRevision,
-      Number(response.page?.next_after_revision || 0),
-    );
-    const hasMoreRevisionPages = response.page?.after_revision != null
-      && Boolean(response.page.has_more);
-    this.revisionPollingNeeded = (snapshot.hasPendingRevisions || hasMoreRevisionPages)
-      && !this.revisionPollingBlocked;
-    if (!this.revisionPollingNeeded) this.clearRevisionPollTimer();
-    this.observer.timelineUpdated?.(snapshot);
-    if (acceptedRunProjection) this.observer.runUpdated?.(response);
-    if (this.revisionPollingNeeded) this.scheduleRevisionPoll();
-  }
-
-  private scheduleRevisionPoll(delayMilliseconds = REVISION_POLL_MILLISECONDS): void {
-    if (!this.revisionPollingNeeded || !this.run || this.stopping || this.revisionPollTimer
-      || this.revisionPollInFlight || globalThis.document?.visibilityState === 'hidden') return;
-    this.revisionPollTimer = setTimeout(() => {
-      this.revisionPollTimer = null;
-      void this.pollRevisions();
-    }, Math.max(0, delayMilliseconds));
-  }
-
-  private async pollRevisions(): Promise<void> {
-    if (this.revisionPollInFlight || !this.revisionPollingNeeded || !this.run) return;
-    const generation = this.operationGeneration;
-    const runId = this.run.id;
-    this.revisionPollInFlight = true;
-    let nextDelay = REVISION_POLL_MILLISECONDS;
-    try {
-      const response = await firstValueFrom(this.api.getLongRun(this.hubUrl, runId, {
-        afterRevision: this.timelineRevisionCursor,
-        limit: REVISION_POLL_LIMIT,
-      }));
-      if (generation !== this.operationGeneration || this.run?.id !== runId
-        || globalThis.document?.visibilityState === 'hidden') return;
-      const hasMore = Boolean(response.page?.has_more);
-      this.publishResponse(response);
-      this.revisionPollFailure = 0;
-      this.observer.connection?.('online');
-      nextDelay = hasMore ? 0 : REVISION_POLL_MILLISECONDS;
-    } catch (error) {
-      if (generation !== this.operationGeneration || this.run?.id !== runId) return;
-      if (!this.isRetriable(error)) {
-        this.revisionPollingBlocked = true;
-        this.revisionPollingNeeded = false;
-        this.observer.error?.(error);
-        return;
-      }
-      this.observer.connection?.('retrying');
-      nextDelay = REVISION_RETRY_DELAYS_MILLISECONDS[
-        Math.min(this.revisionPollFailure, REVISION_RETRY_DELAYS_MILLISECONDS.length - 1)
-      ];
-      this.revisionPollFailure += 1;
-    } finally {
-      this.revisionPollInFlight = false;
-      if (generation === this.operationGeneration && this.run?.id === runId && !this.stopping) {
-        this.scheduleRevisionPoll(nextDelay);
-      }
-    }
+    this.revisions.publish(response);
   }
 
   private async stopOnce(reason: string): Promise<VoiceLongRunResponse> {
@@ -961,13 +735,13 @@ export class VoiceLongRunController {
       await this.persistenceQueue;
       this.ensureOperation(generation);
       for (let attempt = 0; attempt < MAX_STOP_UPLOAD_ATTEMPTS; attempt += 1) {
-        await this.drainAvailable();
+        await this.uploader.drain();
         this.ensureOperation(generation);
         const pending = await this.spool.list(runId);
         this.ensureOperation(generation);
         if (!pending.length) break;
         if (attempt < MAX_STOP_UPLOAD_ATTEMPTS - 1) {
-          await this.delay(RETRY_DELAYS_MILLISECONDS[Math.min(attempt, RETRY_DELAYS_MILLISECONDS.length - 1)]);
+          await delay(RETRY_DELAYS_MILLISECONDS[Math.min(attempt, RETRY_DELAYS_MILLISECONDS.length - 1)]);
           this.ensureOperation(generation);
         }
       }
@@ -1002,7 +776,7 @@ export class VoiceLongRunController {
       const response = await firstValueFrom(this.api.heartbeatLongRun(this.hubUrl, runId, {
         client_time_ms: Date.now(),
         last_local_sequence: this.lastLocalSequence,
-        gaps: [...this.localGapSequences].sort((left, right) => left - right),
+        gaps: this.gaps.localSequences,
       }));
       if (generation !== this.operationGeneration) return;
       this.saveRecovery(
@@ -1013,7 +787,7 @@ export class VoiceLongRunController {
       // newer Hub revision, but must never advance the content cursor or
       // replace visible text before the text-bearing revision delta arrives.
       if (this.updateHubGapProjection(response)) this.observer.runUpdated?.(response);
-      this.kickUploader();
+      this.uploader.kick();
     } catch {
       if (generation !== this.operationGeneration) return;
       this.observer.connection?.('retrying');
@@ -1053,58 +827,20 @@ export class VoiceLongRunController {
       try {
         const response = await this.stopRemote(reason);
         this.ensureOperation(generation);
-        if (this.terminalRun(response.run)) return response;
+        if (terminalRun(response.run)) return response;
         this.publishResponse(response);
       } catch (error) {
         this.ensureOperation(generation);
-        if (!this.isSegmentsInFlight(error)) throw error;
+        if (!isSegmentsInFlight(error)) throw error;
         lastInFlightError = error;
       }
-      await this.refreshRevisionsWhileStopping(generation);
+      await this.revisions.refreshWhileStopping(generation);
       if (attempt < MAX_STOP_CORRECTION_ATTEMPTS - 1) {
-        await this.delay(STOP_CORRECTION_POLL_MILLISECONDS);
+        await delay(STOP_CORRECTION_POLL_MILLISECONDS);
         this.ensureOperation(generation);
       }
     }
     throw lastInFlightError || new Error('voice.long_run.correction_drain_timeout');
-  }
-
-  private async refreshRevisionsWhileStopping(generation: number): Promise<void> {
-    if (this.revisionPollInFlight || !this.run) return;
-    const runId = this.run.id;
-    this.revisionPollInFlight = true;
-    try {
-      const response = await firstValueFrom(this.api.getLongRun(this.hubUrl, runId, {
-        afterRevision: this.timelineRevisionCursor,
-        limit: REVISION_POLL_LIMIT,
-      }));
-      this.ensureOperation(generation);
-      if (this.run?.id !== runId) return;
-      this.publishResponse(response);
-      this.observer.connection?.('online');
-    } catch (error) {
-      this.ensureOperation(generation);
-      this.observer.connection?.('retrying');
-      if (!this.isRetriable(error)) throw error;
-    } finally {
-      this.revisionPollInFlight = false;
-    }
-  }
-
-  private scheduleRetry(): void {
-    if (this.retryTimer || this.stopping || !this.run) return;
-    const delay = RETRY_DELAYS_MILLISECONDS[
-      Math.min(this.retryAttempt, RETRY_DELAYS_MILLISECONDS.length - 1)
-    ];
-    this.retryAttempt += 1;
-    this.retryTimer = setTimeout(() => {
-      this.retryTimer = null;
-      this.kickUploader();
-    }, delay);
-  }
-
-  private segmentIdempotencyKey(runId: string, sequence: number): string {
-    return `voice-ui:long-run-segment:${runId}:${sequence}`;
   }
 
   private saveRecovery(nextSequence: number, timelineMilliseconds: number): void {
@@ -1119,135 +855,36 @@ export class VoiceLongRunController {
       displayMode: this.displayMode,
       nextSequence,
       timelineMilliseconds,
-      completedTimelineMilliseconds: this.completedTimelineMilliseconds,
-      durableNextSequence: this.durableNextSequence,
-      durableTimelineMilliseconds: this.durableTimelineMilliseconds,
+      ...this.durable.descriptorFields(),
       updatedAt: Date.now(),
     };
     this.recovery.save(metadata);
     this.observer.recoveryUpdated?.(metadata);
   }
 
-  private reconciledCursor(
-    response: VoiceLongRunResponse,
-    buffered: VoiceLongRunSpoolMetadata[],
-    descriptor?: VoiceLongRunRecoveryMetadata,
-  ): {
-    nextSequence: number;
-    timelineMilliseconds: number;
-    durableNextSequence: number;
-    durableTimelineMilliseconds: number;
-    completedTimelineMilliseconds: number;
-    gaps: number[];
-  } {
-    const actualSegments = (response.segments || []).filter((item) => item.status !== 'gap');
-    const durableNextSequence = Math.max(
-      0,
-      Number(response.resume?.next_sequence ?? 0),
-      ...actualSegments.map((item) => item.sequence + 1),
-      ...buffered.map((item) => item.sequence + 1),
-      descriptor?.durableNextSequence || 0,
+  private adoptCursor(cursor: VoiceLongRunCursor): void {
+    this.lastLocalSequence = cursor.nextSequence - 1;
+    for (const sequence of cursor.gaps) this.reportGap(sequence);
+    this.durable.adopt(cursor);
+  }
+
+  private createRunSegmenter(request: VoiceLongRunCreateRequest, cursor: VoiceLongRunCursor): VoiceLongRunPcmSegmenter {
+    return this.createSegmenter({
+      segmentDurationSeconds: request.segment_duration_seconds,
+      overlapMilliseconds: request.overlap_milliseconds,
+      maxDurationSeconds: request.max_duration_seconds,
+      initialSequence: cursor.nextSequence,
+      initialTimelineMilliseconds: cursor.timelineMilliseconds,
+    });
+  }
+
+  private startCapture(maxDurationSeconds: number): Promise<void> {
+    return this.capture.start(
+      (chunk) => this.onCaptureChunk(chunk),
+      (error) => this.requestAutomaticStop('capture_error', error),
+      (reason) => this.requestAutomaticStop(reason || 'source_ended'),
+      { maxDurationSeconds },
     );
-    const durableTimelineMilliseconds = Math.max(
-      0,
-      descriptor?.durableTimelineMilliseconds || 0,
-      ...buffered.map((item) => item.endedAtMs),
-      ...actualSegments.map((item) => Number(item.ended_at_ms || 0)),
-    );
-    const completedTimelineMilliseconds = Math.max(
-      durableTimelineMilliseconds,
-      descriptor?.completedTimelineMilliseconds || 0,
-    );
-    const descriptorNext = Math.max(durableNextSequence, descriptor?.nextSequence || 0);
-    const gaps = new Set<number>(response.gaps || []);
-    for (let sequence = durableNextSequence; sequence < descriptorNext; sequence += 1) gaps.add(sequence);
-    let nextSequence = descriptorNext;
-    const timelineMilliseconds = Math.max(
-      durableTimelineMilliseconds,
-      descriptor?.timelineMilliseconds || 0,
-    );
-    if (timelineMilliseconds > completedTimelineMilliseconds) {
-      gaps.add(nextSequence);
-      nextSequence += 1;
-    }
-    nextSequence = Math.max(nextSequence, ...[...gaps].map((sequence) => sequence + 1));
-    if (nextSequence > 0 && timelineMilliseconds <= 0) {
-      throw new Error('voice.long_run.resume_cursor_invalid');
-    }
-    return {
-      nextSequence,
-      timelineMilliseconds,
-      durableNextSequence,
-      durableTimelineMilliseconds,
-      completedTimelineMilliseconds,
-      gaps: [...gaps].sort((left, right) => left - right),
-    };
-  }
-
-  private applyCursorState(cursor: {
-    timelineMilliseconds: number;
-    durableNextSequence: number;
-    durableTimelineMilliseconds: number;
-    completedTimelineMilliseconds: number;
-  }): void {
-    this.latestTimelineMilliseconds = cursor.timelineMilliseconds;
-    this.durableNextSequence = cursor.durableNextSequence;
-    this.durableTimelineMilliseconds = cursor.durableTimelineMilliseconds;
-    this.completedTimelineMilliseconds = cursor.completedTimelineMilliseconds;
-  }
-
-  private requestFromRun(run: VoiceLongRunState): VoiceLongRunCreateRequest {
-    return {
-      source: run.source === 'system_audio' ? 'system_audio' : 'microphone',
-      profile_id: String(run.profile_id || 'default'),
-      configuration_session_id: run.configuration_session_id || undefined,
-      segment_duration_seconds: Number(run.segment_duration_seconds || 120),
-      max_duration_seconds: Number(run.max_duration_seconds || 28_800),
-      overlap_milliseconds: Number(run.overlap_milliseconds || 0),
-    };
-  }
-
-  private sameRecoveryRequest(
-    metadata: VoiceLongRunRecoveryMetadata,
-    hubUrl: string,
-    request: VoiceLongRunCreateRequest,
-  ): boolean {
-    return metadata.hubUrl === hubUrl && JSON.stringify(metadata.request) === JSON.stringify(request);
-  }
-
-  private validLeaseToken(lease: VoiceLongRunLease, profileId: string): string {
-    const token = String(lease?.lease_token || '').trim();
-    const expiresAt = this.timestampMilliseconds(lease?.expires_at);
-    if (!token || lease?.profile_id !== profileId
-      || !Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
-      throw new Error('voice.long_run.start_lease_invalid');
-    }
-    return token;
-  }
-
-  private captureDeadlineExpired(run: VoiceLongRunState): boolean {
-    return this.timestampExpired(run.capture_deadline_at);
-  }
-
-  private runExpired(run: VoiceLongRunState): boolean {
-    return this.timestampExpired(run.expires_at);
-  }
-
-  private terminalRun(run: VoiceLongRunState): boolean {
-    return ['completed', 'completed_with_gaps', 'expired', 'failed', 'cancelled']
-      .includes(run.status);
-  }
-
-  private timestampExpired(raw: string | number | null | undefined): boolean {
-    const milliseconds = this.timestampMilliseconds(raw);
-    return Number.isFinite(milliseconds) && milliseconds <= Date.now();
-  }
-
-  private timestampMilliseconds(raw: string | number | null | undefined): number {
-    if (raw == null || raw === '') return Number.NaN;
-    return typeof raw === 'number'
-      ? (raw < 10_000_000_000 ? raw * 1_000 : raw)
-      : Date.parse(raw);
   }
 
   private startCaptureDeadline(
@@ -1256,14 +893,7 @@ export class VoiceLongRunController {
     timelineMilliseconds: number,
   ): void {
     if (this.captureDeadlineTimer) clearTimeout(this.captureDeadlineTimer);
-    const explicit = this.timestampMilliseconds(run.capture_deadline_at);
-    const started = this.timestampMilliseconds(run.started_at);
-    const remaining = Math.max(0, maxDurationSeconds * 1_000 - timelineMilliseconds);
-    const deadline = Number.isFinite(explicit)
-      ? explicit
-      : Number.isFinite(started)
-        ? started + maxDurationSeconds * 1_000
-        : Date.now() + remaining;
+    const deadline = captureDeadlineAt(run, maxDurationSeconds, timelineMilliseconds);
     this.captureDeadlineTimer = setTimeout(
       () => this.requestAutomaticStop('capture_deadline'),
       Math.max(0, deadline - Date.now()),
@@ -1271,15 +901,14 @@ export class VoiceLongRunController {
   }
 
   private ensureOperation(generation: number): void {
-    if (generation !== this.operationGeneration) throw new Error('voice.capture.cancelled');
+    ensureOperation(generation, this.operationGeneration);
   }
 
   private clearTimers(): void {
     this.clearHeartbeat();
-    this.clearRevisionPollTimer();
-    if (this.retryTimer) clearTimeout(this.retryTimer);
+    this.revisions.clearTimer();
+    this.uploader.clearRetryTimer();
     if (this.captureDeadlineTimer) clearTimeout(this.captureDeadlineTimer);
-    this.retryTimer = null;
     this.captureDeadlineTimer = null;
   }
 
@@ -1288,119 +917,39 @@ export class VoiceLongRunController {
     this.heartbeatTimer = null;
   }
 
-  private clearRevisionPollTimer(): void {
-    if (this.revisionPollTimer) clearTimeout(this.revisionPollTimer);
-    this.revisionPollTimer = null;
-  }
-
-  private resetTimelineProjection(): void {
-    this.clearRevisionPollTimer();
-    this.timeline.reset();
-    this.revisionPollingNeeded = false;
-    this.revisionPollingBlocked = false;
-    this.revisionPollFailure = 0;
-    this.timelineRevisionCursor = 0;
-  }
-
   private resetGapProjection(notify = true): void {
-    this.localGapSequences.clear();
-    this.hubGapSequences.clear();
-    this.latestRunVersion = null;
-    if (notify) this.observer.gapsUpdated?.([]);
+    this.gaps.reset(notify);
   }
 
   private updateHubGapProjection(response: VoiceLongRunResponse): boolean {
     if (this.run?.id && response.run.id !== this.run.id) return false;
-    const completed = [
-      ...(response.segments || []),
-      ...((response as VoiceLongRunSegmentUploadResponse).segment
-        ? [(response as VoiceLongRunSegmentUploadResponse).segment]
-        : []),
-    ].filter((segment) => segment.status === 'completed');
-    for (const segment of completed) this.localGapSequences.delete(segment.sequence);
-
-    const version = this.normalizedRunVersion(response.run.version);
-    if ((version == null && this.latestRunVersion != null)
-      || (version != null && this.latestRunVersion != null && version < this.latestRunVersion)) {
-      this.emitGapProjection();
-      return false;
-    }
-    if (version != null) this.latestRunVersion = version;
-    this.run = response.run;
-    const completedSequences = new Set(completed.map((segment) => segment.sequence));
-    this.hubGapSequences = new Set((response.gaps || []).filter((sequence) => (
-      Number.isInteger(sequence) && sequence >= 0 && !completedSequences.has(sequence)
-    )));
-    this.emitGapProjection();
-    return true;
-  }
-
-  private emitGapProjection(): void {
-    this.observer.gapsUpdated?.(
-      [...new Set([...this.hubGapSequences, ...this.localGapSequences])]
-        .sort((left, right) => left - right),
-    );
-  }
-
-  private normalizedRunVersion(value: number | undefined): number | null {
-    const numeric = Number(value);
-    return Number.isInteger(numeric) && numeric >= 0 ? numeric : null;
+    return this.gaps.applyHubResponse(response, () => { this.run = response.run; });
   }
 
   private resetRuntime(): void {
     this.clearTimers();
     this.run = null;
     this.segmenter = null;
-    this.uploadOperation = null;
+    this.uploader.reset();
     this.stopping = false;
     this.pendingAutomaticStopReason = '';
     this.resetGapProjection(false);
-    this.retryAttempt = 0;
     this.lastLocalSequence = -1;
     this.currentRequest = null;
     this.displayMode = DEFAULT_VOICE_LONG_RUN_DISPLAY_MODE;
     this.createIdempotencyKey = '';
-    this.inFlightSequence = null;
-    this.deferredEvictions.clear();
     this.pendingPersistenceSegments = 0;
     this.pendingPersistenceBytes = 0;
-    this.latestTimelineMilliseconds = 0;
-    this.completedTimelineMilliseconds = 0;
-    this.durableNextSequence = 0;
-    this.durableTimelineMilliseconds = 0;
+    this.durable.reset();
     this.profileGeneration = 0;
     this.pendingProfileId = '';
-    this.resetTimelineProjection();
-  }
-
-  private delay(milliseconds: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, milliseconds));
-  }
-
-  private withTimeout<T>(operation: Promise<T>, milliseconds: number): Promise<T> {
-    return new Promise<T>((resolve, reject) => {
-      const timeout = setTimeout(
-        () => reject(new Error('voice.long_run.secure_spool_timeout')),
-        milliseconds,
-      );
-      operation.then(
-        (value) => {
-          clearTimeout(timeout);
-          resolve(value);
-        },
-        (error) => {
-          clearTimeout(timeout);
-          reject(error);
-        },
-      );
-    });
+    this.revisions.reset();
   }
 
   private reportGap(sequence: number): void {
-    if (this.localGapSequences.has(sequence)) return;
-    this.localGapSequences.add(sequence);
+    if (!this.gaps.reportLocal(sequence)) return;
     this.observer.gap?.(sequence);
-    this.emitGapProjection();
+    this.gaps.emitMerged();
   }
 
   private abortForProfileDeletion(): void {
@@ -1441,26 +990,4 @@ export class VoiceLongRunController {
       || profileId === this.pendingProfileId;
   }
 
-  private isRetriable(error: unknown): boolean {
-    const candidate = (error as any)?.error?.data?.error
-      ?? (error as any)?.error?.error
-      ?? (error as any)?.error
-      ?? error;
-    if (typeof candidate?.retriable === 'boolean') return candidate.retriable;
-    const status = Number((error as any)?.status || candidate?.status || 0);
-    return status === 0 || status === 408 || status === 425 || status === 429 || status >= 500;
-  }
-
-  private isNotFound(error: unknown): boolean {
-    return Number((error as any)?.status || (error as any)?.error?.status || 0) === 404;
-  }
-
-  private isSegmentsInFlight(error: unknown): boolean {
-    const candidate = (error as any)?.error?.data?.error
-      ?? (error as any)?.error?.error
-      ?? (error as any)?.error
-      ?? error;
-    return String(candidate?.code || '') === 'voice_live_run.segments_in_flight'
-      && candidate?.retriable !== false;
-  }
 }
