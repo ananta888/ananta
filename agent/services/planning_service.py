@@ -57,10 +57,12 @@ class PlanningService:
     Collaborators are explicit keyword-only constructor parameters with
     production defaults (DIP): ``repository_provider`` returns the repository
     registry, ``task_lifecycle_provider`` the lifecycle service that creates
-    Hub tasks from plan nodes, and ``strategy_collaborators`` the LLM/parser
+    Hub tasks from plan nodes, ``strategy_collaborators`` the LLM/parser
     ports handed to the LLM-backed planning strategies (``None`` lets each
-    strategy bind the production defaults). The extracted planning modules
-    receive only the narrow ports built here, never the service itself.
+    strategy bind the production defaults) and ``existing_plan_validator``
+    the pre-materialization plan validation (``None``: the planning-policy
+    validation of this service). The extracted planning modules receive only
+    the narrow ports built here, never the service itself.
     """
 
     _materialization_locks_guard = threading.Lock()
@@ -72,25 +74,29 @@ class PlanningService:
         repository_provider: Callable[[], Any] | None = None,
         task_lifecycle_provider: Callable[[], Any] | None = None,
         strategy_collaborators: PlanningStrategyCollaborators | None = None,
+        existing_plan_validator: Callable[..., dict[str, Any]] | None = None,
     ) -> None:
         self._repository_provider = repository_provider or get_repository_registry
         self._task_lifecycle_provider = task_lifecycle_provider or get_task_lifecycle_service
         self._strategy_collaborators = strategy_collaborators
+        self._materializer = PlanMaterializer(
+            PlanMaterializationPorts(
+                repositories=self._repository_provider,
+                task_lifecycle=self._task_lifecycle_provider,
+                plan_mutation_lock=self.plan_mutation_lock,
+                validate_existing_plan=(
+                    existing_plan_validator or self._validate_existing_plan_for_materialization
+                ),
+                pipeline_shell_modes=frozenset(self._PIPELINE_SHELL_MODES),
+            )
+        )
 
     def _repositories(self) -> Any:
         return self._repository_provider()
 
     def _plan_materializer(self) -> PlanMaterializer:
-        """Build the materializer from bound hooks so instance overrides apply."""
-        return PlanMaterializer(
-            PlanMaterializationPorts(
-                repositories=self._repository_provider,
-                task_lifecycle=self._task_lifecycle_provider,
-                plan_mutation_lock=self.plan_mutation_lock,
-                validate_existing_plan=self._validate_existing_plan_for_materialization,
-                pipeline_shell_modes=frozenset(self._PIPELINE_SHELL_MODES),
-            )
-        )
+        """The materializer composed once from this service's injected ports."""
+        return self._materializer
 
     @classmethod
     def _materialization_lock(cls, plan_id: str) -> threading.RLock:

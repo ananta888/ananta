@@ -82,6 +82,7 @@ class TaskRecoveryPlanningService:
         planning_service_provider: Callable[[], Any] | None = None,
         routing_policy_provider: Callable[[], dict[str, Any]] | None = None,
         task_status_updater: Callable[..., None] | None = None,
+        conditional_task_update: Callable[..., bool] | None = None,
     ) -> None:
         self._role_provider = role_provider or (lambda: str(settings.role or ""))
         self._repository_provider = repository_provider
@@ -92,6 +93,13 @@ class TaskRecoveryPlanningService:
         self._task_status_updater = task_status_updater
         self._locks_guard = threading.Lock()
         self._locks: dict[str, threading.RLock] = {}
+        # The task status compare-and-set port of every saga step; ``None``
+        # selects the production row-CAS of ``_conditional_update_task``.
+        self._conditional_update = conditional_task_update or self._conditional_update_task
+        self._approval_saga_step = self._compose_approval_saga()
+        self._release = self._compose_release_step()
+        self._proposal = self._compose_proposal_step()
+        self._approval_decision = self._compose_approval_decision_step()
 
     def _lock_for(self, key: str) -> threading.RLock:
         with self._locks_guard:
@@ -390,9 +398,8 @@ class TaskRecoveryPlanningService:
     # -- Composition of the saga steps -------------------------------------
     # The service is the composition root. It adapts its constructor
     # providers (production defaults when omitted) into the narrow ports of
-    # each step. Steps are composed per call from bound methods, so a
-    # replaced compatibility hook on this instance (e.g. a test double of
-    # ``_conditional_update_task``) is the collaborator the steps receive.
+    # each step once, at construction; the task CAS port is the injected
+    # ``conditional_task_update``.
 
     def _recovery_locks(self) -> RecoveryLocks:
         return RecoveryLocks(
@@ -407,26 +414,26 @@ class TaskRecoveryPlanningService:
     def _child_canceller(self) -> RecoveryChildCanceller:
         if self._task_status_updater is None:
             return DispatchGateChildCanceller()
-        return StatusCasChildCanceller(self._conditional_update_task)
+        return StatusCasChildCanceller(self._conditional_update)
 
-    def _approval_saga(self) -> RecoveryApprovalSaga:
+    def _compose_approval_saga(self) -> RecoveryApprovalSaga:
         return RecoveryApprovalSaga(
             locks=self._recovery_locks(),
-            conditional_update=self._conditional_update_task,
+            conditional_update=self._conditional_update,
             approval_service=self._approval_service,
         )
 
-    def _release_step(self) -> RecoveryRelease:
+    def _compose_release_step(self) -> RecoveryRelease:
         return RecoveryRelease(
             locks=self._recovery_locks(),
-            conditional_update=self._conditional_update_task,
+            conditional_update=self._conditional_update,
             child_canceller=self._child_canceller(),
         )
 
-    def _proposal_step(self) -> RecoveryProposal:
+    def _compose_proposal_step(self) -> RecoveryProposal:
         return RecoveryProposal(
             locks=self._recovery_locks(),
-            saga=self._approval_saga(),
+            saga=self._approval_saga_step,
             role=self._role_provider,
             repositories=self._repos,
             planner=self._planner,
@@ -435,12 +442,12 @@ class TaskRecoveryPlanningService:
             audit=self._audit,
         )
 
-    def _approval_decision_step(self) -> RecoveryApprovalDecision:
+    def _compose_approval_decision_step(self) -> RecoveryApprovalDecision:
         return RecoveryApprovalDecision(
             locks=self._recovery_locks(),
-            conditional_update=self._conditional_update_task,
-            saga=self._approval_saga(),
-            release=self._release_step(),
+            conditional_update=self._conditional_update,
+            saga=self._approval_saga_step,
+            release=self._release,
             role=self._role_provider,
             repositories=self._repos,
             approval_service=self._approval_service,
@@ -449,6 +456,18 @@ class TaskRecoveryPlanningService:
             policy_binding=self._policy_binding,
             audit=self._audit,
         )
+
+    def _approval_saga(self) -> RecoveryApprovalSaga:
+        return self._approval_saga_step
+
+    def _release_step(self) -> RecoveryRelease:
+        return self._release
+
+    def _proposal_step(self) -> RecoveryProposal:
+        return self._proposal
+
+    def _approval_decision_step(self) -> RecoveryApprovalDecision:
+        return self._approval_decision
 
     # -- Compatibility delegators -------------------------------------------
 

@@ -270,7 +270,23 @@ class MemoryPlanningService:
         }
 
 
-def _fixture(*, routing_policy=None):
+class _SwitchableTaskCas:
+    """Task CAS port double: delegates to the production CAS until replaced.
+
+    Injected through ``conditional_task_update``; a test arms ``replacement``
+    after setup to model a lost or racing status transition.
+    """
+
+    def __init__(self):
+        self.production = None
+        self.replacement = None
+
+    def __call__(self, task_id, status, **values):
+        active = self.replacement or self.production
+        return active(task_id, status, **values)
+
+
+def _fixture(*, routing_policy=None, task_cas=None):
     task = Record(
         id="task-1",
         goal_id="goal-1",
@@ -331,7 +347,10 @@ def _fixture(*, routing_policy=None):
         planning_service_provider=lambda: planning,
         routing_policy_provider=((lambda: dict(routing_policy)) if routing_policy is not None else None),
         task_status_updater=update_task,
+        conditional_task_update=task_cas,
     )
+    if task_cas is not None:
+        task_cas.production = service._conditional_update_task
     failures = [
         {
             "failure_type": "invalid_proposal",
@@ -1019,6 +1038,10 @@ def _partial_materialization_fixture(monkeypatch):
     service = PlanningService(
         repository_provider=lambda: repos,
         task_lifecycle_provider=lambda: lifecycle_slot["lifecycle"],
+        existing_plan_validator=lambda **_values: {
+            "ok": True,
+            "reason_code": "validated",
+        },
     )
     staged = service._prepare_materialization(
         nodes,
@@ -1064,14 +1087,6 @@ def _partial_materialization_fixture(monkeypatch):
             task_repo.save(task_from_entry(entry))
 
     lifecycle_slot["lifecycle"] = Lifecycle()
-    monkeypatch.setattr(
-        service,
-        "_validate_existing_plan_for_materialization",
-        lambda **_values: {
-            "ok": True,
-            "reason_code": "validated",
-        },
-    )
     task_repo.lifecycle_slot = lifecycle_slot
     return service, plan, nodes, staged, task_repo, lifecycle_calls
 
@@ -1248,6 +1263,7 @@ def test_authoritative_source_guard_rejects_second_failure_fingerprint():
 def test_release_cancels_children_when_source_cas_loses_terminal_race(
     monkeypatch,
 ):
+    task_cas = _SwitchableTaskCas()
     (
         service,
         task,
@@ -1257,14 +1273,14 @@ def test_release_cancels_children_when_source_cas_loses_terminal_race(
         _planning,
         updates,
         failures,
-    ) = _fixture()
+    ) = _fixture(task_cas=task_cas)
     proposal = service.propose_after_model_exhaustion(
         task=task,
         strategy_failures=failures,
     )
     approval = approvals.created[0]
     approval.status = "granted"
-    original_update = service._conditional_update_task
+    original_update = task_cas.production
 
     def race_update(task_id, status, **values):
         if task_id == task.id and status == "blocked_by_dependency":
@@ -1272,11 +1288,7 @@ def test_release_cancels_children_when_source_cas_loses_terminal_race(
             return False
         return original_update(task_id, status, **values)
 
-    monkeypatch.setattr(
-        service,
-        "_conditional_update_task",
-        race_update,
-    )
+    task_cas.replacement = race_update
 
     result = service.handle_approval_decision(approval)
 
@@ -1419,6 +1431,7 @@ def test_denied_recovery_action_is_reconciled_after_dispatch_crash(
 def test_denied_recovery_requires_confirmed_source_transition(
     monkeypatch,
 ):
+    task_cas = _SwitchableTaskCas()
     (
         service,
         task,
@@ -1428,18 +1441,14 @@ def test_denied_recovery_requires_confirmed_source_transition(
         _planning,
         _updates,
         failures,
-    ) = _fixture()
+    ) = _fixture(task_cas=task_cas)
     service.propose_after_model_exhaustion(
         task=task,
         strategy_failures=failures,
     )
     approval = approvals.created[0]
     approval.status = "denied"
-    monkeypatch.setattr(
-        service,
-        "_conditional_update_task",
-        lambda *_args, **_kwargs: False,
-    )
+    task_cas.replacement = lambda *_args, **_kwargs: False
 
     result = service.handle_approval_decision(approval)
 
@@ -1501,6 +1510,7 @@ def test_task_status_compare_and_set_rejects_stale_source_state(
 def test_release_commits_epoch_before_root_becomes_dispatchable(
     monkeypatch,
 ):
+    task_cas = _SwitchableTaskCas()
     (
         service,
         task,
@@ -1510,14 +1520,14 @@ def test_release_commits_epoch_before_root_becomes_dispatchable(
         _planning,
         _updates,
         failures,
-    ) = _fixture()
+    ) = _fixture(task_cas=task_cas)
     proposal = service.propose_after_model_exhaustion(
         task=task,
         strategy_failures=failures,
     )
     approval = approvals.created[0]
     approval.status = "granted"
-    original_conditional_update = service._conditional_update_task
+    original_conditional_update = task_cas.production
     root_observations = []
 
     def observe_release(task_id, status, **values):
@@ -1548,11 +1558,7 @@ def test_release_commits_epoch_before_root_becomes_dispatchable(
             **values,
         )
 
-    monkeypatch.setattr(
-        service,
-        "_conditional_update_task",
-        observe_release,
-    )
+    task_cas.replacement = observe_release
 
     result = service.handle_approval_decision(approval)
 
@@ -4152,6 +4158,7 @@ def test_terminal_source_cas_cancels_children_and_finalizes_goal(
 def test_stale_digest_refresh_retries_source_cas_without_duplicate(
     monkeypatch,
 ):
+    task_cas = _SwitchableTaskCas()
     (
         service,
         task,
@@ -4161,7 +4168,7 @@ def test_stale_digest_refresh_retries_source_cas_without_duplicate(
         planning,
         _updates,
         failures,
-    ) = _fixture()
+    ) = _fixture(task_cas=task_cas)
     proposal = service.propose_after_model_exhaustion(
         task=task,
         strategy_failures=failures,
@@ -4171,7 +4178,7 @@ def test_stale_digest_refresh_retries_source_cas_without_duplicate(
     )
     stale = approvals.created[0]
     stale.status = "granted"
-    original_update = service._conditional_update_task
+    original_update = task_cas.production
     fail_once = {"active": True}
 
     # The saga parks the source through the task CAS port; failing that
@@ -4189,11 +4196,7 @@ def test_stale_digest_refresh_retries_source_cas_without_duplicate(
             return False
         return original_update(task_id, status, **values)
 
-    monkeypatch.setattr(
-        service,
-        "_conditional_update_task",
-        fail_refresh_source_once,
-    )
+    task_cas.replacement = fail_refresh_source_once
     first = service.handle_approval_decision(stale)
 
     assert first["reason_code"] == (
