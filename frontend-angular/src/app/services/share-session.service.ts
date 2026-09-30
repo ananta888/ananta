@@ -16,127 +16,42 @@ import {
 } from './pair-session-control-plane.service';
 import type { PairControlPlaneKind } from './pair-session-binding.store';
 import { PairPublicSessionContractPolicy } from './pair-public-session-contract.policy';
-import {
-  PairSecurityBootstrapState,
-  PairViewSecurityBootstrapService,
-} from './pair-view-security-bootstrap.service';
+import { PairViewSecurityBootstrapService } from './pair-view-security-bootstrap.service';
 import {
   isIdempotentPairSessionRetirementReason,
   isTerminalPairSessionReason,
   terminalPairSessionReason,
 } from './pair-session-terminal-error';
+import type {
+  ActiveShareState,
+  MembershipMutationFence,
+  PendingMembershipAuthority,
+  PublicPairRuntimeState,
+  ShareChatMessage,
+  ShareParticipant,
+  ShareSession,
+  ShareSessionCatalogEntry,
+  StrictShareChatWireMessage,
+} from './share-session.types';
+import { ShareSessionMutationFences } from './share-session-mutation-fences';
+import { listedSessionRole, listedSessionRuntimeState, shareParticipantStatus } from './share-session.rules';
+import {
+  chatMessageFromStrictPlaintext,
+  createStrictChatPlaintext,
+  newShareChatMessageId,
+  parseLegacyChat,
+  parseStrictChatPlaintext,
+  parseStrictChatWire,
+} from './share-session-chat.codec';
 
-export interface ShareSession {
-  id: string;
-  /** Canonical, server-issued peer identity for this exact control plane. */
-  local_peer_id?: string;
-  title: string;
-  /** Present only when the current membership is allowed to invite another peer. */
-  invite_code?: string;
-  mode: string;
-  transport: string;
-  permissions: Record<string, boolean>;
-  created_at: number;
-  expires_at: number | null;
-  revoked_at: number | null;
-  /** Legacy/Hub identity field; compact v2 catalog rows deliberately omit it. */
-  owner_user_id?: string;
-  tenant_id?: string;
-  permissions_version?: number;
-  security_epoch?: number | null;
-  security_contract_version?: number;
-  security_mode?: string;
-  identity_binding_version?: number;
-  /** Server-validated role for an exact device-selected list item. */
-  local_role?: 'owner' | 'participant';
-  /** Server-authoritative runtime state for this exact v2 device membership. */
-  local_runtime_state?: 'active' | 'parked';
-  /** Canonical owner device peer id for v2 role verification. */
-  owner_peer_id?: string;
-  participant_count?: number;
-  /** Server-issued, session-scoped label that does not expose a peer/device id. */
-  peer_label?: string;
-  participants?: readonly ShareParticipant[];
-}
-
-export interface ShareSessionCatalogEntry {
-  readonly session: ShareSession;
-  readonly role: 'owner' | 'participant';
-}
-
-export interface ShareParticipant {
-  id: string;
-  user_id: string;
-  account_id?: string;
-  peer_id?: string;
-  device_id: string;
-  joined_at: number;
-  last_seen_at: number | null;
-  revoked_at: number | null;
-  permissions: Record<string, boolean>;
-}
-
-export interface ShareChatMessage {
-  id: string;
-  session_id: string;
-  sender_id: string;
-  text: string;
-  created_at: number;
-  visibility: string;
-}
-
-interface StrictShareChatWireMessage {
-  id: string;
-  encrypted_payload: string;
-}
-
-interface LegacyShareChatWireMessage {
-  id?: unknown;
-  session_id?: unknown;
-  share_session_id?: unknown;
-  sender_id?: unknown;
-  from_id?: unknown;
-  text?: unknown;
-  created_at?: unknown;
-  visibility?: unknown;
-}
-
-interface StrictChatPlaintext {
-  version: 1;
-  id: string;
-  sessionId: string;
-  senderUserId: string;
-  text: string;
-  createdAt: number;
-  visibility: 'room';
-}
-
-export interface ActiveShareState {
-  session: ShareSession | null;
-  participants: ShareParticipant[];
-  messages: ShareChatMessage[];
-  cursor: string;
-  role: 'owner' | 'participant' | null;
-}
-
-type PendingMembershipAuthority = PairControlPlaneKind | 'unknown';
-
-interface MembershipMutationFence {
-  readonly serial: number;
-  readonly kind: 'create' | 'join';
-  readonly authority: PendingMembershipAuthority;
-  readonly sourceSessionId: string;
-  readonly sourceGeneration: number;
-}
-
-export type PublicPairRuntimeState =
-  | 'idle'
-  | 'public_pending'
-  | 'hub_pending'
-  | 'unknown_pending'
-  | 'public'
-  | 'hub'
-  | 'unknown';
+export type {
+  ShareSession,
+  ShareSessionCatalogEntry,
+  ShareParticipant,
+  ShareChatMessage,
+  ActiveShareState,
+  PublicPairRuntimeState,
+} from './share-session.types';
 
 @Injectable({ providedIn: 'root' })
 export class ShareSessionService implements OnDestroy {
@@ -168,15 +83,10 @@ export class ShareSessionService implements OnDestroy {
     sessionId: string;
     promise: Promise<void>;
   }> | null = null;
-  private membershipMutationSerial = 0;
-  private activeMembershipMutation: Readonly<MembershipMutationFence> | null = null;
-  private sessionSwitchSerial = 0;
-  private activeSessionSwitch: Readonly<{
-    serial: number;
-    sourceSessionId: string;
-    targetSessionId: string;
-    sourceGeneration: number;
-  }> | null = null;
+  private readonly fences = new ShareSessionMutationFences(
+    () => ({ sessionId: this.state$.value.session?.id ?? '', generation: this.sessionGeneration }),
+    () => this.publishPublicPairRuntimeState(),
+  );
 
   constructor() {
     this.lifetimeSubscriptions.add(this.state$.subscribe(() => this.publishPublicPairRuntimeState()));
@@ -202,7 +112,7 @@ export class ShareSessionService implements OnDestroy {
         ).catch(() => undefined);
         return;
       }
-      const item = this.parseLegacyChat(msg.payload);
+      const item = parseLegacyChat(msg.payload, this.state$.value.session?.id);
       if (item) this.appendMessage(item);
     }));
     const terminalFailures = this.transport.terminalFailure$;
@@ -233,7 +143,7 @@ export class ShareSessionService implements OnDestroy {
       || state === 'unknown';
   }
   get sessionMutationPending(): boolean {
-    return this.activeMembershipMutation !== null || this.activeSessionSwitch !== null;
+    return this.fences.pending;
   }
 
   /**
@@ -301,7 +211,7 @@ export class ShareSessionService implements OnDestroy {
     return this.runMembershipMutation('create', authority, async mutation => {
       const expectedAuthority = this.requirePinnedMembershipAuthority(authority);
       const deviceKey = await this.e2ee.ensureLocalKeyPair();
-      this.assertMembershipMutationCurrent(mutation);
+      this.fences.assertMembershipMutationCurrent(mutation);
       const transport = this.preferredTransport();
       const body = {
         title,
@@ -319,7 +229,7 @@ export class ShareSessionService implements OnDestroy {
         expectedAuthority,
       }));
       if (!session?.id) throw new Error('no session in response');
-      this.assertMembershipMutationCurrent(mutation);
+      this.fences.assertMembershipMutationCurrent(mutation);
       this.activateValidatedSession(session, 'owner');
       return session;
     });
@@ -333,7 +243,7 @@ export class ShareSessionService implements OnDestroy {
     return this.runMembershipMutation('join', authority, async mutation => {
       const expectedAuthority = this.requirePinnedMembershipAuthority(authority);
       const deviceKey = await this.e2ee.ensureLocalKeyPair();
-      this.assertMembershipMutationCurrent(mutation);
+      this.fences.assertMembershipMutationCurrent(mutation);
       const session = await firstValueFrom(this.controlPlane.join<ShareSession>({
         invite_code: inviteCode,
         minimum_security_mode: options.allowLegacy === true ? 'legacy' : 'strict_e2ee',
@@ -341,7 +251,7 @@ export class ShareSessionService implements OnDestroy {
         public_key_fingerprint: deviceKey.fingerprint,
       }, { expectedAuthority }));
       if (!session?.id) throw new Error('join failed');
-      this.assertMembershipMutationCurrent(mutation);
+      this.fences.assertMembershipMutationCurrent(mutation);
       this.activateValidatedSession(session, 'participant', options.allowLegacy === true);
       return session;
     });
@@ -389,20 +299,13 @@ export class ShareSessionService implements OnDestroy {
         || !this.controlPlane.isPublicSession(sourceSessionId)
         || sourceSession.identity_binding_version !== 2)
     ) return;
-    if (this.activeMembershipMutation || this.retirementOperation || this.activeSessionSwitch) {
+    if (this.fences.pending || this.retirementOperation) {
       throw new Error('pair_session_mutation_in_progress');
     }
-    const serial = ++this.sessionSwitchSerial;
-    const operation = Object.freeze({
-      serial,
-      sourceSessionId,
-      targetSessionId,
-      sourceGeneration: this.sessionGeneration,
-    });
-    this.activeSessionSwitch = operation;
+    const operation = this.fences.beginSessionSwitch(targetSessionId);
     try {
       const entries = await this.listSessions(options);
-      this.assertSessionSwitchCurrent(operation);
+      this.fences.assertSessionSwitchCurrent(operation);
       const target = entries.find(entry => entry.session.id === targetSessionId);
       if (!target) throw new Error('pair_session_switch_target_unavailable');
       let activatedSession = target.session;
@@ -413,7 +316,7 @@ export class ShareSessionService implements OnDestroy {
         const runtime = await firstValueFrom(
           this.controlPlane.activateSessionRuntime(targetSessionId),
         );
-        this.assertSessionSwitchCurrent(operation);
+        this.fences.assertSessionSwitchCurrent(operation);
         if (
           typeof target.session.security_epoch === 'number'
           && runtime.security_epoch < target.session.security_epoch
@@ -424,10 +327,10 @@ export class ShareSessionService implements OnDestroy {
           security_epoch: runtime.security_epoch,
         };
       }
-      this.assertSessionSwitchCurrent(operation);
+      this.fences.assertSessionSwitchCurrent(operation);
       this.activateValidatedSession(activatedSession, target.role);
     } finally {
-      if (this.activeSessionSwitch?.serial === serial) this.activeSessionSwitch = null;
+      this.fences.endSessionSwitch(operation);
     }
   }
 
@@ -455,17 +358,8 @@ export class ShareSessionService implements OnDestroy {
         throw new Error('confirmed_pair_binding_required');
       }
       const senderUserId = this.currentUserId;
-      const id = crypto.randomUUID ? crypto.randomUUID() : String(Date.now());
-      const createdAt = Date.now() / 1000;
-      const plaintext: StrictChatPlaintext = {
-        version: 1,
-        id,
-        sessionId: session.id,
-        senderUserId,
-        text: normalized,
-        createdAt,
-        visibility: 'room',
-      };
+      const id = newShareChatMessageId();
+      const plaintext = createStrictChatPlaintext(id, session.id, senderUserId, normalized, Date.now() / 1000);
       const encryptedPayload = await this.cryptoPort.seal(JSON.stringify(plaintext), {
         scopeId: session.id,
         epoch: session.security_epoch,
@@ -492,20 +386,13 @@ export class ShareSessionService implements OnDestroy {
           `${url}/share-sessions/${session.id}/chat/messages`, wire, url,
         ));
       }
-      this.appendMessage({
-        id,
-        session_id: session.id,
-        sender_id: senderUserId,
-        text: normalized,
-        created_at: createdAt,
-        visibility: 'room',
-      });
+      this.appendMessage(chatMessageFromStrictPlaintext(plaintext));
       return;
     }
 
     if (this.transport.mode$.value === 'webrtc') {
       this.transport.send('chat', {
-        id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+        id: newShareChatMessageId(),
         session_id: session.id,
         text: normalized,
         sender_id: this.currentUserId,
@@ -519,7 +406,7 @@ export class ShareSessionService implements OnDestroy {
     if (!url) throw new Error('hub_unavailable');
     await firstValueFrom(this.core.post(`${url}/share-sessions/${session.id}/chat/messages`, {
       text: normalized, visibility: 'room', channel_type: 'room',
-      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+      id: newShareChatMessageId(),
     }, url));
   }
 
@@ -554,59 +441,36 @@ export class ShareSessionService implements OnDestroy {
     return this.runRetirementOnce(session.id, () => this.leaveActiveMembership(session));
   }
 
-  private async endActiveSession(session: ShareSession): Promise<void> {
-    let request: Observable<unknown>;
-    try {
-      // Construct the authenticated request while the immutable binding is
-      // still present, then quiesce every background continuation before the
-      // bounded idempotent mutation leaves the browser.
-      request = this.controlPlane.end(session.id);
-    } catch (error) {
-      this.quiesceActiveTransport(session.id, this.sessionGeneration);
-      throw error;
-    }
-    const retirementGeneration = this.quiesceActiveTransport(
-      session.id,
-      this.sessionGeneration,
-    );
-    try {
-      await firstValueFrom(request);
-      this.completeSessionRetirement(session.id, retirementGeneration);
-    } catch (error) {
-      const terminalReason = terminalPairSessionReason(error);
-      if (terminalReason) {
-        this.completeSessionRetirement(session.id, retirementGeneration);
-      }
-      if (isIdempotentPairSessionRetirementReason(terminalReason)) {
-        return;
-      }
-      throw error;
-    }
+  private endActiveSession(session: ShareSession): Promise<void> {
+    // Construct the authenticated request while the immutable binding is
+    // still present, then quiesce every background continuation before the
+    // bounded idempotent mutation leaves the browser.
+    return this.retireActiveMembership(session, () => this.controlPlane.end(session.id));
   }
 
-  private async leaveActiveMembership(session: ShareSession): Promise<void> {
+  private leaveActiveMembership(session: ShareSession): Promise<void> {
+    return this.retireActiveMembership(session, () => this.controlPlane.leave(session.id));
+  }
+
+  private async retireActiveMembership(
+    session: ShareSession,
+    createRequest: () => Observable<unknown>,
+  ): Promise<void> {
     let request: Observable<unknown>;
     try {
-      request = this.controlPlane.leave(session.id);
+      request = createRequest();
     } catch (error) {
       this.quiesceActiveTransport(session.id, this.sessionGeneration);
       throw error;
     }
-    const retirementGeneration = this.quiesceActiveTransport(
-      session.id,
-      this.sessionGeneration,
-    );
+    const retirementGeneration = this.quiesceActiveTransport(session.id, this.sessionGeneration);
     try {
       await firstValueFrom(request);
       this.completeSessionRetirement(session.id, retirementGeneration);
     } catch (error) {
       const terminalReason = terminalPairSessionReason(error);
-      if (terminalReason) {
-        this.completeSessionRetirement(session.id, retirementGeneration);
-      }
-      if (isIdempotentPairSessionRetirementReason(terminalReason)) {
-        return;
-      }
+      if (terminalReason) this.completeSessionRetirement(session.id, retirementGeneration);
+      if (isIdempotentPairSessionRetirementReason(terminalReason)) return;
       throw error;
     }
   }
@@ -723,10 +587,7 @@ export class ShareSessionService implements OnDestroy {
   }
 
   participantStatus(p: ShareParticipant): string {
-    if (p.revoked_at) return 'gesperrt';
-    if (!p.last_seen_at) return 'offline';
-    const secs = Math.floor(Date.now() / 1000 - p.last_seen_at);
-    return secs < 12 ? 'online' : `offline ${secs}s`;
+    return shareParticipantStatus(p);
   }
 
   ngOnDestroy(): void {
@@ -739,64 +600,20 @@ export class ShareSessionService implements OnDestroy {
     this.publicPairRuntimeState$.complete();
   }
 
-  private async runMembershipMutation<T>(
+  /** Membership create/join single-flight seam (fences own the state). */
+  private runMembershipMutation<T>(
     kind: 'create' | 'join',
     authority: PendingMembershipAuthority,
     operation: (mutation: Readonly<MembershipMutationFence>) => Promise<T>,
   ): Promise<T> {
-    if (this.activeMembershipMutation || this.activeSessionSwitch) {
-      throw new Error('pair_session_mutation_in_progress');
-    }
-    const mutation = Object.freeze({
-      serial: ++this.membershipMutationSerial,
-      kind,
-      authority,
-      sourceSessionId: this.state$.value.session?.id ?? '',
-      sourceGeneration: this.sessionGeneration,
-    });
-    this.activeMembershipMutation = mutation;
-    this.publishPublicPairRuntimeState();
-    try {
-      return await operation(mutation);
-    } finally {
-      if (this.activeMembershipMutation?.serial === mutation.serial) {
-        this.activeMembershipMutation = null;
-        this.publishPublicPairRuntimeState();
-      }
-    }
-  }
-
-  private assertMembershipMutationCurrent(mutation: Readonly<MembershipMutationFence>): void {
-    if (this.activeMembershipMutation?.serial !== mutation.serial) {
-      throw new Error('pair_session_mutation_overtaken');
-    }
-    if (
-      this.sessionGeneration !== mutation.sourceGeneration
-      || (this.state$.value.session?.id ?? '') !== mutation.sourceSessionId
-    ) throw new Error('pair_session_mutation_context_changed');
-  }
-
-  private assertSessionSwitchCurrent(
-    operation: Readonly<{
-      serial: number;
-      sourceSessionId: string;
-      targetSessionId: string;
-      sourceGeneration: number;
-    }>,
-  ): void {
-    if (this.activeSessionSwitch?.serial !== operation.serial) {
-      throw new Error('pair_session_switch_overtaken');
-    }
-    if (
-      this.sessionGeneration !== operation.sourceGeneration
-      || (this.state$.value.session?.id ?? '') !== operation.sourceSessionId
-    ) throw new Error('pair_session_switch_context_changed');
+    return this.fences.runMembershipMutation(kind, authority, operation);
   }
 
   private publishPublicPairRuntimeState(): void {
     let next: PublicPairRuntimeState;
-    if (this.activeMembershipMutation) {
-      next = `${this.activeMembershipMutation.authority}_pending`;
+    const pendingMutation = this.fences.activeMembershipMutation;
+    if (pendingMutation) {
+      next = `${pendingMutation.authority}_pending`;
     } else {
       const sessionId = this.state$.value.session?.id ?? '';
       if (!sessionId) {
@@ -1117,7 +934,7 @@ export class ShareSessionService implements OnDestroy {
     } else {
       for (const raw of rawMessages) {
         if (!this.isCurrentSession(session.id, generation)) return;
-        const item = this.parseLegacyChat(raw);
+        const item = parseLegacyChat(raw, this.state$.value.session?.id);
         if (item) this.appendMessage(item);
       }
     }
@@ -1131,7 +948,7 @@ export class ShareSessionService implements OnDestroy {
     expectedSessionId: string,
     generation: number,
   ): Promise<void> {
-    const wire = this.parseStrictChatWire(raw);
+    const wire = parseStrictChatWire(raw);
     const session = this.state$.value.session;
     if (
       !wire
@@ -1150,60 +967,14 @@ export class ShareSessionService implements OnDestroy {
     if (opened.payloadType !== 'pair.chat_message') return;
     let rawPlaintext: unknown;
     try { rawPlaintext = JSON.parse(opened.plaintext); } catch { return; }
-    const plaintext = this.parseStrictChatPlaintext(rawPlaintext);
+    const plaintext = parseStrictChatPlaintext(rawPlaintext);
     if (
       !plaintext
       || plaintext.id !== wire.id
       || plaintext.sessionId !== session.id
       || plaintext.senderUserId !== opened.senderId
     ) return;
-    this.appendMessage({
-      id: plaintext.id,
-      session_id: plaintext.sessionId,
-      sender_id: plaintext.senderUserId,
-      text: plaintext.text,
-      created_at: plaintext.createdAt,
-      visibility: plaintext.visibility,
-    });
-  }
-
-  private parseStrictChatWire(raw: unknown): StrictShareChatWireMessage | null {
-    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
-    const value = raw as Record<string, unknown>;
-    if (Object.keys(value).length !== 2 || !('id' in value) || !('encrypted_payload' in value)) return null;
-    if (typeof value['id'] !== 'string' || !value['id'] || value['id'].length > 96) return null;
-    if (typeof value['encrypted_payload'] !== 'string' || !value['encrypted_payload']) return null;
-    return { id: value['id'], encrypted_payload: value['encrypted_payload'] };
-  }
-
-  private parseStrictChatPlaintext(raw: unknown): StrictChatPlaintext | null {
-    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
-    const value = raw as Record<string, unknown>;
-    const expected = ['version', 'id', 'sessionId', 'senderUserId', 'text', 'createdAt', 'visibility'];
-    if (Object.keys(value).length !== expected.length || expected.some((key) => !(key in value))) return null;
-    if (value['version'] !== 1 || value['visibility'] !== 'room') return null;
-    if (typeof value['id'] !== 'string' || !value['id'] || value['id'].length > 96) return null;
-    if (typeof value['sessionId'] !== 'string' || typeof value['senderUserId'] !== 'string') return null;
-    if (typeof value['text'] !== 'string' || !value['text'].trim() || value['text'].length > 16_384) return null;
-    if (typeof value['createdAt'] !== 'number' || !Number.isFinite(value['createdAt'])) return null;
-    return value as unknown as StrictChatPlaintext;
-  }
-
-  private parseLegacyChat(raw: unknown): ShareChatMessage | null {
-    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
-    const value = raw as LegacyShareChatWireMessage;
-    const text = typeof value.text === 'string' ? value.text : '';
-    if (!text) return null;
-    const sessionId = String(value.session_id ?? value.share_session_id ?? this.state$.value.session?.id ?? '');
-    if (!sessionId || sessionId !== this.state$.value.session?.id) return null;
-    return {
-      id: String(value.id || `legacy-${Date.now()}`),
-      session_id: sessionId,
-      sender_id: String(value.sender_id ?? value.from_id ?? 'peer'),
-      text,
-      created_at: Number(value.created_at || Date.now() / 1000),
-      visibility: String(value.visibility || 'room'),
-    };
+    this.appendMessage(chatMessageFromStrictPlaintext(plaintext));
   }
 
   private appendMessage(item: ShareChatMessage): void {
@@ -1219,47 +990,4 @@ export class ShareSessionService implements OnDestroy {
     }
     this.controlPlane.assertSessionAvailable(sessionId);
   }
-}
-
-function listedSessionRole(session: ShareSession): 'owner' | 'participant' {
-  const advertisedRole = session.local_role;
-  if (
-    advertisedRole !== undefined
-    && advertisedRole !== 'owner'
-    && advertisedRole !== 'participant'
-  ) throw new Error('pair_session_local_role_invalid');
-
-  // Identity-v2 catalog rows are selected from an authenticated membership
-  // on the server.  Never reconstruct that operational role from client-side
-  // identifiers when the authoritative projection is absent.
-  if (session.identity_binding_version === 2 && !advertisedRole) {
-    throw new Error('pair_session_local_role_missing');
-  }
-
-  const localPeerId = String(session.local_peer_id || '').trim();
-  const ownerPeerId = String(session.owner_peer_id || '').trim();
-  const derivedRole = localPeerId && ownerPeerId
-    ? localPeerId === ownerPeerId ? 'owner' : 'participant'
-    : null;
-  if (advertisedRole && derivedRole && advertisedRole !== derivedRole) {
-    throw new Error('pair_session_local_role_mismatch');
-  }
-  if (advertisedRole) return advertisedRole;
-  if (derivedRole) return derivedRole;
-
-  // Legacy/Hub list responses use the account identity as their peer id.
-  const ownerUserId = String(session.owner_user_id || '').trim();
-  if (localPeerId && ownerUserId) {
-    return localPeerId === ownerUserId ? 'owner' : 'participant';
-  }
-  throw new Error('pair_session_local_role_missing');
-}
-
-function listedSessionRuntimeState(session: ShareSession): 'active' | 'parked' | null {
-  const state = session.local_runtime_state;
-  if (session.identity_binding_version !== 2) return null;
-  if (state !== 'active' && state !== 'parked') {
-    throw new Error('pair_session_runtime_state_invalid');
-  }
-  return state;
 }
