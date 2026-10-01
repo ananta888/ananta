@@ -1,7 +1,7 @@
 {
   "$schema": "../todo.track.schema.json",
   "version": "2.0",
-  "last_updated": "2026-09-05",
+  "last_updated": "2026-10-01",
   "owner": "Peter Stuiber / Ananta",
   "track": "unsloth-full-platform-integration",
   "status": "blocked",
@@ -1534,7 +1534,8 @@
     "Auf der lokalen RTX 3080 bestanden drei echte backend=unsloth Wiederholungen mit dem gescannten Databricks-Dolly-15k-Subset, CUDA 12.4, Treiber 595.84, Unsloth 2026.7.5 und allen acht Release-Stufen.",
     "Die Evidenz ist als local verifiziert und production_release_eligible=false; ein Produktionsclaim erfordert eine separat registrierte Produktions- oder Canary-Umgebung.",
     "Studio benoetigt weiterhin Image-/Build-Digest und Lizenzfreigabe sowie produktive Secrets, CIDRs, DNS/TLS und reale Studio-/MCP-Laufzeitvalidierung.",
-    "Track-fremde Skips und die track-fremde Angular-CommonJS-Warnung blockieren den Unsloth-Track nicht."
+    "Track-fremde Skips und die track-fremde Angular-CommonJS-Warnung blockieren den Unsloth-Track nicht.",
+    "Zusaetzlich wurde das Blackwell-Profil unsloth-2026.7.5-cu128-torch280-tiny-causal-lm auf einer lokalen RTX 5060 Ti (WSL2, Treiber 591.86, CUDA 12.8, torch 2.8.0+cu128, torchao 0.13.0+cu128) Hub-reserviert verifiziert: drei deterministische Runs, alle acht Release-Stufen, GGUF-q4_k_m-Export und Ollama-Provider-Probe bestanden; Evidenz in artifacts/domain/unsloth-gpu-hub-evidence.json, production_release_eligible=false."
   ],
   "execution_stage_summary": {
     "repository_implementation": "complete",
@@ -1566,7 +1567,8 @@
       "Angular targeted 99/99, Produktionsbuild, Fake-Hub Chromium 1/1 und ungefiltertes Vitest 1789/1789 ausgefuehrte Tests bestanden.",
       "Hub-reserviertes RTX-3080-Gate: 3/3 reale Unsloth-Laeufe; Training, Evaluation, Adapter-/Merged-16bit-/GGUF-Export, Promotion, Runtime-Handoff, Rollback und Tamper-Negativpfade bestanden.",
       "RUN_f84ff0426392ec416ea1b8c97b226ce0: Gepinntes Databricks-Dolly-15k-Dataset aufgenommen, 256 Kandidaten gescannt, 2 sensible Kandidaten ausgeschlossen, 64 saubere Records Hub-gebunden materialisiert und durch dieselbe reale GPU-/Provider-Kette gefuehrt.",
-      "RUN_492dc1479781ea7edb3ce4213bff682f: Echter Exit-137-Crash, Checkpoint-Resume, stale Fence, Forced-Cancel und vollstaendige GPU-Ressourcenfreigabe bestanden."
+      "RUN_492dc1479781ea7edb3ce4213bff682f: Echter Exit-137-Crash, Checkpoint-Resume, stale Fence, Forced-Cancel und vollstaendige GPU-Ressourcenfreigabe bestanden.",
+      "Blackwell-Profil (cu128/torch 2.8.0) auf RTX 5060 Ti/WSL2: 3/3 deterministische Unsloth-Laeufe, alle acht Stufen inkl. GGUF-q4_k_m-Export und Provider-Runtime-Probe bestanden (RUN_edd268e353f3090ed90afafc01f5398a)."
     ],
     "remaining_release_gates": [
       "Vision, Audio und Embedding jeweils separat auf freigegebener GPU ausfuehren.",
@@ -1592,11 +1594,16 @@
       "SRC_9f0342cf851a802a884a1ff2d888273a",
       "SRC_44a64227754dca2c9dcb2addd4e72bc7",
       "SRC_8c7bb1ab808c2d1df42181ba652c3640",
-      "SRC_0b12ec07e6b2ab59671688b74a7e989c"
+      "SRC_0b12ec07e6b2ab59671688b74a7e989c",
+      "SRC_33f95342946667fccdd71b6c814b11ec",
+      "SRC_a270e8fbc5d3465a947e4881efa1c783",
+      "SRC_9159e14568cee13ae145d8af9c7d0eac",
+      "SRC_deb387f83b4063e49686e572b35b868f"
     ],
     "run_ids": [
       "RUN_f84ff0426392ec416ea1b8c97b226ce0",
-      "RUN_492dc1479781ea7edb3ce4213bff682f"
+      "RUN_492dc1479781ea7edb3ce4213bff682f",
+      "RUN_edd268e353f3090ed90afafc01f5398a"
     ],
     "nvidia_core_text_gate": {
       "state": "passed",
@@ -1641,6 +1648,43 @@
       },
       "job_attempt_fence_binding": "passed",
       "human_intervention_required": false
+    },
+    "nvidia_core_text_gate_blackwell": {
+      "state": "passed",
+      "evidence_scope": "local",
+      "production_release_eligible": false,
+      "repository_revision": "29df4f837658b6e33020305ba1aa5dfa83678ae6",
+      "runtime_image_digest": "sha256:4f0e2cdc67d534f94ad3d3c3e5522528922571bdf5bb6d44f6cd36151045369a",
+      "model_snapshot_sha256": "223d1af85b2d7acdc784279a04e90b400157bc284093e59259da8aaafb7f559b",
+      "gpu": "NVIDIA GeForce RTX 5060 Ti",
+      "gpu_memory_mib": 16311,
+      "driver": "591.86",
+      "cuda_runtime": "12.8",
+      "host_profile": "wsl2",
+      "unsloth": "2026.7.5",
+      "compatibility_profile": "unsloth-2026.7.5-cu128-torch280-tiny-causal-lm",
+      "torch": "2.8.0+cu128",
+      "torchao": "0.13.0+cu128",
+      "deterministic_runs": 3,
+      "all_eight_stages_passed": true,
+      "telemetry_attestation": "passed",
+      "max_memory_allocated_bytes": 184036352,
+      "max_memory_reserved_bytes": 205520896,
+      "dataset": {
+        "dataset_id": "databricks-dolly-15k",
+        "source_id": "SRC_0b12ec07e6b2ab59671688b74a7e989c",
+        "source_sha256": "2df9083338b4abd6bceb5635764dab5d833b393b55759dffb0959b6fcbf794ec",
+        "partition_sha256": "3503f59244e1361e96a86b36a954d77a3abda90bc7ef943188699ed402f34f8e",
+        "synthetic": false,
+        "license": "CC-BY-SA-3.0",
+        "admitted_records": 64,
+        "train_records": 53,
+        "validation_records": 11,
+        "pii_findings": 0,
+        "secret_findings": 0,
+        "excluded_sensitive_candidates": 2
+      },
+      "verified_at": "2026-10-01"
     },
     "python_ci_matrix": {
       "state": "passed",
