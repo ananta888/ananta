@@ -36,7 +36,7 @@ def _build_parser() -> argparse.ArgumentParser:
     return p
 
 
-def _configure_subparsers(p: argparse.ArgumentParser) -> None:  # noqa: C901
+def _configure_subparsers(p: argparse.ArgumentParser) -> None:
     sub = p.add_subparsers(dest="prompt_cmd", metavar="<action>")
 
     ins_p = sub.add_parser("inspect", help="Show a specific prompt trace by ID.")

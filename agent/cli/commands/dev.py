@@ -22,6 +22,7 @@ _CHECK_SCRIPTS: dict[str, str] = {
     "dead-code": "check_dead_code.py",
     "docs": "check_docs_present.py",
     "duplicates": "check_duplicates.py",
+    "complexity-suppressions": "check_complexity_suppressions.py",
     "imports": "check_imports.py",
     "planning-contract": "check_planning_contract.py",
     "policy-and-routing": "check_policy_and_routing.py",
@@ -93,7 +94,7 @@ def _build_parser() -> argparse.ArgumentParser:
     return p
 
 
-def _configure_subparsers(p: argparse.ArgumentParser) -> None:  # noqa: C901
+def _configure_subparsers(p: argparse.ArgumentParser) -> None:
     sub = p.add_subparsers(dest="dev_cmd", metavar="<action>")
 
     # acceptance
@@ -278,6 +279,7 @@ def _cmd_command(parsed) -> int:
 
 def _cmd_command_analyze(parsed) -> int:
     import json as _json
+
     from agent.services.shell_command_policy import ShellCommandAnalyzer
 
     cmd = str(getattr(parsed, "command", "") or "").strip()

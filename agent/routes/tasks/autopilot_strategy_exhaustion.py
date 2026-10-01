@@ -25,7 +25,7 @@ from .autopilot_task_dispatcher_helpers import (
 )
 
 
-def handle_strategy_exhaustion(  # noqa: C901
+def handle_strategy_exhaustion(
     ctx: DispatchContext,
     *,
     outcome: ProposalStrategyOutcome,

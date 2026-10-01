@@ -162,7 +162,7 @@ def _normalize_graph_edge(
 class GraphOutputRecordAssembler:
     """Turn CodeCompass output records into a graph payload plus diagnostics."""
 
-    def assemble(  # noqa: C901 - compatibility dispatcher for existing output kinds
+    def assemble(  # compatibility dispatcher for existing output kinds
         self,
         *,
         records: list[dict[str, Any]],

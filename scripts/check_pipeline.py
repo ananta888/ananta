@@ -3,7 +3,6 @@ import subprocess
 import sys
 from typing import List, Optional
 
-
 ISOLATED_BACKEND_TEST_FILES = [
     "tests/test_autonomous_flow_e2e.py",
     "tests/test_autonomous_scrum_e2e.py",
@@ -60,6 +59,11 @@ def check_duplicates():
 def check_dead_code():
     print("\n--- Checking Dead Code (CLN-022) ---", flush=True)
     return run_command([sys.executable, "scripts/check_dead_code.py"])
+
+
+def check_complexity_suppressions():
+    print("\n--- Checking Complexity Suppressions (C901) ---", flush=True)
+    return run_command([sys.executable, "scripts/check_complexity_suppressions.py"])
 
 
 def check_fast_tests():
@@ -134,6 +138,8 @@ def main():
         if not check_duplicates():
             success = False
         if not check_dead_code():
+            success = False
+        if not check_complexity_suppressions():
             success = False
         if not check_fast_tests():
             success = False
