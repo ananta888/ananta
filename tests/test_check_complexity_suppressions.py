@@ -1,8 +1,8 @@
 """The complexity-suppression detector must exist, run clean and flag regressions.
 
 The project keeps every function under the configured McCabe limit; a bare
-``# noqa: C901`` hides a complexity regression instead of fixing it. This
-suite pins the detector plus one positive and one negative detection case.
+``# noqa: C901`` comment hides a complexity regression instead of fixing it.
+This suite pins the detector plus the real-comment and string-literal cases.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ def test_detector_script_exists() -> None:
 
 
 def test_detector_runs_clean_on_repository() -> None:
-    """The repository carries no ``# noqa: C901`` suppressions."""
+    """The repository carries no ``# noqa: C901`` comments."""
     result = subprocess.run(
         [sys.executable, str(_SCRIPT)],
         capture_output=True,
@@ -32,7 +32,7 @@ def test_detector_runs_clean_on_repository() -> None:
     assert result.returncode == 0, result.stdout + result.stderr
 
 
-def test_detector_flags_suppression(tmp_path: Path, monkeypatch) -> None:
+def test_detector_flags_real_comment(tmp_path: Path, monkeypatch) -> None:
     source = tmp_path / "module.py"
     source.write_text("def f():\n    return 1  # noqa: C901\n", encoding="utf-8")
     monkeypatch.setattr(detector, "_tracked_python_files", lambda root: [source])
@@ -41,6 +41,14 @@ def test_detector_flags_suppression(tmp_path: Path, monkeypatch) -> None:
     assert detector.find_suppressions(tmp_path) == [
         ("module.py", 2, "return 1  # noqa: C901"),
     ]
+
+
+def test_detector_ignores_text_inside_strings(tmp_path: Path, monkeypatch) -> None:
+    source = tmp_path / "module.py"
+    source.write_text('NOTE = "# noqa: C901"\n', encoding="utf-8")
+    monkeypatch.setattr(detector, "_tracked_python_files", lambda root: [source])
+
+    assert detector.find_suppressions(tmp_path) == []
 
 
 def test_detector_accepts_clean_file(tmp_path: Path, monkeypatch) -> None:

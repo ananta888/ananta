@@ -7,6 +7,9 @@ silences a genuine complexity regression instead of fixing it, so it is not an
 accepted production pattern. This detector fails when any tracked Python file
 still carries one.
 
+Only real comment tokens are inspected: the same text inside a string literal
+or a docstring is data, not a suppression, and must not trip the detector.
+
 Exit codes:
 - 0: no suppressions found
 - 1: one or more suppressions found
@@ -18,9 +21,11 @@ Usage:
 
 from __future__ import annotations
 
+import io
 import re
 import subprocess
 import sys
+import tokenize
 from pathlib import Path
 
 SUPPRESSION = re.compile(r"#\s*noqa:\s*C901\b")
@@ -44,20 +49,34 @@ def _tracked_python_files(root: Path) -> list[Path]:
     return [root / name for name in result.stdout.split("\0") if name]
 
 
+def _suppression_lines(text: str) -> list[int]:
+    """Return the 1-based line numbers of real ``# noqa: C901`` comments."""
+    lines: list[int] = []
+    readline = io.StringIO(text).readline
+    try:
+        for token in tokenize.generate_tokens(readline):
+            if token.type == tokenize.COMMENT and SUPPRESSION.search(token.string):
+                lines.append(token.start[0])
+    except (tokenize.TokenError, IndentationError, SyntaxError):
+        return lines
+    return lines
+
+
 def find_suppressions(root: Path) -> list[tuple[str, int, str]]:
     """Return ``(relative_path, line_number, line)`` for each suppression."""
     violations: list[tuple[str, int, str]] = []
     for path in _tracked_python_files(root):
+        relative = path.relative_to(root).as_posix()
+        if relative in ALLOWED_SUPPRESSIONS:
+            continue
         try:
             text = path.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
             continue
-        relative = path.relative_to(root).as_posix()
-        if relative in ALLOWED_SUPPRESSIONS:
-            continue
-        for lineno, line in enumerate(text.splitlines(), start=1):
-            if SUPPRESSION.search(line):
-                violations.append((relative, lineno, line.strip()))
+        source_lines = text.splitlines()
+        for lineno in _suppression_lines(text):
+            line = source_lines[lineno - 1].strip() if lineno <= len(source_lines) else ""
+            violations.append((relative, lineno, line))
     return violations
 
 
