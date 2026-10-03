@@ -98,6 +98,17 @@
       "status": "todo"
     },
     {
+      "id": "JSP-M2C",
+      "title": "Emergent Agent Language und J-Space-Decoding",
+      "task_ids": [
+        "JSP-018",
+        "JSP-019",
+        "JSP-020",
+        "JSP-021"
+      ],
+      "status": "todo"
+    },
+    {
       "id": "JSP-M3",
       "title": "Interventionen und Evolver",
       "task_ids": [
@@ -496,6 +507,96 @@
         "Keine Selbsterhaltungsinterpretation ohne Vergleich mit alternativen Erklärungen.",
         "Ablationseffekte werden von allgemeiner Capability-Degradation getrennt."
       ]
+    },
+    {
+      "id": "JSP-018",
+      "milestone_id": "JSP-M2C",
+      "title": "Kommunikations-Baselines Englisch und JSON messen",
+      "type": "evaluation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "progress_percent": 0,
+      "depends_on": [
+        "JSP-008"
+      ],
+      "implementation": [
+        "Identische Multi-Agent-Aufgaben mit natürlicher Sprache und strukturiertem JSON ausführen.",
+        "Task-Erfolg, Nachrichtenanzahl, Tokens, Latenz, Reparatur-/Missverständnisrate und Gesamtkosten messen.",
+        "Kommunikationsinhalt und J-Space-Traces synchron mit Agenten-Step-IDs speichern."
+      ],
+      "acceptance_criteria": [
+        "Reproduzierbare Baseline für Englisch und JSON liegt für mehrere Aufgabentypen vor."
+      ]
+    },
+    {
+      "id": "JSP-019",
+      "milestone_id": "JSP-M2C",
+      "title": "Freies emergentes Agentenprotokoll entwickeln lassen",
+      "type": "experiment",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "JSP-018"
+      ],
+      "implementation": [
+        "Agenten dürfen innerhalb eines isolierten Benchmarks ein eigenes textuelles/symbolisches Kommunikationsprotokoll optimieren.",
+        "Reward/Fitness auf Task-Erfolg plus Kommunikationskosten ausrichten; keine Vorgabe menschlicher Lesbarkeit.",
+        "Protokollversionen, Seeds und Entwicklung über Generationen speichern."
+      ],
+      "acceptance_criteria": [
+        "Mindestens ein stabiles Protokoll entsteht oder ein belastbarer negativer Befund zeigt, dass keine Effizienzverbesserung erreicht wird.",
+        "Vergleich gegen Englisch/JSON erfolgt auf identischen Aufgaben."
+      ]
+    },
+    {
+      "id": "JSP-020",
+      "milestone_id": "JSP-M2C",
+      "title": "Emergente Nachrichten mit J-Space semantisch untersuchen",
+      "type": "research",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "JSP-019",
+        "JSP-007"
+      ],
+      "implementation": [
+        "J-Space von Sender unmittelbar vor/nach Nachricht und Empfänger vor/nach Empfang vergleichen.",
+        "Prüfen, welche Konzepte/Informationen durch wiederkehrende Symbole oder Sequenzen übertragen werden.",
+        "Interventions-/Perturbationstests verwenden: Symbole ersetzen, entfernen oder permutieren und Wirkung auf Empfängerzustand und Task-Erfolg messen.",
+        "Keine 1:1-Wörterbuchsemantik voraussetzen; verteilte und kontextabhängige Codes zulassen."
+      ],
+      "acceptance_criteria": [
+        "Für wiederkehrende Protokollelemente kann Informationswirkung empirisch beschrieben werden oder ein negativer Befund wird dokumentiert.",
+        "Semantische Hypothesen werden durch Perturbationskontrollen geprüft."
+      ]
+    },
+    {
+      "id": "JSP-021",
+      "milestone_id": "JSP-M2C",
+      "title": "Effizienz, Robustheit und Interpretierbarkeit vergleichen",
+      "type": "evaluation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "JSP-020"
+      ],
+      "implementation": [
+        "Englisch, JSON und emergentes Protokoll über Task-Erfolg, Tokens, Latenz, Bandbreite, Robustheit und Generalisierung vergleichen.",
+        "Cross-Agent-/Cross-Seed-Test: prüfen, ob das Protokoll nur zwischen gemeinsam trainierten Instanzen funktioniert.",
+        "J-Space-Decodierbarkeit als separate Interpretierbarkeitsmetrik aufnehmen.",
+        "Pareto-Front zwischen Effizienz und Interpretierbarkeit bestimmen."
+      ],
+      "acceptance_criteria": [
+        "Es ist quantitativ belegbar, ob und wann emergente Kommunikation gegenüber Englisch/JSON Vorteile bietet.",
+        "Generalisation und Interpretierbarkeit werden getrennt von reiner Trainingseffizienz berichtet."
+      ]
     }
   ],
   "critical_path_tasks": [
@@ -510,7 +611,11 @@
     "JSP-009",
     "JSP-015",
     "JSP-016",
-    "JSP-017"
+    "JSP-017",
+    "JSP-018",
+    "JSP-019",
+    "JSP-020",
+    "JSP-021"
   ],
   "success_criteria": [
     "Ananta kann J-Space-Readouts lokaler Agentenläufe reproduzierbar und auditierbar erfassen.",
@@ -518,7 +623,8 @@
     "Der normale Agentenpfad bleibt ohne Interpretability-Abhängigkeit funktionsfähig.",
     "Steering wird erst nach reproduzierbaren Beobachtungs-Benchmarks aktiviert.",
     "Alle Interventionen sind A/B-testbar, reversibel und als Experiment gekennzeichnet.",
-    "Shutdown-bezogenes Agentenverhalten wird ausschließlich simuliert und gegen neutrale Kontrollen sowie alternative Erklärungen geprüft."
+    "Shutdown-bezogenes Agentenverhalten wird ausschließlich simuliert und gegen neutrale Kontrollen sowie alternative Erklärungen geprüft.",
+    "Englisch, JSON und frei emergente Agentenkommunikation werden auf identischen Aufgaben quantitativ verglichen; J-Space wird zur Untersuchung der übertragenen internen Semantik eingesetzt."
   ],
   "deliverables": [
     "jspace_trace.v1 JSON-Schema",
@@ -529,16 +635,17 @@
     "Evolver-Integration",
     "J-Space Observatory UI/CLI",
     "docs/jspace-observatory.md",
-    "Sicherer Shutdown-Verhaltens/J-Space-Replikationsbenchmark"
+    "Sicherer Shutdown-Verhaltens/J-Space-Replikationsbenchmark",
+    "Emergent-Agent-Language Benchmark mit J-Space-Decoding"
   ],
   "summary_notes": [
     "MVP bewusst read-only halten; Nutzen zuerst messen.",
     "Korrelation ist nicht Kausalität und J-Space ist kein direkter Zugriff auf 'Gedanken'."
   ],
   "tasks_status_summary": {
-    "total": 17,
+    "total": 21,
     "by_status": {
-      "todo": 17,
+      "todo": 21,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
@@ -546,43 +653,43 @@
     },
     "progress_percent_done": 0,
     "by_priority": {
-      "P0": 11,
-      "P1": 4,
+      "P0": 13,
+      "P1": 6,
       "P2": 2
     },
     "by_risk": {
-      "low": 1,
-      "medium": 9,
-      "high": 6,
+      "low": 2,
+      "medium": 11,
+      "high": 7,
       "critical": 1
     },
     "critical_path": {
-      "total": 12,
+      "total": 16,
       "done": 0,
-      "remaining": 12
+      "remaining": 16
     },
     "milestones": {
-      "total": 6,
-      "todo": 6,
+      "total": 7,
+      "todo": 7,
       "in_progress": 0,
       "blocked": 0,
       "done": 0
     }
   },
   "tasks_type_summary": {
-    "total": 17,
+    "total": 21,
     "by_type": {
-      "research": 3,
-      "evaluation": 3,
+      "research": 4,
+      "evaluation": 5,
       "architecture": 1,
       "feature": 6,
-      "experiment": 3,
+      "experiment": 4,
       "documentation": 1
     }
   },
   "progress_summary": {
     "state": "todo",
-    "todo_remaining": 17,
+    "todo_remaining": 21,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
