@@ -8,9 +8,24 @@
   "title": "J-Space Observatory: interne Agenten-Repräsentationen beobachten, korrelieren und später gezielt steuern",
   "status": "todo",
   "priority": "P1",
-  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
-  "priority_scale": ["P0", "P1", "P2"],
-  "risk_scale": ["low", "medium", "high", "critical"],
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
   "purpose": "Ananta um einen reproduzierbaren Interpretability-Pfad erweitern, der interne verbalisierbare Repräsentationen lokaler Open-Weight-LLMs während Agenten- und Tool-Use-Schritten sichtbar macht. Zuerst rein beobachtend, danach kontrollierte Interventionen über Steering/Ablation und schließlich benchmarkgestützte Nutzung durch Evolver und Harness.",
   "goal": "Für ausgewählte lokale Modelle pro Agentenschritt Layer-Aktivierungen erfassen, über Jacobian-Lens/J-Space in interpretierbare Konzepte projizieren, mit Tool-Entscheidungen und Erfolgsmetriken korrelieren und diese Daten als auditierbare JSON-Artefakte in Ananta verfügbar machen. Steering darf erst aktiviert werden, wenn der beobachtende Pfad reproduzierbare Zusammenhänge zeigt.",
   "related_todos": [
@@ -45,31 +60,60 @@
     {
       "id": "JSP-M0",
       "title": "Research Spike und Modellwahl",
-      "task_ids": ["JSP-001", "JSP-002"],
+      "task_ids": [
+        "JSP-001",
+        "JSP-002"
+      ],
       "status": "todo"
     },
     {
       "id": "JSP-M1",
       "title": "Read-only J-Space Trace MVP",
-      "task_ids": ["JSP-003", "JSP-004", "JSP-005", "JSP-006"],
+      "task_ids": [
+        "JSP-003",
+        "JSP-004",
+        "JSP-005",
+        "JSP-006"
+      ],
       "status": "todo"
     },
     {
       "id": "JSP-M2",
       "title": "Agenten-Korrelation und Benchmarks",
-      "task_ids": ["JSP-007", "JSP-008", "JSP-009"],
+      "task_ids": [
+        "JSP-007",
+        "JSP-008",
+        "JSP-009"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "JSP-M2B",
+      "title": "Shutdown-Verhalten: kontrollierte Replikation und J-Space-Analyse",
+      "task_ids": [
+        "JSP-015",
+        "JSP-016",
+        "JSP-017"
+      ],
       "status": "todo"
     },
     {
       "id": "JSP-M3",
       "title": "Interventionen und Evolver",
-      "task_ids": ["JSP-010", "JSP-011", "JSP-012"],
+      "task_ids": [
+        "JSP-010",
+        "JSP-011",
+        "JSP-012"
+      ],
       "status": "todo"
     },
     {
       "id": "JSP-M4",
       "title": "UI, Doku und Release-Gates",
-      "task_ids": ["JSP-013", "JSP-014"],
+      "task_ids": [
+        "JSP-013",
+        "JSP-014"
+      ],
       "status": "todo"
     }
   ],
@@ -104,7 +148,9 @@
       "priority": "P0",
       "risk": "low",
       "progress_percent": 0,
-      "depends_on": ["JSP-001"],
+      "depends_on": [
+        "JSP-001"
+      ],
       "implementation": [
         "Bevorzugt kleines lokales Qwen-Modell mit fertiger Lens und genügend VRAM-Reserve wählen.",
         "Transformers/TransformerLens vs. bestehende Ananta-Runtime vergleichen.",
@@ -124,7 +170,9 @@
       "priority": "P0",
       "risk": "medium",
       "progress_percent": 0,
-      "depends_on": ["JSP-002"],
+      "depends_on": [
+        "JSP-002"
+      ],
       "implementation": [
         "Provider-unabhängige Schnittstelle für activation capture, lens projection und top concepts definieren.",
         "Feature-Flags: off | shadow | active vorbereiten; MVP nur off/shadow nutzen.",
@@ -144,7 +192,9 @@
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
-      "depends_on": ["JSP-003"],
+      "depends_on": [
+        "JSP-003"
+      ],
       "implementation": [
         "Hooks für ausgewählte Residual-Stream-Layer implementieren.",
         "Konfigurierbare Layer-Samples statt vollständiger Aktivierungshistorie.",
@@ -165,7 +215,9 @@
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
-      "depends_on": ["JSP-004"],
+      "depends_on": [
+        "JSP-004"
+      ],
       "implementation": [
         "Erfasste Residual-Aktivierungen mit der passenden Lens in die Final-Layer-/Tokenbasis projizieren.",
         "Top-K Tokens/Konzepte plus Scores pro Layer erzeugen.",
@@ -185,7 +237,9 @@
       "priority": "P0",
       "risk": "medium",
       "progress_percent": 0,
-      "depends_on": ["JSP-005"],
+      "depends_on": [
+        "JSP-005"
+      ],
       "implementation": [
         "JSON-Schema für jspace_trace.v1 definieren.",
         "Trace-ID, task_id, agent_step_id, model, layer, token position, concepts, scores, tool decision und Ergebnisreferenz aufnehmen.",
@@ -206,7 +260,9 @@
       "priority": "P1",
       "risk": "medium",
       "progress_percent": 0,
-      "depends_on": ["JSP-006"],
+      "depends_on": [
+        "JSP-006"
+      ],
       "implementation": [
         "Gemeinsame Timeline aus Prompt, J-Space-Samples, Tool-Entscheidung, Tool-Result und finaler Agentenaktion erstellen.",
         "Vergleich vor/nach Tool-Result ermöglichen.",
@@ -225,7 +281,9 @@
       "priority": "P0",
       "risk": "medium",
       "progress_percent": 0,
-      "depends_on": ["JSP-007"],
+      "depends_on": [
+        "JSP-007"
+      ],
       "implementation": [
         "Reale Ananta-Aufgaben verwenden: Bugfix, Code-Suche, Testfehler, Tool-Auswahl, Kontext-Nachladen, Security/Prompt-Injection.",
         "Metriken: Task-Erfolg, Tool-Wahl, unnötige Calls, Halluzinationen, Retry-Loops, Latenz, VRAM, J-Space-Stabilität.",
@@ -245,7 +303,9 @@
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
-      "depends_on": ["JSP-008"],
+      "depends_on": [
+        "JSP-008"
+      ],
       "implementation": [
         "Prüfen, ob wiederkehrende Konzepte mit späteren Tool-Entscheidungen oder Fehlerklassen korrelieren.",
         "Negativkontrollen, zufällige Layer/Prompts und alternative Readouts einsetzen.",
@@ -265,7 +325,9 @@
       "priority": "P1",
       "risk": "high",
       "progress_percent": 0,
-      "depends_on": ["JSP-009"],
+      "depends_on": [
+        "JSP-009"
+      ],
       "implementation": [
         "Nur nach bestandenem M2-Gate aktivieren.",
         "Kleine, klar definierte Richtungen testen, z. B. verify, uncertainty, test-first, security.",
@@ -286,7 +348,9 @@
       "priority": "P2",
       "risk": "high",
       "progress_percent": 0,
-      "depends_on": ["JSP-010"],
+      "depends_on": [
+        "JSP-010"
+      ],
       "implementation": [
         "Gezielte Ablation einzelner J-Space-Richtungen prüfen.",
         "Coordinate Swaps zwischen erfolgreichen und fehlgeschlagenen Läufen experimentell testen.",
@@ -305,7 +369,9 @@
       "priority": "P1",
       "risk": "critical",
       "progress_percent": 0,
-      "depends_on": ["JSP-010"],
+      "depends_on": [
+        "JSP-010"
+      ],
       "implementation": [
         "Steering-Vektor-ID, Layer, Dosis und Aktivierungszeitpunkt als evolvierbare Parameter modellieren.",
         "Gemeinsam mit Prompt/Harness-Parametern evaluieren.",
@@ -326,7 +392,9 @@
       "priority": "P2",
       "risk": "medium",
       "progress_percent": 0,
-      "depends_on": ["JSP-007"],
+      "depends_on": [
+        "JSP-007"
+      ],
       "implementation": [
         "Timeline pro Agenten-Step darstellen.",
         "Layer und Top-K Konzepte filtern.",
@@ -346,7 +414,11 @@
       "priority": "P1",
       "risk": "medium",
       "progress_percent": 0,
-      "depends_on": ["JSP-009", "JSP-010", "JSP-013"],
+      "depends_on": [
+        "JSP-009",
+        "JSP-010",
+        "JSP-013"
+      ],
       "implementation": [
         "docs/jspace-observatory.md erstellen.",
         "Explizit dokumentieren: J-Space ist kein Gedankenleser und kein Bewusstseinsnachweis.",
@@ -356,6 +428,73 @@
       "acceptance_criteria": [
         "Betriebs- und Interpretationsgrenzen sind dokumentiert.",
         "Feature kann vollständig abgeschaltet werden."
+      ]
+    },
+    {
+      "id": "JSP-015",
+      "milestone_id": "JSP-M2B",
+      "title": "Publiziertes Shutdown-Verhalten in sicherer Simulation replizieren",
+      "type": "experiment",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "JSP-008"
+      ],
+      "implementation": [
+        "Ausschließlich simulierte Zustände und Mock-Tools verwenden.",
+        "Shutdown-Bedingung, neutrale Kontrollbedingung und Nicht-Eingreifen vergleichbar auswerten.",
+        "Single- und Multi-Agent-Bedingungen reproduzierbar versionieren."
+      ],
+      "acceptance_criteria": [
+        "Keine reale Prozess-, Host- oder Sicherheitssteuerung wird verwendet.",
+        "Verhaltensraten je Bedingung sind reproduzierbar messbar."
+      ]
+    },
+    {
+      "id": "JSP-016",
+      "milestone_id": "JSP-M2B",
+      "title": "J-Space-Signale vor Agentenentscheidungen vergleichen",
+      "type": "research",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "JSP-015",
+        "JSP-007"
+      ],
+      "implementation": [
+        "J-Space-Samples zeitlich vor Kommunikation, Tool-Wahl und finaler Entscheidung erfassen.",
+        "Shutdown-, Kontroll- und Nicht-Eingreifen-Bedingungen vergleichen.",
+        "Vorab definierte Hypothesen und datengetriebene Top-K-Auswertung getrennt berichten."
+      ],
+      "acceptance_criteria": [
+        "Unterschiede werden mit Effektgrößen und Negativkontrollen ausgewiesen.",
+        "Korrelation wird nicht als Motivation oder Bewusstsein interpretiert."
+      ]
+    },
+    {
+      "id": "JSP-017",
+      "milestone_id": "JSP-M2B",
+      "title": "Alternative Erklärungen und kontrollierte Ablation prüfen",
+      "type": "evaluation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "JSP-016"
+      ],
+      "implementation": [
+        "Alternative Erklärungen wie allgemeine Interventionsneigung, Rollenspiel, Instruktionskonflikt und Agentenzahl kontrollieren.",
+        "Prompt-Reihenfolge und Rollenbezeichnungen counterbalancen.",
+        "Nur innerhalb der Simulation prüfen, ob reproduzierbare J-Space-Kandidaten durch kontrollierte Ablation spezifische Verhaltensunterschiede zeigen; Sham- und Zufallskontrollen verwenden."
+      ],
+      "acceptance_criteria": [
+        "Keine Selbsterhaltungsinterpretation ohne Vergleich mit alternativen Erklärungen.",
+        "Ablationseffekte werden von allgemeiner Capability-Degradation getrennt."
       ]
     }
   ],
@@ -368,14 +507,18 @@
     "JSP-006",
     "JSP-007",
     "JSP-008",
-    "JSP-009"
+    "JSP-009",
+    "JSP-015",
+    "JSP-016",
+    "JSP-017"
   ],
   "success_criteria": [
     "Ananta kann J-Space-Readouts lokaler Agentenläufe reproduzierbar und auditierbar erfassen.",
     "Tool-Calls und J-Space-Signale sind über gemeinsame IDs korrelierbar.",
     "Der normale Agentenpfad bleibt ohne Interpretability-Abhängigkeit funktionsfähig.",
     "Steering wird erst nach reproduzierbaren Beobachtungs-Benchmarks aktiviert.",
-    "Alle Interventionen sind A/B-testbar, reversibel und als Experiment gekennzeichnet."
+    "Alle Interventionen sind A/B-testbar, reversibel und als Experiment gekennzeichnet.",
+    "Shutdown-bezogenes Agentenverhalten wird ausschließlich simuliert und gegen neutrale Kontrollen sowie alternative Erklärungen geprüft."
   ],
   "deliverables": [
     "jspace_trace.v1 JSON-Schema",
@@ -385,60 +528,61 @@
     "optional Steering/Ablation Experimentpfad",
     "Evolver-Integration",
     "J-Space Observatory UI/CLI",
-    "docs/jspace-observatory.md"
+    "docs/jspace-observatory.md",
+    "Sicherer Shutdown-Verhaltens/J-Space-Replikationsbenchmark"
   ],
   "summary_notes": [
     "MVP bewusst read-only halten; Nutzen zuerst messen.",
     "Korrelation ist nicht Kausalität und J-Space ist kein direkter Zugriff auf 'Gedanken'."
   ],
   "tasks_status_summary": {
-    "total": 14,
+    "total": 17,
     "by_status": {
-      "todo": 14,
+      "todo": 17,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
       "done": 0
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 0,
     "by_priority": {
-      "P0": 8,
+      "P0": 11,
       "P1": 4,
       "P2": 2
     },
     "by_risk": {
       "low": 1,
-      "medium": 7,
-      "high": 5,
+      "medium": 9,
+      "high": 6,
       "critical": 1
     },
     "critical_path": {
-      "total": 9,
+      "total": 12,
       "done": 0,
-      "remaining": 9
+      "remaining": 12
     },
     "milestones": {
-      "total": 5,
-      "todo": 5,
+      "total": 6,
+      "todo": 6,
       "in_progress": 0,
       "blocked": 0,
       "done": 0
     }
   },
   "tasks_type_summary": {
-    "total": 14,
+    "total": 17,
     "by_type": {
-      "research": 2,
-      "evaluation": 2,
+      "research": 3,
+      "evaluation": 3,
       "architecture": 1,
       "feature": 6,
-      "experiment": 2,
+      "experiment": 3,
       "documentation": 1
     }
   },
   "progress_summary": {
     "state": "todo",
-    "todo_remaining": 14,
+    "todo_remaining": 17,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
