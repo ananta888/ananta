@@ -1,0 +1,497 @@
+{
+  "$schema": "../todo.track.schema.json",
+  "version": "1.0",
+  "created": "2026-10-06",
+  "updated_at": "2026-10-06",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "clef_jev_vision_whisper_decision_integration",
+  "title": "Cloudflare Clef/Clef-flash: Architektur analysieren und auf Anantas Jev-artige Vision- und Whisper-Decision-Runner übertragen",
+  "status": "todo",
+  "priority": "P0",
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2"],
+  "risk_scale": ["low", "medium", "high", "critical"],
+  "purpose": "Die neuen offenen Cloudflare-Decision-Modelle Clef und Clef-flash systematisch gegen Anantas bestehenden Jev-artigen ParallelDecision-Ansatz untersuchen. Ziel ist nicht nur ein Provider-Adapter, sondern zu verstehen, welche Architektur-, Scoring-, API-, Vision- und Trainingsideen aus Clef in die bereits vorhandenen lokalen Decision-Runner für llama.cpp/Vision und whisper.cpp/Audio übernommen werden können.",
+  "goal": "Ananta erhält eine gemeinsame, backend-neutrale System-One/ParallelDecision-Schicht, die Jev, Clef/Clef-flash und die eigenen lokalen Vision-/Whisper-Decision-Runner vergleichbar macht. Clefs offene Implementierung und Gewichte werden genutzt, um insbesondere Multi-Question-Scoring, Choice/Noul/Score-Semantik, Vision-Decisions, Kalibrierung, Batching und mögliche Trainings-/Fine-Tuning-Ansätze auf die vorhandenen lokalen Runner zu übertragen.",
+  "related_todos": [
+    "todos/active/todo.jev-llamacpp-parallel-decision-mode.json",
+    "todos/active/todo.vision-parallel-decision-llamacpp.json",
+    "todos/active/todo.whisper-audio-parallel-decision-runner.json"
+  ],
+  "external_baseline": {
+    "name": "Cloudflare Clef / Clef-flash",
+    "release_date": "2026-10-01",
+    "models": [
+      {
+        "name": "Clef",
+        "size": "27B",
+        "context": "64K",
+        "role": "quality baseline"
+      },
+      {
+        "name": "Clef-flash",
+        "size": "9B",
+        "context": "64K",
+        "role": "latency baseline"
+      }
+    ],
+    "known_public_properties_to_verify_at_execution": [
+      "Apache-2.0 open weights",
+      "System One / Jev-compatible API",
+      "question types: noul, choice, score",
+      "up to 64 questions per request",
+      "Clef vision input supports up to four images",
+      "Cloudflare-hosted Workers AI variants plus locally downloadable weights",
+      "Cloudflare reports lower latency than Jev; all claims must be independently benchmarked"
+    ]
+  },
+  "architecture_principles": [
+    "Clef is zunächst Referenz und möglicher Provider, nicht automatisch Ersatz für die bestehenden lokalen Decision-Runner.",
+    "Bestehende llama.cpp- und whisper.cpp-Forks bleiben eigenständige Inferenzpfade; eine Übernahme von Clef-Ideen muss backend-spezifische Zustands- und KV-Unterschiede respektieren.",
+    "System-One-Semantik wird in einem gemeinsamen Contract modelliert: bounded answers, per-candidate probabilities/scores, confidence, abstain und timings.",
+    "Vision und Audio werden nicht künstlich auf Text reduziert, wenn der jeweilige Runner einen nativen Encoderzustand wiederverwenden kann.",
+    "Cross-field-Abhängigkeiten dürfen nicht fälschlich als unabhängige Parallelfragen behandelt werden.",
+    "Kalibrierung und fachliche Accuracy werden getrennt von syntaktischer Gültigkeit bewertet.",
+    "Cloudflare-Benchmarkzahlen sind nur externe Referenzen; Promotionsentscheidungen basieren auf eigenen reproduzierbaren Benchmarks."
+  ],
+  "milestones": [
+    {
+      "id": "CLEF-M1",
+      "title": "Upstream- und Architekturaufnahme",
+      "status": "todo",
+      "task_ids": ["CLEF-001", "CLEF-002", "CLEF-003"]
+    },
+    {
+      "id": "CLEF-M2",
+      "title": "Gemeinsamer System-One-Contract und Provider",
+      "status": "todo",
+      "task_ids": ["CLEF-004", "CLEF-005", "CLEF-006"]
+    },
+    {
+      "id": "CLEF-M3",
+      "title": "Vision-Übertragung",
+      "status": "todo",
+      "task_ids": ["CLEF-007", "CLEF-008", "CLEF-009"]
+    },
+    {
+      "id": "CLEF-M4",
+      "title": "Whisper-/Audio-Übertragung",
+      "status": "todo",
+      "task_ids": ["CLEF-010", "CLEF-011", "CLEF-012"]
+    },
+    {
+      "id": "CLEF-M5",
+      "title": "Benchmark, Kalibrierung und Entscheidung",
+      "status": "todo",
+      "task_ids": ["CLEF-013", "CLEF-014", "CLEF-015"]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "CLEF-001",
+      "milestone_id": "CLEF-M1",
+      "title": "Clef/Clef-flash Upstream, Modellkarten, Code, Gewichte und Lizenz pinnen",
+      "type": "research",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "low",
+      "progress_percent": 0,
+      "depends_on": [],
+      "implementation": [
+        "Offizielle Cloudflare-Repositories, Hugging-Face-Modellkarten, Konfigurationen, Tokenizer/Processor und verfügbare Inferenzbeispiele erfassen.",
+        "Konkrete Commit-SHAs und Modellrevisionen pinnen.",
+        "Apache-2.0-Lizenz und Drittanbieterabhängigkeiten dokumentieren.",
+        "Architekturannahmen ausschließlich aus überprüfbarem Code/Config ableiten."
+      ],
+      "acceptance_criteria": [
+        "Alle verwendeten Clef-Quellen sind mit URL, Revision und Lizenz reproduzierbar dokumentiert.",
+        "Keine Architekturbehauptung basiert nur auf Marketingtext."
+      ]
+    },
+    {
+      "id": "CLEF-002",
+      "milestone_id": "CLEF-M1",
+      "title": "Clef Decision-Mechanik quellcodegenau gegen Anantas Jev-artigen llama.cpp-Runner vergleichen",
+      "type": "architecture",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": ["CLEF-001"],
+      "implementation": [
+        "Ermitteln, wie Clef State, Questions, Criteria, Choice/Noul/Score intern repräsentiert und scored.",
+        "Untersuchen, ob Clef Kandidaten parallel, als spezialisierte Heads, tokenbasiert, über Klassifikationsprojektionen oder hybrid bewertet.",
+        "Multi-Question-Batching, gemeinsame Repräsentationen, Attention-/KV-Wiederverwendung und Längenabhängigkeiten analysieren.",
+        "Unterschiede zum bestehenden llama.cpp Trie-/Kept-Path-/ParallelDecision-Ansatz tabellarisch dokumentieren."
+      ],
+      "acceptance_criteria": [
+        "Es gibt eine konkrete Architektur-Matrix Clef vs. Ananta llama.cpp Decision.",
+        "Übernehmbare Ideen und nicht übertragbare modellarchitekturspezifische Teile sind getrennt."
+      ]
+    },
+    {
+      "id": "CLEF-003",
+      "milestone_id": "CLEF-M1",
+      "title": "Lokale Laufzeitpfade für Clef und Clef-flash evaluieren",
+      "type": "infrastructure",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": ["CLEF-001"],
+      "implementation": [
+        "Transformers/vLLM/SGLang und verfügbare native Backends prüfen.",
+        "Prüfen, ob GGUF/llama.cpp sinnvoll oder technisch ungeeignet ist; keine Konvertierung erzwingen.",
+        "Clef-flash primär auf RTX 5060 Ti 16 GB evaluieren; Clef 27B mit sinnvoller Quantisierung/Offload nur falls praktikabel.",
+        "Cold/Warm-Start, VRAM/RAM, Kontext und Batchfähigkeit erfassen."
+      ],
+      "acceptance_criteria": [
+        "Mindestens ein reproduzierbarer lokaler Clef- oder Clef-flash-Inferenzpfad ist dokumentiert oder ein konkreter Blocker belegt.",
+        "Hardwaregrenzen und Quantisierungseinfluss sind nachvollziehbar."
+      ]
+    },
+    {
+      "id": "CLEF-004",
+      "milestone_id": "CLEF-M2",
+      "title": "Backend-neutralen System-One-Contract für Jev, Clef und lokale Runner definieren",
+      "type": "api",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": ["CLEF-002"],
+      "implementation": [
+        "Canonical Question-Typen für boolean/noul, choice und score definieren.",
+        "State plus optionale multimodale Inputs modellieren.",
+        "Antwortcontract mit winner/value, vollständiger Kandidatenverteilung, confidence, abstain, model/backend und timings definieren.",
+        "Explizit kennzeichnen, welche Semantik ein Backend nicht nativ unterstützt."
+      ],
+      "acceptance_criteria": [
+        "Jev/Clef und lokale llama.cpp-/Vision-/Whisper-Runner können denselben Ananta-Contract bedienen.",
+        "Kein Provider-spezifisches Feld wird stillschweigend als universell angenommen."
+      ]
+    },
+    {
+      "id": "CLEF-005",
+      "milestone_id": "CLEF-M2",
+      "title": "Clef Workers-AI- und Local-Provider implementierbar spezifizieren",
+      "type": "integration",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "progress_percent": 0,
+      "depends_on": ["CLEF-003", "CLEF-004"],
+      "implementation": [
+        "Provider für Cloudflare Workers AI und lokalen Clef-Runtimepfad hinter derselben Schnittstelle vorsehen.",
+        "Model switching Clef/Clef-flash konfigurierbar machen.",
+        "Timeout, Retry, Rate Limit, Queue und Fallback explizit behandeln.",
+        "Cloud/API-Provider darf keine zwingende Abhängigkeit für lokale Ananta-Pfade werden."
+      ],
+      "acceptance_criteria": [
+        "Hosted und local Clef lassen sich ohne Änderungen an Aufrufern austauschen.",
+        "Feature-off und fehlende Cloud-Credentials beeinträchtigen lokale Runner nicht."
+      ]
+    },
+    {
+      "id": "CLEF-006",
+      "milestone_id": "CLEF-M2",
+      "title": "Choice/Noul/Score-Semantik auf bestehenden ParallelDecision-Runner abbilden",
+      "type": "core",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": ["CLEF-002", "CLEF-004"],
+      "implementation": [
+        "Bestehende enum/boolean-Felder mit Clef choice/noul semantisch angleichen.",
+        "Für score geordnete Rubriken und Probability-weighted Score definieren.",
+        "Multi-question Requests prüfen: gemeinsamer Prefill/State, unabhängige Felder und explizite Dependency-Fälle.",
+        "Kalibrierungs- und Abstain-Metadaten im gemeinsamen Resultat erhalten."
+      ],
+      "acceptance_criteria": [
+        "Identische Testfälle können gegen Clef und lokalen ParallelDecision-Runner ausgeführt werden.",
+        "Score-, Choice- und Boolean-Ergebnisse sind maschinenvergleichbar."
+      ]
+    },
+    {
+      "id": "CLEF-007",
+      "milestone_id": "CLEF-M3",
+      "title": "Clefs Vision-Encoder und multimodalen Decision-Pfad analysieren",
+      "type": "research",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": ["CLEF-001", "CLEF-002"],
+      "implementation": [
+        "Vision-Encoder, Bildtoken/-embeddings, Fusion mit State und Decision-Komponenten im offenen Modell untersuchen.",
+        "Mehrbildverarbeitung bis zum öffentlich unterstützten Limit analysieren.",
+        "Ermitteln, ob Question-Scoring denselben multimodalen Repräsentationszustand teilt.",
+        "Architektur mit libmtmd/mmproj -> VLM-Prefill -> shared KV trunk -> Decision-Branches vergleichen."
+      ],
+      "acceptance_criteria": [
+        "Die Clef-Vision-Pipeline ist bis zum Decision-Scoring nachvollziehbar dokumentiert.",
+        "Konkrete Ansatzpunkte für den bestehenden Vision-Fork sind benannt."
+      ]
+    },
+    {
+      "id": "CLEF-008",
+      "milestone_id": "CLEF-M3",
+      "title": "Clef-inspirierte Multi-Question-Optimierungen in den Vision-Decision-Fork übertragen",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": ["CLEF-006", "CLEF-007"],
+      "implementation": [
+        "Prüfen, welche Clef-Ideen Prompt-/Vision-Prefill-Wiederverwendung, Branching oder Batchbildung verbessern.",
+        "Bild/Embedding/VLM-Prefill exakt einmal pro Request wiederverwenden, soweit Backend korrekt.",
+        "Bis zu mehrere unabhängige Vision-Fragen in einem Decision-Aufruf unterstützen.",
+        "Keine Clef-spezifischen Annahmen übernehmen, die nur durch dessen trainierte Heads funktionieren."
+      ],
+      "acceptance_criteria": [
+        "Mehrere Vision-Decisions nutzen nachweislich gemeinsamen Bild-/Prefill-Zustand, sofern das Modellbackend dies erlaubt.",
+        "Regressionen gegen bestehende Vision-Decision-Tests sind ausgeschlossen."
+      ]
+    },
+    {
+      "id": "CLEF-009",
+      "milestone_id": "CLEF-M3",
+      "title": "Vision-Benchmark Clef vs. lokaler Vision-Decision-Runner aufbauen",
+      "type": "evaluation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": ["CLEF-008"],
+      "implementation": [
+        "Objekt-/Szenenklassifikation, Routing, Presence, mehrdeutige Fälle und Multi-Image-Fälle abdecken.",
+        "Accuracy/Macro-F1, Calibration, abstain, p50/p95, VRAM/RAM und Durchsatz messen.",
+        "Clef, Clef-flash, normaler VLM-JSON-Pfad und lokaler Vision-Decision-Pfad vergleichen."
+      ],
+      "acceptance_criteria": [
+        "Benchmark trennt Modellqualität von Decision-Mechanik.",
+        "Es ist sichtbar, wann lokaler Vision-Decision-Pfad schneller/günstiger oder schlechter/besser als Clef ist."
+      ]
+    },
+    {
+      "id": "CLEF-010",
+      "milestone_id": "CLEF-M4",
+      "title": "Clef-Decision-Semantik auf Audio/Whisper fachlich abbilden",
+      "type": "architecture",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": ["CLEF-006"],
+      "implementation": [
+        "noul auf yes/no bzw. presence-verbalizers, choice auf finite command/phrase choices und score nur auf sinnvoll gesprochene ordinale Rubriken abbilden.",
+        "Explizit festhalten, welche Clef-Fähigkeiten nicht auf Whisper übertragbar sind, weil Whisper kein allgemeines Decision-Modell ist.",
+        "Abstrakte semantische Entscheidungen weiterhin nur nach eigenen Audio-Benchmarks zulassen."
+      ],
+      "acceptance_criteria": [
+        "Der gemeinsame Contract kann Whisper nutzen, ohne dessen Fähigkeiten zu überschätzen.",
+        "Unsupported- und fallback-Fälle sind explizit."
+      ]
+    },
+    {
+      "id": "CLEF-011",
+      "milestone_id": "CLEF-M4",
+      "title": "Multi-Question- und Candidate-Scoring aus Clef gegen Whisper-Encoder/Decoder-Reuse prüfen",
+      "type": "research",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": ["CLEF-002", "CLEF-010"],
+      "implementation": [
+        "Clefs gemeinsames Multi-Question-Schema als Referenz für mehrere Audio-Decisions aus einem Encoderlauf nutzen.",
+        "Whisper Encoder/Cross-Attention-State nur einmal aufbauen und pro Feld unabhängige Decoderpfade bewerten.",
+        "Trie/Prefix-Sharing und Kandidatenbatching gegen Clef-artige Question-Batches messen.",
+        "Cross-field dependencies niemals durch bloße Parallelisierung verfälschen."
+      ],
+      "acceptance_criteria": [
+        "Mindestens ein belastbares Design für mehrere Audio-Decisions aus einem Audio-Encode liegt vor.",
+        "State-Sharing ist durch whisper.cpp-Interna belegt."
+      ]
+    },
+    {
+      "id": "CLEF-012",
+      "milestone_id": "CLEF-M4",
+      "title": "Whisper-System-One-API an gemeinsamen Clef/Jev-Contract anbinden",
+      "type": "integration",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": ["CLEF-010", "CLEF-011"],
+      "implementation": [
+        "Audio-Decisions über denselben Ananta Question-Contract erreichbar machen.",
+        "Audio bleibt separates Input-Medium; keine Fake-Text-State-Konvertierung als Pflicht.",
+        "Fallback zu normaler Transkription -> LLM/System-2 standardisieren."
+      ],
+      "acceptance_criteria": [
+        "Ein Aufrufer kann dieselben Choice/Noul-Strukturen für Text, Vision und Audio verwenden.",
+        "Whisper-spezifische Verbalizer und Fallbacks bleiben erhalten."
+      ]
+    },
+    {
+      "id": "CLEF-013",
+      "milestone_id": "CLEF-M5",
+      "title": "Einheitliche Decision-Benchmark-Suite über Text, Vision und Audio erstellen",
+      "type": "evaluation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": ["CLEF-005", "CLEF-009", "CLEF-012"],
+      "implementation": [
+        "Text: Routing/Tool/Gate-Fälle aus bestehendem Jev-Benchmark wiederverwenden.",
+        "Vision: bounded visual decisions.",
+        "Audio: constrained speech/commands/phrases.",
+        "Gemeinsame Kennzahlen plus modalitiespezifische Metriken ausgeben."
+      ],
+      "acceptance_criteria": [
+        "Alle Backends erzeugen dasselbe maschinenlesbare Benchmarkformat.",
+        "Ergebnisse sind nach Backend, Modell, Modalität, Hardware und Decision-Typ filterbar."
+      ]
+    },
+    {
+      "id": "CLEF-014",
+      "milestone_id": "CLEF-M5",
+      "title": "Kalibrierung, Confidence, Abstain und System-2-Eskalation vereinheitlichen",
+      "type": "evaluation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": ["CLEF-013"],
+      "implementation": [
+        "ECE/Brier/Risk-Coverage und task-spezifische Precision-Ziele messen.",
+        "Backend-spezifische Rohscores niemals ungeprüft direkt vergleichen.",
+        "Per Backend/Task Kalibrierung oder monotone Mapping-Schicht evaluieren.",
+        "System-2-Eskalation anhand realer Fehlerrisiken statt fixer Marketing-Confidence wählen."
+      ],
+      "acceptance_criteria": [
+        "Confidence ist pro Backend kalibriert oder klar als nicht vergleichbar markiert.",
+        "Fallback-Schwellen stammen aus Validation-Daten und werden auf Holdout geprüft."
+      ]
+    },
+    {
+      "id": "CLEF-015",
+      "milestone_id": "CLEF-M5",
+      "title": "Abschlussentscheidung: Clef als Provider, Referenzarchitektur, Trainingsbasis oder lokaler Standard",
+      "type": "documentation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "progress_percent": 0,
+      "depends_on": ["CLEF-014"],
+      "implementation": [
+        "Clef/Clef-flash gegen Jev, lokalen llama.cpp Decision-Runner, Vision-Fork und Whisper-Fork vergleichen.",
+        "Getrennte Entscheidungen für Text, Vision und Audio treffen.",
+        "Prüfen, ob Clefs offene Trainings-/RL-Artefakte einen eigenen multimodalen Ananta-Decision-Trainingspfad rechtfertigen.",
+        "Empfehlung als default, optional, shadow oder research-only dokumentieren."
+      ],
+      "acceptance_criteria": [
+        "Promotion basiert auf eigenen reproduzierbaren Messungen.",
+        "Für jede Modalität ist klar, ob Clef ersetzt, ergänzt oder nur als Referenz dient."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "CLEF-001",
+    "CLEF-002",
+    "CLEF-004",
+    "CLEF-006",
+    "CLEF-007",
+    "CLEF-008",
+    "CLEF-010",
+    "CLEF-011",
+    "CLEF-013",
+    "CLEF-014",
+    "CLEF-015"
+  ],
+  "tasks_status_summary": {
+    "total": 15,
+    "by_status": {
+      "todo": 15,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P0": 10,
+      "P1": 5,
+      "P2": 0
+    },
+    "by_risk": {
+      "low": 4,
+      "medium": 5,
+      "high": 6,
+      "critical": 0
+    },
+    "critical_path": {
+      "total": 11,
+      "done": 0,
+      "remaining": 11
+    },
+    "milestones": {
+      "total": 5,
+      "todo": 5,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 15,
+    "by_type": {
+      "research": 4,
+      "architecture": 3,
+      "infrastructure": 1,
+      "api": 1,
+      "integration": 3,
+      "core": 1,
+      "implementation": 1,
+      "evaluation": 4,
+      "documentation": 1
+    }
+  },
+  "progress_summary": {
+    "state": "todo",
+    "todo_remaining": 15,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "success_criteria": [
+    "Clefs offene Decision-Architektur ist quellcodebasiert verstanden und gegen Anantas Jev-artigen Ansatz dokumentiert.",
+    "Jev, Clef und lokale Text-/Vision-/Audio-Decision-Runner können über einen gemeinsamen System-One-Contract angesprochen werden.",
+    "Clefs Vision-Mechanik wurde konkret gegen den existierenden llama.cpp-Vision-Decision-Fork geprüft und sinnvolle Optimierungen wurden übernommen oder begründet verworfen.",
+    "Clefs Multi-Question- und Decision-Semantik wurde auf den whisper.cpp-Audio-Decision-Runner übertragen, ohne Whisper als allgemeines Decision-Modell zu überdehnen.",
+    "Eigene Benchmarks vergleichen Qualität, Kalibrierung, Latenz, Durchsatz und Ressourcen über Text, Vision und Audio.",
+    "Die finale Backendstrategie ist pro Modalität evidenzbasiert dokumentiert."
+  ],
+  "deliverables": [
+    "Clef/Clef-flash Upstream- und Architekturreport",
+    "System-One Compatibility Matrix: Jev vs. Clef vs. Ananta local",
+    "gemeinsamer Choice/Noul/Score Contract",
+    "Clef hosted/local Provider-Spezifikation",
+    "Vision-Decision Architekturvergleich und Optimierungen",
+    "Whisper-Audio Multi-Question Design",
+    "cross-modal Decision Benchmark Suite",
+    "Calibration/Risk-Coverage Report",
+    "finale Provider-/Runtime-Empfehlung"
+  ],
+  "summary_notes": [
+    "Clef und Clef-flash wurden am 2026-10-01 von Cloudflare als offene Decision-Modelle veröffentlicht; Fakten beim Ausführungsstart erneut gegen offizielle Quellen prüfen.",
+    "Diese TODO baut bewusst auf den bereits vorhandenen Jev-, Vision- und Whisper-Decision-Tracks auf und dupliziert deren Kernimplementierung nicht.",
+    "Der größte Forschungswert liegt in der offenen Clef-Architektur: prüfen, welche Mechanismen gegenüber dem bisherigen tokenpfadbasierten Jev-Modus allgemeiner oder effizienter sind."
+  ]
+}
