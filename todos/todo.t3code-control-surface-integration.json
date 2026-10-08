@@ -1,0 +1,288 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "id": "ananta-t3code-control-surface-integration",
+  "title": "T3 Code als optionale Agent-Control-Surface für Ananta evaluieren und integrieren",
+  "type": "feature",
+  "status": "todo",
+  "priority": "high",
+  "created_at": "2026-10-08",
+  "labels": [
+    "t3code",
+    "ui",
+    "agent-control-surface",
+    "mcp",
+    "remote",
+    "opencode",
+    "codex",
+    "security",
+    "optional-integration"
+  ],
+  "summary": "T3 Code als optionale Web-/Desktop-/Mobile-Oberfläche prüfen. Ananta bleibt alleiniger Hub für Aufgaben, Delegation, Policy, Freigaben und Evidence; T3 verwaltet nur seine eigenen Threads/Provider-Sessions. Zuerst MCP-basierte lose Kopplung prüfen, keine neue parallele Orchestrierung bauen.",
+  "review_basis": {
+    "reviewed_commit_range": "main as of 2026-10-08; read AGENTS.md, todos/todo.schema.json and Herdr/Pi TODOs, T3 upstream README, architecture, MCP and remote docs",
+    "review_goal": "Technische Integrationswege, Grenzen, Risiken, Lizenz und minimalen PoC festlegen"
+  },
+  "sources": [
+    {
+      "url": "https://github.com/pingdotgg/t3code",
+      "purpose": "Upstream"
+    },
+    {
+      "url": "https://github.com/pingdotgg/t3code/blob/main/docs/internals/overview.md",
+      "purpose": "Ownership and RPC contract"
+    },
+    {
+      "url": "https://github.com/pingdotgg/t3code/blob/main/docs/user/outside-agents.md",
+      "purpose": "MCP OAuth and permissions"
+    },
+    {
+      "url": "https://github.com/pingdotgg/t3code/blob/main/docs/user/remote-access.md",
+      "purpose": "LAN, Tailscale and T3 Connect"
+    },
+    {
+      "url": "https://github.com/pingdotgg/t3code/blob/main/LICENSE",
+      "purpose": "MIT"
+    },
+    {
+      "url": "https://github.com/ananta888/ananta/blob/main/AGENTS.md",
+      "purpose": "Hub-worker contract"
+    },
+    {
+      "url": "https://github.com/ananta888/ananta/blob/main/todos/ananta-herdr-runtime-adapter.todo.json",
+      "purpose": "Herdr boundary"
+    }
+  ],
+  "architectural_constraints": [
+    "AGENTS.md und docs/planning-pipeline.md beachten; Hub orchestriert, Worker führen aus, Containergrenzen einhalten.",
+    "Ananta-Hub allein verantwortlich für Task-Queue, Governance, Entscheidung, Auto-Approval-Policy, Audit und SRC_*/RUN_* Evidence.",
+    "Keine T3-Orchestrierung als zweite Task-Queue, keine Delegation Worker-zu-Worker und kein impliziter Permission-Bypass.",
+    "Bestehende agent.cli_backends, Workflow-Runtime, Herdr-Adapter und OpenCode/Codex-Provider wiederverwenden; keine Doppelimplementierung.",
+    "Feature standardmäßig deaktiviert; bestehende API und UI unverändert, ohne T3 startfähig.",
+    "T3-Thread-IDs und Provider-Session-IDs nur als externe Metadaten internen UUIDs zuordnen.",
+    "Keine Secrets in TODOs, Logs, URLs oder Screenshots; Remote-Verbindung nur mit expliziter Authentifizierung und begrenzten Scopes.",
+    "MIT-Pflichten bei Codeübernahme prüfen; kein Copy-Paste ohne Herkunfts- und Lizenznachweis.",
+    "TODO ist Planung, nicht automatische Installation oder Aktivierung."
+  ],
+  "options": [
+    {
+      "name": "MCP client integration",
+      "priority": 1,
+      "description": "Ananta-Hub oder dedizierter kontrollierter Adapter verbindet sich mit T3 /mcp als OAuth Client; Projekt/Thread lesen und ggf. nach expliziter Hub-Policy steuern. Prüfung, ob headless OAuth Provisioning und scopes praktikabel sind.",
+      "caveat": "T3 startet dabei eigene Coding-Provider-Threads; nicht als unabhängigen Ananta-Worker-Scheduler behandeln."
+    },
+    {
+      "name": "Existing OpenCode/Codex via T3 UI",
+      "priority": 2,
+      "description": "T3 unabhängig als Benutzer-Control-Surface gegen vorhandene Provider auf demselben Host betreiben; Ananta koppelt über explizite Task-/Run-Referenzen und Beobachtung, soweit Upstream-Schnittstellen dies ermöglichen.",
+      "caveat": "Eine Sitzung darf nicht gleichzeitig konkurrierende Owner/Writer haben."
+    },
+    {
+      "name": "T3 client/UI reuse or fork",
+      "priority": 3,
+      "description": "Erst nach PoC konkrete Web-UI-Komponenten, RPC-Protokolle, Reconnect, Diff, Checkpoints, mobile UX prüfen; schmalen Adapter statt gesamtem Fork bevorzugen.",
+      "caveat": "T3 RPC ist an T3 Environment gebunden, nicht automatisch eine öffentliche stabile Ananta-API."
+    },
+    {
+      "name": "Herdr side-by-side",
+      "priority": 4,
+      "description": "Herdr bleibt optionaler Prozess-/Terminal-/Worktree-Adapter, T3 optionales UI; Interoperabilität über klar definierte Ownership prüfen.",
+      "caveat": "Keine zwei konkurrierenden Lifecycle-Controller pro Agent."
+    }
+  ],
+  "categories": [
+    {
+      "name": "discovery",
+      "label": "P0: Bestandsaufnahme & Architekturentscheidung",
+      "items": [
+        {
+          "id": "T3-01",
+          "status": "open",
+          "priority": "P0",
+          "task": "Ananta: existierende UI, CLI-Provider, MCP-Routen, Auth, Session-/Audit-/Evidence-Contracts und Herdr-Pi-Todos kartieren; Doppelungen markieren.",
+          "acceptance": [
+            "Dateipfade und öffentliche Ports konkret dokumentiert.",
+            "Ownership-Matrix Ananta/T3/Herdr vorhanden."
+          ]
+        },
+        {
+          "id": "T3-02",
+          "status": "open",
+          "priority": "P0",
+          "task": "T3 Upstream auf gepinnten Commit überprüfen: /mcp Tool-Schemas, OAuth/Scopes, RPC, Thread/Provider-Lifecycle, Reconnect, Background Service, Lizenz und Versionskompatibilität.",
+          "acceptance": [
+            "Reproduzierbare Capability-Matrix mit Commit-SHA und Quellen.",
+            "Keine nicht belegten API-Annahmen."
+          ]
+        },
+        {
+          "id": "T3-03",
+          "status": "open",
+          "priority": "P0",
+          "task": "ADR: direkte T3-MCP-Kopplung gegen reine T3-UI-Nutzung und UI-Komponentenübernahme vergleichen (Implementierung, Sicherheit, Wartung, Kosten, mobile UX).",
+          "acceptance": [
+            "Go/No-Go je Option und explizite Nicht-Ziele.",
+            "Herdr-Integration ohne doppelte Verantwortung abgegrenzt."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "poc",
+      "label": "P1: Isolierter End-to-End-PoC",
+      "items": [
+        {
+          "id": "T3-04",
+          "status": "open",
+          "priority": "P1",
+          "task": "T3 in isolierter Ubuntu/WSL2- oder Container-Testumgebung versioniert und ohne Secrets im Repo betreiben; vorhandenen OpenCode- oder Codex-Provider erkennen lassen.",
+          "acceptance": [
+            "Setup reproduzierbar, kein produktiver Agent gestartet ohne Auftrag.",
+            "Start, Stop und Recovery dokumentiert."
+          ]
+        },
+        {
+          "id": "T3-05",
+          "status": "open",
+          "priority": "P1",
+          "task": "MCP OAuth mit Read-only testen; Projekte, Modelle, Threads und Status erfassen. Anschließend kontrollierten Thread-Start/Prompt/Cancel nur in Sandbox und mit Hub-Freigabe evaluieren.",
+          "acceptance": [
+            "Read-only funktioniert oder belegte Blockade.",
+            "Schreibende Aktionen sind Hub-autorisiert und auditierbar.",
+            "Headless-Eignung und OAuth-Reauth dokumentiert."
+          ]
+        },
+        {
+          "id": "T3-06",
+          "status": "open",
+          "priority": "P1",
+          "task": "Gleiche Task mit OpenCode Go und konfiguriertem DeepSeek-Fallback über vorhandene Ananta-Provider gegen T3-Thread vergleichen; Credentials, Quotas, Kosten und Fehler klassifizieren.",
+          "acceptance": [
+            "Kein stiller Provider-Wechsel oder Doppelstart.",
+            "Agentenverhalten, Diff und Kosten nachvollziehbar."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "adapter",
+      "label": "P2: Additive Integration",
+      "items": [
+        {
+          "id": "T3-07",
+          "status": "open",
+          "priority": "P2",
+          "task": "Nur bei positivem ADR optionalen T3ControlSurfaceAdapter/MCP-Client außerhalb fachlicher Hub-Domäne entwickeln; Capability-Probe, Version-Gating und deaktivierbaren Config-Flag vorsehen.",
+          "acceptance": [
+            "Ananta ohne T3 unverändert funktionsfähig.",
+            "T3-Fehler verändert keinen Hub-Taskstatus ohne Reconciliation.",
+            "SOLID/DDD und API-Kompatibilität bewahrt."
+          ]
+        },
+        {
+          "id": "T3-08",
+          "status": "open",
+          "priority": "P2",
+          "task": "Interne task_uuid/run_uuid/execution_uuid mit T3 environment/project/thread/provider IDs verknüpfen; Event-/Polling-Bridge, idempotente Reconnects, Backoff und Status-Projection bauen.",
+          "acceptance": [
+            "Keine Fremd-ID als fachlicher Primärschlüssel.",
+            "Verbindungsverlust -> unknown, später Ist-Abgleich; keine Doppel-Tasks.",
+            "Hub Evidence Registry bleibt alleiniger Issuer."
+          ]
+        },
+        {
+          "id": "T3-09",
+          "status": "open",
+          "priority": "P2",
+          "task": "Ananta-UI um optionale 'Open in T3'/Status-/Diff-Verweise ergänzen; keine konkurrierenden Schreibaktionen ohne Lease/Owner-Kontrolle.",
+          "acceptance": [
+            "Read-only-Link bei fehlender Berechtigung.",
+            "Freigaben, Terminalaktionen und Worktree-Änderungen gehen durch Hub-Policy."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "security",
+      "label": "P2: Sicherheit & Multiuser",
+      "items": [
+        {
+          "id": "T3-10",
+          "status": "open",
+          "priority": "P1",
+          "task": "Threat Model: MCP OAuth Token/Refresh, Read-only/Supervised/Full, Remote-Zugriff, Tailscale, T3 Connect, Tenant-Isolation, Workspace-Pfade, Prompt-Injection, Shell und Exfiltration prüfen.",
+          "acceptance": [
+            "Default deny und Least Privilege.",
+            "Kein öffentlicher Port/Cloud-Relay ohne ausdrückliche Entscheidung.",
+            "Tokenrotation/Revoke, redacted logs und getrennte Host-/Container-Identitäten getestet."
+          ]
+        },
+        {
+          "id": "T3-11",
+          "status": "open",
+          "priority": "P2",
+          "task": "Rechts-/Lizenzprüfung für MIT-Komponentenübernahme bei Anantas AGPL-Modell sowie Netzwerk-/Cloud-Datenfluss inklusive T3 Connect dokumentieren.",
+          "acceptance": [
+            "Lizenzhinweise und SBOM bei tatsächlicher Übernahme.",
+            "Cloud-Funktionen explizit opt-in."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "verification",
+      "label": "P3: Tests & Rollout",
+      "items": [
+        {
+          "id": "T3-12",
+          "status": "open",
+          "priority": "P2",
+          "task": "Headless Unit-/Contract-/Integrationtests mit gemocktem T3 und gepinnter realer Testinstanz: OAuth-Expiry, denied scope, Agent-Crash, Netzwerkverlust, Replay, Duplicate Events, Worktree-Konflikte, Cancel und Restart.",
+          "acceptance": [
+            "Automatisiert, begrenzte Laufzeit, keine manuellen Freigaben.",
+            "Keine doppelten Ausführungen bei Retry oder reconnect.",
+            "Bestehende Herdr-/CLI-Tests bleiben grün."
+          ]
+        },
+        {
+          "id": "T3-13",
+          "status": "open",
+          "priority": "P3",
+          "task": "Dokumentation, Config-Beispiele, Betriebs-/Rollback-Anleitung und opt-in Pilot für lokale Web-/Mobile-Steuerung liefern.",
+          "acceptance": [
+            "Feature Flag off by default, klarer Rollback.",
+            "Go-Live erst nach Security Gate und reproduzierbarem Smoke-Test."
+          ]
+        }
+      ]
+    }
+  ],
+  "meta": {
+    "total_items": 13,
+    "by_status": {
+      "completed": 0,
+      "partial": 0,
+      "open": 13
+    },
+    "notes": [
+      "T3 Code Upstream dokumentiert einen eigenen Server und authentifizierte RPC-Clients sowie einen MCP-Server für externe Agenten.",
+      "MCP-Zugriff startet ggf. T3-eigene Provider-Threads; Integration darf Anantas Hub-Worker-Vertrag nicht unterlaufen.",
+      "Read-only, Supervised und Full sind bei T3 dokumentierte Zugriffsmodi; konkrete API vor Implementierung prüfen.",
+      "Status aller Aufgaben initial open; keine Implementierung behauptet."
+    ],
+    "recommended_order": [
+      "T3-01",
+      "T3-02",
+      "T3-03",
+      "T3-10",
+      "T3-04",
+      "T3-05",
+      "T3-06",
+      "T3-07",
+      "T3-08",
+      "T3-09",
+      "T3-11",
+      "T3-12",
+      "T3-13"
+    ]
+  }
+}
