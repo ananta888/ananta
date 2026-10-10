@@ -1,0 +1,284 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "created": "2026-10-10",
+  "updated": "2026-10-10",
+  "project": "Ananta",
+  "owner": "Ananta",
+  "title": "Adaptive LLM Growth and MoE Upcycling",
+  "goal": "Evaluate and prototype controlled growth of transformer LLMs from small dense baselines through depth/width expansion and MoE upcycling, with optional evidence-driven growth and pruning.",
+  "purpose": "Research-to-MVP track; prioritize reproducible compute-normalized evidence over claims of automatic intelligence improvement.",
+  "priority": "P1",
+  "status": "todo",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high"
+  ],
+  "related_todos": [
+    "todos/todo.prime-intellect-verifiers-integration.json"
+  ],
+  "assumptions": [
+    "Ananta is orchestration and evaluation layer, not a replacement for an established pretraining framework.",
+    "Target 3B-to-30B is an exploratory scaling goal, not a locally feasible MVP or promised result."
+  ],
+  "source_review": {
+    "kind": "Preliminary repo inspection; runtime integrations not audited",
+    "observed_files": [
+      "todos/todo.schema.json",
+      "todos/todo.graphiti-temporal-memory-adapter-evaluation.json"
+    ],
+    "references": [
+      "https://arxiv.org/abs/1511.05641",
+      "https://arxiv.org/abs/2112.10684"
+    ]
+  },
+  "milestones": [
+    {
+      "id": "DLM-M1",
+      "title": "Research and baselines",
+      "task_ids": [
+        "DLM-001",
+        "DLM-002"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "DLM-M2",
+      "title": "Growth primitives",
+      "task_ids": [
+        "DLM-003",
+        "DLM-004",
+        "DLM-005",
+        "DLM-006"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "DLM-M3",
+      "title": "Adaptive lifecycle",
+      "task_ids": [
+        "DLM-007",
+        "DLM-008",
+        "DLM-009"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "DLM-M4",
+      "title": "Validation",
+      "task_ids": [
+        "DLM-010",
+        "DLM-011"
+      ],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "DLM-001",
+      "title": "Research and baseline",
+      "description": "Inventory Ananta training integrations and licenses; compare progressive depth/width growth, Net2Net, MoE upcycling and expert addition; record reproducible references.",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "milestone_id": "DLM-M1",
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Define fixed-size and train-from-scratch baselines plus matched token and FLOP budgets."
+      ]
+    },
+    {
+      "id": "DLM-002",
+      "title": "Experiment contract",
+      "description": "Define model configs, dataset provenance, split contamination checks, seeds, compute budget and success thresholds.",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "milestone_id": "DLM-M1",
+      "depends_on": [
+        "DLM-001"
+      ],
+      "acceptance_criteria": [
+        "Track active/total parameters, step FLOPs, tokens/sec, quality, VRAM/RAM, optimizer memory and regressions."
+      ]
+    },
+    {
+      "id": "DLM-003",
+      "title": "Small-scale prototype",
+      "description": "Implement a framework-agnostic trainer adapter with PyTorch/Transformers optional backends and checkpoint/resume.",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "milestone_id": "DLM-M2",
+      "depends_on": [
+        "DLM-001",
+        "DLM-002"
+      ],
+      "acceptance_criteria": [
+        "Train a tiny reference model first, no claims of 3B training on local hardware."
+      ]
+    },
+    {
+      "id": "DLM-004",
+      "title": "Depth growth",
+      "description": "Implement function-preserving or approximately preserving layer insertion with shape checks.",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "milestone_id": "DLM-M2",
+      "depends_on": [
+        "DLM-003"
+      ],
+      "acceptance_criteria": [
+        "Measure immediate loss perturbation and recovery vs scratch baseline."
+      ]
+    },
+    {
+      "id": "DLM-005",
+      "title": "Width growth",
+      "description": "Implement widening for embeddings, attention projections and MLP with optimizer-state migration.",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "milestone_id": "DLM-M2",
+      "depends_on": [
+        "DLM-003"
+      ],
+      "acceptance_criteria": [
+        "Document unsupported architectures and deterministic failure instead of silent corruption."
+      ]
+    },
+    {
+      "id": "DLM-006",
+      "title": "MoE upcycling",
+      "description": "Prototype dense-to-MoE expert cloning and specialization with load-balancing and router initialization.",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "milestone_id": "DLM-M2",
+      "depends_on": [
+        "DLM-003"
+      ],
+      "acceptance_criteria": [
+        "Measure expert collapse, utilization, active parameters, memory and throughput."
+      ]
+    },
+    {
+      "id": "DLM-007",
+      "title": "Adaptive controller",
+      "description": "Implement opt-in budget-aware growth policy driven by validation plateau, gradient signals and expert utilization.",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "high",
+      "milestone_id": "DLM-M3",
+      "depends_on": [
+        "DLM-003"
+      ],
+      "acceptance_criteria": [
+        "Use cooldown, hysteresis, audit logs, bounded changes and reproducible decisions; do not claim autonomous growth is proven."
+      ]
+    },
+    {
+      "id": "DLM-008",
+      "title": "Pruning and rollback",
+      "description": "Evaluate selective expert pruning and checkpoint rollback under quality regressions.",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "milestone_id": "DLM-M3",
+      "depends_on": [
+        "DLM-003"
+      ],
+      "acceptance_criteria": [
+        "Preserve model/tokenizer compatibility, optimizer state and immutable experiment lineage."
+      ]
+    },
+    {
+      "id": "DLM-009",
+      "title": "Ananta integration",
+      "description": "Integrate experiments with existing Ananta todo/agent workflows via adapters, avoiding a new monolithic training stack.",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "milestone_id": "DLM-M3",
+      "depends_on": [
+        "DLM-003"
+      ],
+      "acceptance_criteria": [
+        "Provide CLI dry-run, isolated sandbox execution, configurable GPU/CPU offload, no uncontrolled cloud spend."
+      ]
+    },
+    {
+      "id": "DLM-010",
+      "title": "Evaluation and gate",
+      "description": "Run multilingual German/English benchmarks, retention, safety regressions, data-efficiency and held-out tasks.",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "milestone_id": "DLM-M4",
+      "depends_on": [
+        "DLM-003",
+        "DLM-004",
+        "DLM-005",
+        "DLM-006",
+        "DLM-007"
+      ],
+      "acceptance_criteria": [
+        "Publish matched-compute ablations and a go/no-go report; no benefit claims without measured confidence."
+      ]
+    },
+    {
+      "id": "DLM-011",
+      "title": "Documentation and CI",
+      "description": "Add unit/property tests for tensor shapes, deterministic expansion, resume and regression; document licensing.",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "milestone_id": "DLM-M4",
+      "depends_on": [
+        "DLM-010"
+      ],
+      "acceptance_criteria": [
+        "CI smoke tests on CPU, optional GPU jobs, usage guide and architecture decision record."
+      ]
+    }
+  ],
+  "meta": {
+    "total_items": 11,
+    "by_status": {
+      "completed": 0,
+      "partial": 0,
+      "open": 11
+    },
+    "notes": [
+      "Use matched compute and token controls to avoid misleading growth comparisons.",
+      "No unrestricted self-modification or automatic spending.",
+      "All implementations must follow existing Ananta conventions, SOLID and TDD."
+    ],
+    "recommended_order": [
+      "DLM-001",
+      "DLM-002",
+      "DLM-003",
+      "DLM-004",
+      "DLM-005",
+      "DLM-006",
+      "DLM-007",
+      "DLM-008",
+      "DLM-009",
+      "DLM-010",
+      "DLM-011"
+    ]
+  }
+}
