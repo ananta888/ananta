@@ -1,0 +1,232 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "id": "ananta-desert-ant-optional-model-adapters",
+  "title": "Desert Ant Labs Modelle optional und lizenzkonform in Ananta integrieren",
+  "type": "feature",
+  "status": "todo",
+  "priority": "high",
+  "created_at": "2026-10-10",
+  "labels": [
+    "desert-ant",
+    "speech",
+    "vision",
+    "model-adapter",
+    "license",
+    "agplv3",
+    "privacy",
+    "telemetry",
+    "worker"
+  ],
+  "summary": "Optionale Nutzung der Desert-Ant-Modelle in Ananta prüfen und, nur nach positiver Lizenz- und Datenschutzentscheidung, isoliert integrieren. AGPLv3-Core und Hub-Worker-Architektur bleiben unabhängig; keine ungeprüfte feste Bündelung proprietärer SDKs/Gewichte.",
+  "review_basis": {
+    "reviewed_commit_range": "main am 2026-10-10; AGENTS.md, todos/todo.track.schema.json und bestehende TODO-Konvention exemplarisch eingesehen",
+    "review_goal": "Prüfbare Entscheidung und Implementierungsplan ohne voreilige Lizenzannahmen"
+  },
+  "sources": [
+    {
+      "url": "https://desertant.com/de/models/",
+      "purpose": "Modellkatalog; Fähigkeiten und Verfügbarkeit erneut prüfen"
+    },
+    {
+      "url": "https://license.desertant.com/1.0",
+      "purpose": "Behauptete Lizenzadresse; Verfügbarkeit und aktuellen Text vor Implementierung verifizieren"
+    },
+    {
+      "url": "https://github.com/ananta888/ananta/blob/main/AGENTS.md",
+      "purpose": "Architekturregeln"
+    }
+  ],
+  "architectural_constraints": [
+    "Ananta-Hub orchestriert; SDK-Inferenz nur in kontrollierten Workern.",
+    "AGPLv3-Kompatibilität und Verteilrechte sind vor Bundling ein verpflichtender rechtlicher Gate, nicht bereits festgestellt.",
+    "Keine proprietären SDKs oder Gewichte im Default-Build; Feature Flag OFF.",
+    "Keine heimliche Telemetrie, kein Versprechen vollständiger Offline-Fähigkeit ohne Nachweis.",
+    "Bestehende Vision-, Whisper- und JSON-Runner bleiben mögliche Alternativen.",
+    "Rechte-, Datenschutz- und Security-Review vor produktiver Aktivierung."
+  ],
+  "categories": [
+    {
+      "name": "discovery",
+      "label": "P0: Lizenz und Bestandsaufnahme",
+      "items": [
+        {
+          "id": "DA-01",
+          "status": "open",
+          "priority": "P0",
+          "task": "Bestandsaufnahme bestehender Audio/Vision/PII/JSON-Worker, Provider-Registry, Runner und Modell-Downloadpfade; Wiederverwendung statt Parallelstack.",
+          "acceptance": [
+            "Konkrete Codepfade und Ownership dokumentiert.",
+            "Abgrenzung zu Whisper/Parakeet/VLM-Runnern."
+          ]
+        },
+        {
+          "id": "DA-02",
+          "status": "open",
+          "priority": "P0",
+          "task": "Aktuelle Desert Ant Source-Available License, SDK- und Modell-Einzellizenzen sowie Terms anhand versionierter Originaltexte juristisch/technisch prüfen: AGPLv3-Kombination, Distribution, Modifikation, Attribution, Telemetrie, Gerätezahl, Wettbewerbsverbote, Region und Widerruf.",
+          "acceptance": [
+            "Lizenzmatrix je Modell, SDK, Plattform, Nutzung und Verteilmodus mit Beleglinks.",
+            "Go/No-Go für AGPLv3-Bundling und getrennte Distribution dokumentiert; bei ungeklärten Punkten Rechtsprüfung.",
+            "Keine Behauptung, dass ein bloßer Adapter Lizenzkonflikte beseitigt."
+          ]
+        },
+        {
+          "id": "DA-03",
+          "status": "open",
+          "priority": "P0",
+          "task": "Aktuelle Modellliste/Voraussetzungen und tatsächliche APIs von Voz, Align, Clear, Who, Eye, Schemer, Redact, Tongue anhand offizieller Quellen und Testartefakte verifizieren.",
+          "acceptance": [
+            "Capability-/Versionsmatrix mit OS, Architektur, CPU/GPU/NPU, VRAM/RAM, Sprache, Latenz, Lizenz und SDK-Abhängigkeiten.",
+            "Beta-Modelle nur als experimentell markiert; nicht verfügbare Plattformen nicht versprochen."
+          ]
+        },
+        {
+          "id": "DA-04",
+          "status": "open",
+          "priority": "P0",
+          "task": "ADR über drei Betriebsarten: separater optionaler SDK-Adapter, runtime herunterladbare Assets mit expliziter Zustimmung oder separater proprietärer Dienst; AGPL-rechtliche Trennung durch fachkundige Prüfung absichern.",
+          "acceptance": [
+            "Entscheidung pro Plattform und Verteilung mit dokumentierten Risiken.",
+            "Kein Bundle, Download oder Telemetrie ohne erfüllte Lizenz-/Privacy-Gates."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "architecture",
+      "label": "P1: Architektur und Distribution",
+      "items": [
+        {
+          "id": "DA-05",
+          "status": "open",
+          "priority": "P1",
+          "task": "Abstrakte Ports/Capabilities für ASR, Wort-Alignment, Denoising, Diarisierung, Vision, strukturiertes JSON und PII-Redaktion an existierende Hub-Worker-Registry anbinden; DesertAnt als optionalen Worker-Adapter implementieren.",
+          "acceptance": [
+            "SOLID/DDD; keine direkte SDK-Abhängigkeit im AGPL-Core.",
+            "Ohne Adapter volle Rückwärtskompatibilität und funktionsfähige Alternativen."
+          ]
+        },
+        {
+          "id": "DA-06",
+          "status": "open",
+          "priority": "P1",
+          "task": "Explizites Opt-in für SDK und Asset-Bezug einschließlich Lizenzanzeige, Quelle/Hash/Version, Zustimmung, Paket-SBOM, Attributionsdatei und prüfbarer Uninstall-/Purge-Funktion entwickeln.",
+          "acceptance": [
+            "Default OFF; keine proprietären Gewichte in Git, Docker-Basisimage oder AGPL-Release.",
+            "Download nur aus geprüfter Quelle mit Integritätskontrolle; fehlende Zustimmung führt zu sauberem Fallback."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "speech",
+      "label": "P1: Audio",
+      "items": [
+        {
+          "id": "DA-08",
+          "status": "open",
+          "priority": "P1",
+          "task": "Voz+Align und optional Clear/Who als schrittweise Sprachpipeline in isoliertem Worker evaluieren; Streaming, Deutsch, Zeitstempel und Sprecherwechsel untersuchen.",
+          "acceptance": [
+            "Reproduzierbare Benchmarks: WER, DER (falls Who verfügbar), RTF, Peak-RAM/VRAM, CPU/GPU-Auslastung.",
+            "Whisper/Parakeet als auswählbarer Fallback; Fehler erzeugen keine Doppeltranskription."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "vision",
+      "label": "P2: Vision/JSON/PII",
+      "items": [
+        {
+          "id": "DA-09",
+          "status": "open",
+          "priority": "P2",
+          "task": "Eye, Schemer und Redact als getrennte Capability-Adapter mit validierten JSON-Schemas, Confidence-Kalibrierung und PII-Redaktionskontrolle prototypisieren.",
+          "acceptance": [
+            "Vision und JSON mit vorhandenen Ananta-Pipelines vergleichbar.",
+            "Keine automatische Entfernung von Originaldaten ohne Nutzerfreigabe; Redaction-Fehlerfälle getestet."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "security",
+      "label": "P1: Datenschutz und Sicherheit",
+      "items": [
+        {
+          "id": "DA-07",
+          "status": "open",
+          "priority": "P1",
+          "task": "Telemetrie und Datenflüsse des SDK praktisch erfassen; offline/local-only Eignung ohne Umgehung von Lizenzbedingungen testen; Datenschutzhinweise, Netzwerk-Allowlist und Fail-Closed-Option definieren.",
+          "acceptance": [
+            "Datentypen, Empfänger, Zwecke und Rechtsgrundlagen dokumentiert.",
+            "Bei nicht abschaltbarer verpflichtender Telemetrie kein Local-only-Label und kein Start im strikt offline konfigurierten Modus."
+          ]
+        },
+        {
+          "id": "DA-10",
+          "status": "open",
+          "priority": "P1",
+          "task": "Sicherheit/Isolation: SDK im separaten unprivilegierten Container/Prozess, scoped Volumes, egress policy, Ressourcenlimits, Dependency-Scanning, Signatur-/Hash-Prüfung und Prompt-/Dateieingabeschutz.",
+          "acceptance": [
+            "Kein Zugriff auf Hub-Secrets oder fremde Mandanten.",
+            "Timeouts, Ressourcenerschöpfung und fehlerhafte Dateien bleiben isoliert."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "quality",
+      "label": "P2: Tests und Dokumentation",
+      "items": [
+        {
+          "id": "DA-11",
+          "status": "open",
+          "priority": "P2",
+          "task": "Unit-, Contract- und Integrationstests mit Mock-SDK sowie realem SDK nur bei rechtlich freigegebenem Opt-in: ABI/API-Drift, Offline, Consent, Telemetrie, fehlende Assets, Downgrade, Lizenzablauf, Fallback.",
+          "acceptance": [
+            "CI ohne proprietären SDK/Assets standardmäßig grün.",
+            "Lizenz-/Privacy-Gates testbar, Rückbau ohne Regression."
+          ]
+        },
+        {
+          "id": "DA-12",
+          "status": "open",
+          "priority": "P2",
+          "task": "Dokumentation und UX: Modellstatus, Beta-Warnung, Hardwareanforderungen, Attribution, Datenschutz/Telemetrie, Alternativen, Kosten/Limits, Setup und Rollback.",
+          "acceptance": [
+            "Nutzer erkennt Lizenztyp und aktive Netzwerkkommunikation.",
+            "Freischaltung und Deinstallation dokumentiert; keine irreführende Open-Source-Kennzeichnung."
+          ]
+        }
+      ]
+    }
+  ],
+  "meta": {
+    "total_items": 12,
+    "by_status": {
+      "completed": 0,
+      "partial": 0,
+      "open": 12
+    },
+    "recommended_order": [
+      "DA-01",
+      "DA-02",
+      "DA-03",
+      "DA-04",
+      "DA-05",
+      "DA-06",
+      "DA-07",
+      "DA-08",
+      "DA-09",
+      "DA-10",
+      "DA-11",
+      "DA-12"
+    ],
+    "notes": [
+      "Diese TODO ist ein Plan; keine Lizenzfreigabe oder fertige Implementation.",
+      "Lizenzangaben aus der Unterhaltung sind vor jedem Deployment anhand autoritativer aktueller Bedingungen zu überprüfen."
+    ]
+  }
+}
