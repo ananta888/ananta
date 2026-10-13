@@ -526,7 +526,13 @@ def persist_forwarded_execution(
     repositories = deps.hub_state.repositories
     results = deps.results
 
-    validate_forwarded_pi_result(
+    pi_artifacts = validate_forwarded_pi_result(
+        task_id=tid, dispatched_task=task, response=response,
+        load_task=repositories().task_repo.get_by_id,
+    )
+    from agent.services.native_result_forwarding import validate_forwarded_native_result
+
+    validate_forwarded_native_result(
         task_id=tid, dispatched_task=task, response=response,
         load_task=repositories().task_repo.get_by_id,
     )
@@ -588,7 +594,7 @@ def persist_forwarded_execution(
         _accept_codecompass_layer_result(tid=tid, task=task, response=response)
     )
     raw_artifacts = response.get("artifacts")
-    artifacts = (
+    artifacts = pi_artifacts if pi_artifacts is not None else (
         results.normalize_recovery_artifacts(
             task_id=tid,
             artifacts=raw_artifacts,

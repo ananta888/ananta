@@ -11,6 +11,7 @@ from agent.routes.tasks.knowledge_index_snapshot import (
 )
 from agent.routes.tasks.logging import logging_bp
 from agent.routes.tasks.management import management_bp
+from agent.routes.tasks.native_artifact_ingress import native_artifact_ingress_bp
 from agent.routes.tasks.orchestration import orchestration_bp
 from agent.routes.tasks.organization_research_intake import (
     organization_research_intake_bp,
@@ -28,6 +29,19 @@ tasks_bp = Blueprint("tasks", __name__)
 
 
 def register_tasks_blueprints(app):
+    if str(app.config.get("ROLE") or "").strip().lower() == "worker":
+        from agent.auth import resolve_configured_agent_token
+        from agent.config import settings
+        from worker.runtime.native_graph.http_execution import create_native_execution_blueprint
+        from worker.runtime.native_graph.pi_evidence_runtime import consume_pi_evidence_task
+        from worker.runtime.native_graph.result_store_runtime import configured_native_result_store_for_task
+
+        app.register_blueprint(create_native_execution_blueprint(
+            token_provider=lambda: resolve_configured_agent_token(app.config),
+            recipient_provider=lambda: (settings.agent_name, settings.agent_url),
+            result_store_resolver=configured_native_result_store_for_task,
+            evidence_consumer=consume_pi_evidence_task,
+        ))
     app.register_blueprint(kanban_bp)
     app.register_blueprint(execution_bp)
     app.register_blueprint(management_bp)
@@ -36,6 +50,7 @@ def register_tasks_blueprints(app):
     app.register_blueprint(knowledge_index_snapshot_bp)
     app.register_blueprint(recovery_manifest_bp)
     app.register_blueprint(recovery_artifact_ingress_bp)
+    app.register_blueprint(native_artifact_ingress_bp)
     app.register_blueprint(logging_bp)
     app.register_blueprint(goals_bp)
     app.register_blueprint(scheduling_bp)
@@ -59,6 +74,7 @@ __all__ = [
     "knowledge_index_snapshot_bp",
     "recovery_manifest_bp",
     "recovery_artifact_ingress_bp",
+    "native_artifact_ingress_bp",
     "logging_bp",
     "kanban_bp",
     "scheduling_bp",

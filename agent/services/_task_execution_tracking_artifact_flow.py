@@ -4,6 +4,7 @@ from urllib.parse import urlparse
 
 from flask import current_app
 
+from agent.services.legacy_memory_access import scoped_memory_reader
 from agent.services.repository_registry import get_repository_registry
 from agent.services.task_context_bundle_access_service import (
     get_task_context_bundle_access_service,
@@ -259,7 +260,7 @@ def build_artifact_flow_read_model(*, overrides: dict | None = None) -> dict:
             continue
         worker_jobs = repos.worker_job_repo.get_by_parent_task(task_id)[: int(effective["max_worker_jobs_per_task"])]
         payload["counts"]["worker_jobs"] += len(worker_jobs)
-        task_memory_entries = repos.memory_entry_repo.get_by_task(task_id)
+        task_memory_entries = scoped_memory_reader(repos.memory_entry_repo).get_by_task(task_id)
         payload["counts"]["memory_entries"] += len(task_memory_entries)
 
         task_bundle_id = str(task.get("context_bundle_id") or "").strip() or None

@@ -81,6 +81,12 @@ def _task_engine():
 
 
 class TaskRuntimeService:
+    def notify_native_task_cancelled(self, task, *, previous_status):
+        _run_task_status_post_commit(
+            task=task, tid=task.id, old_status=previous_status, normalized_status="cancelled",
+            event_type="workflow_node_task_cancelled", force=False,
+        )
+
     def get_local_task_status(self, tid: str) -> dict[str, Any] | None:
         return get_local_task_status(tid)
 
@@ -314,7 +320,9 @@ def notify_task_update(tid: str) -> None:
                 queue.put(tid)
 
 
-def append_task_history_event(task: TaskDB, event_type: str, actor: str = "system", details: dict | None = None) -> None:
+def append_task_history_event(
+    task: TaskDB, event_type: str, actor: str = "system", details: dict | None = None,
+) -> None:
     history = list(task.history or [])
     history.append(build_task_history_event(task, event_type, actor=actor, details=details, timestamp=time.time()))
     task.history = history[-200:]
@@ -409,6 +417,11 @@ def _run_task_status_post_commit(
     strict_callback_delivery: bool = False,
 ) -> RecoverySourceCallbackDelivery | None:
     """Run the one post-commit contract for normal and CAS mutations."""
+
+    if normalized_status in _TERMINAL_TASK_STATUSES:
+        from agent.services.memory_runtime import discard_terminal_task_scratchpad
+
+        discard_terminal_task_scratchpad(task)
 
     if old_status != normalized_status:
         try:

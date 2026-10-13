@@ -10,6 +10,41 @@ from tests.knowledge.knowledge_index_execution_test_support import (
 )
 
 
+def test_native_routing_requires_strict_registered_adapter_and_keeps_the_chosen_recipient():
+    from agent.services.workflow_worker_service_auth import STRICT_WORKER_REGISTRATION_PROVENANCE
+
+    task = SimpleNamespace(assigned_agent_url=None, task_kind="tool_task",
+                           worker_execution_context={"runtime_path": "native_graph_node"})
+    eligible = SimpleNamespace(name="native", url="http://native:8080", role="worker",
+                               registration_validated=True,
+                               registration_provenance=STRICT_WORKER_REGISTRATION_PROVENANCE,
+                               capabilities=["workflow.adapter.native"],
+                               authorized_capabilities=["workflow.adapter.native"])
+    hub = SimpleNamespace(url="http://hub", role="hub", authorized_capabilities=["workflow.adapter.native"],
+                          registration_validated=True, registration_provenance=STRICT_WORKER_REGISTRATION_PROVENANCE)
+    unregistered = SimpleNamespace(url="http://unregistered", role="worker",
+                                   capabilities=["workflow.adapter.native"], registration_validated=False)
+    target, cursor, assigned, reason = resolve_target_worker_for_task(
+        task=task, workers=[hub, unregistered, eligible], worker_cursor=0)
+    assert target is eligible and cursor == 1 and assigned and reason is None
+    task.assigned_agent_url = hub.url
+    target, cursor, assigned, reason = resolve_target_worker_for_task(
+        task=task, workers=[hub, eligible], worker_cursor=1)
+    assert target is None and cursor == 1 and not assigned
+    assert reason == "native_assigned_worker_unavailable"
+
+
+def test_native_routing_never_uses_advertisement_as_registered_authority():
+    task = SimpleNamespace(assigned_agent_url=None, worker_execution_context={"runtime_path": "native_graph_node"})
+    worker = SimpleNamespace(role="worker", url="http://ordinary", capabilities=["workflow.adapter.native"],
+                             authorized_capabilities=[], registration_validated=True,
+                             registration_provenance="strict_registration_keyring_v1")
+    target, cursor, assigned, reason = resolve_target_worker_for_task(task=task, workers=[worker], worker_cursor=0)
+    assert target is None and cursor == 0 and not assigned
+    assert reason == "native_worker_unavailable"
+
+
+
 def test_effective_concurrency_fail_closed_when_missing_cap():
     assert resolve_effective_concurrency(requested_max_concurrency=8, security_policy={}) == 1
 

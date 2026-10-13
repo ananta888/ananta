@@ -52,6 +52,18 @@ def _canonical_digest(value: Any) -> str:
     return hashlib.sha256(payload).hexdigest()
 
 
+def _run_binding_digest(run: RunEvidenceIdentity) -> str:
+    return _canonical_digest({
+        "schema": "ananta.hub-run-evidence-binding.v1",
+        **{name: getattr(run, name) for name in (
+            "tenant_id", "project_id", "task_id", "assignment_id", "dispatch_lease_id",
+            "repository_revision", "input_digest", "execution_profile_digest", "environment_digest",
+            "evidence_scope", "synthetic", "issuer", "reservation_key_digest",
+        )},
+        "source_ids": list(run.source_ids),
+    })
+
+
 class HubEvidenceRegistryService:
     """Issue immutable ``SRC_*``/``RUN_*`` authority in the Hub.
 
@@ -320,34 +332,15 @@ class HubEvidenceRegistryService:
         source_ids: Sequence[str],
         result_digest: str,
         expected_binding_digest: str,
+        terminal_state: Literal["succeeded", "failed", "cancelled"] = "succeeded",
     ) -> RunEvidenceIdentity:
         """Verify a pinned completed technical run, not a production release gate."""
         expected = self._digest(expected_binding_digest, "evidence_run_binding_digest_invalid")
+        if terminal_state not in _TERMINAL_STATES:
+            raise HubEvidenceRegistryError("evidence_run_terminal_state_invalid")
         run = self._repository.get_run(tenant_id=tenant_id, project_id=project_id, run_id=run_id)
-        if run is None or run.state != "succeeded":
+        if run is None or run.state != terminal_state:
             raise HubEvidenceRegistryError("evidence_run_result_unavailable")
-        binding = {
-            "schema": "ananta.hub-run-evidence-binding.v1",
-            **{
-                name: getattr(run, name)
-                for name in (
-                    "tenant_id",
-                    "project_id",
-                    "task_id",
-                    "assignment_id",
-                    "dispatch_lease_id",
-                    "repository_revision",
-                    "input_digest",
-                    "execution_profile_digest",
-                    "environment_digest",
-                    "evidence_scope",
-                    "synthetic",
-                    "issuer",
-                    "reservation_key_digest",
-                )
-            },
-            "source_ids": list(run.source_ids),
-        }
         if (
             (run.tenant_id, run.project_id, run.run_id, run.task_id, run.assignment_id, run.dispatch_lease_id)
             != (tenant_id, project_id, run_id, task_id, assignment_id, dispatch_lease_id)
@@ -355,11 +348,84 @@ class HubEvidenceRegistryService:
             or run.source_ids != self._source_ids(source_ids)
             or run.result_digest != result_digest
             or run.binding_digest != expected
-            or _canonical_digest(binding) != expected
+            or _run_binding_digest(run) != expected
             or (run.issuer == _HUB_ISSUER and run_id != f"RUN_{expected[:32]}")
         ):
             raise HubEvidenceRegistryError("evidence_run_result_binding_mismatch")
+        self._require_run_sources(run)
         return run
+
+    def require_registered_source(self, *, tenant_id: str, project_id: str, source_id: str) -> SourceEvidenceIdentity:
+        """Resolve an identity for Hub admission, verifying its immutable binding.
+
+        Callers still enforce domain origin, content, policy and evidence scope.
+        Worker consumers must use the explicitly pinned lookup instead.
+        """
+        source = self._repository.get_source(tenant_id=tenant_id, project_id=project_id, source_id=source_id)
+        if source is None:
+            raise HubEvidenceRegistryError("evidence_source_identity_unavailable")
+        return self.require_source_identity(tenant_id=tenant_id, project_id=project_id, source_id=source_id,
+                                            expected_binding_digest=source.binding_digest)
+
+    def require_assignment_result(self, *, tenant_id: str, project_id: str, projection: dict,
+                                  task_id: str, assignment_id: str, dispatch_lease_id: str,
+                                  result_digest: str) -> RunEvidenceIdentity:
+        """Verify a completed closed assignment without reissuing its run."""
+        from ananta_contracts.hub_evidence import build_hub_evidence_assignment, validate_hub_evidence_assignment
+
+        value = validate_hub_evidence_assignment(projection)
+        run = self._repository.get_run(tenant_id=tenant_id, project_id=project_id, run_id=value["run_id"])
+        if run is None:
+            raise HubEvidenceRegistryError("evidence_run_result_unavailable")
+        expected = build_hub_evidence_assignment(
+            run_id=run.run_id, task_id=run.task_id, assignment_id=run.assignment_id,
+            dispatch_lease_id=run.dispatch_lease_id, source_ids=run.source_ids,
+            evidence_scope=run.evidence_scope, binding_digest=run.binding_digest,
+        )
+        if value != expected:
+            raise HubEvidenceRegistryError("evidence_run_assignment_binding_mismatch")
+        return self.require_run_result(
+            tenant_id=tenant_id, project_id=project_id, run_id=run.run_id, task_id=task_id,
+            assignment_id=assignment_id, dispatch_lease_id=dispatch_lease_id,
+            input_digest=run.input_digest, source_ids=run.source_ids, result_digest=result_digest,
+            expected_binding_digest=value["binding_digest"],
+        )
+
+    def _require_run_sources(self, run: RunEvidenceIdentity) -> tuple[SourceEvidenceIdentity, ...]:
+        sources = []
+        for source_id in run.source_ids:
+            source = self._repository.get_source(
+                tenant_id=run.tenant_id, project_id=run.project_id, source_id=source_id,
+            )
+            if source is None:
+                raise HubEvidenceRegistryError("evidence_run_source_identity_unavailable")
+            source = self.require_source_identity(
+                tenant_id=run.tenant_id, project_id=run.project_id, source_id=source_id,
+                expected_binding_digest=source.binding_digest,
+            )
+            if source.evidence_scope not in _SOURCE_SCOPES_BY_RUN[run.evidence_scope] or (
+                source.synthetic and run.evidence_scope != "test"
+            ):
+                raise HubEvidenceRegistryError("evidence_run_source_scope_forbidden")
+            sources.append(source)
+        return tuple(sources)
+
+    def assignment_sources(self, *, tenant_id, project_id, assignment):
+        """Read verified immutable sources of an existing exact assignment; never issue."""
+        from ananta_contracts.hub_evidence import build_hub_evidence_assignment, validate_hub_evidence_assignment
+
+        projection = validate_hub_evidence_assignment(assignment)
+        run = self._repository.get_run(tenant_id=tenant_id, project_id=project_id, run_id=projection['run_id'])
+        if (run is None or run.state not in {'reserved', 'succeeded', 'failed', 'cancelled'}
+                or _run_binding_digest(run) != run.binding_digest
+                or (run.issuer == _HUB_ISSUER and run.run_id != f'RUN_{run.binding_digest[:32]}')):
+            raise HubEvidenceRegistryError('evidence_run_assignment_identity_mutated')
+        expected = build_hub_evidence_assignment(run_id=run.run_id, task_id=run.task_id,
+            assignment_id=run.assignment_id, dispatch_lease_id=run.dispatch_lease_id, source_ids=run.source_ids,
+            evidence_scope=run.evidence_scope, binding_digest=run.binding_digest)
+        if expected != projection:
+            raise HubEvidenceRegistryError('evidence_run_assignment_binding_mismatch')
+        return self._require_run_sources(run)
 
     def assignment_projection(
         self,
@@ -370,6 +436,8 @@ class HubEvidenceRegistryService:
         task_id: str,
         assignment_id: str,
         dispatch_lease_id: str,
+        input_digest: str | None = None,
+        expected_binding_digest: str | None = None,
     ) -> dict[str, Any]:
         """Return only the closed authority a delegated Worker may consume."""
 
@@ -388,6 +456,21 @@ class HubEvidenceRegistryService:
             or run.dispatch_lease_id != str(dispatch_lease_id or "").strip()
         ):
             raise HubEvidenceRegistryError("evidence_run_assignment_binding_mismatch")
+        if (
+            _run_binding_digest(run) != run.binding_digest
+            or (run.issuer == _HUB_ISSUER and run.run_id != f"RUN_{run.binding_digest[:32]}")
+        ):
+            raise HubEvidenceRegistryError("evidence_run_assignment_identity_mutated")
+        if (
+            input_digest is not None and run.input_digest != self._digest(
+                input_digest, "evidence_run_input_digest_invalid",
+            )
+            or expected_binding_digest is not None and run.binding_digest != self._digest(
+                expected_binding_digest, "evidence_run_binding_digest_invalid",
+            )
+        ):
+            raise HubEvidenceRegistryError("evidence_run_assignment_input_binding_mismatch")
+        self._require_run_sources(run)
         return build_hub_evidence_assignment(
             run_id=run.run_id,
             task_id=run.task_id,

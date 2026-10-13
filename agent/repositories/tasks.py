@@ -394,6 +394,7 @@ class TaskRepository:
         target_status: str,
         predicate: Callable[[TaskDB], bool] | None = None,
         mutate: Callable[[TaskDB], None] | None = None,
+        _transaction_guard: Callable[[Session], None] | None = None,
     ) -> TaskStatusCompareAndSetResult:
         """Atomically validate and commit one existing Task status mutation."""
 
@@ -436,6 +437,8 @@ class TaskRepository:
                     previous_status=None,
                 )
             with task_repository_session(_engine(), write=True) as session:
+                if _transaction_guard is not None:
+                    _transaction_guard(session)
                 statement = select(TaskDB).where(TaskDB.id == normalized_task_id)
                 if str(_engine().dialect.name or "").lower() == "postgresql":
                     statement = statement.with_for_update()
@@ -500,6 +503,10 @@ class TaskRepository:
                     task=persisted,
                     previous_status=previous_status,
                 )
+
+    def compare_and_set_status_guarded(self, task_id, *, transaction_guard, **values):
+        """Optional authority port; guard and status write share one transaction."""
+        return self.compare_and_set_status(task_id, _transaction_guard=transaction_guard, **values)
 
     def delete(self, task_id: str):
         with task_repository_session(_engine(), write=True) as session:

@@ -51,7 +51,10 @@ _ACTION_TRANSITIONS = {
     },
     "approve": {"from": {TaskStatus.WAITING_FOR_REVIEW.value}, "to": TaskStatus.TODO.value},
     "request_review": {
-        "from": {TaskStatus.IN_PROGRESS.value, TaskStatus.DELEGATED.value},
+        # Hub admission can stop a task before execution. That refusal must be
+        # persistable without pretending execution began or using force=True.
+        "from": {TaskStatus.TODO.value, TaskStatus.CREATED.value, TaskStatus.ASSIGNED.value,
+                 TaskStatus.PROPOSING.value, TaskStatus.IN_PROGRESS.value, TaskStatus.DELEGATED.value},
         "to": TaskStatus.WAITING_FOR_REVIEW.value,
     },
     "fail_verification": {
@@ -152,13 +155,6 @@ def can_transition_to(current_status: str | None, next_status: str | None) -> tu
     for action, rule in _ACTION_TRANSITIONS.items():
         if target == rule["to"] and current in rule["from"]:
             return True, ""
-
-    # Autopilot/execute can resolve directly to review-required from assigned/proposing.
-    if (
-        current in {TaskStatus.ASSIGNED.value, TaskStatus.PROPOSING.value}
-        and target == TaskStatus.WAITING_FOR_REVIEW.value
-    ):
-        return True, ""
 
     # Erlaubte Standard-Kette: todo -> created -> assigned -> proposing -> in_progress
     progression = [

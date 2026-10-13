@@ -237,6 +237,7 @@ def register_with_hub(
     capabilities: list[str] | None = None,
     runtime_targets: list[dict[str, Any]] | None = None,
     registration_token: str | None = None,
+    execution_limits: dict[str, Any] | None = None,
 ) -> bool:
     """Backward-compatible proxy for hub registration."""
     agent_url = settings.agent_url or f"http://localhost:{port}"
@@ -260,6 +261,16 @@ def register_with_hub(
             dict(value) for value in (runtime_targets or []) if isinstance(value, dict)
         ]
         payload["execution_limits"] = {"max_parallel_tasks": 2, "max_runtime_seconds": 1800, "max_workspace_mb": 2048}
+        if execution_limits:
+            from ananta_contracts.native_result_maintenance import (
+                RESULT_STORE_BINDING_LIMIT,
+                require_result_store_identifier,
+            )
+
+            if set(execution_limits) != {RESULT_STORE_BINDING_LIMIT}:
+                raise ValueError('native_result_store_registration_limits_invalid')
+            payload['execution_limits'][RESULT_STORE_BINDING_LIMIT] = require_result_store_identifier(
+                execution_limits[RESULT_STORE_BINDING_LIMIT])
     effective_registration_token = registration_token or settings.registration_token
     if effective_registration_token:
         payload["registration_token"] = effective_registration_token

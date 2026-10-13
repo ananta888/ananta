@@ -6,10 +6,11 @@ from flask import current_app
 from agent.config import settings
 from agent.db_models import GoalDB
 from agent.services.admin_repair_contracts import build_admin_repair_mode_data, render_admin_repair_goal
-from agent.services.planning_service import get_goal_feature_flags, get_plan_generation_limits, get_planning_service
-from agent.services.planning_utils import GOAL_TEMPLATES
 from agent.services.cost_aggregation_service import get_cost_aggregation_service
 from agent.services.instruction_layer_service import get_instruction_layer_service
+from agent.services.legacy_memory_access import scoped_memory_reader
+from agent.services.planning_service import get_goal_feature_flags, get_plan_generation_limits, get_planning_service
+from agent.services.planning_utils import GOAL_TEMPLATES
 from agent.services.reference_profile_service import get_reference_profile_service
 from agent.services.repository_registry import get_repository_registry
 
@@ -494,7 +495,7 @@ class GoalService:
         tasks = repos.task_repo.get_by_goal_id(goal.id)
         plan, nodes = get_planning_service().get_latest_plan_for_goal(goal.id)
         verification_records = repos.verification_record_repo.get_by_goal_id(goal.id)
-        memory_entries = repos.memory_entry_repo.get_by_goal(goal.id)
+        memory_entries = scoped_memory_reader(repos.memory_entry_repo).get_by_goal(goal.id)
         task_outputs = [
             {
                 "task_id": task.id,
@@ -569,7 +570,7 @@ class GoalService:
         from agent.services.verification_service import get_verification_service
 
         governance = get_verification_service().governance_summary(goal.id, include_sensitive=is_admin)
-        memory_entries = repos.memory_entry_repo.get_by_goal(goal.id)
+        memory_entries = scoped_memory_reader(repos.memory_entry_repo).get_by_goal(goal.id)
         cost_summary = get_cost_aggregation_service().aggregate_goal_costs(goal.id)
         execution_preferences = dict(getattr(goal, "execution_preferences", None) or {})
         recovery = dict(execution_preferences.get("planning_recovery") or {})

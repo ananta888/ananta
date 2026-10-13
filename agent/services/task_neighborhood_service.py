@@ -5,6 +5,7 @@ from typing import Any
 
 from agent.repository import memory_entry_repo as default_memory_entry_repo
 from agent.repository import task_repo as default_task_repo
+from agent.services.legacy_memory_access import scoped_memory_reader
 
 
 class TaskNeighborhoodService:
@@ -12,7 +13,7 @@ class TaskNeighborhoodService:
 
     def __init__(self, *, task_repository=None, memory_entry_repository=None) -> None:
         self._task_repository = task_repository or default_task_repo
-        self._memory_entry_repository = memory_entry_repository or default_memory_entry_repo
+        self._memory_entry_repository = scoped_memory_reader(memory_entry_repository or default_memory_entry_repo)
 
     def _dump(self, item: Any) -> dict[str, Any]:
         if item is None:

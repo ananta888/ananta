@@ -9,7 +9,7 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager, nullcontext
 from typing import Any
 
-from sqlalchemy import Select
+from sqlalchemy import Select, inspect, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -48,6 +48,18 @@ def stable_row_id(namespace: str, *parts: object) -> str:
 
     framed = "\x1f".join([str(namespace), *(str(part) for part in parts)])
     return f"{namespace}-{hashlib.sha256(framed.encode('utf-8')).hexdigest()}"
+
+
+def require_locked_row(session: Session, model: Any, identity: object, *, missing_reason: str) -> Any:
+    """Refresh one authoritative row and retain its PG lock until caller commit."""
+    key = inspect(model).primary_key[0]
+    statement = select(model).where(key == identity)
+    if session.get_bind().dialect.name == "postgresql":
+        statement = statement.with_for_update()
+    row = session.execute(statement.execution_options(populate_existing=True)).scalar_one_or_none()
+    if row is None:
+        raise ValueError(missing_reason)
+    return row
 
 
 class SQLAlchemyStoreSupport:

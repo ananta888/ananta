@@ -370,6 +370,9 @@ def _apply_task_completion_policy(
     from agent.common.pi_task_result_binding import require_pi_completion_policy
 
     require_pi_completion_policy(authoritative, candidate)
+    from agent.common.native_task_result_binding import require_native_completion_policy
+
+    require_native_completion_policy(authoritative, candidate)
     context = dict(getattr(candidate, "worker_execution_context", None) or {})
     if (
         str(getattr(candidate, "status", "") or "").strip().lower() == "completed"

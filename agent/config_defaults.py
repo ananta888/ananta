@@ -60,6 +60,7 @@ def _default_context_strategy() -> dict:
 def build_default_agent_config() -> dict:
     opencode_default_model = _default_opencode_model()
     return {
+        "pi_evidence": {"enabled": False, "bindings": []},
         "default_provider": settings.default_provider,
         "default_model": settings.default_model,
         "auth_provider": settings.auth_provider,
@@ -390,6 +391,12 @@ def build_default_agent_config() -> dict:
             ),
         },
         "worker_runtime": worker_runtime_defaults(),
+        "native_result_maintenance": {
+            "enabled": False,
+            "auto_approval": False,
+            "policy_revision": "native-maintenance-policy-v1",
+            "schedules": [],
+        },
         # AWTCL-004: hub-controlled tool calling loop for ananta-worker.
         # Disabled by default; the existing context batch loop stays the fallback.
         "knowledge_hygiene": {

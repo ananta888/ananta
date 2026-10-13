@@ -127,6 +127,7 @@ class ArtifactStore:
         )
         read_flags = (
             os.O_RDONLY
+            | getattr(os, "O_NONBLOCK", 0)
             | getattr(os, "O_CLOEXEC", 0)
             | getattr(os, "O_NOFOLLOW", 0)
         )
@@ -288,6 +289,7 @@ class ArtifactStore:
         )
         read_flags = (
             os.O_RDONLY
+            | getattr(os, "O_NONBLOCK", 0)
             | getattr(os, "O_CLOEXEC", 0)
             | getattr(os, "O_NOFOLLOW", 0)
         )
@@ -325,6 +327,8 @@ class ArtifactStore:
     ) -> bytes:
         with os.fdopen(descriptor, "rb") as handle:
             before = os.fstat(handle.fileno())
+            if not stat.S_ISREG(before.st_mode) or before.st_nlink != 1 or before.st_size != expected_size:
+                raise ValueError("immutable_artifact_integrity_failed")
             content = handle.read(expected_size + 1)
             after = os.fstat(handle.fileno())
         if (

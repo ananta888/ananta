@@ -12,18 +12,12 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from agent.services.task_status_service import normalize_task_status
-
-_TERMINAL_TASK_STATUSES = {
-    "completed",
-    "failed",
-    "cancelled",
-    "verification_failed",
-    "skipped",
-    "aborted",
-    "timeout",
-    "archived",
-}
+from agent.services.task_status_service import (
+    TERMINAL_TASK_STATUSES as _TERMINAL_TASK_STATUSES,
+)
+from agent.services.task_status_service import (
+    normalize_task_status,
+)
 
 
 def _resolve_goal_output_dir(raw_output_dir: str) -> Path:
@@ -195,7 +189,10 @@ def finalize_goal_if_all_tasks_terminal(goal_id: str, *, task_repository: Any) -
                     "resolved_output_dir": str(resolved_output_dir),
                     "workspace_file_count": file_count,
                 }
-                requires_fibonacci_evidence = _goal_requires_fibonacci_artifacts(goal) or (resolved_output_dir / "src" / "fibonacci").exists()
+                requires_fibonacci_evidence = (
+                    _goal_requires_fibonacci_artifacts(goal)
+                    or (resolved_output_dir / "src" / "fibonacci").exists()
+                )
                 if requires_fibonacci_evidence:
                     if not resolved_output_dir.exists():
                         new_status = "failed"
@@ -208,7 +205,9 @@ def finalize_goal_if_all_tasks_terminal(goal_id: str, *, task_repository: Any) -
                             "output_dir_available": False,
                         }
                     else:
-                        has_required_evidence, fibonacci_evidence = _goal_has_required_fibonacci_evidence(resolved_output_dir)
+                        has_required_evidence, fibonacci_evidence = _goal_has_required_fibonacci_evidence(
+                            resolved_output_dir
+                        )
                         diagnostics["fibonacci_evidence"] = fibonacci_evidence
                         if not has_required_evidence:
                             new_status = "failed"

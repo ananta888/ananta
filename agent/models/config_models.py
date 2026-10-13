@@ -1,6 +1,5 @@
 from typing import List, Optional
 
-from pydantic import field_validator
 from sqlmodel import Field, SQLModel
 
 
@@ -120,6 +119,7 @@ class WorkerExecutionLimitsContract(SQLModel):
     max_parallel_tasks: int = 1
     max_runtime_seconds: int = 900
     max_workspace_mb: int = 1024
+    native_result_store_binding_id: Optional[str] = None
 
 
 class AgentLivenessContract(SQLModel):

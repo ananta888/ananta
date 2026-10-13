@@ -132,6 +132,15 @@ class ImmediateHubQueue:
     def cancel(self, *, tenant_id: str, run_id: str, hub_task_ids: tuple[str, ...], reason: str):
         self.cancelled.extend(hub_task_ids)
 
+    def cancel_fenced(self, *, lease, **values):
+        from agent.services.workflow_runtime.lease_fencing import OwnershipLeaseRecipient
+
+        return lease.store.mutate_fenced(
+            lease=lease,
+            recipient=OwnershipLeaseRecipient(values["tenant_id"], lease.checkpoint.workflow_id, values["run_id"]),
+            mutation=lambda: self.cancel(**values),
+        )
+
 
 def plan(*, approval: bool = False, parallel: bool = False, retry: bool = False) -> ExecutionPlan:
     if parallel:

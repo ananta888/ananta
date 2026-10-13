@@ -101,11 +101,59 @@ def _initialize_workflow_adapter_worker_runtime(app: Flask):
     except ValueError:
         native_authorization_verifier = None
 
+    native_artifact_publication = None
+    try:
+        from pathlib import Path
+
+        from worker.runtime.native_graph.artifact_http import NativeArtifactHttpTransport
+        from worker.runtime.native_graph.artifact_inputs import NativeArtifactInputDownloader
+        from worker.runtime.native_graph.artifact_outputs import NativeOutputFileMaterializer
+        from worker.runtime.native_graph.artifact_publication import (
+            NativeArtifactPublisher,
+            NativeNodeArtifactPublication,
+        )
+        from worker.runtime.native_graph.artifact_reader import LocalNativeArtifactReader
+        from worker.runtime.native_graph.artifact_repository import LocalArtifactRows
+        from worker.runtime.native_graph.artifact_workspace import NativeInputWorkspaceMaterializer
+        from worker.runtime.native_graph.artifact_writer import LocalNativeArtifactWriter
+
+        artifact_transport = NativeArtifactHttpTransport.from_environment()
+        if artifact_transport is not None:
+            from agent.database import engine
+            from agent.db_models import ArtifactDB, ArtifactVersionDB
+            from agent.services.artifact_store import ArtifactStore
+
+            rows = LocalArtifactRows(engine=engine, artifact_model=ArtifactDB, version_model=ArtifactVersionDB)
+            storage_root = Path(settings.data_dir) / "artifacts"
+            native_artifact_publication = NativeNodeArtifactPublication(
+                reader=LocalNativeArtifactReader(
+                    storage_root=storage_root,
+                    load_artifact=rows.load_artifact,
+                    load_version=rows.load_version,
+                ),
+                publisher=NativeArtifactPublisher(transport=artifact_transport),
+            )
+            if native_executor is not None:
+                native_executor = TaskScopedNativeWorkerExecutor(
+                    runtime=get_native_worker_runtime_service(), workspaces=workspaces,
+                    input_materializer=NativeInputWorkspaceMaterializer(
+                        downloader=NativeArtifactInputDownloader(transport=artifact_transport),
+                    ),
+                    output_materializer=NativeOutputFileMaterializer(writer=LocalNativeArtifactWriter(
+                        engine=engine, artifact_model=ArtifactDB, version_model=ArtifactVersionDB,
+                        storage=ArtifactStore(storage_root),
+                    )),
+                )
+    except ValueError:
+        # Artifact-producing commands fail before execution without this port.
+        native_artifact_publication = None
+
     return initialize_workflow_adapter_worker_runtime(
         app,
         client=client,
         native_executor=native_executor,
         native_authorization_verifier=native_authorization_verifier,
+        native_artifact_publication=native_artifact_publication,
     )
 
 
@@ -870,6 +918,9 @@ def create_app(agent: str = "default", *, testing: bool = False) -> Flask:
         _initialize_workflow_adapter_worker_runtime,
         app,
     )
+    from agent.bootstrap.pi_dispatch import initialize_pi_dispatch
+
+    run_startup_phase("pi_dispatch_evidence", initialize_pi_dispatch, app)
     run_startup_phase("worker_domain_handlers", _register_worker_domain_handlers, app)
     if not testing:  # Skip background services in testing mode
         run_startup_phase("background_services", start_background_services, app)

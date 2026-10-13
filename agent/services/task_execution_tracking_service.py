@@ -4,21 +4,27 @@ import time
 
 from flask import current_app
 
-from agent.services.ingestion_service import get_ingestion_service
-from agent.services.repository_registry import get_repository_registry
-from agent.services.result_memory_service import get_result_memory_service
-from agent.services.execution_audit_service import get_execution_audit_service
-from agent.services.task_runtime_service import update_local_task_status
-from agent.services.task_state_machine_service import TERMINAL_TASK_STATUSES
-from agent.services.worker_job_service import get_worker_job_service
-from agent.services.task_execution_metrics import (
-    build_control_layer_observability_snapshot as _build_control_layer_observability_snapshot,
-    build_execution_cost_summary as _build_execution_cost_summary,
-    record_benchmark_sample as _record_benchmark_sample,
-)
 from agent.services._task_execution_tracking_artifact_flow import (
     build_artifact_flow_read_model as _build_artifact_flow_read_model,
 )
+from agent.services.execution_audit_service import get_execution_audit_service
+from agent.services.ingestion_service import get_ingestion_service
+from agent.services.memory_policy_gateway import MemoryAccessError
+from agent.services.memory_runtime import memory_result_context
+from agent.services.repository_registry import get_repository_registry
+from agent.services.result_memory_service import get_result_memory_service
+from agent.services.task_execution_metrics import (
+    build_control_layer_observability_snapshot as _build_control_layer_observability_snapshot,
+)
+from agent.services.task_execution_metrics import (
+    build_execution_cost_summary as _build_execution_cost_summary,
+)
+from agent.services.task_execution_metrics import (
+    record_benchmark_sample as _record_benchmark_sample,
+)
+from agent.services.task_runtime_service import update_local_task_status
+from agent.services.task_state_machine_service import TERMINAL_TASK_STATUSES
+from agent.services.worker_job_service import get_worker_job_service
 
 _TASK_TERMINAL_STATUSES = TERMINAL_TASK_STATUSES
 _JOB_ACTIVE_STATUSES = {"created", "delegated", "assigned", "in_progress", "running"}
@@ -453,6 +459,33 @@ class TaskExecutionTrackingService:
     ):
         task = task or {}
         worker_job_id = str(task.get("current_worker_job_id") or "").strip() or None
+        memory_entry = None
+        if worker_job_id or artifact_refs:
+            try:
+                with memory_result_context(tid, worker_job_id):
+                    memory_entry = get_result_memory_service().record_worker_result_memory(
+                        task_id=tid,
+                        goal_id=task.get("goal_id"),
+                        trace_id=trace.get("trace_id") or task.get("goal_trace_id"),
+                        worker_job_id=worker_job_id,
+                        title=task.get("title") or task.get("description"),
+                        output=output,
+                        artifact_refs=list(artifact_refs or [
+                            {"kind": "task_output", "task_id": tid, "worker_job_id": worker_job_id}
+                        ]),
+                        retrieval_tags=[
+                            value
+                            for value in [
+                                str(task.get("task_kind") or "").strip(),
+                                str(task.get("goal_id") or "").strip(),
+                                str(status).strip(),
+                            ]
+                            if value
+                        ],
+                        metadata={"source": "task_execute"},
+                    )
+            except MemoryAccessError:
+                memory_entry = None
         if worker_job_id:
             get_worker_job_service().record_worker_result(
                 worker_job_id=worker_job_id,
@@ -462,27 +495,7 @@ class TaskExecutionTrackingService:
                 output=output,
                 metadata={"trace_id": trace.get("trace_id"), "source": "task_execute"},
             )
-        if not worker_job_id and not artifact_refs:
-            return None
-        return get_result_memory_service().record_worker_result_memory(
-            task_id=tid,
-            goal_id=task.get("goal_id"),
-            trace_id=trace.get("trace_id") or task.get("goal_trace_id"),
-            worker_job_id=worker_job_id,
-            title=task.get("title") or task.get("description"),
-            output=output,
-            artifact_refs=list(artifact_refs or [{"kind": "task_output", "task_id": tid, "worker_job_id": worker_job_id}]),
-            retrieval_tags=[
-                value
-                for value in [
-                    str(task.get("task_kind") or "").strip(),
-                    str(task.get("goal_id") or "").strip(),
-                    str(status).strip(),
-                ]
-                if value
-            ],
-            metadata={"source": "task_execute"},
-        )
+        return memory_entry
 
     def build_execution_cost_summary(
         self,

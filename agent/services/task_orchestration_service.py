@@ -16,6 +16,8 @@ from agent.services.copilot_routing_advisor import (
 from agent.services.knowledge_index_task_ingress_policy import (
     bound_knowledge_index_mutation_error,
 )
+from agent.services.memory_policy_gateway import MemoryAccessError
+from agent.services.memory_runtime import memory_result_context
 from agent.services.organization_research_delegation_policy_service import (
     OrganizationResearchDelegationPolicyError,
     OrganizationResearchDelegationPolicyService,
@@ -245,16 +247,6 @@ class TaskOrchestrationService:
             output=output,
             outcome=outcome,
         )
-        self._record_worker_result_if_present(
-            worker_job_service=worker_job_service,
-            worker_job_id=worker_job_id,
-            task_id=task_id,
-            actor=actor,
-            final_status=outcome.final_status,
-            output=output,
-            gate=outcome.gate_results,
-            trace_id=payload.get("trace_id"),
-        )
         memory_entry = self._record_worker_result_memory(
             result_memory_service=result_memory_service,
             task=task,
@@ -266,6 +258,16 @@ class TaskOrchestrationService:
             gate=outcome.gate_results,
             actor=actor,
             payload_artifacts=payload.get("artifacts") if isinstance(payload.get("artifacts"), list) else None,
+        )
+        self._record_worker_result_if_present(
+            worker_job_service=worker_job_service,
+            worker_job_id=worker_job_id,
+            task_id=task_id,
+            actor=actor,
+            final_status=outcome.final_status,
+            output=output,
+            gate=outcome.gate_results,
+            trace_id=payload.get("trace_id"),
         )
         verification_status = self._build_verification_status(
             record=record,
@@ -388,19 +390,27 @@ class TaskOrchestrationService:
             ]
             if value
         ]
-        return result_memory_service.record_worker_result_memory(
-            task_id=task_id,
-            goal_id=task.get("goal_id"),
-            trace_id=trace_id,
-            worker_job_id=worker_job_id,
-            title=task.get("title"),
-            output=output,
-            artifact_refs=list(
-                payload_artifacts or [{"kind": "task_output", "task_id": task_id, "worker_job_id": worker_job_id}]
-            ),
-            retrieval_tags=retrieval_tags,
-            metadata={"gate_results": gate, "actor": actor},
-        )
+        try:
+            with memory_result_context(task_id, worker_job_id):
+                return result_memory_service.record_worker_result_memory(
+                    task_id=task_id,
+                    goal_id=task.get("goal_id"),
+                    trace_id=trace_id,
+                    worker_job_id=worker_job_id,
+                    title=task.get("title"),
+                    output=output,
+                    artifact_refs=list(
+                        payload_artifacts or [
+                            {"kind": "task_output", "task_id": task_id, "worker_job_id": worker_job_id}
+                        ]
+                    ),
+                    retrieval_tags=retrieval_tags,
+                    metadata={"gate_results": gate, "actor": actor},
+                )
+        except MemoryAccessError:
+            # Memory is optional; an unauthorized write must not derail task completion.
+            return None
+
 
     @staticmethod
     def _build_verification_status(

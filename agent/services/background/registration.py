@@ -130,6 +130,8 @@ def start_registration_thread(app):
                     runtime_targets=list(
                         workflow_registration.get("runtime_targets") or []
                     ),
+                    **({'execution_limits': workflow_registration['execution_limits']}
+                       if workflow_registration.get('execution_limits') else {}),
                 )
 
             if success:

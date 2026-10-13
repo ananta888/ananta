@@ -17,7 +17,11 @@ class Cache:
         """
         self.length = length
         self.cache_path = cache_path
-        self.cache_path.mkdir(parents=True, exist_ok=True)
+        from agent.adapters.namespace_memory_cache import NamespaceMemoryCache
+        from agent.services.memory_storage_boundary import MemoryStorageBoundary
+
+        self._storage = NamespaceMemoryCache(cache_path, boundary=MemoryStorageBoundary("hub-context-cache"),
+                                              max_entries=max(1, min(length, 4096)))
 
     def __call__(self, func: Callable[..., Any]) -> Callable[..., Any]:
         """
@@ -28,33 +32,22 @@ class Cache:
         """
 
         def wrapper(*args: Any, **kwargs: Any) -> Generator[str, None, None]:
-            key = md5(json.dumps((args[1:], kwargs)).encode("utf-8")).hexdigest()
-            file = self.cache_path / key
-            if kwargs.pop("caching") and file.exists():
-                yield file.read_text()
+            caching = bool(kwargs.pop("caching", False))
+            key = md5(json.dumps((func.__module__, func.__qualname__, args[1:], kwargs)).encode("utf-8"),
+                      usedforsecurity=False).hexdigest()
+            cached = self._storage.get(key) if caching else None
+            if isinstance(cached, str):
+                yield cached
                 return
             result = ""
-            for i in func(*args, **kwargs):
-                result += i
-                yield i
-            if "@FunctionCall" not in result:
-                file.write_text(result)
-            self._delete_oldest_files(self.length)
+            for item in func(*args, **kwargs):
+                result += item
+                yield item
+            if caching and "@FunctionCall" not in result:
+                self._storage.put(key, result)
 
         return wrapper
 
     def _delete_oldest_files(self, max_files: int) -> None:
-        """
-        Class method to delete the oldest cached files in the CACHE_DIR folder.
-
-        :param max_files: Integer, the maximum number of files to keep in the CACHE_DIR folder.
-        """
-        # Get all files in the folder.
-        files = list(self.cache_path.glob("*"))
-        # Sort files by last modification time in ascending order.
-        files = sorted(files, key=lambda f: f.stat().st_mtime)
-        # Delete the oldest files if the number of files exceeds the limit.
-        if len(files) > max_files:
-            num_files_to_delete = len(files) - max_files
-            for i in range(num_files_to_delete):
-                files[i].unlink()
+        """Compatibility hook. Eviction now occurs only inside the authorized namespace."""
+        return None

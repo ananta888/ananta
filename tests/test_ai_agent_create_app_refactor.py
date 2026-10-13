@@ -80,6 +80,33 @@ def test_should_skip_threads_for_reloader(monkeypatch):
     assert ai_agent._should_skip_threads_for_reloader() is False
 
 
+def test_worker_startup_injects_artifact_publication_with_local_read_only_sql(monkeypatch, tmp_path):
+    from worker.runtime.native_graph.artifact_publication import NativeNodeArtifactPublication
+
+    token_file = tmp_path / "worker-token"
+    token_file.write_text("synthetic-worker-token-" + "x" * 32)
+    token_file.chmod(0o600)
+    monkeypatch.setattr(ai_agent.settings, "role", "worker")
+    monkeypatch.setenv("ANANTA_WORKFLOW_HUB_URL", "http://hub:5000")
+    monkeypatch.setenv("ANANTA_WORKFLOW_HUB_TOKEN_FILE", str(token_file))
+    monkeypatch.setenv("AGENT_NAME", "worker-1")
+    monkeypatch.setenv("AGENT_URL", "http://worker-1:5000")
+    captured = {}
+
+    def capture(app, **ports):
+        captured.update(ports)
+        return ports["native_artifact_publication"]
+
+    monkeypatch.setattr("worker.runtime.workflow_adapter_runtime_composition.initialize_workflow_adapter_worker_runtime",
+                        capture)
+    app = Flask(__name__)
+    app.config["AGENT_CONFIG"] = {"worker_runtime": {"workspace_root": str(tmp_path)}}
+    publication = ai_agent._initialize_workflow_adapter_worker_runtime(app)
+    assert isinstance(publication, NativeNodeArtifactPublication)
+    assert captured["native_artifact_publication"] is publication
+    assert publication._reader._load_artifact.__self__.__class__.__name__ == "LocalArtifactRows"
+
+
 def test_start_background_services_respects_disabled(monkeypatch):
     calls = {"registration": 0, "llm": 0, "monitoring": 0, "housekeeping": 0, "reconciler": 0, "scheduler": 0}
 

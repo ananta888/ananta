@@ -232,6 +232,7 @@ def test_native_production_bridge_uses_sql_state_and_hub_queue_after_restart() -
     cancelled = restarted.cancel(principal=principal, command=cancel)
 
     assert cancelled["status"] == "cancelled"
+    assert all(step['status'] == 'cancelled' for step in cancelled['steps'])
     assert queue.cancelled == ["native-task-1"]
     assert grants.revalidate(queue.commands[0].authorization) is False
     assert any(

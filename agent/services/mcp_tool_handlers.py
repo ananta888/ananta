@@ -114,6 +114,8 @@ def _tool_codecompass_layers_heads(*, name: str, args: dict[str, Any], context: 
     from agent.services.codecompass_layer_service import get_codecompass_layer_service
 
     service = get_codecompass_layer_service()
+    if context.get("codecompass_capability") is not None:
+        service = service.scoped_query(context["codecompass_capability"])
     profiles = service.list_profiles()
     # without profile_id: the default profile's head (was always null)
     profile_id = str(args.get("profile_id") or "") or _default_layer_profile(profiles)
@@ -128,7 +130,14 @@ def _tool_codecompass_layers_heads(*, name: str, args: dict[str, Any], context: 
 def _tool_codecompass_layers_plan(*, name: str, args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
     from agent.services.codecompass_layer_service import get_codecompass_layer_service
 
-    plan = get_codecompass_layer_service().plan_update(
+    service = get_codecompass_layer_service()
+    if context.get("codecompass_capability") is not None:
+        scoped = service.scoped_query(context["codecompass_capability"])
+        profile = str(args.get("profile_id") or "") or _default_layer_profile(scoped.list_profiles())
+        plan = scoped.plan_update(profile_id=profile, old_manifest=args.get("old_manifest") or {},
+                                  new_manifest=args.get("new_manifest") or {})
+        return {"content": [{"type": "json", "json": plan}]}
+    plan = service.plan_update(
         old_manifest=args.get("old_manifest") or {},
         new_manifest=args.get("new_manifest") or {},
         profile={},
@@ -145,11 +154,20 @@ def _tool_codecompass_architecture_intelligence(
     )
     from agent.services.tools.codecompass_architecture_tools import _load_architecture_graph
 
-    nodes, edges = _load_architecture_graph({})
+    capability = context.get("codecompass_capability")
+    if capability is not None:
+        from agent.services.codecompass_scoped_graph import load_scoped_graph
+
+        graph, snapshot_ref, revision = load_scoped_graph(
+            capability, snapshot_ref=str(args.get("snapshot_ref") or ""), revision=str(args.get("revision") or ""))
+        nodes, edges = graph["nodes"], graph["edges"]
+    else:
+        nodes, edges = _load_architecture_graph({})
+        snapshot_ref, revision = str(args.get("snapshot_ref") or ""), str(args.get("revision") or "")
     result = get_codecompass_architecture_intelligence_service().analyze(
         {"nodes": nodes, "edges": edges},
-        snapshot_ref=str(args.get("snapshot_ref") or ""),
-        revision=str(args.get("revision") or ""),
+        snapshot_ref=snapshot_ref,
+        revision=revision,
     )
     return {"content": [{"type": "json", "json": result}]}
 

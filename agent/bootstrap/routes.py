@@ -3,9 +3,9 @@ import os
 
 from flask import Flask
 
-from agent.bootstrap.project_lifecycle import configure_project_lifecycle
 from agent.bootstrap.meet import configure_meet
 from agent.bootstrap.persona_media import configure_persona_media
+from agent.bootstrap.project_lifecycle import configure_project_lifecycle
 from agent.bootstrap.route_aliases import register_route_aliases
 from agent.bootstrap.source_control_api import register_source_control_api
 from agent.config import settings
@@ -54,8 +54,9 @@ from agent.routes.dspy_optimization import dspy_optimization_bp
 from agent.routes.effective_workflow import effective_workflow_bp
 from agent.routes.evolution import evolution_bp
 from agent.routes.freecad_client_surface import freecad_client_surface_bp
-from agent.routes.goal_artifacts import goal_artifacts_bp
+from agent.routes.game_dragon import game_dragon_bp
 from agent.routes.geomaps import geomaps_bp
+from agent.routes.goal_artifacts import goal_artifacts_bp
 from agent.routes.hrm_experiments import hrm_experiments_bp
 from agent.routes.hub_benchmark import hub_benchmark_bp
 from agent.routes.hub_direct_diagnostics import hub_direct_diagnostics_bp
@@ -69,6 +70,7 @@ from agent.routes.langgraph_checkpoint_internal import langgraph_checkpoint_inte
 from agent.routes.local_runtime_capabilities import local_runtime_capabilities_bp
 from agent.routes.mail_control import mail_control_bp
 from agent.routes.mcp import mcp_bp
+from agent.routes.memory_audit import memory_audit_bp
 from agent.routes.ml_intern_lora_runtime import ml_intern_lora_runtime_bp
 from agent.routes.ml_intern_speech_adapters import ml_intern_speech_adapters_bp
 from agent.routes.ml_intern_training import ml_intern_training_bp
@@ -119,7 +121,6 @@ from agent.routes.terminal import terminal_bp
 from agent.routes.text_quality import text_quality_bp
 from agent.routes.vector_store_control import vector_store_control_bp
 from agent.routes.vision_decision import vision_decision_bp
-from agent.routes.game_dragon import game_dragon_bp
 from agent.routes.visual_process import vp_bp
 from agent.routes.visual_process_assistant import visual_process_assistant_bp
 from agent.routes.voice import voice_bp
@@ -156,6 +157,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(collaboration_workspaces_bp)
     app.register_blueprint(research_training_bp)
     app.register_blueprint(dendritic_memory_bp)
+    app.register_blueprint(memory_audit_bp)
     app.register_blueprint(dspy_optimization_bp)
     configure_project_lifecycle(app)
     configure_persona_media(app)

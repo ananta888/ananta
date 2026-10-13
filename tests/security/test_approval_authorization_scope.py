@@ -58,6 +58,10 @@ def _approval(**overrides: Any) -> SimpleNamespace:
 
 
 def _install_visible_goal(monkeypatch) -> None:
+    # Resolve the consumer before patching its dependency so a first import cannot
+    # permanently capture this test's temporary repository function.
+    from agent.services import goal_service as goal_service_module
+
     goal = SimpleNamespace(id="goal-a", team_id="team-a")
     repositories = SimpleNamespace(goal_repo=SimpleNamespace(get_by_id=lambda _goal_id: goal))
     goal_service = SimpleNamespace(can_access_goal=lambda *_args: True)
@@ -66,7 +70,7 @@ def _install_visible_goal(monkeypatch) -> None:
         lambda: repositories,
     )
     monkeypatch.setattr(
-        "agent.services.goal_service.get_goal_service",
+        goal_service_module, "get_goal_service",
         lambda: goal_service,
     )
 

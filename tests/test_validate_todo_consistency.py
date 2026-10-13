@@ -1,6 +1,61 @@
 from __future__ import annotations
 
+import pytest
+
 from scripts.validate_todo_consistency import validate_todo_payload
+
+
+def _track_payload():
+    return {"schema_version": "todo.v2", "tracks": [
+        {"id": "track-a", "status": "partial", "priority": "P0", "tasks": [
+            {"id": "a", "status": "partial", "depends_on": []},
+        ]},
+        {"id": "track-b", "status": "open", "priority": "P1", "tasks": [
+            {"id": "b", "status": "open", "depends_on": ["a"]},
+        ]},
+    ]}
+
+
+def test_nested_tracks_validate_all_tasks_and_cross_track_dependencies():
+    assert validate_todo_payload(_track_payload()) == []
+
+
+@pytest.mark.parametrize("mutation, expected", [
+    ("duplicate_task", "unique nonempty id required across tracks"),
+    ("duplicate_track", "unique nonempty id required"),
+    ("unknown_dependency", "unknown task"),
+    ("cycle", "dependency cycle"),
+    ("self_dependency", "dependency cycle"),
+    ("false_completion", "completed track contains unfinished tasks"),
+    ("unknown_status", "unsupported status"),
+    ("unknown_priority", "unsupported priority"),
+    ("missing_tasks", "nonempty list required"),
+    ("invalid_dependency", "string list required"),
+])
+def test_nested_track_inconsistencies_are_not_hidden(mutation, expected):
+    value = _track_payload()
+    first, second = value["tracks"]
+    if mutation == "duplicate_task":
+        second["tasks"][0]["id"] = "a"
+    elif mutation == "duplicate_track":
+        second["id"] = first["id"]
+    elif mutation == "unknown_dependency":
+        second["tasks"][0]["depends_on"] = ["unknown"]
+    elif mutation == "cycle":
+        first["tasks"][0]["depends_on"] = ["b"]
+    elif mutation == "self_dependency":
+        first["tasks"][0]["depends_on"] = ["a"]
+    elif mutation == "false_completion":
+        first["status"] = "completed"
+    elif mutation == "unknown_status":
+        first["tasks"][0]["status"] = "invented"
+    elif mutation == "unknown_priority":
+        first["tasks"][0]["priority"] = "P999"
+    elif mutation == "missing_tasks":
+        first["tasks"] = []
+    else:
+        second["tasks"][0]["depends_on"] = [True]
+    assert any(expected in problem for problem in validate_todo_payload(value))
 
 
 def _build_payload() -> dict:
@@ -47,6 +102,42 @@ def _build_payload() -> dict:
 
 def test_validate_todo_payload_returns_no_problems_when_consistent() -> None:
     assert validate_todo_payload(_build_payload()) == []
+
+
+def _nested_payload():
+    payload = _build_payload()
+    for group, field in (("by_priority", "priority"), ("by_risk", "risk")):
+        for key in payload["tasks_status_summary"][group]:
+            payload["tasks_status_summary"][group][key] = {
+                status: sum(task[field] == key and task["status"] == status for task in payload["tasks"])
+                for status in ("todo", "in_progress", "partial", "blocked", "done")
+            }
+    return payload
+
+
+def test_canonical_nested_priority_and_risk_counts_are_supported():
+    assert validate_todo_payload(_nested_payload()) == []
+
+
+@pytest.mark.parametrize("group,key", [("by_priority", "P0"), ("by_risk", "critical")])
+def test_nested_counter_status_drift_is_detected_even_with_same_total(group, key):
+    payload = _nested_payload()
+    payload["tasks_status_summary"][group][key].update(done=0, todo=1)
+    problems = validate_todo_payload(payload)
+    assert any(problem.startswith(f"{group}.{key}.done:") for problem in problems)
+
+
+@pytest.mark.parametrize("count", [True, 1.0, -1, "1"])
+def test_nested_counts_require_nonnegative_integers(count):
+    payload = _nested_payload()
+    payload["tasks_status_summary"]["by_priority"]["P0"]["done"] = count
+    assert any("nonnegative integer required" in problem for problem in validate_todo_payload(payload))
+
+
+def test_nested_counter_unknown_status_is_rejected():
+    payload = _nested_payload()
+    payload["tasks_status_summary"]["by_priority"]["P0"]["invented"] = 1
+    assert any("unknown status counters" in problem for problem in validate_todo_payload(payload))
 
 
 def test_validate_todo_payload_uses_canonical_one_decimal_progress() -> None:

@@ -68,6 +68,8 @@ _RETRYABLE_NO_WORKER_REASONS = {
     "assigned_worker_is_hub_forbidden",
     "hub_self_worker_filtered",
     "no_workers_available",
+    "native_worker_unavailable",
+    "native_assigned_worker_unavailable",
 }
 _RECOVERY_ACCEPTED_TERMINAL_STATUSES = {
     "completed",
@@ -434,6 +436,12 @@ def execute_autopilot_tick(
     if goal_scope:
         all_tasks = [task for task in all_tasks if str(getattr(task, "goal_id", "") or "").strip() == goal_scope]
     task_counts = (total_tasks_unfiltered, len(all_tasks))
+    from agent.services.native_result_recovery_tick import recover_native_result_on_tick
+
+    recovered = recover_native_result_on_tick(loop=loop, tasks=all_tasks)
+    if recovered is not None:
+        loop.last_tick_at = time.time()
+        return recovered
     StaleTaskRecovery(
         loop=loop,
         append_trace_event=append_trace_event,

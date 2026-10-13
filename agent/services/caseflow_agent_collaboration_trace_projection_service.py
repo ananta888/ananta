@@ -234,14 +234,36 @@ class CaseflowAgentCollaborationTraceProjectionService:
         run_id = _required_identity(binding.run_id, "run_id")
         tenant_id = _required_identity(binding.tenant_id, "tenant_id")
         catalog, catalog_reason = _catalog_from_binding(binding)
+        from agent.services.bpmn_caseflow_provenance import bpmn_edge_provenance
+
+        try:
+            lineage = bpmn_edge_provenance(binding) if catalog is not None else {}
+            if lineage and {edge.edge_id for edge in catalog} != set(lineage):
+                raise ValueError('bpmn_catalog_mismatch')
+            if lineage and any((edge.source_step_id, edge.target_step_id, edge.edge_kind) != (
+                    lineage[edge.edge_id]['source_step_id'], lineage[edge.edge_id]['target_step_id'], 'dependency')
+                    for edge in catalog):
+                raise ValueError('bpmn_catalog_direction_mismatch')
+        except (ValueError, TypeError, KeyError):
+            catalog, catalog_reason, lineage = None, 'caseflow_bpmn_binding_invalid', {}
         source_event_count = len(raw_events)
         selected_events = _select_bounded_event_window(raw_events)
+        from ananta_contracts.bpmn_edge_event import valid_bpmn_edge_observation
+
+        directions = {edge.edge_id: (edge.source_step_id, edge.target_step_id) for edge in catalog or ()}
+        admitted_events = [event for event in selected_events if not isinstance(event, Mapping)
+            or not str(event.get('event_type', '')).startswith('workflow.bpmn.edge.')
+            or valid_bpmn_edge_observation(event, tenant_id=tenant_id, workflow_id=workflow_id, run_id=run_id,
+                plan_hash=binding.plan_hash,
+                definition_hash=(getattr(binding.request, 'execution_graph', None) or {}).get('definition_hash'),
+                directions=directions)]
         normalized, rejected_count = _normalize_events(
-            selected_events,
+            admitted_events,
             tenant_id=tenant_id,
             workflow_id=workflow_id,
             run_id=run_id,
         )
+        rejected_count += len(selected_events) - len(admitted_events)
         ordered = sorted(normalized, key=lambda item: item.order_key)
         truncated_event_count = max(0, source_event_count - len(selected_events))
 
@@ -265,6 +287,9 @@ class CaseflowAgentCollaborationTraceProjectionService:
             }
 
         projected = _project_edges(catalog, ordered)
+        for edge in projected:
+            if edge['edge_id'] in lineage:
+                edge['bpmn_provenance'] = lineage[edge['edge_id']]
         projection_verified = all(edge["verification_status"] == "verified" for edge in projected)
         return {
             "schema": CASEFLOW_EDGE_TRACE_READ_MODEL_SCHEMA,
@@ -763,6 +788,11 @@ def _edge_projection(
     telemetry = [_telemetry(event) for event in ordered]
     all_event_refs = _unique_existing(event.event_id for event in ordered)
     all_trace_refs = _unique_existing(event.trace_ref for event in ordered)
+    bpmn_states = [event.event_type.removeprefix('workflow.bpmn.edge.') for event in ordered
+                  if event.event_type in {'workflow.bpmn.edge.selected', 'workflow.bpmn.edge.skipped',
+                                         'workflow.bpmn.edge.completed', 'workflow.bpmn.edge.failed',
+                                         'workflow.bpmn.edge.blocked', 'workflow.bpmn.edge.cancelled',
+                                         'workflow.bpmn.edge.pending'}]
     return {
         **edge.to_dict(),
         "activity_status": activity,
@@ -771,6 +801,7 @@ def _edge_projection(
         "correlation_basis": basis if verification == "verified" else "unavailable",
         "event_refs": all_event_refs[:MAX_CASEFLOW_EDGE_REFERENCES],
         "trace_refs": all_trace_refs[:MAX_CASEFLOW_EDGE_REFERENCES],
+        **({'edge_status': bpmn_states[-1]} if bpmn_states and verification == 'verified' else {}),
         "messages": messages[:MAX_CASEFLOW_EDGE_MESSAGES],
         "telemetry": telemetry[:MAX_CASEFLOW_EDGE_TELEMETRY],
         "limits": {

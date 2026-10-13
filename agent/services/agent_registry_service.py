@@ -67,6 +67,20 @@ class AgentRegistryService:
             "max_runtime_seconds": max(30, min(int(raw_limits.get("max_runtime_seconds") or 900), 86400)),
             "max_workspace_mb": max(64, min(int(raw_limits.get("max_workspace_mb") or 1024), 65536)),
         }
+        if 'native_result_store_binding_id' in raw_limits:
+            from ananta_contracts.native_result_maintenance import (
+                MAINTENANCE_CAPABILITY,
+                RESULT_STORE_BINDING_LIMIT,
+                require_result_store_identifier,
+            )
+
+            try:
+                binding = require_result_store_identifier(raw_limits[RESULT_STORE_BINDING_LIMIT])
+            except ValueError:
+                return None, 'native_result_store_binding_invalid', 400
+            if role != 'worker' or not {MAINTENANCE_CAPABILITY, 'workflow.adapter.native'} <= set(capabilities):
+                return None, 'native_result_store_registration_scope_invalid', 400
+            execution_limits[RESULT_STORE_BINDING_LIMIT] = binding
         strategy_mode = str(data.get("strategy_mode") or raw_limits.get("strategy_mode") or "").strip().lower() or None
         if strategy_mode:
             execution_limits["strategy_mode"] = strategy_mode
@@ -203,6 +217,7 @@ class AgentRegistryService:
                 max_parallel_tasks=max_parallel,
                 max_runtime_seconds=max(30, int(execution_limits.get("max_runtime_seconds") or 900)),
                 max_workspace_mb=max(64, int(execution_limits.get("max_workspace_mb") or 1024)),
+                native_result_store_binding_id=execution_limits.get('native_result_store_binding_id'),
             ),
             status=status,
             registration_validated=bool(agent.registration_validated),

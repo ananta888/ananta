@@ -62,6 +62,11 @@ def _hub_context_window(loop: Any) -> dict[str, Any]:
 
 def _split_if_beyond_context(task: Any, *, app: Any) -> Any:
     """LCTX-007/008: split a task whose context exceeds the window (only with context_strategy.mode=active)."""
+    from agent.common.native_task_result_binding import is_native_task
+
+    if is_native_task(task):
+        # The immutable Hub workflow plan already owns splitting and execution.
+        return None
     try:
         config = ((getattr(app, "config", None) or {}).get("AGENT_CONFIG", {}) or {}).get("context_strategy")
         if str((config or {}).get("mode") or "shadow").strip().lower() != "active":
@@ -177,6 +182,12 @@ def _dispatch_one_task_inner(
     )
     if stop_result is not None:
         return stop_result
+
+    from .autopilot_native_dispatch import dispatch_native_task
+
+    native_result = dispatch_native_task(ctx, policy=policy)
+    if native_result is not None:
+        return native_result
 
     model_meta: dict[str, Any] = {}
     strategy_state = dependencies.extract_strategy_state(task)

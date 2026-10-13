@@ -93,7 +93,7 @@ def result(value: NativeNodeCommand, task_id: str) -> NativeNodeResult:
     )
 
 
-def test_hub_queue_adapter_creates_real_task_polls_contract_and_cancels() -> None:
+def test_hub_queue_adapter_creates_task_rejects_unadmitted_result_and_cancels() -> None:
     repository = FakeRepository()
     queue = FakeQueue(repository)
     adapter = AnantaHubTaskQueueAdapter(
@@ -121,9 +121,8 @@ def test_hub_queue_adapter_creates_real_task_polls_contract_and_cancels() -> Non
     }.isdisjoint(queue.ingested_values[0]["extra_fields"])
     task.status = "completed"
     task.verification_status = {"native_node_result": result(value, receipt.hub_task_id).to_dict()}
-    assert adapter.poll(
-        tenant_id="tenant-a", run_id="run-a", hub_task_ids=(receipt.hub_task_id,)
-    )[0].status == "completed"
+    with pytest.raises(ValueError, match="native_result_receipt_required"):
+        adapter.poll(tenant_id="tenant-a", run_id="run-a", hub_task_ids=(receipt.hub_task_id,))
 
     second = command()
     second = NativeNodeCommand(**{**second.__dict__, "command_id": "command-b"})
@@ -269,7 +268,7 @@ def test_native_handler_never_publishes_declared_outputs_on_failure(
     assert actual.artifact_refs == {}
 
 
-def test_native_handler_passes_only_exact_materialized_outputs() -> None:
+def test_native_handler_requires_hub_publication_for_materialized_outputs() -> None:
     value = _command_with_declared_output()
     expected_ref = "artifact://materialized/declared-output"
 
@@ -296,10 +295,41 @@ def test_native_handler_passes_only_exact_materialized_outputs() -> None:
         hub_task_id="hub-task-a",
     )
 
-    assert actual.status == "completed"
-    assert actual.artifact_refs == {
-        "declared-output": expected_ref
-    }
+    assert actual.status == "failed"
+    assert actual.reason_code == "native_artifact_publication_unavailable"
+    assert actual.artifact_refs == {}
+
+
+@pytest.mark.parametrize("publication_fails", [False, True])
+def test_native_handler_publishes_before_returning_completed_artifacts(publication_fails):
+    command = _command_with_declared_output()
+    events = []
+    task = {"id": "hub-task-a", "project_id": "project"}
+
+    def execute(**values):
+        events.append("execute")
+        return {"status": "completed", "artifact_refs": {"declared-output": "artifact://worker-local"}}
+
+    def publish(**values):
+        events.append("publish")
+        assert values["task"] == task and values["command"] == command
+        assert values["references"] == {"declared-output": "artifact://worker-local"}
+        if publication_fails:
+            raise ValueError("native_artifact_http_unavailable")
+        return {"declared-output": "artifact://native-artifact-" + "a" * 64}
+
+    handler = NativeTaskScopedNodeHandler(
+        agent_config={}, task_snapshots=SimpleNamespace(task_snapshot=lambda **values: task),
+        executor=SimpleNamespace(execute=execute), artifact_publication=SimpleNamespace(publish=publish),
+    )
+    if publication_fails:
+        with pytest.raises(ValueError, match="native_artifact_http_unavailable"):
+            handler.execute(command, hub_task_id="hub-task-a")
+    else:
+        result = handler.execute(command, hub_task_id="hub-task-a")
+        assert result.status == "completed"
+        assert result.artifact_refs == {"declared-output": "artifact://native-artifact-" + "a" * 64}
+    assert events == ["execute", "publish"]
 
 
 def test_native_execution_adapter_drops_failed_result_artifacts() -> None:

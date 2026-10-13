@@ -108,6 +108,11 @@ from .memory import (
     MemoryTreeJobDB,
     MemoryTreeNodeDB,
 )
+from .memory_quarantine import MemoryQuarantineEventDB
+from .memory_audit import MemoryAuditEventDB, MemoryAuditHeadDB
+from .memory_migration import MemoryMigrationBackupDB
+from .memory_policy import MemoryRunPolicyDB
+from .memory_snapshot import MemorySnapshotDB
 from .ml_intern_training import (
     MlInternDatasetDB,
     MlInternSpeechAdapterDB,
@@ -117,6 +122,13 @@ from .ml_intern_training import (
     MlInternTrainingEventDB,
     MlInternTrainingExecutionLeaseDB,
     MlInternTrainingJobDB,
+)
+from .native_dispatch import NativeDispatchDB
+from .native_maintenance import NativeMaintenanceCadenceDB
+from .native_result_retirement import (
+    NativeResultRetirementCursorDB,
+    NativeResultRetirementManifestDB,
+    NativeResultRetirementMarkerDB,
 )
 from .organization_runtime import (
     OrganizationBudgetReservationDB,
@@ -149,6 +161,7 @@ from .organizations import (
     TeamBlueprintRevisionDB,
     WorkflowDefinitionRevisionDB,
 )
+from .pi_dispatch_evidence import PiDispatchEvidenceDB
 from .planning import (
     GoalDB,
     PlanDB,
@@ -413,6 +426,12 @@ from .workflow_runtime import (
 )
 
 __all__ = [
+    "PiDispatchEvidenceDB",
+    "NativeDispatchDB",
+    "NativeMaintenanceCadenceDB",
+    "NativeResultRetirementCursorDB",
+    "NativeResultRetirementManifestDB",
+    "NativeResultRetirementMarkerDB",
     "AccessPolicyRevisionDB",
     "AccessRoleBindingDB",
     "AccessRoleDB",
@@ -483,6 +502,11 @@ __all__ = [
     "LoginAttemptDB",
     "OidcIdentityLinkDB",
     "MemoryEntryDB",
+    "MemoryAuditEventDB",
+    "MemoryAuditHeadDB",
+    "MemoryMigrationBackupDB",
+    "MemoryRunPolicyDB",
+    "MemorySnapshotDB",
     "HrmCheckpointDB",
     "HrmDatasetDB",
     "HrmEvaluationReportDB",
@@ -501,6 +525,7 @@ __all__ = [
     "MlInternTrainingExecutionLeaseDB",
     "MlInternTrainingJobDB",
     "MemoryTreeChunkDB",
+    "MemoryQuarantineEventDB",
     "MemoryTreeJobDB",
     "MemoryTreeNodeDB",
     "PairGroupDB",

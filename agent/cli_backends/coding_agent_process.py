@@ -22,12 +22,16 @@ from agent.cli_backends.coding_agent_process_io import (
     write_input,
 )
 from agent.cli_backends.coding_agent_process_output import ProcessOutput
+from agent.cli_backends.process_launch import ProcessLaunchPort, direct_process_launch
 
 _POLL_SECONDS = 0.05
 
 
 class BoundedCodingAgentProcess:
     """Execute an allowlisted argv with bounded output and process-group cleanup."""
+
+    def __init__(self, *, launch_context: ProcessLaunchPort | None = None):
+        self._launch = launch_context if launch_context is not None else direct_process_launch
 
     def run(
         self,
@@ -53,19 +57,22 @@ class BoundedCodingAgentProcess:
         safe_environment = {str(name): str(value) for name, value in environment.items() if name and "\x00" not in name}
         output = ProcessOutput(maximum_output_chars, event_sink, secret_values)
         started = time.monotonic()
-        process = subprocess.Popen(  # noqa: S603 - absolute executable from shutil.which
-            command,
-            cwd=workspace,
-            env=safe_environment,
-            stdin=subprocess.PIPE if input_text is not None else subprocess.DEVNULL,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            bufsize=1,
-            start_new_session=os.name == "posix",
-        )
+        with self._launch(command, workspace=workspace, environment=safe_environment) as (args, env, descriptors):
+            process = subprocess.Popen(  # noqa: S603 - composition-owned launch profile, no shell
+                args,
+                cwd=workspace,
+                env=env,
+                stdin=subprocess.PIPE if input_text is not None else subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                bufsize=1,
+                close_fds=True,
+                pass_fds=descriptors,
+                start_new_session=os.name == "posix",
+            )
         messages: queue.Queue = queue.Queue(maxsize=32)
         stopped = threading.Event()
         readers = (

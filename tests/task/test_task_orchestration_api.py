@@ -201,10 +201,14 @@ def test_orchestration_ingest_uses_central_task_ingestion_fields(client, auth_he
 
 
 def test_orchestration_read_model_includes_artifact_flow_details(client, auth_header):
+    from sqlmodel import Session
+
+    from agent.database import engine
     from agent.db_models import (
         AgentInfoDB,
         ContextBundleDB,
         MemoryEntryDB,
+        ProjectDB,
         RoleDB,
         TaskDB,
         TeamDB,
@@ -225,6 +229,15 @@ def test_orchestration_read_model_includes_artifact_flow_details(client, auth_he
         worker_job_repo,
         worker_result_repo,
     )
+    from agent.services.memory_access_context import current_memory_access
+    from agent.services.result_memory_access import ResultMemoryAccess
+    from ananta_contracts.memory_access import MemoryOperation, MemoryScope, MemorySecurityMetadata
+    from tests.security.memory_fixtures import synthetic_memory_access
+
+    with Session(engine) as session:
+        session.add(ProjectDB(tenant_id="test-tenant", project_id="test-workspace", name="Synthetic flow",
+                              created_by_subject_id="test-actor"))
+        session.commit()
 
     template = template_repo.save(TemplateDB(name="Python Worker Template", prompt_template="Do Python work"))
     role = role_repo.save(RoleDB(name="Python Worker", default_template_id=template.id))
@@ -235,6 +248,8 @@ def test_orchestration_read_model_includes_artifact_flow_details(client, auth_he
     task = task_repo.save(
         TaskDB(
             id="FLOW-TASK-1",
+            tenant_id="test-tenant",
+            project_id="test-workspace",
             title="Flow Task",
             description="Validate sent and returned artifacts",
             status="in_progress",
@@ -301,54 +316,64 @@ def test_orchestration_read_model_includes_artifact_flow_details(client, auth_he
             output="done",
         )
     )
-    memory_entry_repo.save(
-        MemoryEntryDB(
-            task_id=task.id,
-            worker_job_id=job.id,
-            title="Worker Output",
-            content="Produced artifact",
-            artifact_refs=[{"kind": "generated_file", "artifact_id": "art-returned-1"}],
+    with synthetic_memory_access(task_id=task.id, goal_id=None, channels=("hub-result-memory",),
+                                 scopes=(MemoryScope.task,)):
+        context = current_memory_access()
+        decision = context.gateway.authorize_current(
+            actor=context.actor, run_id=context.run_id, operation=MemoryOperation.append,
+            channel_id="hub-result-memory", security=MemorySecurityMetadata(),
         )
-    )
+        memory_entry_repo.save(
+            MemoryEntryDB(
+                task_id=task.id,
+                worker_job_id=job.id,
+                title="Worker Output",
+                content="Produced artifact",
+                memory_metadata=ResultMemoryAccess.metadata(decision),
+                artifact_refs=[{"kind": "generated_file", "artifact_id": "art-returned-1"}],
+            )
+        )
 
-    res = client.get(
-        "/tasks/orchestration/read-model?artifact_flow_rag_enabled=0&artifact_flow_max_tasks=5",
-        headers=auth_header,
-    )
-    assert res.status_code == 200
-    artifact_flow = (res.json.get("data") or {}).get("artifact_flow") or {}
-    assert artifact_flow.get("enabled") is True
-    assert (artifact_flow.get("config") or {}).get("rag_enabled") is False
-    items = artifact_flow.get("items") or []
-    target = next((item for item in items if item.get("task_id") == task.id), None)
-    assert target is not None
-    assert "art-sent-1" in (target.get("sent_artifact_ids") or [])
-    assert "art-returned-1" in (target.get("returned_artifact_ids") or [])
-    assert (target.get("assignment") or {}).get("agent_name") == "alpha"
-    assert (target.get("assignment") or {}).get("role_name") == "Python Worker"
-    assert (target.get("assignment") or {}).get("template_name") == "Python Worker Template"
-    assert {item.get("artifact_id") for item in (target.get("sent_artifacts") or [])} == {"art-sent-1"}
-    assert {item.get("artifact_id") for item in (target.get("returned_artifacts") or [])} == {"art-returned-1"}
-    jobs = target.get("worker_jobs") or []
-    assert jobs and jobs[0].get("worker_job_id") == "FLOW-JOB-1"
-    assert (jobs[0].get("assignment") or {}).get("template_name") == "Python Worker Template"
-    groups = artifact_flow.get("groups") or {}
-    worker_groups = groups.get("by_worker") or []
-    assignment_groups = groups.get("by_assignment") or []
-    assert any(group.get("worker_url") == "http://alpha:5001" and "art-returned-1" in (group.get("artifact_ids") or []) for group in worker_groups)
-    assert any(group.get("template_name") == "Python Worker Template" and "art-sent-1" in (group.get("artifact_ids") or []) for group in assignment_groups)
-    recent = (res.json.get("data") or {}).get("recent_tasks") or []
-    recent_row = next((item for item in recent if item.get("id") == task.id), None)
-    assert recent_row is not None
-    context_summary = recent_row.get("context_bundle_summary") or {}
-    assert context_summary.get("context_bundle_id") == bundle.id
-    assert context_summary.get("chunk_count") == 1
-    assert context_summary.get("why_summary") == "task_kind=implement | selected_chunks=1 | mode=standard"
-    assert context_summary.get("retrieval_utilization") == 0.61
-    assert (context_summary.get("context_policy") or {}).get("mode") == "standard"
-    assert (context_summary.get("context_policy") or {}).get("bundle_strategy") == "balanced"
-    assert (context_summary.get("selection_trace") or {}).get("knowledge_index_reason") == "query_overlap"
-    assert (context_summary.get("top_sources") or [])[0].get("source") == "docs/flow.md"
+        res = client.get(
+            "/tasks/orchestration/read-model?artifact_flow_rag_enabled=0&artifact_flow_max_tasks=5",
+            headers=auth_header,
+        )
+        assert res.status_code == 200
+        artifact_flow = (res.json.get("data") or {}).get("artifact_flow") or {}
+        assert artifact_flow.get("enabled") is True
+        assert (artifact_flow.get("config") or {}).get("rag_enabled") is False
+        items = artifact_flow.get("items") or []
+        target = next((item for item in items if item.get("task_id") == task.id), None)
+        assert target is not None
+        assert "art-sent-1" in (target.get("sent_artifact_ids") or [])
+        assert "art-returned-1" in (target.get("returned_artifact_ids") or [])
+        assert (target.get("assignment") or {}).get("agent_name") == "alpha"
+        assert (target.get("assignment") or {}).get("role_name") == "Python Worker"
+        assert (target.get("assignment") or {}).get("template_name") == "Python Worker Template"
+        assert {item.get("artifact_id") for item in (target.get("sent_artifacts") or [])} == {"art-sent-1"}
+        assert {item.get("artifact_id") for item in (target.get("returned_artifacts") or [])} == {"art-returned-1"}
+        jobs = target.get("worker_jobs") or []
+        assert jobs and jobs[0].get("worker_job_id") == "FLOW-JOB-1"
+        assert (jobs[0].get("assignment") or {}).get("template_name") == "Python Worker Template"
+        groups = artifact_flow.get("groups") or {}
+        worker_groups = groups.get("by_worker") or []
+        assignment_groups = groups.get("by_assignment") or []
+        assert any(group.get("worker_url") == "http://alpha:5001"
+                   and "art-returned-1" in (group.get("artifact_ids") or []) for group in worker_groups)
+        assert any(group.get("template_name") == "Python Worker Template"
+                   and "art-sent-1" in (group.get("artifact_ids") or []) for group in assignment_groups)
+        recent = (res.json.get("data") or {}).get("recent_tasks") or []
+        recent_row = next((item for item in recent if item.get("id") == task.id), None)
+        assert recent_row is not None
+        context_summary = recent_row.get("context_bundle_summary") or {}
+        assert context_summary.get("context_bundle_id") == bundle.id
+        assert context_summary.get("chunk_count") == 1
+        assert context_summary.get("why_summary") == "task_kind=implement | selected_chunks=1 | mode=standard"
+        assert context_summary.get("retrieval_utilization") == 0.61
+        assert (context_summary.get("context_policy") or {}).get("mode") == "standard"
+        assert (context_summary.get("context_policy") or {}).get("bundle_strategy") == "balanced"
+        assert (context_summary.get("selection_trace") or {}).get("knowledge_index_reason") == "query_overlap"
+        assert (context_summary.get("top_sources") or [])[0].get("source") == "docs/flow.md"
 
 
 def test_orchestration_read_model_exposes_task_dependency_neighborhood(client, auth_header):

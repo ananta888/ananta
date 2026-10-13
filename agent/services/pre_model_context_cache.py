@@ -11,7 +11,6 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import time
 from pathlib import Path
 from typing import Any
 
@@ -42,8 +41,11 @@ class ContextPackageCache:
         self._ttl = max(60, ttl_seconds)
         self._max = max(1, max_entries)
         self._enabled = enabled
-        if enabled:
-            self._dir.mkdir(parents=True, exist_ok=True)
+        from agent.adapters.namespace_memory_cache import NamespaceMemoryCache
+        from agent.services.memory_storage_boundary import MemoryStorageBoundary
+
+        self._storage = NamespaceMemoryCache(self._dir, boundary=MemoryStorageBoundary("hub-context-cache"),
+                                              ttl_seconds=min(self._ttl, 86400), max_entries=min(self._max, 4096))
 
     # ── Public API ────────────────────────────────────────────────────────────
 
@@ -51,23 +53,8 @@ class ContextPackageCache:
         """Return cached payload or ``None`` on miss / stale / invalidated."""
         if not self._enabled:
             return None
-        path = self._entry_path(key)
-        if not path.exists():
-            return None
-        try:
-            entry = json.loads(path.read_text(encoding="utf-8"))
-        except Exception:
-            return None
-        if entry.get("schema") != _CACHE_SCHEMA_VERSION:
-            return None
-        cached_at = float(entry.get("cached_at") or 0)
-        if time.time() - cached_at > self._ttl:
-            path.unlink(missing_ok=True)
-            return None
-        if manifest_hash and entry.get("manifest_hash") != manifest_hash:
-            path.unlink(missing_ok=True)
-            return None
-        return entry.get("payload")
+        payload = self._storage.get(key, manifest_hash=manifest_hash)
+        return payload if isinstance(payload, dict) else None
 
     def put(
         self,
@@ -80,59 +67,22 @@ class ContextPackageCache:
         """Store payload under key. Returns False if caching is skipped."""
         if not self._enabled:
             return False
-        if not allow_sensitive and payload.get("has_sensitive_content"):
-            log.debug("pmc_cache: skipping sensitive content for key=%s", key[:16])
+        # A caller-provided toggle is not an egress/sensitivity approval.
+        if payload.get("has_sensitive_content"):
             return False
-        self._evict_if_needed()
-        entry = {
-            "schema": _CACHE_SCHEMA_VERSION,
-            "key": key,
-            "manifest_hash": manifest_hash,
-            "cached_at": time.time(),
-            "payload": payload,
-        }
-        try:
-            self._entry_path(key).write_text(
-                json.dumps(entry, ensure_ascii=False, separators=(",", ":")),
-                encoding="utf-8",
-            )
-            return True
-        except Exception as exc:
-            log.warning("pmc_cache: write failed for key=%s: %s", key[:16], exc)
-            return False
+        return self._storage.put(key, payload, manifest_hash=manifest_hash)
 
     def invalidate(self, key: str) -> None:
-        self._entry_path(key).unlink(missing_ok=True)
+        self._storage.invalidate(key)
 
     def invalidate_all(self) -> int:
-        removed = 0
-        for p in self._dir.glob("*.json"):
-            p.unlink(missing_ok=True)
-            removed += 1
-        return removed
+        return self._storage.invalidate()
 
     def stats(self) -> dict[str, Any]:
         if not self._enabled:
             return {"enabled": False}
-        entries = list(self._dir.glob("*.json"))
-        return {
-            "enabled": True,
-            "count": len(entries),
-            "max_entries": self._max,
-            "ttl_seconds": self._ttl,
-            "cache_dir": str(self._dir),
-        }
-
-    # ── Internal helpers ──────────────────────────────────────────────────────
-
-    def _entry_path(self, key: str) -> Path:
-        safe = hashlib.sha256(key.encode()).hexdigest()
-        return self._dir / f"{safe}.json"
-
-    def _evict_if_needed(self) -> None:
-        entries = sorted(self._dir.glob("*.json"), key=lambda p: p.stat().st_mtime)
-        while len(entries) >= self._max:
-            entries.pop(0).unlink(missing_ok=True)
+        return {"enabled": True, "count": self._storage.count(), "max_entries": self._max,
+                "ttl_seconds": self._ttl, "cache_dir": str(self._dir)}
 
 
 # ── Cache key builder ─────────────────────────────────────────────────────────

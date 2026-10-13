@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from agent.common.native_task_result_binding import is_native_task
 from agent.services.knowledge_index_forward_timeout import (
     resolve_knowledge_index_forward_budget_seconds,
 )
@@ -114,6 +115,36 @@ def resolve_target_worker_for_task(
     local_worker_url = _norm_url(getattr(task, "_local_worker_url", None))
     target_worker = None
     assigned_agent_url = _norm_url(getattr(task, "assigned_agent_url", None))
+    if is_native_task(task):
+        from agent.services.workflow_worker_service_auth import STRICT_WORKER_REGISTRATION_PROVENANCE
+
+        workers = [worker for worker in workers if
+                   getattr(worker, "role", None) == "worker"
+                   and getattr(worker, "registration_validated", False) is True
+                   and getattr(worker, "registration_provenance", None) == STRICT_WORKER_REGISTRATION_PROVENANCE
+                   and "workflow.adapter.native" in (getattr(worker, "authorized_capabilities", None) or [])]
+        if not workers:
+            return None, worker_cursor, False, "native_worker_unavailable"
+        if getattr(task, 'task_kind', None) == 'native_result_maintenance':
+            from agent.services.native_result_maintenance_owner import require_registered_result_store_owner
+            from ananta_contracts.native_result_maintenance import maintenance_task_owner
+
+            try:
+                owner = maintenance_task_owner({'task_kind': task.task_kind,
+                    'worker_execution_context': getattr(task, 'worker_execution_context', None)})
+                if owner is not None:
+                    import time
+
+                    matching = [worker for worker in workers
+                                if _norm_url(getattr(worker, 'url', None)) == owner['worker_url']]
+                    if len(matching) != 1 or (assigned_agent_url and assigned_agent_url != owner['worker_url']):
+                        raise ValueError('native_result_store_recipient_mismatch')
+                    require_registered_result_store_owner(matching[0], owner, now=time.time())
+                    return matching[0], worker_cursor, not bool(assigned_agent_url), 'native_result_store_owner_binding'
+            except (ValueError, TypeError, AttributeError):
+                return None, worker_cursor, False, 'native_result_store_owner_unavailable'
+        if assigned_agent_url and not any(_norm_url(worker.url) == assigned_agent_url for worker in workers):
+            return None, worker_cursor, False, "native_assigned_worker_unavailable"
     if assigned_agent_url:
         if not hub_can_be_worker and local_worker_url and assigned_agent_url == local_worker_url:
             return None, worker_cursor, False, "assigned_worker_is_hub_forbidden"

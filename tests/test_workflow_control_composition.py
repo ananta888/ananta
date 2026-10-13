@@ -1026,7 +1026,7 @@ def test_process_composition_is_singleton_and_hub_files_have_no_worker_imports(
             assert "agent.services.workflow_backend_factory" not in modules
 
 
-def test_visual_routes_expose_resume_and_retry_through_hub_control(
+def test_visual_routes_expose_pause_resume_and_retry_through_hub_control(
     monkeypatch: pytest.MonkeyPatch,
     workflow_runtime_auth_keyring_file,
 ) -> None:
@@ -1045,7 +1045,7 @@ def test_visual_routes_expose_resume_and_retry_through_hub_control(
     reset_workflow_backend_control_facade()
     workflow_route_authorization_service.clear()
     app = Flask(__name__)
-    app.config.update(TESTING=True, AGENT_TOKEN=None)
+    app.config.update(TESTING=True, AGENT_TOKEN=None, ROLE='hub')
     app.register_blueprint(vp_bp)
     client = app.test_client()
     token = generate_token(
@@ -1066,9 +1066,9 @@ def test_visual_routes_expose_resume_and_retry_through_hub_control(
         },
     )
     paused = client.post(
-        f"/api/visual-process/workflow/{workflow_id}/signal",
+        f"/api/visual-process/workflow/{workflow_id}/pause",
         headers=headers,
-        json={"name": "pause", "payload": {}},
+        json={"payload": {}},
     )
     resumed = client.post(
         f"/api/visual-process/workflow/{workflow_id}/resume",
@@ -1088,7 +1088,7 @@ def test_visual_routes_expose_resume_and_retry_through_hub_control(
     assert paused.get_json()["status"] == "paused"
     assert resumed.get_json()["status"] == "running"
     assert cancelled.get_json()["status"] == "cancelled"
-    assert retried.get_json()["status"] == "running"
+    assert retried.get_json()["status"] == "running", retried.get_json()
     events = client.get(
         f"/api/visual-process/workflow/{workflow_id}/events",
         headers=headers,
