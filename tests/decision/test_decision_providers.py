@@ -252,6 +252,81 @@ def test_llamacpp_rejects_foreign_values():
         llamacpp.LlamaCppDecisionProvider(base_url="http://x", opener=opener).decide(request)
 
 
+def _llamacpp(opener) -> llamacpp.LlamaCppDecisionProvider:
+    return llamacpp.LlamaCppDecisionProvider(base_url="http://127.0.0.1:18150", opener=opener)
+
+
+def _llamacpp_fields():
+    return {"tool": {"probs": [{"value": "search", "probability": 1.0}, {"value": "none", "probability": 0.0}]},
+            "complexity": {"probs": [{"value": "trivial", "probability": 0.7},
+                                     {"value": "moderate", "probability": 0.2},
+                                     {"value": "hard", "probability": 0.1}]},
+            "needs_code": {"probs": [{"value": True, "probability": 0.9}, {"value": False, "probability": 0.1}]}}
+
+
+def test_llamacpp_invalid_base_url_is_rejected():
+    with pytest.raises(DecisionProviderError, match="base_url_invalid"):
+        llamacpp.LlamaCppDecisionProvider(base_url="ftp://127.0.0.1")
+
+
+@pytest.mark.parametrize("mutate", [
+    lambda fields: fields.pop("count") if "count" in fields else fields.pop("complexity"),
+    lambda fields: {**fields, "extra": {"probs": [{"value": True, "probability": 1.0}]}},
+    lambda fields: {**fields, "tool": {"probs": [{"value": "search", "probability": "high"}]}},
+    lambda fields: {**fields, "tool": {"probs": [{"value": "search", "probability": 0.0},
+                                                 {"value": "none", "probability": 0.0}]}},
+    lambda fields: {**fields, "needs_code": {"probs": [{"value": "yes", "probability": 1.0}]}},
+])
+def test_llamacpp_schema_and_value_errors_are_response_invalid(mutate):
+    fields = _llamacpp_fields()
+    opener = _Opener(_Response({"object": "decision", "results": [{"fields": mutate(fields)}]}))
+    with pytest.raises(DecisionProviderError, match="response_invalid"):
+        _llamacpp(opener).decide(REQUEST)
+
+
+def test_llamacpp_response_shape_errors_are_response_invalid():
+    for payload in ({"results": []}, {"results": [{}]}, {"results": "no"}, {}, b"{not json"):
+        opener = _Opener(_Response(payload))
+        with pytest.raises(DecisionProviderError, match="response_invalid"):
+            _llamacpp(opener).decide(REQUEST)
+
+
+def test_llamacpp_response_too_large_is_rejected():
+    opener = _Opener(_Response(b"x" * (llamacpp.MAX_RESPONSE_BYTES + 2)))
+    with pytest.raises(DecisionProviderError, match="response_too_large"):
+        _llamacpp(opener).decide(REQUEST)
+
+
+@pytest.mark.parametrize("exc,reason", [(TimeoutError(), "timeout"),
+                                        (urllib.error.URLError("refused"), "transport_error"),
+                                        (OSError("boom"), "transport_error")])
+def test_llamacpp_transport_failures_are_retryable(exc, reason):
+    with pytest.raises(DecisionProviderError) as info:
+        _llamacpp(_Opener(exc)).decide(REQUEST)
+    assert info.value.reason_code == reason and info.value.retryable is True
+
+
+@pytest.mark.parametrize("code,retryable", [(400, False), (404, False), (500, True), (503, True)])
+def test_llamacpp_http_errors_map_to_retryability(code, retryable):
+    error = urllib.error.HTTPError("http://127.0.0.1:18150/v1/decision", code, "x", {}, io.BytesIO(b"{}"))
+    with pytest.raises(DecisionProviderError) as info:
+        _llamacpp(_Opener(error)).decide(REQUEST)
+    assert info.value.reason_code == f"http_{code}" and info.value.retryable is retryable
+    assert info.value.status == code
+
+
+def test_llamacpp_never_reuses_context_across_requests():
+    payload = {"object": "decision", "results": [{"fields": _llamacpp_fields()}], "model": "bonsai"}
+    opener = _Opener(_Response(payload), _Response(payload))
+    provider = _llamacpp(opener)
+    provider.decide(REQUEST)
+    provider.decide(DecisionRequest(state="another tenant state", questions=REQUEST.questions))
+    bodies = [json.loads(request.data) for request, _ in opener.requests]
+    assert [body["cache_context"] for body in bodies] == [False, False]
+    assert [body["contexts"] for body in bodies] == [[REQUEST.state], ["another tenant state"]]
+    assert bodies[0]["contexts"] != bodies[1]["contexts"]
+
+
 # --- LLM ------------------------------------------------------------------------------------------------
 
 
