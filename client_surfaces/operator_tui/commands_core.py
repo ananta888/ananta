@@ -93,6 +93,11 @@ HELP_TOPICS: dict[str, str] = {
     "rag": "rag: :rag why <frage> — zeigt Retrieval-Trace ohne LLM | :rag why --json <frage> — JSON-Output",
     "te": "te: :te status — Task-Engine-Status | :te classify <kind> — Klassifizierung testen",
     "sim": "sim: :sim list — Szenarien | :sim run <name> [--ticks N] — Simulation starten",
+    "memory-audit": (
+        "memory-audit: :memory-audit <project-id> [--run-id ID] [--task-id ID] [--trace-id ID] "
+        "[--channel-id ID] [--scope SCOPE] [--page-size 1..200] [--after-sequence N] "
+        "[--view events|diffs] — Hub-Audit lesen"
+    ),
 }
 
 

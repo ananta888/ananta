@@ -90,6 +90,7 @@ from client_surfaces.operator_tui.commands_rag import handle_rag_command, handle
 from client_surfaces.operator_tui.commands_chat import handle_chat_command, handle_notes_command, handle_channels_command, handle_ai_context_command
 from client_surfaces.operator_tui.commands_run_control import handle_run_command, handle_approval_command, handle_branch_command
 from client_surfaces.operator_tui.commands_ops import handle_ops_command
+from client_surfaces.operator_tui.commands_memory_audit import handle_memory_audit_command
 from client_surfaces.operator_tui.commands_organizations import handle_organization_command
 from client_surfaces.operator_tui import commands_core as _core
 
@@ -116,6 +117,7 @@ _WEBRTC_CENTER_COMMANDS = (
 _COMMAND_ROUTES: tuple[tuple[tuple[str, ...], CommandHandler], ...] = (
     (("refresh", "r"), _core.refresh_command),
     (("ops",), _args_only(handle_ops_command)),
+    (("memory-audit",), _args_only(handle_memory_audit_command)),
     (("org", "organization", "organizations"), _args_only(handle_organization_command)),
     (("section", "open", "goto"), _core.section_command),
     (("next",), _core.next_section_command),

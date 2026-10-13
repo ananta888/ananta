@@ -53,6 +53,11 @@
       "properties": {
         "provider": { "type": "string" },
         "model": { "type": "string" },
+        "provider_hash": {
+          "type": "string",
+          "pattern": "^(native|[0-9a-f]{64})$",
+          "description": "Provider registry entry hash, or native for execution without an external model."
+        },
         "prompt_template_version": { "type": "string" }
       },
       "additionalProperties": false

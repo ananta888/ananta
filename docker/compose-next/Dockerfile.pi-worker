@@ -1,0 +1,50 @@
+# Opt-in Pi Worker layer. BASE_RUNTIME_IMAGE must be an independently approved
+# digest-pinned Ananta runtime image with Python, Node >=22.19 and npm.
+ARG BASE_RUNTIME_IMAGE
+FROM ${BASE_RUNTIME_IMAGE}
+USER root
+
+ARG ANANTA_RUNTIME_UID=1000
+ARG ANANTA_RUNTIME_GID=1000
+COPY config/cli_backends/pi/package.json config/cli_backends/pi/package-lock.json /opt/ananta/cli-backends/pi/0.85.1/
+RUN for pi_runtime_identity in "${ANANTA_RUNTIME_UID}" "${ANANTA_RUNTIME_GID}"; do \
+      case "${pi_runtime_identity}" in ""|0*|*[!0-9]*) exit 64 ;; esac; \
+    done \
+    && mkdir -p /tmp/pi-build \
+    && touch /tmp/pi-build/user.npmrc /tmp/pi-build/global.npmrc \
+    && env -i PATH=/usr/local/bin:/usr/bin:/bin \
+       NPM_CONFIG_USERCONFIG=/tmp/pi-build/user.npmrc NPM_CONFIG_GLOBALCONFIG=/tmp/pi-build/global.npmrc \
+       npm ci --prefix /opt/ananta/cli-backends/pi/0.85.1 --ignore-scripts --no-audit --no-fund \
+    && node --input-type=module -e '\
+      import fs from "node:fs"; \
+      const [major, minor] = process.versions.node.split(".").map(Number); \
+      if (major < 22 || (major === 22 && minor < 19)) throw new Error("pi_node_version_required"); \
+      const root = "/opt/ananta/cli-backends/pi/0.85.1/node_modules/@earendil-works/pi-coding-agent"; \
+      const pkg = JSON.parse(fs.readFileSync(root + "/package.json", "utf8")); \
+      if (pkg.name !== "@earendil-works/pi-coding-agent" || pkg.version !== "0.85.1") \
+        throw new Error("pi_sdk_version_required"); \
+      const sdk = await import(root + "/dist/index.js"); \
+      if (typeof sdk.createAgentSession !== "function") throw new Error("pi_sdk_api_required");' \
+    && chmod -R a-w /opt/ananta/cli-backends \
+    && env -i PATH=/usr/local/bin:/usr/bin:/bin \
+       NPM_CONFIG_USERCONFIG=/tmp/pi-build/user.npmrc NPM_CONFIG_GLOBALCONFIG=/tmp/pi-build/global.npmrc \
+       npm cache clean --force \
+    && rm -rf /tmp/pi-build
+
+ENV ROLE=worker \
+    ANANTA_QUICKSTART_ROLE=worker \
+    ANANTA_CLI_BACKENDS_DIR=/opt/ananta/cli-backends
+# The approved base supplies dependencies, while this build supplies the current
+# application source. Do not inherit an older backend catalog from a cached base.
+RUN rm -rf /app/agent /app/worker /app/ananta_contracts /app/voice_runtime
+COPY agent/ /app/agent/
+COPY worker/ /app/worker/
+COPY ananta_contracts/ /app/ananta_contracts/
+COPY voice_runtime/ /app/voice_runtime/
+COPY config/geomaps/ /app/config/geomaps/
+COPY schemas/geomaps/ /app/schemas/geomaps/
+COPY assets/geomaps/ /app/assets/geomaps/
+COPY config/workflow_runtime/pi_worker_profile.v1.json /app/config/workflow_runtime/
+USER ${ANANTA_RUNTIME_UID}:${ANANTA_RUNTIME_GID}
+# Inherit the approved base entrypoint. Credentials, Hub token, execution profile,
+# writable scratch and read-only rootfs are supplied by the Hub deployment policy.

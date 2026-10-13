@@ -10,6 +10,7 @@ import { ControlCenterPlaceholderComponent } from './components/control-center-p
 import { KnowledgeExpertControlComponent } from './knowledge-experts/knowledge-expert-control.component';
 import { ScrumImprovementComponent } from './scrum-improvement/scrum-improvement.component';
 import { AgentSafetyComponent } from './agent-safety/agent-safety.component';
+import { MemoryAuditComponent } from './memory-audit/memory-audit.component';
 
 export const controlCenterRoutes: Routes = [{
   path: 'control-center',
@@ -26,5 +27,6 @@ export const controlCenterRoutes: Routes = [{
     { path: 'knowledge-experts', component: KnowledgeExpertControlComponent },
     { path: 'scrum-improvement', component: ScrumImprovementComponent },
     { path: 'agent-safety', component: AgentSafetyComponent },
+    { path: 'memory-audit', component: MemoryAuditComponent },
   ],
 }];
