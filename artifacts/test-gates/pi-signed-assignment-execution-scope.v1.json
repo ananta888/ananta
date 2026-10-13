@@ -1,0 +1,27 @@
+{
+  "schema": "ananta.pi-signed-assignment-execution-scope.v1",
+  "status": "exact_signed_assignment_node_scope_and_legacy_denial_verified",
+  "classification": "local_headless_real_sql_sdk_synthetic_model_technical_observation",
+  "production_release_evidence": false,
+  "checks": {
+    "regression_passed": 753,
+    "regression_skipped": 2,
+    "regression_warnings": 4,
+    "regression_seconds": 43.12,
+    "regression_before_final_assignment_change_case": true,
+    "final_transport_sdk_passed": 31,
+    "final_transport_sdk_seconds": 8.36,
+    "ruff": "passed"
+  },
+  "verified": [
+    "Immutable signed assignment snapshot bound task-locally only during execution",
+    "Productive Pi node requires exact signed scope and fresh canonical Hub match",
+    "Task-only paths deny before credential/budget/SDK even if Hub has a RUN",
+    "Foreign Task/new context/mutated copy/exception cannot leak or widen scope",
+    "Changed assignment at Node rejected while real SQL/SDK chain still succeeds"
+  ],
+  "remaining": [
+    "Productive separate Hub/Worker container acceptance",
+    "Actual configured provider/deployment release admission"
+  ]
+}

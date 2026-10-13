@@ -1,0 +1,28 @@
+{
+  "schema": "ananta.pi-deployment-observer.v1",
+  "status": "concrete_observer_synthetic_ports_verified_actual_container_probe_pending",
+  "classification": "local_headless_synthetic_docker_observation_technical_check",
+  "production_release_evidence": false,
+  "actual_docker_probe": false,
+  "checks": {
+    "focused_passed": 19,
+    "focused_seconds": 2.54,
+    "regression_passed": 616,
+    "regression_skipped": 6,
+    "regression_warnings": 4,
+    "regression_seconds": 32.89,
+    "ruff": "passed"
+  },
+  "verified": [
+    "Exact Hub inventory scope and full container/image/revision binding",
+    "Independent fresh bounded version and immutable-root observation required",
+    "Runtime/library mounts and symlink escape denied",
+    "Container restart/image/version mismatch and truncated/failed probes denied",
+    "No environment/credentials/mount-source projection; clean env nonroot read commands"
+  ],
+  "remaining": [
+    "Actual isolated container probe",
+    "Trusted Hub inventory and policy provisioning",
+    "Productive SDK/provider and deployment acceptance"
+  ]
+}

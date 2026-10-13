@@ -1,0 +1,26 @@
+{
+  "schema": "ananta.pi-dispatch-bootstrap.v1",
+  "status": "explicit_hub_startup_composition_verified_independent_deployment_observer_pending",
+  "classification": "local_headless_synthetic_ports_real_startup_technical_observation",
+  "production_release_evidence": false,
+  "checks": {
+    "focused_passed": 5,
+    "focused_seconds": 3.05,
+    "regression_passed": 597,
+    "regression_skipped": 6,
+    "regression_warnings": 4,
+    "regression_seconds": 32.73,
+    "ruff": "passed"
+  },
+  "verified": [
+    "Actual startup phase composes Pi before background execution",
+    "Disabled default and strict boolean Hub activation",
+    "Independent deployment and policy ports required before service creation",
+    "Missing ports terminate bounded blocked without human or deployment guessing",
+    "Existing Hub/Worker startup smoke and telemetry pass"
+  ],
+  "remaining": [
+    "Concrete independent deployment observer and trusted port provisioning",
+    "Productive activation and actual provider/deployment acceptance"
+  ]
+}

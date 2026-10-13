@@ -1,0 +1,26 @@
+{
+  "schema": "ananta.pi-evidence-gateway.v1",
+  "status": "authenticated_gateway_and_worker_reader_verified_runtime_installation_pending",
+  "classification": "local_headless_synthetic_transport_real_sql_technical_observation",
+  "production_release_evidence": false,
+  "checks": {
+    "focused_passed": 68,
+    "focused_seconds": 7.64,
+    "regression_passed": 583,
+    "regression_skipped": 6,
+    "regression_seconds": 28.01,
+    "ruff": "passed"
+  },
+  "verified": [
+    "Registered exact Worker/Task owner and active fencing required before evidence read",
+    "Signed Workflow authority required before decision port",
+    "Actual Pi Task command/input/worker/workflow scope revalidated against existing Registry reservation",
+    "Productive gateway callback resolves per-app Hub service",
+    "Worker reader uses existing authenticated HTTP decision client without choosing RUN/SRC identities"
+  ],
+  "remaining": [
+    "Install Worker evidence consumer into production runtime",
+    "Independent production deployment/bootstrap",
+    "Actual live provider and deployment acceptance"
+  ]
+}

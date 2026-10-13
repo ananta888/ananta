@@ -1,0 +1,27 @@
+{
+  "schema": "ananta.pi-autopilot-evidence-dispatch.v1",
+  "status": "actual_route_evidence_ports_verified_default_deployment_composition_pending",
+  "classification": "local_headless_synthetic_deployment_transport_real_sql_technical_observation",
+  "production_release_evidence": false,
+  "checks": {
+    "regression_passed": 524,
+    "regression_skipped": 6,
+    "regression_seconds": 24.53,
+    "regression_before_final_journal_failure_case": true,
+    "final_focused_passed": 4,
+    "final_focused_seconds": 4.21,
+    "ruff": "passed"
+  },
+  "verified": [
+    "Actual Native route sends atomically reserved Pi evidence envelope",
+    "Concrete completion publishes exact admitted Hub result to Registry",
+    "Journal validates exact Pi receipt and closes accepted send",
+    "Missing Hub composition denies before transport",
+    "Registry and journal failures cannot report completed dispatch or overwrite terminal Task"
+  ],
+  "remaining": [
+    "Independent production deployment adapter and installation of complete ports",
+    "Worker evidence execution composition",
+    "Durable evidence projection for headless recovery"
+  ]
+}

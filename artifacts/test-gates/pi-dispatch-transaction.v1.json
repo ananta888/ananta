@@ -1,0 +1,27 @@
+{
+  "schema": "ananta.pi-dispatch-transaction.v1",
+  "status": "caller_owned_atomic_reservation_journal_boundary_verified_production_route_pending",
+  "classification": "local_headless_synthetic_deployment_real_sql_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "checks": {
+    "regression_passed": 516,
+    "regression_skipped": 6,
+    "regression_seconds": 23.53,
+    "ruff": "passed"
+  },
+  "verified": [
+    "Caller-session commit persists Hub-issued RUN, input SRC, send fence and in_progress Task together",
+    "Rollback removes new RUN/input SRC/journal and restores assigned Task",
+    "Existing send fence conflicts roll back new Registry reservation",
+    "Inactive transaction and stale Task input rejected",
+    "Standalone journal and Native autopilot compatibility regression passed"
+  ],
+  "remaining": [
+    "Independent admitted production deployment adapter",
+    "Production dispatch composition and transport only after atomic commit",
+    "Evidence-aware Worker execution composition",
+    "Exact Hub Registry completion and durable recovery"
+  ],
+  "architecture_review": "SRP: journal owns send fence and caller owns transaction lifetime. DIP: explicit caller session with no nested session or commit. Current Task lock and projection validation prevent stale send. Workers remain execution-only; only Hub Registry issues evidence."
+}

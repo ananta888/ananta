@@ -1,0 +1,25 @@
+{
+  "schema": "ananta.pi-recovery-evidence-boundary.v1",
+  "status": "recovery_registry_bypass_closed_durable_projection_lookup_pending",
+  "classification": "local_headless_synthetic_deployment_real_sql_technical_observation",
+  "production_release_evidence": false,
+  "checks": {
+    "focused_passed": 29,
+    "focused_seconds": 5.98,
+    "regression_passed": 536,
+    "regression_skipped": 6,
+    "regression_seconds": 25.6,
+    "ruff": "passed"
+  },
+  "verified": [
+    "Terminal Pi Task receipt alone cannot close pending journal through either recovery entrypoint",
+    "Concrete registry completion precedes successful journal reconciliation",
+    "Missing evidence ports leave reserved RUN and sending journal unchanged without transport",
+    "Pi result retrieval signs the reserved evidence projection when explicit ports installed"
+  ],
+  "remaining": [
+    "Durable projection lookup across Hub restart",
+    "Independent production deployment adapter and default composition",
+    "Evidence-aware Worker execution"
+  ]
+}

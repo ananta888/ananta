@@ -1,0 +1,27 @@
+{
+  "schema": "ananta.pi-legacy-worker-evidence-gate.v1",
+  "status": "productive_native_pi_execution_gate_closes_task_only_evidence_bypass_verified",
+  "classification": "local_headless_actual_sql_sdk_synthetic_deployment_model_technical_observation",
+  "production_release_evidence": false,
+  "checks": {
+    "focused_native_composition_passed": 20,
+    "focused_native_composition_seconds": 2.79,
+    "actual_sdk_chain_passed": 2,
+    "actual_sdk_chain_seconds": 4.65,
+    "regression_passed": 752,
+    "regression_skipped": 2,
+    "regression_warnings": 4,
+    "regression_seconds": 44.06,
+    "ruff": "passed"
+  },
+  "verified": [
+    "Only productive Pi node factory always installs authenticated Hub evidence reader",
+    "Task-only adapter path cannot bypass current RUN assignment read",
+    "Unknown Registry composition denies before credentials/providerbudget/SDK with no shell fallback",
+    "Integrated actual SQL/SDK chain still succeeds with node evidence gate"
+  ],
+  "remaining": [
+    "Productive separate Hub/Worker container acceptance",
+    "Actual configured provider/model and deployment release admission"
+  ]
+}

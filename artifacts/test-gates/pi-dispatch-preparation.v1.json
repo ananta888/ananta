@@ -1,0 +1,21 @@
+{
+  "schema": "ananta.pi-dispatch-preparation.v1",
+  "status": "atomic_hub_preparation_verified_production_route_pending",
+  "production_release_evidence": false,
+  "classification": "local_headless_synthetic_deployment_real_sql_technical_observation",
+  "checks": {
+    "regression_passed": 520,
+    "regression_skipped": 6,
+    "regression_seconds": 23.23,
+    "regression_before_final_commit_failure_case": true,
+    "final_focused_passed": 10,
+    "final_focused_seconds": 4.37,
+    "ruff": "passed"
+  },
+  "remaining": [
+    "Independent production deployment port",
+    "Production route policy/trace composition",
+    "Worker evidence consumer",
+    "Registry completion and durable evidence-aware recovery"
+  ]
+}

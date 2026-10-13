@@ -1,0 +1,27 @@
+{
+  "schema": "ananta.pi-transaction-approved-context-reader.v1",
+  "status": "concrete_caller_transaction_context_policy_projection_verified_reserved_read_completion_check_pending",
+  "classification": "local_headless_synthetic_policy_real_sql_technical_observation",
+  "production_release_evidence": false,
+  "checks": {
+    "focused_passed": 11,
+    "focused_seconds": 3.63,
+    "regression_passed": 714,
+    "regression_skipped": 6,
+    "regression_warnings": 4,
+    "regression_seconds": 37.04,
+    "ruff": "passed"
+  },
+  "verified": [
+    "Locked Task/bundle/active policy read from same caller Session",
+    "Existing CAP projection and destination binding reused",
+    "Unknown owner, revoked/mutated policy, foreign command and inactive session denied",
+    "Pure shared Row\u2192Policy projection preserves old lifecycle repository API",
+    "Startup composes concrete approved reader from app destination catalog"
+  ],
+  "remaining": [
+    "Exact reserved context bytes/policy revalidation at Worker read",
+    "Context source revalidation at Registry completion/replay",
+    "Full productive deployment/provider acceptance"
+  ]
+}

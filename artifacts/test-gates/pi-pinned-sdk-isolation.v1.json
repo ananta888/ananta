@@ -1,0 +1,49 @@
+{
+  "schema": "ananta.pi-pinned-sdk-isolation-review.v1",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "status": "real_pinned_sdk_production_entry_local_gate_passed",
+  "sdk": {
+    "name": "@earendil-works/pi-coding-agent",
+    "version": "0.85.1",
+    "package_metadata_sha256": "f1738e4b42203e5f22bcb513f13fb2fb224f1e98d1f129ff042f87048665a94c"
+  },
+  "node_version": "24.21.0",
+  "scope": "Actual SDK and production entry under Native Worker confinement; loopback model response synthetic",
+  "checks": {
+    "pi_coding_process_and_shell_regression_passed": 480,
+    "skipped": 0,
+    "duration_seconds": 23.75,
+    "real_sdk_gate_passed": true,
+    "node_http_and_credentials_contract": "passed",
+    "ruff": "passed",
+    "memory_channel_gate": "passed",
+    "legacy_source_gate": "passed"
+  },
+  "verified": [
+    "Exactly one selected-model HTTP request",
+    "max_tokens=64 and streaming request",
+    "No tool request",
+    "Selected credential in request only",
+    "No auth lock or model cache",
+    "Read-only one-provider credential port denies foreign reads and mutations",
+    "Production Landlock and Seccomp launch profile"
+  ],
+  "installation": {
+    "isolated_container_removed": true,
+    "non_root": true,
+    "capabilities": "none",
+    "container_root": "read_only",
+    "install_scripts": false,
+    "source_workspace_modified_by_install": false
+  },
+  "command": "ANANTA_TEST_NODE_BINARY=<prepared-node> ANANTA_TEST_PI_SDK=<prepared-sdk-dist/index.js> python -m pytest -q tests/pi tests/coding_agent tests/worker/test_native_tool_filesystem_isolation.py",
+  "solid_review": "Selected credential port separates authentication projection from SDK startup (SRP/ISP), uses the public ModelRuntime credentials abstraction (DIP), denies modification rather than exposing file storage. Existing Hub-packaged CLI dependency in Worker remains coupling debt.",
+  "remaining": [
+    "Live provider/model and deployment-manifest release acceptance",
+    "Actual Hub dispatch with pinned SDK and production registered RUN/SRC evidence",
+    "Other CLI/provider launch profiles",
+    "aarch64 kernel execution gate",
+    "Network/resource/deployment sandbox completion"
+  ]
+}

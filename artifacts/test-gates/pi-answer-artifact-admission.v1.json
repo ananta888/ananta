@@ -1,0 +1,73 @@
+{
+  "schema": "ananta.pi.answer-artifact-gate.v1",
+  "status": "hub_admitted_no_tools_answer_artifact_verified_resume_and_production_acceptance_pending",
+  "production_release_evidence": false,
+  "container": {
+    "classification": "synthetic_two_container_sql_sdk_chain",
+    "duplicate_execute_status": 409,
+    "hub_admitted_answer_artifacts": 1,
+    "image": "sha256:d4fccd9cdf21773f8836dee1b67d14aa11b73a80472ee8d201269bd7c7487be7",
+    "journal_state": "accepted",
+    "mode": "answer_artifact",
+    "model_requests": 1,
+    "production_release_evidence": false,
+    "reserved_sources_before_model": 3,
+    "run_state": "succeeded",
+    "same_reserved_run": true,
+    "stored_result_matches": true
+  },
+  "focused": {
+    "answer_artifact_and_pi_task_policy": {
+      "passed": 53,
+      "seconds": 7.68
+    },
+    "artifact_policy_configuration_worker_composition_native_ingress": {
+      "passed": 66,
+      "seconds": 8.27
+    },
+    "actual_pinned_sdk_sql_evidence_chain_plain_and_artifact": {
+      "passed": 4,
+      "seconds": 6.43
+    }
+  },
+  "regression": {
+    "passed": 809,
+    "skipped": 2,
+    "warnings": 4,
+    "seconds": 59.48,
+    "skip_scope": "Optional actual local/external model smoke not explicitly opted in.",
+    "warnings_scope": "Existing Pydantic model_fields instance access in startup tests."
+  },
+  "implemented": [
+    "One Hub-declared assistant_answer text/plain or text/markdown output, named in signed artifact scope.",
+    "Separate default-false preauthorized_result_artifacts policy pin; legacy no-artifact policy digest unchanged.",
+    "Worker prepares existing Native artifact transport before credentials/budget/SDK; SDK stays no-tools and read-only.",
+    "Existing Hub native artifact ingress stores immutable bytes and exact Task/assignment/lease provenance.",
+    "Pi terminal policy verifies SQL registration, filename/media/size/hash against actual assistant output, including replay.",
+    "Registry closure rejects mutated or missing artifact registration and preserves original RUN identity.",
+    "Actual task-scoped forwarding preserves exact admitted Pi references and never invokes generic artifact registration.",
+    "Artifact publication crossing the node deadline returns bounded failure rather than success."
+  ],
+  "negative_checks": [
+    "No artifact transport before SDK/credentials/budget.",
+    "Invalid media, extra metadata, traversal filename, undeclared or unsigned output.",
+    "Different assistant answer, missing/forged artifact registration, expired Hub lease.",
+    "Registration corruption blocks exact Task receipt replay and RUN closure."
+  ],
+  "fixture_scope": [
+    "Actual SQL and immutable Hub filesystem storage; Hub-generated artifact identities only.",
+    "Actual Node/Pi SDK with owned synthetic selected-model responses; no productive providers used.",
+    "Two full app containers use test-only Hub gateway/artifact transport auth handlers and existing budget/signature fixtures.",
+    "Container image includes current production source, tests mounted readonly; no serving profile/deployment modified.",
+    "Evidence explicitly test/synthetic; no production release evidence claimed."
+  ],
+  "remaining": [
+    "Scoped Pi resume/session branching remains unsupported.",
+    "Only assistant-answer export is implemented; workspace file extraction and other artifact sources remain unsupported.",
+    "Productive strict worker-registration authentication, deployment/provider and release acceptance remain separate."
+  ],
+  "solid": {
+    "protected": "Shared pure declaration (SRP), narrow prepared-publication and existing byte-ingress ports (ISP/DIP), optional policy field and unchanged default digest (compatibility).",
+    "preserved_debt": "Existing task-scoped forwarding facade and global configuration/gateway factories remain; Pi projection/admission live in dedicated modules."
+  }
+}

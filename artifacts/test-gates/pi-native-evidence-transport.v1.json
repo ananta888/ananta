@@ -1,0 +1,42 @@
+{
+  "schema": "ananta.pi-native-evidence-transport.v1",
+  "status": "signed_transport_prerequisite_verified_production_composition_pending",
+  "classification": "local_headless_synthetic_hub_registry_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "checks": {
+    "focused_passed": 35,
+    "focused_seconds": 3.9,
+    "regression_passed": 482,
+    "regression_skipped": 6,
+    "regression_seconds": 20.81,
+    "ruff": "passed",
+    "durable_binding_focused": {
+      "passed": 64,
+      "seconds": 5.27
+    },
+    "durable_binding_regression": {
+      "passed": 511,
+      "skipped": 6,
+      "seconds": 23.2
+    }
+  },
+  "verified": [
+    "Actual Hub test Registry issues positive SRC/RUN identities before signing",
+    "Closed Pi-only task-bound projection included in recipient/expiry Ed25519 signature",
+    "Task input and digest unchanged; returned projection detached from signed payload",
+    "Changed/removed/null projection and foreign task/non-Pi binding rejected",
+    "No evidence consumer means503 before result-store reservation or legacy execution",
+    "Legacy Task-only verifier cannot silently discard assigned evidence",
+    "Durable Worker reserve/publish/read bind the complete signed evidence projection separately from unchanged Task input",
+    "Database reopening preserves exact projection binding; changed assignment/dispatch/digest or evidence downgrade rejected",
+    "Fresh valid signature for another dispatch cannot retrieve or reexecute the existing result slot"
+  ],
+  "remaining": [
+    "Actual Hub dispatch reservation before task in_progress and before transport",
+    "Independent admitted deployment manifest production port",
+    "Atomic dispatch-journal/Registry reservation composition and recovery",
+    "Worker Pi evidence execution composition and exact Hub Registry completion"
+  ],
+  "architecture_review": "SRP keeps evidence outside immutable input. DIP adds one explicit evidence consumer port. Existing request/signature/Task-only interfaces remain unchanged for ordinary requests; new identity-bearing requests fail closed without an explicit consumer. Structural transport verification never substitutes for authoritative Registry admission."
+}

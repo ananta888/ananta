@@ -1,0 +1,30 @@
+{
+  "schema": "ananta.pi-reserved-context-verification.v1",
+  "status": "reserved_context_bytes_policy_read_completion_replay_verified_integrated_sdk_acceptance_pending",
+  "classification": "local_headless_synthetic_context_real_hub_registry_sql_technical_observation",
+  "production_release_evidence": false,
+  "checks": {
+    "regression_passed": 718,
+    "regression_skipped": 6,
+    "regression_warnings": 4,
+    "regression_seconds": 38.69,
+    "regression_before_final_gateway_case_and_wrapper_refactor": true,
+    "final_dispatch_context_focused_passed": 45,
+    "final_dispatch_context_focused_seconds": 7.51,
+    "final_registry_context_passed": 37,
+    "final_registry_context_seconds": 4.67,
+    "ruff": "passed"
+  },
+  "verified": [
+    "Exact existing Registry sources queried without identity issuance",
+    "Current approved context origin/bytes/policy equal reserved source required",
+    "Productive authenticated context gateway returns only reserved projection and safe audit event",
+    "Changed content/policy/reference blocks read and Registry close without replacement SRC",
+    "Exact unchanged terminal context replay remains allowed after lease expiry",
+    "Separate public assignment/context return contracts"
+  ],
+  "remaining": [
+    "Integrated actual SQL/context/gateway/pinned SDK/Registry proof",
+    "Full productive provider/deployment acceptance"
+  ]
+}

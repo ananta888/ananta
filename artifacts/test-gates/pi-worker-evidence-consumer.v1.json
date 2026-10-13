@@ -1,0 +1,26 @@
+{
+  "schema": "ananta.pi-worker-evidence-consumer.v1",
+  "status": "current_registry_execution_consumer_verified_authenticated_transport_pending",
+  "classification": "local_headless_synthetic_transport_real_hub_registry_technical_observation",
+  "production_release_evidence": false,
+  "checks": {
+    "regression_passed": 547,
+    "regression_skipped": 6,
+    "regression_seconds": 27.28,
+    "regression_before_final_http_registry_cases": true,
+    "final_focused_passed": 17,
+    "final_focused_seconds": 5.07,
+    "ruff": "passed"
+  },
+  "verified": [
+    "Exact current Hub assignment required before Worker execution",
+    "Hub unavailable or changed dispatch prevents execution",
+    "Decision reader cannot mutate execution Task or command input",
+    "Signed HTTP and actual test Registry source mutation denial verified"
+  ],
+  "remaining": [
+    "Authenticated production Worker-Hub evidence reader transport",
+    "Worker runtime composition",
+    "Independent production deployment/bootstrap and live acceptance"
+  ]
+}

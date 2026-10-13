@@ -1,0 +1,55 @@
+{
+  "schema": "ananta.pi-process-isolation-review.v1",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "status": "native_pi_process_and_version_probe_boundary_implemented_and_locally_verified",
+  "scope": "Native Worker default Pi provider with configured private result store",
+  "checks": {
+    "pi_process_shell_regression_passed": 474,
+    "pi_process_shell_regression_skipped": 1,
+    "memory_and_pi_final_checks_passed": 256,
+    "ruff": "passed",
+    "legacy_source_gate": "passed",
+    "source_channel_gate": "passed",
+    "diff_check": "passed"
+  },
+  "skipped_limit": "Optional host Node contract test; host Node unavailable",
+  "guards": [
+    "Real Landlock and mandatory metadata Seccomp",
+    "Bound ephemeral read-only Pi configuration and SDK resources",
+    "Selected provider credential only for execution; no provider credential for probes",
+    "Disposable version-probe workspace",
+    "Timeout, cancellation and output bounds retained",
+    "FIOCLEX/FIONCLEX/FIONBIO descriptor-only ioctl exceptions; other ioctl denied"
+  ],
+  "remaining": [
+    "Live pinned Pi SDK and provider acceptance",
+    "Other CLI/provider process launch ports",
+    "aarch64 kernel execution acceptance",
+    "Full network/resource/deployment sandbox",
+    "Production migration and release admission"
+  ],
+  "solid_review": "Shared bounded process depends on a narrow launch context protocol (DIP/ISP). Worker composition owns confinement (SRP). Existing Worker-to-Hub-packaged CLI dependency remains packaging/coupling debt; Hub orchestration ownership unchanged.",
+  "real_node_runtime_review": {
+    "node_version": "24.21.0",
+    "source": "binary copied from already cached node:24 image; temporary extraction container removed",
+    "network_install": false,
+    "regression_passed": 478,
+    "regression_skipped": 1,
+    "duration_seconds": 21.39,
+    "scope": "Real Node SDK fixture execution and catalog dist/bundle/cli.js version-probe layout under production launch guards",
+    "production_release_evidence": false,
+    "private_store_read_denied": true,
+    "config_mutation_denied": true,
+    "workspace_write_allowed": true,
+    "provider_key_only_for_sdk": true,
+    "inode_and_device_ioctls_denied": true,
+    "descriptor_ioctl_exceptions": [
+      "FIOCLEX",
+      "FIONCLEX",
+      "FIONBIO"
+    ],
+    "readonly_system_openssl_configuration": true,
+    "selected_node_interpreter_granted_for_cli_probe": true
+  }
+}

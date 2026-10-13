@@ -1,0 +1,24 @@
+{
+  "schema": "ananta.pi-prepared-context-dispatch.v1",
+  "status": "prepared_reference_transport_corrected_context_bytes_evidence_binding_pending",
+  "classification": "local_headless_synthetic_context_real_hub_registry_technical_observation",
+  "production_release_evidence": false,
+  "checks": {
+    "regression_passed": 644,
+    "regression_skipped": 6,
+    "regression_warnings": 4,
+    "regression_seconds": 35.49,
+    "ruff": "passed"
+  },
+  "verified": [
+    "Prepared top-level bundle reference survives signed dispatch and reaches existing Worker context reader",
+    "Reference replacement invalidates signature",
+    "Null/absent context field preserves old ordinary projection",
+    "Invalid reference types/length/control characters rejected"
+  ],
+  "remaining": [
+    "Admit and reserve actual approved ContextBundle bytes as concrete RUN source",
+    "Bind context reads and result completion to exact reserved input",
+    "Productive deployment/provider live acceptance"
+  ]
+}

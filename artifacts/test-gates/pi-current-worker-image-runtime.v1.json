@@ -1,0 +1,31 @@
+{
+  "schema": "ananta.pi-current-worker-image-runtime.v1",
+  "status": "current_worktree_image_and_real_isolated_runtime_detection_verified_container_chain_pending",
+  "classification": "local_owned_docker_current_source_technical_observation",
+  "production_release_evidence": false,
+  "image_digest": "sha256:f1d9fa06366135bc7cfe4e13f4d1d10962b91696a51d7bed6676b9d293350952",
+  "source_match": {
+    "source_files": 4720,
+    "actual_files": 4720,
+    "exact_source_match": true,
+    "production_release_evidence": false
+  },
+  "runtime_detection": {
+    "installed": true,
+    "status": "ready",
+    "pinned_version": "0.85.1",
+    "probe_rc": 0,
+    "matches_pinned_version": true,
+    "canary_unchanged": true
+  },
+  "checks": {
+    "actual_image_rebuild": "passed",
+    "readonly_network_none_nonroot_container": "passed",
+    "private_result_isolation_probe": "passed",
+    "diff_check": "passed"
+  },
+  "remaining": [
+    "Separate actual Hub/Worker container evidence execution chain",
+    "Immutable CI/source release provenance and productive provider acceptance"
+  ]
+}

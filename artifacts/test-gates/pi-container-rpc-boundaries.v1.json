@@ -1,0 +1,25 @@
+{
+  "checks": {
+    "hub_has_no_worker_execution_route": {
+      "reason_code": null,
+      "status": 404
+    },
+    "worker_requires_auth": {
+      "reason_code": "native_execution_auth_required",
+      "status": 401
+    },
+    "worker_requires_signature": {
+      "reason_code": "native_execution_projection_denied",
+      "status": 422
+    }
+  },
+  "classification": "owned_two_container_negative_rpc_technical_observation",
+  "image": "sha256:03720705f36f3bf2fb53bf95b2383f355bd744084d6a61a5141ca53efc8e9fd4",
+  "production_release_evidence": false,
+  "status": "negative_rpc_boundaries_verified_positive_sdk_chain_pending",
+  "gate": "tests/pi/pi_container_rpc_gate.py",
+  "remaining": [
+    "Successful signed Pi SDK execution across separate Hub/Worker containers with Hub result admission",
+    "Configured real provider and production release acceptance"
+  ]
+}

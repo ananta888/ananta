@@ -1,0 +1,28 @@
+{
+  "schema": "ananta.pi-worker-image-package.v1",
+  "status": "locked_image_fixed_sdk_package_built_nonroot_readonly_probe_verified_current_application_container_acceptance_pending",
+  "classification": "local_owned_docker_image_packaging_technical_observation",
+  "production_release_evidence": false,
+  "base_image_digest": "sha256:feb0b168e3009d0da59a2fa2220734f8b616b65ce2054a3ebb2374b1ae7e1c79",
+  "image_digest": "sha256:16e3d06180df0fc7d7581aa165cc6e31d245417a5eef81f38caec169ba47163e",
+  "runtime_probe": {
+    "node_version": "24.18.0",
+    "pi_version": "0.85.1",
+    "uid": 1000,
+    "role": "worker",
+    "immutable_prefix": true,
+    "sdk_import": true
+  },
+  "checks": {
+    "actual_docker_build": "passed",
+    "readonly_network_none_container_probe": "passed",
+    "locked_packages": 166,
+    "lock_manifest_consistency": "passed",
+    "invalid_uid_00_build": "denied_exit_64",
+    "diff_check": "passed"
+  },
+  "remaining": [
+    "Current full Hub/Worker application source provenance and separate container acceptance",
+    "Actual configured provider/model and deployment release gates"
+  ]
+}

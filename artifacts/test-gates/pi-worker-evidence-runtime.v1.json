@@ -1,0 +1,23 @@
+{
+  "schema": "ananta.pi-worker-evidence-runtime.v1",
+  "status": "productive_worker_blueprint_composed_deployment_acceptance_pending",
+  "classification": "local_headless_synthetic_transport_technical_observation",
+  "production_release_evidence": false,
+  "checks": {
+    "focused_passed": 21,
+    "focused_seconds": 5.4,
+    "regression_passed": 586,
+    "regression_skipped": 6,
+    "regression_seconds": 28.3,
+    "ruff": "passed"
+  },
+  "verified": [
+    "Productive Worker Blueprint registration installs evidence runtime consumer",
+    "Existing authenticated Hub decision client read precedes delegated execution",
+    "Missing transport configuration or Hub error prevents execution without legacy fallback"
+  ],
+  "remaining": [
+    "Independent productive Hub deployment/bootstrap",
+    "Actual deployed SDK/model acceptance"
+  ]
+}

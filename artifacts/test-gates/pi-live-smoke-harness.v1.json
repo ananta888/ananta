@@ -1,0 +1,34 @@
+{
+  "schema": "ananta.pi-live-smoke-harness.v1",
+  "status": "optional_harness_and_selected_regressions_verified_actual_live_smokes_pending",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "actual_provider_called": false,
+  "hub_dispatch_verified": false,
+  "checks": {
+    "configuration_cases_passed": 12,
+    "default_live_cases_skipped": 2,
+    "selected_regression_passed": 85,
+    "selected_regression_skipped": 4,
+    "selected_regression_seconds": 4.23,
+    "ruff": "passed",
+    "todo_consistency": "passed",
+    "execution_negative_cases_passed": 5,
+    "first_execution_negative_result": "1failed/16passed/2skipped: assertion repr exposed synthetic stderr token; explicit fixed ValueError corrected diagnostic leakage"
+  },
+  "bounds": {
+    "process_seconds": 30,
+    "test_seconds": 45,
+    "output_characters": 65536,
+    "output_tokens": 32,
+    "tools": false,
+    "sdk_version": "0.85.1"
+  },
+  "remaining": [
+    "Explicit local and external real model opt-ins with required runtime/auth resources",
+    "Actual Hub dispatch and production Registry run/source evidence",
+    "Broader PI-T05 provider/deployment/network/resource acceptance"
+  ],
+  "architecture_review": "SRP separates explicit test selection from bounded SDK execution. Existing small process/configuration/event ports protect DIP. Worker isolation is forced using an owned private-result-store canary; no application default or orchestration flow changes. SDK/network/deployment acceptance and existing service composition debt remain outside this technical harness. Error reporting now avoids pytest assertion result repr; failed process/model/tool/private-store outcomes emit no observation and always remove the owned configuration."
+}

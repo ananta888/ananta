@@ -1,0 +1,23 @@
+{
+  "actual_docker_probe": true,
+  "actual_mutable_runtime_rejected": true,
+  "classification": "local_isolated_docker_technical_observation",
+  "node_version": "24.21.0",
+  "pi_version": "0.85.1",
+  "production_release_evidence": false,
+  "readonly_rootfs": true,
+  "schema": "ananta.pi-deployment-observer-live.v1",
+  "status": "actual_isolated_container_probe_and_mutable_runtime_denial_verified",
+  "checks": {
+    "regression_passed": 617,
+    "regression_skipped": 6,
+    "regression_warnings": 4,
+    "regression_seconds": 37.02,
+    "ruff": "passed",
+    "owned_resource_cleanup": "passed"
+  },
+  "remaining": [
+    "Trusted productive inventory/policy provisioning",
+    "Actual source provenance and full productive provider/deployment acceptance"
+  ]
+}

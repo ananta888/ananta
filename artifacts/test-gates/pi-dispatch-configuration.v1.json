@@ -1,0 +1,26 @@
+{
+  "schema": "ananta.pi-dispatch-configuration.v1",
+  "status": "normal_hub_configuration_provisions_concrete_ports_verified_productive_values_pending",
+  "classification": "local_headless_synthetic_observation_real_hub_sql_technical_check",
+  "production_release_evidence": false,
+  "checks": {
+    "focused_passed": 13,
+    "focused_seconds": 3.79,
+    "regression_passed": 638,
+    "regression_skipped": 6,
+    "regression_warnings": 4,
+    "regression_seconds": 34.33,
+    "ruff": "passed"
+  },
+  "verified": [
+    "Disabled empty normal AGENT_CONFIG default",
+    "Closed bounded configuration composes concrete deployment and policy adapters",
+    "Actual SQL reservation reached through normal startup configuration",
+    "Malformed/unknown/escalated/duplicate declarations denied without observer calls",
+    "No Docker observer when disabled and no mixing partial explicit ports"
+  ],
+  "remaining": [
+    "Trusted productive inventory and policy values/activation",
+    "Complete deployed SDK/provider live acceptance"
+  ]
+}

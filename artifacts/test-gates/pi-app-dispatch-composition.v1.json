@@ -1,0 +1,26 @@
+{
+  "schema": "ananta.pi-app-dispatch-composition.v1",
+  "status": "app_scoped_dispatch_and_production_recovery_factory_verified_deployment_bootstrap_pending",
+  "classification": "local_headless_synthetic_deployment_transport_real_sql_technical_observation",
+  "production_release_evidence": false,
+  "checks": {
+    "focused_passed": 7,
+    "focused_seconds": 4.07,
+    "regression_passed": 544,
+    "regression_skipped": 6,
+    "regression_seconds": 26.59,
+    "ruff": "passed"
+  },
+  "verified": [
+    "Hub-only complete service installation with duplicate and invalid composition denial",
+    "No shared Pi service between Flask applications",
+    "Actual route uses installed atomic preparation and Registry completion",
+    "Production recovery factory uses installed durable assignment/completion methods",
+    "Reopened SQL engine closes existing RUN/journal without transport"
+  ],
+  "remaining": [
+    "Automatic production bootstrap from independent deployment and policy facts",
+    "Evidence-aware Worker execution",
+    "Productive live provider and deployment acceptance"
+  ]
+}

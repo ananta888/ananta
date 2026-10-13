@@ -1,0 +1,40 @@
+{
+  "schema": "ananta.pi.native-capability-delegation-gate.v1",
+  "classification": "synthetic_delegation_and_runtime_regression_technical_observation",
+  "status": "native_plan_recognition_corrected_authority_gates_preserved",
+  "production_release_evidence": false,
+  "deployment_performed": false,
+  "shared_contract": "ananta_contracts/pi_native.py",
+  "task_kind": "pi_coding_agent",
+  "capability": "coding.agent.pi",
+  "problem": "Native Hub plan validation previously rejected the existing Pi delegated capability before task submission.",
+  "change": "Recognize Pi in the Hub delegated-capability vocabulary; preserve compatible Worker constant re-exports without importing Worker execution code into the Hub.",
+  "cases": [
+    "The Hub accepts the Pi plan and issues a signed delegated node.",
+    "A Worker lacking the Pi capability never invokes its handler.",
+    "Worker policy may deny the recognized capability without execution.",
+    "Hub policy may deny Pi before creating any Worker task.",
+    "Unknown capabilities are still rejected before submission."
+  ],
+  "regression": {
+    "passed": 642,
+    "skipped": 2,
+    "seconds": 45.50,
+    "scope": [
+      "tests/pi",
+      "tests/test_native_graph_runtime.py",
+      "tests/test_native_graph_task_adapters.py",
+      "tests/bpmn/test_result_maintenance_node.py",
+      "tests/bpmn/test_result_maintenance_scope.py"
+    ],
+    "skip_scope": "Two non-enabled external real-model Live-Smokes.",
+    "actual_sdk_cases": "Existing pinned SDK isolation and SQL evidence-chain tests executed with the explicitly configured local Node/pinned SDK."
+  },
+  "new_case_scope": "Real Hub and Worker runtimes with synthetic queue, policies and deterministic execution handler; no production registration/provider/release acceptance claim.",
+  "solid": "Shared contract vocabulary preserves SRP/DIP and Worker import compatibility; existing authorization/execution ports remain intact.",
+  "remaining": [
+    "Hub-bound session continuation and branches.",
+    "Workspace extraction and other artifact sources.",
+    "Productive Worker registration/provider/release acceptance."
+  ]
+}

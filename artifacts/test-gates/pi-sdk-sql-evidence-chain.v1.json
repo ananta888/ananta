@@ -1,0 +1,31 @@
+{
+  "schema": "ananta.pi-sdk-sql-evidence-chain.v1",
+  "status": "local_sql_context_signed_worker_http_actual_sdk_registry_chain_verified_productive_container_provider_pending",
+  "classification": "local_headless_actual_sql_sdk_synthetic_deployment_loopback_model_technical_observation",
+  "production_release_evidence": false,
+  "actual_sdk_process": true,
+  "task_assignment_grant_context_registry_persistence": "actual_sql",
+  "workflow_signature_budget_gateway_stores": "in_memory_test_ports",
+  "hub_worker_flask_apps": "in_process_test_adapters",
+  "checks": {
+    "focused_passed": 2,
+    "focused_seconds": 4.52,
+    "regression_passed": 752,
+    "regression_skipped": 2,
+    "regression_warnings": 4,
+    "regression_seconds": 44.17,
+    "ruff": "passed"
+  },
+  "verified": [
+    "SQL RUN and three sources reserved before actual SDK model request",
+    "Signed Worker HTTP/evidence/Hub context checks precede SDK",
+    "Actual request contains approved context and exact selected model, no tools",
+    "Actual SDK result admitted in SQL and same Registry RUN/journal completed",
+    "Post-reservation context mutation blocks HTTP before any model request",
+    "Private result canary remains unchanged"
+  ],
+  "remaining": [
+    "Productive separate Hub/Worker container acceptance",
+    "Actual configured local/external provider/model and deployment release gates"
+  ]
+}

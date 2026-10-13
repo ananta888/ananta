@@ -1,0 +1,27 @@
+{
+  "schema": "ananta.pi-evidence-policy-pins.v1",
+  "status": "immutable_hub_preauthorization_and_sql_source_binding_verified_productive_provisioning_pending",
+  "classification": "local_headless_synthetic_hub_policy_real_sql_technical_observation",
+  "production_release_evidence": false,
+  "checks": {
+    "regression_passed": 626,
+    "regression_skipped": 6,
+    "regression_warnings": 4,
+    "regression_seconds": 33.84,
+    "regression_before_final_four_cases": true,
+    "final_focused_passed": 13,
+    "final_focused_seconds": 4.73,
+    "ruff": "passed"
+  },
+  "verified": [
+    "Default-denied immutable Hub preauthorization",
+    "Exact Task scope, policy version, provider profile/provider/model and deployment pins",
+    "No-tools read-only profile retained without bypassing mandatory Hub authority",
+    "Actual Registry source admission binds canonical policy digest",
+    "Unapproved policy creates no RUN or task start"
+  ],
+  "remaining": [
+    "Trusted productive inventory/policy provisioning",
+    "Full productive SDK/provider and deployment acceptance"
+  ]
+}

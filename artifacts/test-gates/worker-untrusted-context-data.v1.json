@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "classification": "local_headless_technical_observation",
+  "production_release_evidence": false,
+  "deployment_performed": false,
+  "checks": {
+    "passed": 179,
+    "skipped": 2,
+    "duration_seconds": 6.56,
+    "scope": [
+      "tests/hermes",
+      "tests/worker/test_awf_worker_fixup_t021_t030.py",
+      "tests/worker/test_untrusted_context_data.py",
+      "tests/worker/test_coding_prompt_assembly.py",
+      "tests/codecompass/test_codecompass_context_redaction.py",
+      "tests/codecompass/test_codecompass_grounded_prompt_assembly.py"
+    ],
+    "cli_backend_shim_imports": "passed",
+    "meet_worker_boundaries": "passed: 179 files",
+    "diff_check": "passed"
+  },
+  "implemented_paths": [
+    "Core GroundedPromptAssembly context data and descriptive binding labels",
+    "Hermes ContextBlock prompt conversion",
+    "Coding context groups and descriptive retrieval trace"
+  ],
+  "properties": [
+    "redacted source/body/provenance labels remain quoted data",
+    "fixed untrusted/no-authority/nonverified identity fields",
+    "complete JSON representation fits budget after escaping",
+    "separator/group-header costs included",
+    "tiny budgets omit data rather than slice structured syntax",
+    "existing pre-render injection and sensitivity checks preserved"
+  ],
+  "solid": {
+    "protected": "SRP/DIP: Worker-local pure serialization, existing converters own admission/sensitivity, no Hub imports or task ownership",
+    "preserved_debt": "Existing prompt facades still combine control section formatting; remaining handoff paths require audit"
+  },
+  "remaining": [
+    "Handoff and remaining consumer audit",
+    "Quarantine/cache enforcement",
+    "Productive verification"
+  ]
+}

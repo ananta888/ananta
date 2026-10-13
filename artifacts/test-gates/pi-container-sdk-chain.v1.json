@@ -1,0 +1,65 @@
+{
+  "schema": "ananta.pi.container-sdk-chain-gate.v1",
+  "status": "synthetic_separate_hub_worker_sql_sdk_chain_verified_remaining_features_open",
+  "production_release_evidence": false,
+  "positive": {
+    "classification": "synthetic_two_container_sql_sdk_chain",
+    "duplicate_execute_status": 409,
+    "image": "sha256:e627aa4609bcf850ee2843bda2348ae85d017161221c3edc2d804f18d1428b90",
+    "journal_state": "accepted",
+    "model_requests": 1,
+    "production_release_evidence": false,
+    "reserved_sources_before_model": 3,
+    "run_state": "succeeded",
+    "same_reserved_run": true,
+    "stored_result_matches": true,
+    "mode": "normal"
+  },
+  "changed_context_denial": {
+    "classification": "synthetic_two_container_changed_context_denied",
+    "http_status": 409,
+    "image": "sha256:e627aa4609bcf850ee2843bda2348ae85d017161221c3edc2d804f18d1428b90",
+    "mode": "context_mutation",
+    "model_requests": 0,
+    "production_release_evidence": false,
+    "reserved_sources": 3,
+    "run_state": "reserved",
+    "same_reserved_run": true
+  },
+  "implementation_correction": {
+    "file": "worker/runtime/native_graph/pi_process.py",
+    "cause": "Protected SDK lacked read access to fixed system DNS files for Hub-selected Docker provider hostname.",
+    "change": "Only existing /etc/hosts and /etc/resolv.conf added as readonly Pi launch resources; no broad /etc access.",
+    "baseline_regression": "test_sdk_can_read_system_dns_configuration_but_not_private_results failed with PermissionError /etc/hosts before correction.",
+    "isolation_tests": {
+      "passed": 24,
+      "failed": 0
+    }
+  },
+  "regression": {
+    "passed": 770,
+    "skipped": 2,
+    "warnings": 4,
+    "seconds": 44.04,
+    "skip_scope": "Explicit real local/external model smoke not opted in.",
+    "warnings_scope": "Existing Pydantic startup field-access deprecation."
+  },
+  "fixture_scope": [
+    "Two full create_app(testing=True) applications in separate nonroot readonly containers on an owned internal Docker network.",
+    "Actual SQL Task, lease, grant, ContextBundle policy, Registry reservation, result admission and journal closure.",
+    "Actual authenticated HTTP Hub decision client and production Worker evidence consumer/HTTP result store.",
+    "Actual isolated pinned Pi SDK 0.85.1 process and synthetic selected-model response.",
+    "Hub signature and budget gateway use existing in-memory test ports; deployment manifest is explicitly synthetic test evidence.",
+    "Worker Native adapter installed through explicit test composition; no productive profile activation.",
+    "Only test fixture Hub command transport handler substituted; productive service-registration authentication acceptance remains separate."
+  ],
+  "remaining_requirements": [
+    "PI-T05 scoped resume/session branches currently unsupported.",
+    "PI-T05 Pi artifact references and verified artifact ingress currently unsupported.",
+    "Productive deployment/policy/provider/release acceptance is not established by synthetic test fixtures."
+  ],
+  "solid": {
+    "protected": "Worker Pi launch owns readonly SDK/DNS resources; shared shell isolation remains unchanged (SRP). Existing injected transport/process ports reused (DIP).",
+    "preserved_debt": "Existing global configuration helpers and Hub gateway dispatcher remain; fixture overrides are test-only and do not add production orchestration."
+  }
+}

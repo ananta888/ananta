@@ -1,0 +1,27 @@
+{
+  "schema": "ananta.pi-context-source-admission.v1",
+  "status": "approved_byte_source_admission_and_atomic_reservation_verified_read_completion_binding_pending",
+  "classification": "local_headless_synthetic_context_policy_real_sql_technical_observation",
+  "production_release_evidence": false,
+  "checks": {
+    "focused_context_passed": 8,
+    "focused_context_seconds": 3.74,
+    "regression_passed": 652,
+    "regression_skipped": 6,
+    "regression_warnings": 4,
+    "regression_seconds": 37.27,
+    "ruff": "passed"
+  },
+  "verified": [
+    "Hub Registry issues source for exact approved context content before RUN reservation",
+    "Context source binds Task/bundle/command and combined Pi/context policy digest",
+    "Third source reserved in same atomic dispatch commit",
+    "Missing or mismatched projection denies RUN/journal/start",
+    "Shared context reference validator preserves Worker import compatibility"
+  ],
+  "remaining": [
+    "Concrete same-transaction approved context policy projection",
+    "Exact reserved-byte revalidation at Worker read and Registry completion",
+    "Productive deployment/provider full acceptance"
+  ]
+}

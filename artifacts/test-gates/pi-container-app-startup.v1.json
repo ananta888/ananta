@@ -1,0 +1,34 @@
+{
+  "schema": "ananta.pi-container-app-startup.v1",
+  "status": "actual_owned_hub_worker_container_app_startup_verified_rpc_model_chain_pending",
+  "classification": "local_owned_container_isolated_sql_app_startup_technical_observation",
+  "production_release_evidence": false,
+  "image_digest": "sha256:03720705f36f3bf2fb53bf95b2383f355bd744084d6a61a5141ca53efc8e9fd4",
+  "worker": {
+    "classification": "local_owned_container_app_startup_technical_observation",
+    "native_execute_route": true,
+    "native_result_route": true,
+    "production_release_evidence": false,
+    "role": "worker"
+  },
+  "hub": {
+    "classification": "local_owned_container_app_startup_technical_observation",
+    "native_execute_route": false,
+    "native_result_route": false,
+    "production_release_evidence": false,
+    "role": "hub"
+  },
+  "checks": {
+    "actual_image_rebuild": "passed",
+    "actual_worker_app_startup": "passed",
+    "actual_hub_app_startup": "passed",
+    "worker_execution_routes_only_on_worker": "passed",
+    "bounded_owned_container_cleanup": "passed",
+    "ruff": "passed",
+    "diff_check": "passed"
+  },
+  "remaining": [
+    "Communicating separate Hub/Worker evidence+SDK/model execution chain",
+    "Actual productive provider and release acceptance"
+  ]
+}

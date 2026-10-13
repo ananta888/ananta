@@ -1,0 +1,28 @@
+{
+  "schema": "ananta.pi-native-pinned-sdk.v1",
+  "status": "actual_native_worker_hub_authority_budget_sdk_path_verified_full_sql_evidence_chain_pending",
+  "classification": "local_headless_real_pinned_sdk_synthetic_loopback_model_technical_observation",
+  "production_release_evidence": false,
+  "actual_sdk": true,
+  "hub_authority_budget_store": "existing_in_memory_test_ports",
+  "full_sql_registry_chain": false,
+  "checks": {
+    "focused_passed": 19,
+    "focused_seconds": 3.71,
+    "regression_passed": 750,
+    "regression_skipped": 2,
+    "regression_warnings": 4,
+    "regression_seconds": 41.68,
+    "ruff": "passed"
+  },
+  "verified": [
+    "Endpoint/profile/context/command bound before real SDK execution",
+    "Native Worker actual SDK process uses exact Hub-selected loopback endpoint and model",
+    "No tools and private result file unchanged",
+    "Terminal Native output accepted by existing adapter/parser"
+  ],
+  "remaining": [
+    "Complete actual SQL/context source/authenticated gateway/SDK/Registry integrated proof",
+    "Productive local/external model and deployment acceptance"
+  ]
+}
