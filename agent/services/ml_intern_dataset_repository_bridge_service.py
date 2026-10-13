@@ -20,6 +20,10 @@ from agent.services.ml_intern_artifact_security_service import (
 from agent.services.ml_intern_dataset_catalog_service import MlInternDatasetCatalogService
 from agent.services.ml_intern_training_read_model_service import MlInternTrainingReadModelService
 from agent.services.ml_intern_training_repository_port import MlInternTrainingPrincipal
+from agent.services.specialist_evaluation_dataset_purpose import (
+    evaluation_dataset_digest,
+    evaluation_dataset_purpose,
+)
 from agent.services.unsloth_storage_governance_service import (
     SqliteUnslothStorageCatalog,
     tenant_scope_digest,
@@ -77,6 +81,12 @@ class MlInternDatasetRepositoryBridgeService:
                 request_bytes_used=train["size_bytes"],
             )
 
+        purpose = evaluation_dataset_purpose(catalog_summary.get("split") or {})
+        content_sha256 = str(catalog_summary.get("sha256") or train["sha256"])
+        if purpose:
+            if validation is None:
+                raise ValueError("specialist_evaluation_validation_partition_required")
+            content_sha256 = evaluation_dataset_digest(purpose, train["sha256"], validation["sha256"])
         existing = self._find_projection(principal, catalog_id)
         report = dict(validation_report or {})
         if not report:
@@ -91,7 +101,7 @@ class MlInternDatasetRepositoryBridgeService:
             "name": str(catalog_summary.get("name") or catalog_id)[:160],
             "status": str(catalog_summary.get("status") or "uploaded")[:64],
             "format_type": str(catalog_summary.get("format_type") or "instruction")[:32],
-            "content_sha256": str(catalog_summary.get("sha256") or train["sha256"]),
+            "content_sha256": content_sha256,
             "size_bytes": int(catalog_summary.get("size_bytes") or train["size_bytes"]),
             "record_count": int(catalog_summary.get("record_count") or train["record_count"]),
             "train_record_count": int(train["record_count"]),
@@ -143,6 +153,8 @@ class MlInternDatasetRepositoryBridgeService:
                 )
             )
         else:
+            if all(getattr(existing, key) == value for key, value in values.items()):
+                return self._read_models.dataset(existing)
             for key, value in values.items():
                 setattr(existing, key, value)
             projected = self._repository.save_dataset(existing, expected_version=existing.version)

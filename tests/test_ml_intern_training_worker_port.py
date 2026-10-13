@@ -253,7 +253,8 @@ def _port(tmp_path: Path, opener: _EvaluationOpener) -> tuple[HttpMlInternTraini
     return port, train, validation
 
 
-def _execute(port: HttpMlInternTrainingWorkerPort, train: Path, validation: Path) -> Mapping[str, Any]:
+def _execute(port: HttpMlInternTrainingWorkerPort, train: Path, validation: Path,
+             *, scorer_name: str = "ananta_todo_json", extra_spec: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
     return port.execute(
         job_id="job-eval-1",
         spec={
@@ -263,9 +264,10 @@ def _execute(port: HttpMlInternTrainingWorkerPort, train: Path, validation: Path
             "base_model": "local/base",
             "backend": "mock",
             "method": "lora",
-            "scorer_name": "ananta_todo_json",
+            "scorer_name": scorer_name,
             "_tenant_scope_digest": "a" * 64,
             "hyperparameters": {"seed": 7, "batch_size": 1, "max_seq_length": 256},
+            **dict(extra_spec or {}),
         },
         dataset_path=train,
         validation_path=validation,
@@ -357,6 +359,43 @@ def test_worker_delegation_requires_opaque_tenant_scope_binding(tmp_path: Path) 
             cancel_check=lambda: False,
         )
     assert error.value.reason_code == "tenant_scope_binding_required"
+
+
+def test_specialist_worker_cannot_complete_without_full_prediction_artifact(tmp_path: Path) -> None:
+    port, train, validation = _port(tmp_path, _EvaluationOpener())
+    with pytest.raises(MlInternTrainingWorkerTransportError) as error:
+        _execute(port, train, validation, scorer_name="specialist_decision")
+    assert error.value.reason_code == "worker_artifact_incomplete"
+
+
+def test_changed_specialist_partition_is_refused_before_worker_submission(tmp_path: Path) -> None:
+    from agent.services.ml_intern_training_contract import MlInternTrainingContractError
+
+    opener = _EvaluationOpener()
+    port, train, validation = _port(tmp_path, opener)
+    digest = hashlib.sha256(validation.read_bytes()).hexdigest()
+    binding = {"schema": "ananta.specialist-dataset-binding.v1", "dataset_id": "dataset-one",
+               "version": 1, "dataset_sha256": hashlib.sha256(train.read_bytes()).hexdigest(),
+               "train_sha256": hashlib.sha256(train.read_bytes()).hexdigest(), "train_records": 1,
+               "validation_sha256": digest, "validation_records": 1}
+    validation.write_text('{"instruction":"replaced","output":"wrong"}\n')
+    with pytest.raises(MlInternTrainingContractError) as error:
+        _execute(port, train, validation, extra_spec={"task_family": "specialist_decision",
+                                                    "_specialist_dataset_binding": binding})
+    assert error.value.reason_code == "specialist_dataset_partition_changed"
+    assert opener.envelope is None
+    assert not any(request.method == "POST" for request in opener.requests)
+
+
+def test_specialist_prediction_artifact_is_hash_checked_in_attempt_scope(tmp_path: Path) -> None:
+    opener = _EvaluationOpener()
+    body = (json.dumps({"record_index": 0, "adapter_output": '{"label":"deny"}'}) + "\n").encode()
+    opener.artifact_bodies["specialist_predictions.jsonl"] = body
+    port, train, validation = _port(tmp_path, opener)
+    result = _execute(port, train, validation, scorer_name="specialist_decision")
+    artifact = next(item for item in result["artifacts"] if item["name"] == "specialist_predictions.jsonl")
+    assert artifact["sha256"] == hashlib.sha256(body).hexdigest()
+    assert artifact["size_bytes"] == len(body)
 
 
 def test_stale_worker_status_is_fenced(tmp_path: Path) -> None:

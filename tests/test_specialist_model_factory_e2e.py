@@ -7,6 +7,7 @@ the real file-based ML-Intern adapter registry.
 
 import hashlib
 import json
+from dataclasses import replace
 
 import pytest
 
@@ -210,6 +211,44 @@ def test_every_builtin_specialist_uses_the_same_factory_without_bespoke_code(tmp
         )
         assert factory.task_kind == f"specialist:{name}" and factory.adapter_id("v1") == f"specialist-{name}-v1"
         assert factory.strategy.job_request(dataset_id="d", base_model="m", method="lora", backend="mock", manifest=_manifest_stub(), benchmark_version="b")["specialist"]["specialist_id"] == name
+
+
+@pytest.mark.parametrize("mismatch", ["holdout", "benchmark", "specialist", "contract_version"])
+def test_previous_comparison_binding_is_required_before_training(tmp_path, mismatch):
+    examples = gate_examples(45)
+    registry = MlInternAdapterRegistryService(tmp_path / "registry.json")
+    first = factory_for(LookupTrainer({TINY: {}, MID: {}}), registry).run_cycle(
+        examples, version="v1", plan_candidates=plan_for(examples, 11), seed=11
+    )
+    previous = first.winner
+    if mismatch in {"holdout", "benchmark"}:
+        field = "holdout_digest" if mismatch == "holdout" else "benchmark_version"
+        previous = replace(previous, result=replace(previous.result, **{field: "different"}))
+        reason = f"specialist_previous_{mismatch}_mismatch"
+    else:
+        field = "specialist_id" if mismatch == "specialist" else "contract_version"
+        previous = replace(previous, lineage=replace(previous.lineage, **{field: "different"}))
+        reason = "specialist_previous_contract_mismatch"
+    trainer = LookupTrainer({TINY: {}, MID: {}})
+    with pytest.raises(ValueError, match=reason):
+        factory_for(trainer, registry).run_cycle(
+            examples, version="v2", plan_candidates=plan_for(examples, 11), seed=11,
+            previous=previous, frozen_holdout=first.manifest.holdout,
+        )
+    assert trainer.jobs == []
+    assert [record.adapter_id for record in registry.list_adapters()] == [first.adapter_id]
+
+
+@pytest.mark.parametrize("field", ["specialist_id", "benchmark_version"])
+def test_candidate_plan_binding_is_required_before_training(tmp_path, field):
+    examples = gate_examples(45)
+    trainer = LookupTrainer({TINY: {}, MID: {}})
+    registry = MlInternAdapterRegistryService(tmp_path / "registry.json")
+    plan = replace(plan_for(examples, 11), **{field: "different"})
+    with pytest.raises(ValueError, match="specialist_candidate_plan_contract_mismatch"):
+        factory_for(trainer, registry).run_cycle(examples, version="v1", plan_candidates=plan, seed=11)
+    assert trainer.jobs == []
+    assert registry.list_adapters() == []
 
 
 def _manifest_stub():

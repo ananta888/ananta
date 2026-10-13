@@ -65,6 +65,9 @@ from agent.services.private_container_network_policy import (
     PrivateContainerResolutionError,
     pin_private_container_address,
 )
+from agent.services.specialist_dataset_binding import require_specialist_partition
+from ananta_contracts.hub_evidence import HubEvidenceAssignmentError
+from ananta_contracts.lora_evidence import lora_evidence_assignment
 from ananta_contracts.unsloth_capability import (
     UnslothWorkerCapabilityContractError,
     validate_worker_capability_probe,
@@ -282,6 +285,7 @@ class HttpMlInternTrainingWorkerPort:
                 retryable=False,
             )
         validation = self._split_manifest(validation_path, "validation")
+        require_specialist_partition(spec, validation, "validation")
         attempt_id = _identifier(attempt_id, "attempt_id")
         if isinstance(fencing_token, bool) or not 1 <= int(fencing_token) <= 2**255 - 1:
             raise MlInternTrainingWorkerTransportError(
@@ -301,6 +305,11 @@ class HttpMlInternTrainingWorkerPort:
                 "worker delegation requires an opaque tenant storage binding",
                 retryable=False,
             )
+        expected_base_model = spec.get("expected_base_model_sha256")
+        if expected_base_model is not None and expected_base_model != model["snapshot_hash"]:
+            raise MlInternTrainingWorkerTransportError(
+                "base_model_digest_changed", "evaluation base model differs from trained snapshot", retryable=False
+            )
         common = {
             "contract_version": WORKER_CONTRACT_VERSION,
             "job_id": job_id,
@@ -318,6 +327,15 @@ class HttpMlInternTrainingWorkerPort:
                 "snapshot_hash": model["snapshot_hash"],
             },
         }
+        if "_hub_evidence_assignment" in spec:
+            try:
+                common["hub_evidence_assignment"] = lora_evidence_assignment(
+                    spec["_hub_evidence_assignment"], attempt_id=attempt_id,
+                )
+            except (HubEvidenceAssignmentError, TypeError, ValueError) as exc:
+                raise MlInternTrainingWorkerTransportError(
+                    "hub_evidence_assignment_invalid", str(exc), retryable=False,
+                ) from exc
         governance = _spreadsheet_governance(spec)
         if governance is not None:
             if governance["base_model_digest"] != model["snapshot_hash"]:
@@ -337,6 +355,7 @@ class HttpMlInternTrainingWorkerPort:
             )
         elif job_type == "train_lora":
             train = self._split_manifest(dataset_path, "train")
+            require_specialist_partition(spec, train, "train")
             workspace_ref = f"tenants/{tenant_scope_digest}/jobs/{job_id}/attempts/{attempt_id}/workspace"
             self._workspace_store.resolve_relative(workspace_ref).mkdir(parents=True, exist_ok=True, mode=0o700)
             envelope = {
@@ -501,6 +520,11 @@ class HttpMlInternTrainingWorkerPort:
             must_exist=True,
         )
         inspected = self._artifact_store.validate_adapter_tree(source)
+        expected_digest = spec.get("expected_adapter_sha256")
+        if expected_digest is not None and inspected["tree_sha256"] != expected_digest:
+            raise MlInternTrainingWorkerTransportError(
+                "adapter_digest_changed", "evaluation adapter differs from admitted bytes", retryable=False
+            )
         workspace_ref = (
             f"tenants/{common['tenant_scope_digest']}/jobs/{job_id}/attempts/{common['attempt_id']}/workspace"
         )
@@ -622,6 +646,14 @@ class HttpMlInternTrainingWorkerPort:
                 "error_message": str(error["message"])[:512],
                 "retryable": bool(error.get("retryable", False)),
             }
+        if (job_type == "evaluate_lora"
+                and str(spec.get("scorer_name") or "").strip().lower() == "specialist_decision"
+                and not any(isinstance(item, Mapping) and item.get("name") == "specialist_predictions.jsonl"
+                            for item in artifacts)):
+            raise MlInternTrainingWorkerTransportError(
+                "worker_artifact_incomplete", "specialist evaluation is missing its complete prediction artifact",
+                retryable=False,
+            )
         admitted = self._download_artifacts(
             job_id,
             artifacts,

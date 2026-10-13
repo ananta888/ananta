@@ -3,14 +3,11 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
-from typing import Any
+from typing import Any, Protocol
 
 from agent.services.ml_intern_adapter_registry_service import (
     AdapterRecord,
     MlInternAdapterRegistryService,
-)
-from agent.services.ml_intern_evaluation_store_service import (
-    MlInternEvaluationStoreService,
 )
 from agent.services.ml_intern_training_repository_port import (
     MlInternTrainingPrincipal,
@@ -24,8 +21,22 @@ from agent.services.unsloth_evaluation_promotion_service import (
 from agent.services.unsloth_evidence import (
     EvidenceVerificationError,
     ProvidedEvidenceRegistry,
+    ReleaseEvidencePort,
 )
 from agent.services.unsloth_storage_contracts import StorageReferencePort
+
+
+class EvaluationPromotionGuardPort(Protocol):
+    def require(
+        self, principal: MlInternTrainingPrincipal, record: AdapterRecord, *, expected_revision: int,
+    ) -> None: ...
+
+
+class EvaluationPromotionReadPort(Protocol):
+    def get(self, principal: MlInternTrainingPrincipal, evaluation_id: str) -> dict[str, Any]: ...
+    def get_promotion_evidence(
+        self, principal: MlInternTrainingPrincipal, evaluation_id: str,
+    ) -> dict[str, Any]: ...
 
 
 class MlInternEvaluationPromotionFacade:
@@ -34,21 +45,24 @@ class MlInternEvaluationPromotionFacade:
     def __init__(
         self,
         *,
-        evaluations: MlInternEvaluationStoreService,
+        evaluations: EvaluationPromotionReadPort,
         registry: MlInternAdapterRegistryService,
         trusted_source_ids: tuple[str, ...],
         trusted_run_ids: tuple[str, ...],
         audit_sink: Callable[[str, Mapping[str, Any]], None],
         storage_references: StorageReferencePort | None = None,
+        evidence_registry: ReleaseEvidencePort | None = None,
+        promotion_guard: EvaluationPromotionGuardPort | None = None,
     ) -> None:
         self._evaluations = evaluations
         self._registry = registry
-        self._evidence = ProvidedEvidenceRegistry(
+        self._evidence = evidence_registry if evidence_registry is not None else ProvidedEvidenceRegistry(
             source_ids=trusted_source_ids,
             run_ids=trusted_run_ids,
         )
         self._audit_sink = audit_sink
         self._storage_references = storage_references
+        self._promotion_guard = promotion_guard
 
     def promote(
         self,
@@ -61,6 +75,8 @@ class MlInternEvaluationPromotionFacade:
         reason: str,
         minimum_score: float,
     ) -> tuple[AdapterRecord, bool]:
+        if self._promotion_guard is not None:
+            self._promotion_guard.require(principal, record, expected_revision=expected_revision)
         evaluation_id = str(record.eval_report_ref or "")
         evaluation = self._evaluations.get(principal, evaluation_id)
         evidence = self._evaluations.get_promotion_evidence(
@@ -100,6 +116,8 @@ class MlInternEvaluationPromotionFacade:
             reason=reason,
             idempotency_key=idempotency_key,
             minimum_score=minimum_score,
+            promotion_guard=self._promotion_guard,
+            expected_record=record,
         )
         service = UnslothEvaluationPromotionService(
             evaluations=catalog,
@@ -107,6 +125,9 @@ class MlInternEvaluationPromotionFacade:
             evidence=self._evidence,
             audit=_AuditAdapter(self._audit_sink),
             storage_references=self._storage_references,
+            promotion_precondition=(
+                lambda: self._promotion_guard.require(principal, record, expected_revision=expected_revision)
+            ) if self._promotion_guard is not None else None,
         )
         request = PromotionRequest(
             tenant_id=principal.tenant_id,
@@ -169,6 +190,8 @@ class _RegistryPromotionPort:
         reason: str,
         idempotency_key: str,
         minimum_score: float,
+        promotion_guard: EvaluationPromotionGuardPort | None = None,
+        expected_record: AdapterRecord | None = None,
     ) -> None:
         self._registry = registry
         self._principal = principal
@@ -176,6 +199,8 @@ class _RegistryPromotionPort:
         self._reason = reason
         self._idempotency_key = idempotency_key
         self._minimum_score = minimum_score
+        self._promotion_guard = promotion_guard
+        self._expected_record = expected_record
         self.record: AdapterRecord | None = None
         self.replayed = False
 
@@ -193,6 +218,14 @@ class _RegistryPromotionPort:
             raise PromotionGateError(
                 "promotion_tenant_mismatch",
                 "Promotion port tenant does not match its principal.",
+            )
+        if self._promotion_guard is not None:
+            if self._expected_record is None:
+                raise PromotionGateError(
+                    "promotion_guard_record_missing", "Promotion guard requires a registry record.",
+                )
+            self._promotion_guard.require(
+                self._principal, self._expected_record, expected_revision=expected_revision,
             )
         self.record, self.replayed = self._registry.promote_evaluated(
             artifact_id,

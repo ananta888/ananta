@@ -40,6 +40,12 @@ from agent.services.ml_intern_training_worker_job_projection import (
     MlInternTrainingWorkerJobProjectionPort,
     get_ml_intern_training_worker_job_projection,
 )
+from agent.services.specialist_dataset_binding import (
+    BINDING_KEY,
+    require_specialist_dataset_execution_purpose,
+    specialist_dataset_binding,
+)
+from agent.services.specialist_training_evidence import SpecialistTrainingEvidencePort
 
 
 def get_task_queue_service() -> Any:
@@ -91,6 +97,7 @@ class MlInternTrainingControlService(MlInternTrainingControlExecutionMixin, MlIn
         execution_port: MlInternTrainingExecutionPort | None = None,
         result_publisher: MlInternTrainingResultPublisher | None = None,
         worker_job_projection: MlInternTrainingWorkerJobProjectionPort | None = None,
+        evidence_lifecycle: SpecialistTrainingEvidencePort | None = None,
         executor: ThreadPoolExecutor | None = None,
         clock: Callable[[], float] = time.time,
     ) -> None:
@@ -104,6 +111,7 @@ class MlInternTrainingControlService(MlInternTrainingControlExecutionMixin, MlIn
         self._repository = repository or get_ml_intern_training_repository()
         self._execution_port = execution_port
         self._result_publisher = result_publisher
+        self._evidence_lifecycle = evidence_lifecycle
         self._worker_job_projection = worker_job_projection or get_ml_intern_training_worker_job_projection()
         self._executor = executor or ThreadPoolExecutor(max_workers=2, thread_name_prefix="lora-control")
         self._clock = clock
@@ -396,7 +404,15 @@ class MlInternTrainingControlService(MlInternTrainingControlExecutionMixin, MlIn
         dataset = self._repository.get_dataset(principal, command.dataset_id)
         if dataset is None:
             raise MlInternTrainingContractError("dataset_not_found", "dataset was not found", status_code=404)
+        require_specialist_dataset_execution_purpose(command.job_type, dataset)
+        expected_dataset_version = command.request_spec.get("expected_dataset_version")
+        if expected_dataset_version is not None and expected_dataset_version != dataset.version:
+            raise MlInternTrainingContractError(
+                "dataset_version_conflict", "dataset changed after caller admission", status_code=409
+            )
         self._bind_dataset_provenance(command, dataset)
+        if command.request_spec.get("task_family") == "specialist_decision":
+            command.request_spec[BINDING_KEY] = specialist_dataset_binding(dataset)
         require_validation = bool(self._config.get("require_dataset_validation", True)) or bool(
             command.request_spec.get("require_dataset_validation", False)
         )

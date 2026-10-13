@@ -47,12 +47,23 @@ class Prediction:
 class ResourceUsage:
     """Training budget and hardware footprint stored with the metrics."""
 
-    train_seconds: float = 0.0
-    train_steps: int = 0
-    peak_vram_bytes: int = 0
-    peak_ram_bytes: int = 0
-    parameter_count: int = 0
-    adapter_bytes: int = 0
+    train_seconds: float | None = None
+    train_steps: int | None = None
+    peak_vram_bytes: int | None = None
+    peak_ram_bytes: int | None = None
+    parameter_count: int | None = None
+    adapter_bytes: int | None = None
+
+    def __post_init__(self) -> None:
+        for name, value in self.__dict__.items():
+            if value is None:
+                continue
+            if name == "train_seconds":
+                valid = type(value) in (int, float) and 0 <= value <= 2**63 - 1 and math.isfinite(value)
+            else:
+                valid = type(value) is int and 0 <= value <= 2**63 - 1
+            if not valid:
+                raise SpecialistBenchmarkError("specialist_resource_usage_invalid")
 
     def to_mapping(self) -> dict[str, Any]:
         return dict(self.__dict__)

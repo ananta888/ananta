@@ -7,9 +7,9 @@ import hmac
 import json
 import re
 from dataclasses import dataclass
-from typing import Mapping, Protocol
+from typing import Callable, Mapping, Protocol
 
-from agent.services.unsloth_evidence import ProvidedEvidenceRegistry
+from agent.services.unsloth_evidence import ReleaseEvidencePort
 from agent.services.unsloth_storage_contracts import StorageReferencePort
 from agent.services.unsloth_task_port import UnslothAuditPort
 
@@ -99,15 +99,17 @@ class UnslothEvaluationPromotionService:
         *,
         evaluations: EvaluationCatalogPort,
         promotions: ArtifactPromotionPort,
-        evidence: ProvidedEvidenceRegistry,
+        evidence: ReleaseEvidencePort,
         audit: UnslothAuditPort,
         storage_references: StorageReferencePort | None = None,
+        promotion_precondition: Callable[[], None] | None = None,
     ) -> None:
         self._evaluations = evaluations
         self._promotions = promotions
         self._evidence = evidence
         self._audit = audit
         self._storage_references = storage_references
+        self._promotion_precondition = promotion_precondition
 
     def plan(self, request: PromotionRequest) -> PromotionPlan:
         snapshot = self._evaluations.get(
@@ -169,6 +171,10 @@ class UnslothEvaluationPromotionService:
                 "The evaluated promotion plan must be explicitly confirmed.",
             )
         payload = json.loads(plan.payload_json)
+        self._evidence.require_scope(tenant_id=plan.tenant_id)
+        self._evidence.resolve(source_ids=payload["source_ids"], run_ids=payload["run_ids"])
+        if self._promotion_precondition is not None:
+            self._promotion_precondition()
         if self._storage_references is not None:
             try:
                 self._storage_references.bind_reference(
@@ -224,6 +230,7 @@ class UnslothEvaluationPromotionService:
         request: PromotionRequest,
         snapshot: EvaluationSnapshot,
     ):
+        self._evidence.require_scope(tenant_id=request.tenant_id)
         if not request.tenant_id or not request.artifact_id:
             raise PromotionGateError(
                 "promotion_scope_missing",

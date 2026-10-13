@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable
+from typing import Iterable, Protocol
 
 from agent.services.ml_intern_provenance_contract import (
     MlInternTrainingContractError,
@@ -24,6 +24,11 @@ class EvidenceVerificationError(ValueError):
 class EvidenceReferences:
     source_ids: tuple[str, ...]
     run_ids: tuple[str, ...]
+
+
+class ReleaseEvidencePort(Protocol):
+    def resolve(self, *, source_ids: Iterable[str], run_ids: Iterable[str]) -> EvidenceReferences: ...
+    def require_scope(self, *, tenant_id: str) -> None: ...
 
 
 class ProvidedEvidenceRegistry:
@@ -48,6 +53,9 @@ class ProvidedEvidenceRegistry:
             self._source_ids,
             kind="source",
         )
+
+    def require_scope(self, *, tenant_id: str) -> None:
+        """Legacy externally trusted catalogs carry no scope projection."""
 
     def require_run(self, run_id: str | None) -> str:
         return self._require(run_id, self._run_ids, kind="run")

@@ -87,6 +87,11 @@ class RegistryTrainingResultPublisher:
 
     def publish(self, job: MlInternTrainingJobDB, result: Mapping[str, Any]) -> str:
         adapter_id = str(result.get("adapter_id") or f"adapter-{job.id}")
+        if (job.request_spec or {}).get("task_family") == "specialist_decision":
+            expected_adapter_id = f"adapter-{job.id.removeprefix('lora-job-')}"
+            if result.get("adapter_id") not in (None, expected_adapter_id):
+                raise ValueError("specialist training adapter identity does not match the Hub job")
+            adapter_id = expected_adapter_id
         tenant_scope = _tenant_scope_digest(job.tenant_id, job.owner_subject)
         binding = _validated_artifact_binding(
             job,

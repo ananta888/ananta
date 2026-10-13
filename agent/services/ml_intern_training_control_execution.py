@@ -20,6 +20,11 @@ from agent.services.ml_intern_training_contract import (
     sanitize_event_payload,
 )
 from agent.services.ml_intern_training_repository_port import MlInternTrainingPrincipal
+from agent.services.specialist_dataset_binding import (
+    require_specialist_dataset_binding,
+    require_specialist_dataset_execution_purpose,
+)
+from agent.services.specialist_training_evidence import ASSIGNMENT_KEY
 
 _CHECKPOINT_REF_PREFIX = "lora-checkpoint-v1:"
 
@@ -50,6 +55,7 @@ class MlInternTrainingControlExecutionMixin:
         worker_job_id: str | None = None
         worker_ref = "local:hub-dry-run"
         task_id = job_id
+        evidence_projection = None
         try:
             now = self._clock()
             execution_slot = self._repository.try_acquire_execution_slot(
@@ -116,6 +122,9 @@ class MlInternTrainingControlExecutionMixin:
             dataset = self._repository.get_dataset(principal, str(job.dataset_id or ""))
             if dataset is None:
                 raise MlInternTrainingContractError("dataset_not_found", "dataset disappeared", status_code=404)
+            require_specialist_dataset_binding(job.request_spec, dataset)
+            require_specialist_dataset_execution_purpose(job.job_type, dataset)
+            job, evidence_projection = self._reserve_job_evidence(principal, job, attempt)
             dataset_path = Path(dataset.train_storage_ref or dataset.storage_ref)
             validation_path = Path(dataset.validation_storage_ref) if dataset.validation_storage_ref else None
 
@@ -129,6 +138,8 @@ class MlInternTrainingControlExecutionMixin:
             execution_spec = copy.deepcopy(job.request_spec)
             execution_spec["_tenant_scope_digest"] = _tenant_scope_digest(principal)
             execution_spec["_tenant_storage_key"] = _tenant_storage_key(principal)
+            if evidence_projection is not None:
+                execution_spec[ASSIGNMENT_KEY] = evidence_projection
             resume_checkpoint = self._decode_checkpoint_ref(job.checkpoint_ref)
             if (
                 resume_checkpoint is not None
@@ -191,6 +202,8 @@ class MlInternTrainingControlExecutionMixin:
                 if terminal_checkpoint_ref is not None:
                     current.checkpoint_ref = terminal_checkpoint_ref
                 current.result_summary = self._safe_result_summary(result)
+                if evidence_projection is not None:
+                    current.result_summary[ASSIGNMENT_KEY] = evidence_projection
                 self._transition(principal, current, "completed", phase="completed", progress_percent=100.0)
                 self._finish_attempt(
                     attempt,
@@ -227,6 +240,7 @@ class MlInternTrainingControlExecutionMixin:
             except Exception:
                 return
         finally:
+            self._complete_job_evidence(principal, job_id)
             self._finalize_execution_dispatch(
                 principal=principal,
                 job_id=job_id,
@@ -236,6 +250,38 @@ class MlInternTrainingControlExecutionMixin:
                 release_execution_slot=execution_slot_acquired,
                 capacity_deferred=execution_slot_deferred,
             )
+
+    def _reserve_job_evidence(self, principal, job, attempt):
+        if self._evidence_lifecycle is None:
+            return job, None
+        projection = self._evidence_lifecycle.reserve(principal, job, attempt)
+        if projection is not None:
+            job.result_summary = {**job.result_summary, ASSIGNMENT_KEY: projection}
+            job = self._repository.save_job(job, expected_version=job.version)
+        return job, projection
+
+    def _complete_job_evidence(self, principal, job_id):
+        if self._evidence_lifecycle is None:
+            return
+        projected = None
+        try:
+            projected = self._repository.get_job(principal, job_id)
+            if projected is None or projected.status not in {"completed", "failed", "cancelled"}:
+                return
+            self._evidence_lifecycle.complete(principal, projected)
+        except Exception as exc:
+            # Technical completion is not release Evidence; a failed registry
+            # completion leaves the reserved run ineligible for production.
+            if projected is None:
+                return
+            try:
+                self._repository.append_event(
+                    principal, job_id, event_type="evidence_completion_pending",
+                    dedupe_key=f"evidence-pending:{projected.active_attempt_id}:{projected.version}",
+                    payload={"reason_code": str(getattr(exc, "reason_code", "evidence_completion_failed"))[:128]},
+                )
+            except Exception:
+                pass
 
     def _finalize_execution_dispatch(
         self,

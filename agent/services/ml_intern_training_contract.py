@@ -78,6 +78,27 @@ _SPECIALIST_FIELDS = frozenset(
     {"specialist_id", "contract_version", "contract_digest", "dataset_digest", "holdout_digest", "benchmark_version"}
 )
 
+
+def _validate_expected_dataset_version(value: Mapping[str, Any]) -> None:
+    if "expected_dataset_version" not in value:
+        return
+    version = value["expected_dataset_version"]
+    if type(version) is not int or not 1 <= version <= 2**63 - 1:
+        raise MlInternTrainingContractError(
+            "dataset_version_invalid", "expected_dataset_version must be a positive integer"
+        )
+
+
+def _validate_expected_evaluation_digests(value: Mapping[str, Any]) -> None:
+    for field in ("expected_adapter_sha256", "expected_base_model_sha256"):
+        if field not in value:
+            continue
+        digest = value[field]
+        if not isinstance(digest, str) or _DIGEST_RE.fullmatch(digest) is None:
+            raise MlInternTrainingContractError("adapter_digest_invalid", f"{field} must be a SHA-256")
+        if value.get("job_type") != "evaluate_lora":
+            raise MlInternTrainingContractError("adapter_digest_job_type_invalid", "model binding requires evaluation")
+
 _ALLOWED_TRANSITIONS: dict[str, frozenset[str]] = {
     "queued": frozenset({"claimed", "running", "cancel_requested", "failed"}),
     "claimed": frozenset({"running", "cancel_requested", "interrupted", "failed"}),
@@ -477,6 +498,9 @@ class CreateTrainingJobCommand:
             raise MlInternTrainingContractError("job_payload_invalid", "JSON object body is required", status_code=400)
         allowed = {
             "dataset_id",
+            "expected_dataset_version",
+            "expected_adapter_sha256",
+            "expected_base_model_sha256",
             "job_type",
             "mode",
             "backend",
@@ -516,6 +540,8 @@ class CreateTrainingJobCommand:
                 f"unknown job fields: {', '.join(unknown[:10])}",
             )
         dataset_id = require_identifier("dataset_id", value.get("dataset_id"))
+        _validate_expected_dataset_version(value)
+        _validate_expected_evaluation_digests(value)
         job_type = str(value.get("job_type") or "train_lora").strip().lower()
         mode = str(value.get("mode") or "dry_run").strip().lower()
         backend = str(value.get("backend") or "mock").strip().lower()

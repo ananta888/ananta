@@ -16,13 +16,14 @@ existing ML-Intern adapter registry; this module only decides.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
-from ananta_contracts.specialist_decision import canonical_digest
 from agent.services.specialist_benchmark import BenchmarkResult
 from agent.services.specialist_candidates import ArtifactLineage, QualityThresholds, lineage_complete
+from ananta_contracts.specialist_decision import canonical_digest
 
 PROMOTION_DECISION_SCHEMA = "ananta.specialist-promotion-decision.v1"
 
@@ -100,7 +101,8 @@ def _more_efficient(candidate: BenchmarkResult, previous: BenchmarkResult) -> li
     wins = []
     for name in ("adapter_bytes", "parameter_count", "latency_ms_p50", "train_seconds"):
         now, before = candidate.resources.get(name), previous.resources.get(name)
-        if isinstance(now, (int, float)) and isinstance(before, (int, float)) and before > 0 and now < before:
+        if (type(now) in (int, float) and type(before) in (int, float)
+                and 0 < now < before <= 2**63 - 1 and math.isfinite(now) and math.isfinite(before)):
             wins.append(name)
     return wins
 

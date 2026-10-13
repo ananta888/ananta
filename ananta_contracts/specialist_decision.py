@@ -59,6 +59,15 @@ MAX_STRING_CHARS = 8_000
 MAX_LIST_ITEMS = 256
 
 
+def _unique_output_fields(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    fields: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in fields:
+            raise ValueError("duplicate specialist output field")
+        fields[key] = value
+    return fields
+
+
 class SpecialistContractError(ValueError):
     def __init__(self, reason_code: str) -> None:
         super().__init__(reason_code)
@@ -232,11 +241,15 @@ class SpecialistDecisionContract:
     def parse_output(self, output: Any) -> dict[str, Any]:
         """Parse a model output (JSON text or mapping) into the typed decision."""
         if isinstance(output, str):
-            if not 1 <= len(output.encode("utf-8")) <= 4_096:
+            try:
+                size = len(output.encode("utf-8"))
+            except UnicodeError as exc:
+                raise SpecialistContractError("specialist_output_json_invalid") from exc
+            if not 1 <= size <= 4_096:
                 raise SpecialistContractError("specialist_output_size_invalid")
             try:
-                output = json.loads(output)
-            except ValueError as exc:
+                output = json.loads(output, object_pairs_hook=_unique_output_fields)
+            except (ValueError, RecursionError) as exc:
                 raise SpecialistContractError("specialist_output_json_invalid") from exc
         if not isinstance(output, Mapping):
             raise SpecialistContractError("specialist_output_object_required")
@@ -250,7 +263,7 @@ class SpecialistDecisionContract:
         if confidence is not None:
             if not self.confidence.enabled:
                 raise SpecialistContractError("specialist_confidence_not_enabled")
-            if isinstance(confidence, bool) or not isinstance(confidence, (int, float)) or not 0.0 <= float(confidence) <= 1.0:
+            if isinstance(confidence, bool) or not isinstance(confidence, (int, float)) or not 0.0 <= confidence <= 1.0:
                 raise SpecialistContractError("specialist_confidence_invalid")
             confidence = float(confidence)
         elif self.confidence.enabled:

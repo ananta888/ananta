@@ -41,6 +41,22 @@
       "maximum": 9223372036854775807
     },
     "base_model": {"$ref": "#/$defs/baseModel"},
+    "hub_evidence_assignment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "run_id", "task_id", "assignment_id", "dispatch_lease_id", "source_ids", "evidence_scope", "binding_digest", "projection_digest"],
+      "properties": {
+        "schema": {"const": "ananta.hub-evidence-assignment.v1"},
+        "run_id": {"type": "string", "pattern": "^RUN_[A-Za-z0-9][A-Za-z0-9_.:-]{0,187}$"},
+        "task_id": {"$ref": "#/$defs/identifier"},
+        "assignment_id": {"$ref": "#/$defs/identifier"},
+        "dispatch_lease_id": {"$ref": "#/$defs/identifier"},
+        "source_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^SRC_[A-Za-z0-9][A-Za-z0-9_.:-]{0,187}$"}},
+        "evidence_scope": {"enum": ["test", "local", "external", "production"]},
+        "binding_digest": {"$ref": "#/$defs/sha256"},
+        "projection_digest": {"$ref": "#/$defs/sha256"}
+      }
+    },
     "governance": {"$ref": "#/$defs/governanceBindings"},
     "dataset": {"$ref": "#/$defs/dataset"},
     "adapter": {"$ref": "#/$defs/adapter"},

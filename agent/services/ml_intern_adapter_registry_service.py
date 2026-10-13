@@ -745,6 +745,7 @@ class MlInternAdapterRegistryService:
         tenant_id: str | None = None,
         owner_subject: str | None = None,
         expected_version: int | None = None,
+        task_kind: str | None = None,
     ) -> tuple[AdapterRecord, AdapterRecord | None]:
         """Deprecate the selected active adapter and resolve the prior approved target.
 
@@ -756,6 +757,8 @@ class MlInternAdapterRegistryService:
         selected = self.get(adapter_id, tenant_id=scope[0], owner_subject=scope[1])
         if selected is None:
             raise RegistryNotFoundError(f"adapter {adapter_id!r} not found")
+        if task_kind is not None and task_kind not in selected.task_kinds:
+            raise RegistryError("rollback task kind does not match selected adapter")
         if selected.status == "approved":
             deprecated = self.transition(
                 adapter_id,
@@ -773,6 +776,7 @@ class MlInternAdapterRegistryService:
             record
             for record in self.list_adapters(status="approved", tenant_id=scope[0], owner_subject=scope[1])
             if record.adapter_id != adapter_id and record.base_model == selected.base_model
+            and (task_kind is None or task_kind in record.task_kinds)
         ]
         target = (
             sorted(candidates, key=lambda item: item.approved_at or item.created_at, reverse=True)[0]

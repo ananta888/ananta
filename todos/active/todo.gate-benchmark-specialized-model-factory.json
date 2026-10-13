@@ -2,7 +2,7 @@
   "$schema": "../todo.track.schema.json",
   "version": "1.0",
   "created": "2026-09-17",
-  "updated_at": "2026-09-17",
+  "updated_at": "2026-10-10",
   "owner": "Peter Stuiber / Ananta",
   "track": "gate_benchmark_specialized_model_factory",
   "title": "Gate + Benchmark Model Factory: kleine spezialisierte Modelle automatisch mit ML-Intern, LoRA und QLoRA erzeugen",
@@ -398,9 +398,56 @@
       ],
       "implemented_in": [
         "agent/services/specialist_model_factory.py",
-        "tests/test_specialist_model_factory_e2e.py"
+        "tests/test_specialist_model_factory_e2e.py",
+        "agent/services/specialist_registered_benchmark.py",
+        "agent/services/specialist_promotion_evaluation.py",
+        "agent/services/specialist_promotion_composition.py",
+        "agent/services/specialist_release_execution.py",
+        "tests/test_specialist_promotion_composition.py",
+        "tests/test_specialist_release_execution.py",
+        "agent/services/specialist_training_evidence.py",
+        "ananta_contracts/lora_evidence.py",
+        "worker/training/contracts.py",
+        "docs/contracts/mlintern-lora-training-request.v1.schema.json",
+        "tests/test_specialist_training_evidence.py",
+        "tests/worker/test_lora_hub_evidence_assignment.py"
       ],
-      "implementation_note": "Referenzlauf v1 -> v2 (rejected) -> v3 (efficiency promoted) -> rollback mit Mock-Trainer/Predictor hinter Ports und realer Registry. Offen: Ports an realen ML-Intern-Worker-Transport binden."
+      "implementation_note": "Referenzlauf v1 -> v2 (rejected) -> v3 (efficiency promoted) -> rollback mit Mock-Trainer/Predictor hinter Ports und realer Registry. Offen: Ports an realen ML-Intern-Worker-Transport binden.",
+      "implementation_notes": [
+        "2026-10-10: 25 lokale Factory-/Referenzzyklus-Tests bestanden (3.04 s), weiterhin Mock-Trainer/Predictor. Reale Anbindung muss über Hub-Training-Control/Scheduler erfolgen; Compatibility-Job-Service verweigert live. Kandidaten-Evaluation vor Promotion darf die Approved-Adapter-Grenze der normalen Inferenz-API nicht aufweichen. Worker-Transportanbindung bleibt lokal zu implementieren; Status partial unverändert.",
+        "2026-10-10: Gemeinsamer specialist_decision-Scorer im echten Worker-Vertrag und isolierten Worker-Prozess geprüft; Hub-Fassade ohne doppelte Scoring-Logik. 126 Tests bestanden (5.47 s), ausschließlich technische synthetische Beobachtung. Factory-Portkomposition und vollständige Holdout-Auswertung bleiben offen; partial bleibt erhalten.",
+        "2026-10-10: Spezialisten-Evaluation erzeugt jetzt vollständige specialist_predictions.jsonl ohne Acht-Fälle-Grenze; Statusvorschau bleibt 20. Worker prüft exakte Abdeckung, streamt mit 64-MiB-Grenze und verweigert Teilresultate. Hub verlangt vollständiges Artefakt und prüft Übernahmehash. 139 lokale Tests bestanden (5.89 s), synthetisch; echte Factory-Consumer-/Job-Komposition weiterhin offen, partial unverändert.",
+        "2026-10-10: Hub-Parser für vollständige Vorhersage-Artefakte prüft Bytehash/-größe und exakte Dataset-Zuordnung vor Rückgabe; Worker-Scores werden nicht übernommen. 129 lokale Tests plus überlappender 39-Test-Nachlauf mit realem separaten Mock-Worker-Artefakt bestanden. Produktive Factory-Port-/Job-Komposition bleibt offen; partial bleibt unverändert.",
+        "2026-10-10: Produktiver Hub bindet Spezialisten-Jobs bei Zulassung an tenantgebundene Dataset-Version und Train-/Validation-Hashes/-Anzahlen. Vor Ausführung Katalogvergleich, vor HTTP-Delegation Bytevergleich; keine nachträgliche Ersatzbindung. 176 lokale Tests bestanden (15.84 s), inklusive realer SQL-Zulassung mit anschließender Dataset-Mutation und verweigertem Worker-Submit bei veränderten Bytes. Produktive Factory-Portkomposition bleibt offen; partial unverändert.",
+        "2026-10-10: Tenant-/Owner-gebundener Hub-Lesedienst verbindet reales Training-Repository, abgeschlossenen aktiven Versuch, Dataset-Bindung und gehashte Vorhersage-Artefakte. Read-only Storage-Port trennt sichere FD-basierte I/O von Autorisierung. 108 lokale Tests bestanden (18.32 s), synthetische abgeschlossene SQL-Jobs; keine reale Modell-Evidence. Factory-Trainer/Predictor-Komposition bleibt offen; partial unverändert.",
+        "2026-10-10: Konkreter Spezialisten-Vertrag verweigert mehrdeutige JSON-Ausgaben ebenso wie Worker-Scorer. Benchmark zählt sie als ungültig; Unicode-/Rekursions-/Konfidenzfehler liefern begrenzte Vertragsfehler. 71 lokale Tests bestanden (10.51 s). Produktive Factory-Komposition weiterhin offen, partial unverändert.",
+        "2026-10-10: Unveränderte Katalog->SQL-Projektion erhöht Dataset-Version nicht mehr; echte Änderungen weiterhin versioniert. 17 lokale Tests bestanden (7.71 s), echte Katalog-/SQL-Brücke und Dataset-Bindungsregressionen. Voraussetzung für wiederholbare Factory-Dataset-Anbindung; Gesamtkomposition bleibt offen, partial unverändert.",
+        "2026-10-10: Katalogvalidierung prüft tatsächliche Train-/Validation-Bytes gegen zugelassene Partitionshashes vor Auswertung und Report-Persistenz; alte Metadaten können geänderte Bytes nicht freigeben. 19 lokale Tests bestanden (6.96 s). Produktive Factory-Komposition weiterhin offen; partial unverändert.",
+        "2026-10-10: Factory-Dataset-Port mit echtem Hub-Katalog und SQL-Brücke implementiert; feste Train-/Validation-Partitionen, kein Holdout im Trainingsdataset, stabile Wiederholung und begrenzte Aufnahme. 53 lokale Tests bestanden (8.99 s), Factory-Zyklus weiterhin mit Trainer-/Predictor-Doubles. Versionsbedingter Job-Submit und echte Trainings-/Evaluations-/Runtime-Komposition offen; partial unverändert.",
+        "2026-10-10: Dataset-Admission liefert immutable ID+SQL-Version; Factory übergibt expected_dataset_version an Kandidatenjobs. Additiver strikter v2-Vertrag und produktiver Hub-Versionscheck vor Job-/Task-Aufnahme implementiert. 68 Tests sowie überlappender 10-Test-Nachlauf bestanden (14.58/5.41 s), echte SQL-Aufnahme verweigert veraltete Versionen. Echte Trainer-/Predictor-/Runtime-Komposition offen; partial unverändert.",
+        "2026-10-10: Begrenzte idempotente Trainingssubmission über bestehendes Hub create/get/cancel implementiert; keine eigene Queue/Worker-Orchestrierung. Timeout fordert Abbruch des genauen Jobs an, auch mit eingefrorener Testuhr begrenzt. 43 lokale Tests bestanden (15.29 s), echte Hub-/SQL-Dry-Runs, keine Modell-Evidence. Verifizierte TrainingOutcome-Projektion und echte Factory-/Eval-/Runtime-Komposition offen; partial unverändert.",
+        "2026-10-10: Spezialisten-Adapter-ID wird im bestehenden Publisher aus Hub-Job abgeleitet; fremde Worker-ID vor Artefaktinspektion/Registry-Write verweigert. 12 lokale Tests bestanden (6.59 s), reale Artefaktinspektion und Registry mit synthetischen Modelldateien; trained/unverified bleibt unveröffentlicht. Vollständige TrainingOutcome-/Factory-Komposition weiterhin offen, partial unverändert.",
+        "2026-10-10: Fehlende Ressourcenmessungen sind None/JSON-null statt scheinbar gemessener Nullwerte. Strikte Werteprüfung und Effizienz-Gate für positive endliche Vergleichswerte verhindern Scheinpromotion über unbekannte Trainingszeiten/Parameterzahlen. 76 lokale Tests bestanden (6.34 s); reale Outcome-/Factory-Komposition weiterhin offen, partial unverändert.",
+        "2026-10-10: Technische TrainingOutcome-Projektion aus abgeschlossenen scoped Hub-Jobs implementiert: Attempt/Fencing, Dataset-Pin, Hub-Basemodell-Snapshot, Registry-Konfiguration und tatsächliche Adapterbytes geprüft. Additive tatsächliche adapter_id; nur geprüfte Artefaktgröße gemessen. 91 lokale Tests bestanden (12.42 s), synthetische Modellartefakte, keine produktive Evidence. Trainer-/Eval-/Runtime-Komposition offen; partial unverändert.",
+        "2026-10-10: HubSpecialistTrainer verbindet Factory-Port mit Hub-Submission und geprüfter Outcome-Projektion. Scoped Dataset-Version und exakter kanonischer Trainingsrecord-Hash/-Anzahl vor Submit geprüft; keine eigene Queue oder Trainingsausführung. 50 Regressionstests erfolgreich im ersten 51-Test-Lauf; Fehlercode-Erwartung korrigiert, alle 7 Anschlussprüfungen im Nachlauf bestanden (10.60 s). Positive Modellartefakte synthetisch; echte Hub-Dry-Run-Submission ohne Adapter wird verweigert. Eval-/Predictor-/Runtime-Gesamtkomposition und tatsächlicher Worker-Modelllauf offen; partial unverändert.",
+        "2026-10-10: Additive expected_adapter_sha256-Evaluationsbindung: strikter Vertrag, tatsächlicher Adapterbaumvergleich vor Worker-POST. Bounded HubSpecialistJobSubmission für train/evaluate mit kompatiblem Trainingsnamen; neuer HubSpecialistEvaluation-Consumer bindet abgeschlossenen scoped Job/Adapter/Request und vollständige Raw-Predictions. 50 Vertrags-/Transporttests (6.41 s) und 29 Kompositionsregressionen (19.76 s) bestanden. Synthetische Submission/HTTP-Testdouble, keine Modell-Evidence. Separate Factory-Validierungs-/Holdout-Datasets, Predictor-/Runtime-/Gesamtverdrahtung offen; partial unverändert.",
+        "2026-10-10: Getrennte replay-stabile Eval-Dataset-Admission für vollständige Validation/Holdout mit originalem Train umgesetzt. Persistenter geschlossener Zweck verhindert Trainingsjobs bei Admission und Execution; Katalog-Resplit bewahrt Bindung. SQL-Eval-Identität umfasst beide Dateihashes+Zweck, vermeidet bestehende Train-SHA-Deduplikation ohne Schemawechsel. 49 Regressionstests (17.33 s) plus zusätzlicher Execution-Recheck (5.42 s) bestanden; echte Datei-/SQL-Dienste, synthetisch. Factory-Predictor-/Runtime-/Gesamtkomposition und echter Modelllauf offen; partial unverändert.",
+        "2026-10-10: Additiver Factory-PartitionPredictor-Port und HubSpecialistPartitionPredictor verbinden tatsächliche TrainingOutcome-Adapter-ID, Evaluation-only Dataset-Admission und Hub-Evaluation für Validation/Holdout; vollständige Base/Adapter-Ausgaben erforderlich. Additive erwartete Basemodell-SHA-Bindung verweigert Snapshotwechsel vor Worker-POST. 71 Regressionstests (3.81 s) und 37 Anschluss-/Dataset-/Digesttests (10.23 s) bestanden; Factory-Prüfung mit realen Katalog-/SQL-Datasets und synthetischen Modellports. Reale Adapterpfade/Tenant-/Owner-/Evidence-Registryübergabe, Gesamtkomposition und tatsächlicher Modelllauf offen; partial unverändert.",
+        "2026-10-10: SpecialistRuntimeCandidateService bereitet reale scoped Versionseinträge mit tatsächlichen Adapterpfaden, unveränderten Dataset/Config/Provenance/Source/Run/Release-Bindungen vor. Erneute technische Outcome- und Benchmark/Manifest/Lineage-Prüfung; evaluated ohne produktive Freigabe, stabile Wiederholung. 10 Kandidaten-/Outcome-Tests bestanden (12.02 s), synthetische Modelldateien. Factory-Registration-Umstellung und Hub-Evidence-/Governance-Promotion bleiben offen; partial unverändert.",
+        "2026-10-10: Factory-Registrierungsport für tatsächliche Adapter implementiert; fehlender Anschluss verweigert vor Evaluation, kein Legacy-Approval-Fallback. Hub-Adapter bindet PromotionDecision-Digest, bereitet echte scoped Runtime-Kandidaten vor und lehnt fachlich abgelehnte Kandidaten scoped/optimistisch ab. Geeignete Kandidaten evaluated mit explizitem production_promotion_pending, keine produktive Freigabe. 40 Regressionstests (11.35 s) und überlappender 8-Test-Nachlauf mit Decision-Mismatch (11.02 s) bestanden. Hub-Evidence-Promotion, scoped Aktivversion/Rollback, Gesamtverdrahtung und echte Worker-Modellläufe offen; partial unverändert.",
+        "2026-10-10: Additiver Factory-Lifecycle-Port mit festem Tenant/Owner und Task-Kind für Aktivversion/Rollback implementiert; reale Registrierung ohne Lifecycle verweigert unscoped Fallback. Registry-Rollback additiv mit Task-Kind-Filter verhindert Rückfall auf fremden Spezialisten desselben Basemodells. 32 Factory-Regressionsprüfungen erfolgreich; nach Fixture-Korrektur 34 Lifecycle-/Registry-Tests bestanden (3.53 s). Explizit synthetische genehmigte Testrecords, keine produktive Evidence. Hub-Evidence-Promotion/Gesamtverdrahtung/echte Worker-Modellläufe offen; partial unverändert.",
+        "2026-10-10: HubRegisteredReleaseEvidence/ReleaseEvidencePort prüfen gepinnte aktuelle Hub-Runs inkl. Assignment/Lease/Input/Result und Produktionsscope; synthetische/Test/lokale Evidence verweigert. Promotion-Fassade additiv injizierbar; Scope/Source/Run-Recheck vor Registry-Schreiben verhindert Freigabe nach Widerruf. 35 Regressionstests (3.69 s), 12 überlappende Anschlussprüfungen (3.12 s) und zusätzlicher Widerrufstest (3.16 s) bestanden. Isolierte synthetische Policy-Fixtures, keine produktive Release-Evidence. Factory-EvalStore-/Run-Pin-/Governance-Gesamtverdrahtung und tatsächliche Worker-Läufe offen; partial unverändert.",
+        "2026-10-10: build_hub_specialist_factory verdrahtet reale Hub-Control/SQL/Katalog/Brücke mit Dataset-, Trainings-/Eval-Submission-, Outcome-, PartitionPredictor-, realem Registry- und scoped Lifecycle-Anschluss unter festem Principal und expliziten Wurzeln/Modellkatalog. 25 Kompositionsregressionen bestanden (26.37 s); echter Hub-Dry-Run kann weder Modelloutcome noch Promotion erfinden, fremder Tenant bleibt ausgeschlossen. Produktiver EvalStore/Run-Pin/Evidence-/Governance-Promotion-Anschluss und tatsächlicher Worker-Modelllauf offen; partial unverändert.",
+        "2026-10-10: Additive technische EvaluationResult/Receipt aus tatsächlichem abgeschlossenem SQL-Job samt aktivem Attempt, Dataset-Version, Adapter-/Basemodellbindung und Requestdigest. Predictor prüft Receipt-Zuordnung und reicht sie als kompatible String-Sequenz weiter; Factory bewahrt Validation/Holdout-Referenzen am Kandidaten und exportiert sie. 40 Regressionstests (8.77 s), 12 überlappende Exporttests (6.08 s) und 4 Predictor-/Manipulationsfälle (6.27 s) bestanden. Technische Domain-Referenzen, keine Evidence-ID-Ausstellung; aktuelle Autoritäts-/RUN-Verifikation und Promotion-Gesamtanschluss offen, partial unverändert.",
+        "2026-10-10: SpecialistEvaluationReceiptReader prüft aktuelle scoped SQL-Jobversion/Attempt/Dataset/Adapter/Request-Bindung vor/nach tatsächlichem Prediction-Consumer. In reale Factory-Kandidatenvorbereitung injiziert; vorhandene Validation/Holdout-Referenzen werden vor Registry-Write revalidiert. 25 Receipt-/Prediction-Tests (12.89 s) und 10 Kandidaten-/Kompositionsprüfungen (11.36 s) bestanden, inklusive Widerruf vor Write. Technische synthetische Beobachtungen; Partitionszweck-/EvalStore-/Produktions-RUN-/Governance-Promotion-Anschluss bleibt offen, partial unverändert.",
+        "2026-10-10: CandidateOutcome bewahrt Split-Manifest-Digest; reale Kandidatenvorbereitung verlangt je Receipt passende Validation/Holdout-Rolle, Manifest-/Holdout-Digests und aktuelle scoped Dataset-Version. Purpose-Recheck vor/nach Prediction-Lesen verhindert Verwendung von Validation als Holdout vor Registry-Write. 37 Receipt-/Registry-/Predictor-/Factory-Tests bestanden (19.76 s), reale SQL mit synthetischen Predictions/Zweck-Fixtures. Produktiver EvalStore/RUN/Governance-Promotion-Anschluss und echte Worker-Modellläufe offen; partial unverändert.",
+        "2026-10-10: Reine native Spezialisten-EvaluationProjection plus scoped bounded BenchmarkProjectionStore implementiert und über kleinen Save-Port an reale Factory-Registrierung angeschlossen. Voller Benchmark/Lineage/QualityDecision mit Macro-F1-Semantik, keine erfundenen Losswerte oder Release-Evidence. Kanonische wiederholbare Domain-ID, Interprozess-Transaktion, confined Lesen, Mutation/Double-JSON verweigert. 13 Speicher-/Registry-Kompositionstests (13.15 s) und zusätzlicher Manipulationstest (4.98 s) bestanden. Registry-Verweis -> nativer Bericht -> gepinnte Hub-RUN/Governance-Promotion-Verknüpfung und echte Modellläufe offen; partial unverändert.",
+        "2026-10-10: Reale Registry-Registrierung bindet scoped Adapteralias+Benchmark-Digest an native technische Report-ID. Get-for-record prüft Scope/Adapterbytes/Basemodell/Methode/Alias/Digest; unveränderte Wiederholung ohne Rewrite, abweichende Bindung verweigert. 14 Speicher-/Registry-/Factory-Kompositionstests bestanden (14.97 s), synthetische Modelldateien. Produktive aktuelle Registry-/QualityDecision-/Hub-RUN-/Governance-Promotion-Verknüpfung bleibt offen; partial unverändert.",
+        "2026-10-10: Native Benchmark-/Qualitätsprüfung an bestehende Promotion-Fassade angeschlossen; vollständige Validation-/Holdout-Receipts persistiert und aktuell geprüft. Produktive Komposition verlangt Hub-Registry-Evidence ohne Whitelist-Fallback sowie exakte drei Task/WorkerJob/Attempt/Input-/Result-Bindungen; echte Trainingsbytes vor Promotion erneut geprüft. Qualitäts-/Run-Widerruf stoppt vor Storage-/Registry-Mutation. Trainingsleser akzeptiert regulär evaluated, weiterhin keine rejected Adapter. 63 lokale headless Tests bestanden (34.27 s), ausschließlich synthetische technische Beobachtungen. Pre-execution Hub-Run-Reservierung/Worker-Integration, reale Modellläufe und Governance-Freigabe bleiben offen; partial unverändert.",
+        "2026-10-10: Geschlossene Hub-Evidence-Projektion additiv in Trainings-/Evaluations-Worker-Vertrag und HTTP-Transport; fremder Versuch, Zusatzrechte, ungültiger Digest/null vor Submit verweigert. Native Promotion-Replay nur mit passender atomarer Historie; 165 gemeinsame Prüfungen bestanden (42.18 s), synthetisch. Pre-execution Reservierung/Completion anschließend über optionalen Control-Lifecycle angeschlossen; Hub verifiziert admitted Dataset-/benannte Model-Source-Pins und unabhängigen Model-Catalog, persistiert Projektion vor Ausführung, schließt Erfolg/Fehler/Abbruch gefencet ab und auditiert Completion-Ausfälle. 41 Lifecycle-/Control-/Wire-Prüfungen bestanden (23.09 s), inklusive synthetischer Live-Policy, keine produktive Modell-Evidence. Konkrete serverseitige Source/Run-Context-Komposition, Evaluations-Publikation neuer Referenzen, reale Modelle und Governance-Release bleiben offen; partial unverändert.",
+        "2026-10-10: Abschließende gemeinsame Prüfung nach Lifecycle-/Worker-Vertrag-/Promotionsänderungen: 196 Tests bestanden (59.41 s), Ruff und diff-check sauber. Technische synthetische Beobachtungen; konkrete produktive Source/Context-/Evaluation-Evidence-Komposition und reale Model-/Governance-Abnahme weiterhin offen. partial bleibt unverändert.",
+        "Native Promotion liest unabhängig zugelassene Evidence für Validation und Holdout und prüft beide gegen eigene Job-/Attempt-/Adapter-/Basismodell-Receipts. Nichtleere normalisierte Source-/Run-Referenzen werden ohne Änderung gespeicherter Einträge vereinigt und an die bestehende exakte Drei-Run-Prüfung übergeben. Keine Identitätsausgabe, keine reserved-to-success-Aufwertung; produktive Source/Context-Komposition und Evidence-Publikation bleiben offen. GBMF-011 bleibt partial."
+      ]
     }
   ],
   "success_criteria": [
@@ -507,5 +554,311 @@
   "critical_path_tasks": [
     "GBMF-003",
     "GBMF-009"
-  ]
+  ],
+  "local_review_2026_10_10": {
+    "classification": "local_headless_synthetic_technical_observation",
+    "production_release_evidence": false,
+    "scope": "tests/test_specialist_model_factory.py and tests/test_specialist_model_factory_e2e.py",
+    "passed": 25,
+    "duration_seconds": 3.04,
+    "confirmed_remaining": [
+      "SpecialistTrainerPort and SpecialistPredictorPort still use mocks in the demonstrated cycle",
+      "Production training must use MlInternTrainingControlService create_job/admit_job and Hub scheduler; compatibility MlInternTrainingJobService refuses live training",
+      "Candidate evaluation must preserve policy separation: regular MlInternLoraInferenceService.generate admits approved adapters only; pre-promotion evaluation needs a governed worker execution path",
+      "Tenant-scoped SpecialistJobPredictionService now connects real SQL job/attempt/dataset authority and confined immutable result bytes to the parser. Production Factory trainer/predictor composition must still create/admit datasets, submit training and validation/holdout evaluation through Hub jobs and use this reader before concrete specialist benchmarking and Evidence-gated promotion.",
+      "Dataset adapter is connected to the Factory through an optional port; productive composition still needs separate holdout evaluation datasets, real training/prediction jobs and runnable artifact registry records; admitted version condition at job submit is now implemented.",
+      "Native promotion, exact three-run bindings, closed Worker projection and optional pre-execution Hub reservation/fenced completion are implemented and tested. Remaining: concrete server-owned project/source/run-policy context composition, admitted evaluation Evidence publication carrying the new training/validation/holdout references, real model execution, current production Evidence verification and governed release. GPU readiness is not established: nvidia-smi exits 139; running Worker Alpha has no DeviceRequests. No test observation is production release Evidence."
+    ],
+    "deployment_performed": false,
+    "summary_validator_note": "Fixed legacy validator to support canonical nested by_priority/by_risk status maps; exact per-status counts checked, unknown/coercive counters rejected. 16 validator tests passed; Model Factory todo-consistency-ok.",
+    "summary_validator_checks": {
+      "passed": 16,
+      "duration_seconds": 2.97,
+      "changed_files": [
+        "scripts/validate_todo_consistency.py",
+        "tests/test_validate_todo_consistency.py"
+      ],
+      "nonarchived_inventory": {
+        "reviewed": 41,
+        "consistent_before_other_cache_repair": 35,
+        "inconsistent": 6
+      }
+    },
+    "comparison_binding_checks": {
+      "passed": 31,
+      "duration_seconds": 3.15,
+      "classification": "local_headless_synthetic_technical_observation",
+      "production_release_evidence": false,
+      "change": "Reject replaced predecessor holdout, mismatched predecessor benchmark or specialist contract, and mismatched candidate plan before any training or registry writes. Existing Hub-only orchestration and narrow trainer/predictor ports preserved."
+    },
+    "specialist_worker_scoring_checks": {
+      "passed": 126,
+      "duration_seconds": 5.47,
+      "classification": "local_headless_synthetic_technical_observation",
+      "production_release_evidence": false,
+      "scope": [
+        "tests/test_ml_intern_training_worker_port.py",
+        "tests/test_specialist_worker_scoring.py",
+        "tests/worker/test_lora_training_runtime.py",
+        "tests/worker/test_lora_training_contracts.py",
+        "tests/worker/test_lora_training_evaluation.py",
+        "tests/test_specialist_model_factory.py",
+        "tests/test_specialist_model_factory_e2e.py"
+      ],
+      "confirmed": "Shared specialist scorer admitted by real Worker contract; isolated subprocess mock evaluation persists hashed report; wrong labels, invalid confidence, duplicate fields and excessive JSON nesting rejected."
+    },
+    "complete_prediction_artifact_checks": {
+      "passed": 139,
+      "duration_seconds": 5.89,
+      "classification": "local_headless_synthetic_technical_observation",
+      "production_release_evidence": false,
+      "coverage": "Full 25-row isolated mock worker artifact; actual PEFT generation loop with model/tokenizer doubles; complete counts, 20-row preview, bounded 64MiB streaming, missing/duplicate/extra/unordered rows, cancellation/quota cleanup, immutable existing output, mandatory Hub artifact and hashed attempt-scoped transfer. Generic sampling preserved.",
+      "production_execution_performed": false
+    },
+    "hub_prediction_byte_binding_checks": {
+      "passed": 129,
+      "duration_seconds": 5.6,
+      "followup_passed": 39,
+      "followup_duration_seconds": 4.18,
+      "overlapping_runs": true,
+      "classification": "local_headless_synthetic_technical_observation",
+      "production_release_evidence": false,
+      "scope": "Hub parser bound to admitted byte hash/size and exact dataset rows; missing/extra/reordered/duplicate/replaced records, changed reference, duplicate JSON and trailing bytes rejected. Only raw outputs returned; worker scores ignored. Followup consumes actual isolated mock worker artifact with emitted hash/size."
+    },
+    "specialist_dataset_admission_fencing_checks": {
+      "passed": 176,
+      "duration_seconds": 15.84,
+      "classification": "local_headless_synthetic_technical_observation",
+      "production_release_evidence": false,
+      "change": "Production Hub admission pins authoritative catalog ID/version/content and partition hashes/counts; execution compares immutable job binding to catalog; real HTTP worker port compares transfer bytes before submission. Public callers cannot supply private binding. Generic jobs unchanged.",
+      "scope": "Real SQL Hub admission followed by catalog mutation blocks before execution; real transport byte mutation blocks before Worker POST; Factory/parser/scoring/runtime/contracts regressions."
+    },
+    "authorized_job_prediction_consumption_checks": {
+      "passed": 108,
+      "duration_seconds": 18.32,
+      "classification": "local_headless_synthetic_technical_observation",
+      "production_release_evidence": false,
+      "scope": "Real SQL job/dataset/attempt projections with synthetic completed jobs; tenant/owner authorization, terminal attempt, pinned dataset and actual partition hashes, exact admitted artifact metadata, confined nonblocking reads, symlink/hardlink/FIFO denial, final control-plane recheck. Training control, HTTP transport, Factory and parser regressions included."
+    },
+    "concrete_output_ambiguity_checks": {
+      "passed": 71,
+      "duration_seconds": 10.51,
+      "classification": "local_headless_synthetic_technical_observation",
+      "production_release_evidence": false,
+      "scope": "Concrete specialist contract rejects duplicate JSON fields, excessive nesting, invalid Unicode and extreme integer confidence; benchmark counts malformed output as invalid rather than correct. Factory, shared scorer and SQL job reader regressions passed."
+    },
+    "catalog_bridge_replay_checks": {
+      "passed": 17,
+      "duration_seconds": 7.71,
+      "classification": "local_headless_synthetic_technical_observation",
+      "production_release_evidence": false,
+      "change": "Existing real filesystem catalog to SQL bridge now preserves SQL dataset version on unchanged replay; genuine metadata changes still update the version. Prevents identical projection from invalidating an admitted specialist job binding."
+    },
+    "catalog_validation_byte_binding_checks": {
+      "passed": 19,
+      "duration_seconds": 6.96,
+      "classification": "local_headless_synthetic_technical_observation",
+      "production_release_evidence": false,
+      "scope": "Existing catalog validation now compares actual partition bytes against admitted hashes before validation and before report persistence. Real file mutation before/during validation rejected; catalog/bridge/specialist binding regressions passed."
+    },
+    "factory_real_dataset_admission_checks": {
+      "passed": 53,
+      "duration_seconds": 8.99,
+      "classification": "local_headless_synthetic_technical_observation",
+      "production_release_evidence": false,
+      "scope": "Factory injects narrow DatasetAdmissionPort; real file catalog and SQL bridge create/validate fixed train/validation partitions shared by candidates. Synthetic trainer/predictor remain. Tests verify exact partition IDs/order, no holdout transfer, stable SQL version on replay and quota/substitution denial."
+    },
+    "expected_dataset_version_submit_checks": {
+      "passed": 68,
+      "duration_seconds": 14.58,
+      "followup_passed": 10,
+      "followup_duration_seconds": 5.41,
+      "overlapping_runs": true,
+      "classification": "local_headless_synthetic_technical_observation",
+      "production_release_evidence": false,
+      "scope": "Factory carries frozen admitted dataset ID/version; optional strict expected_dataset_version field validated by v2 command; productive Hub service rejects stale version before job/task creation. Real SQL positive/negative admission and invalid JSON types checked."
+    },
+    "bounded_hub_training_submission_checks": {
+      "passed": 43,
+      "duration_seconds": 15.29,
+      "classification": "local_headless_synthetic_technical_observation",
+      "production_release_evidence": false,
+      "scope": "Real catalog/SQL/Hub-control dry-run submission, stable idempotency without duplicate task, strict admitted version, exact job polling and bounded timeout cancellation request with advancing/frozen clocks; Factory and Control regressions. Completed job reference is not TrainingOutcome."
+    },
+    "hub_owned_trained_adapter_identity_checks": {
+      "passed": 12,
+      "duration_seconds": 6.59,
+      "classification": "local_headless_synthetic_technical_observation",
+      "production_release_evidence": false,
+      "scope": "Existing RegistryTrainingResultPublisher derives specialist adapter ID from Hub job, refuses Worker-supplied different ID before inspection/registry writes; synthetic model bytes pass real tree inspection and tenant-scoped registry registration as trained/unverified. Generic publisher and bounded submission regressions passed."
+    },
+    "missing_resource_promotion_checks": {
+      "passed": 76,
+      "duration_seconds": 6.34,
+      "classification": "local_headless_synthetic_technical_observation",
+      "production_release_evidence": false,
+      "scope": "Missing ResourceUsage measurements represented as JSON null; strict finite nonnegative typed measurements; efficiency gate requires positive finite comparisons and cannot promote via missing/zero/bool/negative resources. Factory, benchmark and real catalog admission regressions passed."
+    },
+    "technical_training_outcome_checks": {
+      "passed": 91,
+      "duration_seconds": 12.42,
+      "classification": "local_headless_synthetic_technical_observation",
+      "production_release_evidence": false,
+      "scope": "Scoped completed Hub job/attempt, manifest fencing and model snapshot, dataset pin, registry config and actual adapter tree validation; corrupted bytes/bindings/version and foreign owner rejected. Submission, Publisher, Factory and resource regressions passed. Actual training and trainer/evaluation/runtime composition remain open."
+    },
+    "hub_factory_trainer_checks": {
+      "regression_passed_before_assertion_fix": 50,
+      "focused_passed_after_assertion_fix": 7,
+      "focused_duration_seconds": 10.6,
+      "classification": "local_headless_synthetic_technical_observation",
+      "production_release_evidence": false,
+      "scope": "Actual scoped SQL dataset and result registry, canonical exact record/order/count/version rejection before submit, synthetic completed submission with real outcome reader, actual Hub dry-run submission refuses missing adapter. Test error-code expectation corrected; productive Worker training remains unverified."
+    },
+    "hub_specialist_evaluation_checks": {
+      "contract_transport_passed": 50,
+      "contract_transport_duration_seconds": 6.41,
+      "composition_regression_passed": 29,
+      "composition_regression_duration_seconds": 19.76,
+      "classification": "local_headless_synthetic_technical_observation",
+      "production_release_evidence": false,
+      "scope": "Strict additive evaluation adapter SHA-256; actual tree compare before HTTP POST; bounded shared training/evaluation submission; scoped completed request/adapter binding and full raw prediction reader. Synthetic completed SQL job and HTTP testdouble; actual training/predictor/runtime composition remain unverified."
+    },
+    "evaluation_only_dataset_checks": {
+      "regression_passed": 49,
+      "regression_duration_seconds": 17.33,
+      "additional_execution_recheck_passed": 1,
+      "additional_duration_seconds": 5.42,
+      "classification": "local_headless_synthetic_technical_observation",
+      "production_release_evidence": false,
+      "scope": "Distinct training/validation/holdout identities and stable replay versions, full evaluation partition bytes, catalog purpose preservation on resplit, generic training admission and late execution refusal. Real catalog/SQL services, synthetic examples; Factory predictor/runtime composition remains open."
+    },
+    "factory_partition_predictor_checks": {
+      "initial_regression_passed": 71,
+      "initial_duration_seconds": 3.81,
+      "composition_and_digest_passed": 37,
+      "composition_duration_seconds": 10.23,
+      "classification": "local_headless_synthetic_technical_observation",
+      "production_release_evidence": false,
+      "scope": "Factory uses full partition-aware predictor without legacy predictor; real catalog/SQL evaluation datasets; candidate adapter/dataset/base snapshot bindings; exact output coverage; actual transport denies changed base snapshot before POST. Model training and evaluation ports remain synthetic in the Factory test; runtime artifact registration still open."
+    },
+    "runtime_candidate_preparation_checks": {
+      "passed": 10,
+      "duration_seconds": 12.02,
+      "classification": "local_headless_synthetic_technical_observation",
+      "production_release_evidence": false,
+      "scope": "Real SQL/Registry/adapter byte verification; preserved actual artifact paths and scope/provenance; stable replay; rejected changed artifact/lineage/outcome; evaluated only, no productive approval. Legacy Factory registration replacement and Hub Evidence promotion remain open."
+    },
+    "factory_real_registration_checks": {
+      "regression_passed": 40,
+      "duration_seconds": 11.35,
+      "overlapping_focused_passed": 8,
+      "focused_duration_seconds": 11.02,
+      "classification": "local_headless_synthetic_technical_observation",
+      "production_release_evidence": false,
+      "scope": "Real scoped candidate registry preparation/rejection through Factory registration port; preserved artifact paths; no legacy approval fallback; explicit pending productive promotion; wrong candidate decision rejected before write. Synthetic training artifacts; productive Evidence promotion remains open."
+    },
+    "scoped_lifecycle_checks": {
+      "initial_regression_passed": 32,
+      "focused_registry_lifecycle_passed": 34,
+      "focused_duration_seconds": 3.53,
+      "classification": "local_headless_synthetic_technical_observation",
+      "production_release_evidence": false,
+      "scope": "Scoped Factory active selection and rollback, tenant/owner/specialist isolation, approved-only predecessor or base-model fallback; no unscoped real lifecycle fallback; optional Registry task-kind filter remains compatible. Explicit synthetic approved registry fixtures."
+    },
+    "hub_registered_release_evidence_checks": {
+      "initial_regression_passed": 35,
+      "initial_duration_seconds": 3.69,
+      "overlapping_scope_promotion_passed": 12,
+      "scope_promotion_duration_seconds": 3.12,
+      "additional_revocation_passed": 1,
+      "revocation_duration_seconds": 3.16,
+      "classification": "local_headless_synthetic_technical_observation",
+      "production_release_evidence": false,
+      "scope": "Authoritative Hub run/result/source pins; production-only release scope; rejects synthetic/test/local/changed bindings and foreign tenant; injected facade gate and post-plan revocation refuse registry mutation. All identities are isolated policy fixtures, not production evidence."
+    },
+    "explicit_hub_factory_composition_checks": {
+      "passed": 25,
+      "duration_seconds": 26.37,
+      "classification": "local_headless_synthetic_technical_observation",
+      "production_release_evidence": false,
+      "scope": "Real Hub Control/SQL/catalog bridge composition with dry-run refusal of missing model adapter and foreign tenant lifecycle isolation; regression coverage of predictor/trainer/evaluation/actual registry preparation. No actual model training or productive promotion."
+    },
+    "evaluation_receipt_trace_checks": {
+      "regression_passed": 40,
+      "duration_seconds": 8.77,
+      "overlapping_export_passed": 12,
+      "export_duration_seconds": 6.08,
+      "focused_manipulation_passed": 4,
+      "focused_duration_seconds": 6.27,
+      "classification": "local_headless_synthetic_technical_observation",
+      "production_release_evidence": false,
+      "scope": "Actual completed SQL evaluation job/attempt receipt, partition dataset/adapter/base snapshot binding, CandidateOutcome receipt retention and additive export, wrong dataset version and truncated outputs rejected before registration. Factory model ports remain synthetic."
+    },
+    "current_evaluation_receipt_checks": {
+      "receipt_prediction_passed": 25,
+      "receipt_prediction_duration_seconds": 12.89,
+      "candidate_composition_passed": 10,
+      "candidate_composition_duration_seconds": 11.36,
+      "classification": "local_headless_synthetic_technical_observation",
+      "production_release_evidence": false,
+      "scope": "Current completed scoped SQL job/attempt/dataset/adapter/request receipt checks before and after actual Prediction consumer; stale versions or changed references denied; revoked receipt blocks actual candidate registry preparation. Synthetic model artifacts and revocation fixtures."
+    },
+    "evaluation_receipt_partition_purpose_checks": {
+      "passed": 37,
+      "duration_seconds": 19.76,
+      "classification": "local_headless_synthetic_technical_observation",
+      "production_release_evidence": false,
+      "scope": "Factory split-manifest digest retained; actual scoped dataset version and persistent evaluation purpose checked before/after prediction read; Validation receipt cannot substitute for Holdout in real candidate preparation. Real SQL and synthetic prediction/purpose fixtures."
+    },
+    "native_specialist_report_store_checks": {
+      "regression_passed": 13,
+      "duration_seconds": 13.15,
+      "additional_manipulation_passed": 1,
+      "manipulation_duration_seconds": 4.98,
+      "classification": "local_headless_synthetic_technical_observation",
+      "production_release_evidence": false,
+      "scope": "Native Macro-F1 projection, closed benchmark/lineage/quality-decision digest binding; bounded tenant/owner report store, stable replay, mutation refusal, actual Registry integration remains evaluated. Pure projection separated from persistence; synthetic model artifacts."
+    },
+    "registry_native_benchmark_binding_checks": {
+      "passed": 14,
+      "duration_seconds": 14.97,
+      "classification": "local_headless_synthetic_technical_observation",
+      "production_release_evidence": false,
+      "scope": "Actual candidate registration maps scoped alias/benchmark to native report; stable binding replay, record artifact/model/method/version/digest association checked; wrong adapter bytes refused. No productive evidence or approval."
+    },
+    "native_promotion_composition_checks": {
+      "passed": 63,
+      "duration_seconds": 34.27,
+      "classification": "local_headless_synthetic_technical_observation",
+      "production_release_evidence": false,
+      "deployment_performed": false
+    },
+    "runtime_readiness_2026_10_10": {
+      "docker_hub_workers_running": true,
+      "worker_alpha_device_requests": null,
+      "nvidia_smi_exit_code": 139,
+      "production_training_performed": false
+    },
+    "hub_training_evidence_lifecycle_checks": {
+      "passed": 41,
+      "duration_seconds": 23.09,
+      "classification": "local_headless_synthetic_technical_observation",
+      "production_release_evidence": false,
+      "deployment_performed": false
+    },
+    "combined_native_promotion_worker_lifecycle_checks": {
+      "passed": 196,
+      "duration_seconds": 59.41,
+      "classification": "local_headless_synthetic_technical_observation",
+      "production_release_evidence": false,
+      "deployment_performed": false
+    },
+    "both_evaluation_evidence_checks": {
+      "passed": 55,
+      "duration_seconds": 29.87,
+      "classification": "local_headless_synthetic_technical_observation",
+      "production_release_evidence": false,
+      "deployment": false
+    }
+  }
 }

@@ -297,6 +297,72 @@ def test_existing_adapter_evaluation_compares_base_and_adapter_without_training(
         runtime.close()
 
 
+def test_specialist_evaluation_runs_through_worker_process_and_persisted_report(tmp_path: Path) -> None:
+    """Exercise real worker execution with synthetic mock model output."""
+    runtime, training_request, _state = _setup(tmp_path, isolate_processes=True)
+    expected = json.dumps({"schema": "ananta.specialist-decision-output.v1", "label": "deny", "confidence": 0.9})
+    split = _write_split(tmp_path / "datasets" / "validation.jsonl", [
+        {"instruction": f"synthetic gate case {index}", "output": expected} for index in range(25)
+    ])
+    training_request["dataset"]["validation"] = split
+    evaluation = _evaluation_request(training_request, tmp_path / "workspaces")
+    evaluation["configuration"]["scorer_name"] = "specialist_decision"
+    try:
+        runtime.submit(evaluation)
+        result = _terminal(runtime, "evaluation-1", timeout=10)
+        assert result["status"] == "succeeded"
+        assert result["metrics"]["scorer_name"] == "specialist_decision"
+        sample = result["metrics"]["samples"][0]
+        assert sample["adapter_score"]["correct"] is True
+        assert sample["adapter_score"]["total"] == 1.0
+        assert sample["base_score"]["schema_valid"] is False
+        assert sample["base_score"]["total"] == 0.0
+        assert len(result["metrics"]["samples"]) == 20
+        assert result["metrics"]["prediction_records"] == 25
+        assert result["metrics"]["wins"]["adapter"] == 25
+        predictions_path, predictions_metadata = runtime.artifact("evaluation-1", "specialist_predictions.jsonl")
+        predictions = [json.loads(line) for line in predictions_path.read_text().splitlines()]
+        assert len(predictions) == 25
+        assert [row["record_index"] for row in predictions] == list(range(25))
+        assert predictions_metadata["sha256"] == hashlib.sha256(predictions_path.read_bytes()).hexdigest()
+        from agent.services.specialist_prediction_artifact import read_specialist_predictions
+
+        with predictions_path.open("rb") as prediction_stream:
+            admitted_outputs = read_specialist_predictions(
+                prediction_stream,
+                admitted_sha256=predictions_metadata["sha256"],
+                admitted_size_bytes=predictions_metadata["size_bytes"],
+                expected_records=[
+                    {"instruction": f"synthetic gate case {index}", "output": expected} for index in range(25)
+                ],
+            )
+        assert admitted_outputs.adapter == (expected,) * 25
+        report_path, metadata = runtime.artifact("evaluation-1", "eval_report.json")
+        report = json.loads(report_path.read_text())
+        assert metadata["sha256"] == hashlib.sha256(report_path.read_bytes()).hexdigest()
+        assert "specialist_decision" in json.dumps(report)
+    finally:
+        runtime.close()
+
+
+def test_specialist_worker_refuses_a_partial_evaluation_limit(tmp_path: Path) -> None:
+    runtime, training_request, _state = _setup(tmp_path, isolate_processes=True)
+    split = _write_split(tmp_path / "datasets" / "validation.jsonl", [
+        {"instruction": f"case {index}", "output": '{"label":"deny"}'} for index in range(3)
+    ])
+    training_request["dataset"]["validation"] = split
+    evaluation = _evaluation_request(training_request, tmp_path / "workspaces")
+    evaluation["configuration"].update({"scorer_name": "specialist_decision", "max_samples": 2})
+    try:
+        runtime.submit(evaluation)
+        result = _terminal(runtime, "evaluation-1", timeout=10)
+        assert result["status"] == "failed"
+        assert result["error"]["code"] == "specialist_prediction_coverage_invalid"
+        assert not result.get("artifacts")
+    finally:
+        runtime.close()
+
+
 def test_existing_adapter_evaluation_runs_in_isolated_process(tmp_path: Path) -> None:
     runtime, training_request, state = _setup(tmp_path, isolate_processes=True)
     evaluation = _evaluation_request(training_request, tmp_path / "workspaces")

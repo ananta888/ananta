@@ -45,6 +45,7 @@ from agent.services.ml_intern_lora_dataset_build_service import (
     DatasetBuildError,
     MlInternLoraDatasetBuildService,
 )
+from agent.services.specialist_evaluation_dataset_purpose import evaluation_dataset_purpose
 
 _CATALOG_LOCK = threading.RLock()
 _DATASET_ID = re.compile(r"^ds-[a-f0-9]{32}$")
@@ -325,6 +326,15 @@ class MlInternDatasetCatalogService:
         override = {"reason": reason, "overrides": {"sensitive_data": True}} if allow_sensitive_override else None
         train_path = self._partition_path_from_metadata(tenant_key, dataset_id, metadata, "train")
         validation_entry = (metadata.get("partitions") or {}).get("validation")
+        partition_paths = {"train": train_path}
+        if isinstance(validation_entry, dict):
+            partition_paths["validation"] = self._partition_path_from_metadata(
+                tenant_key, dataset_id, metadata, "validation"
+            )
+        if any(_hash_file(path) != validated_partitions.get(name) for name, path in partition_paths.items()):
+            raise DatasetCatalogError(
+                "dataset_partition_hash_mismatch", "dataset bytes differ from the catalog admission"
+            )
         pair_errors: list[str] = []
         overlap_count = 0
         if isinstance(validation_entry, dict):
@@ -404,6 +414,10 @@ class MlInternDatasetCatalogService:
                 raise DatasetCatalogError(
                     "dataset_changed_during_validation",
                     "dataset partitions changed while validation was running; retry validation",
+                )
+            if any(_hash_file(path) != validated_partitions.get(name) for name, path in partition_paths.items()):
+                raise DatasetCatalogError(
+                    "dataset_changed_during_validation", "dataset bytes changed while validation was running"
                 )
             metadata = current_metadata
             self._security.atomic_write_json(
@@ -563,6 +577,12 @@ class MlInternDatasetCatalogService:
         with _CATALOG_LOCK, self._transaction:
             metadata = self._owned_metadata(tenant_id, principal_id, dataset_id)
             revision = int(metadata.get("revision") or 0) + 1
+            purpose = evaluation_dataset_purpose(manifest)
+            existing_purpose = evaluation_dataset_purpose(metadata.get("split") or {})
+            if existing_purpose:
+                if purpose and purpose != existing_purpose:
+                    raise DatasetCatalogError("dataset_purpose_conflict", "evaluation purpose cannot be replaced")
+                purpose = existing_purpose
             split_id = f"split-{revision}-{uuid.uuid4().hex[:12]}"
             split_relative = f"{self._dataset_relative(tenant_key, dataset_id)}/splits/{split_id}"
             try:
@@ -615,6 +635,7 @@ class MlInternDatasetCatalogService:
                     },
                 }
                 metadata["split"] = {
+                    **purpose,
                     "status": "ready",
                     "split_id": split_id,
                     "algorithm_version": manifest.get("algorithm_version"),

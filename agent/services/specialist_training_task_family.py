@@ -14,14 +14,15 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from agent.services.specialist_dataset_split import SplitManifest
+from agent.services.specialist_training_examples import TrainingExample
+from ananta_contracts.lora_evaluation import score_specialist_output as _score_specialist_output
 from ananta_contracts.specialist_decision import (
     OUTPUT_SCHEMA,
     SpecialistContractError,
     SpecialistDecisionContract,
     canonical_digest,
 )
-from agent.services.specialist_dataset_split import SplitManifest
-from agent.services.specialist_training_examples import TrainingExample
 
 SPECIALIST_TASK_FAMILY = "specialist_decision"
 TRAINING_METHODS = frozenset({"lora", "qlora"})
@@ -161,15 +162,4 @@ def score_specialist_output(output: str) -> dict[str, Any]:
     label correctness is measured by ``specialist_benchmark`` against the
     frozen holdout.
     """
-    try:
-        value = json.loads(output)
-    except ValueError:
-        return {"schema_valid": False, "total": 0.0, "reason_code": "specialist_output_json_invalid"}
-    valid = (
-        isinstance(value, Mapping)
-        and set(map(str, value)) <= {"schema", "label", "confidence"}
-        and value.get("schema") in (None, OUTPUT_SCHEMA)
-        and isinstance(value.get("label"), str)
-        and bool(value.get("label"))
-    )
-    return {"schema_valid": valid, "total": 1.0 if valid else 0.0, "reason_code": None if valid else "specialist_output_fields_invalid"}
+    return _score_specialist_output(output)
