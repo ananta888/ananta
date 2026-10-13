@@ -1,7 +1,7 @@
 {
   "id": "paperclip-agent-organization-integration",
   "title": "Paperclip-/AI-Employees-Ideen als native Agent-Organization-Schicht in Ananta integrieren",
-  "status": "todo",
+  "status": "partial",
   "priority": "P1",
   "risk": "high",
   "owner": "ananta-developer-agent",
@@ -78,7 +78,7 @@
       "type": "research",
       "priority": "P0",
       "risk": "medium",
-      "status": "todo",
+      "status": "done",
       "title": "Paperclip und ai-employees source-realistisch inventarisieren",
       "description": "Nicht nur README vergleichen. Relevante Domain-Modelle, DB-Schemata, Heartbeat-/Schedule-Code, Budget-/Cost-Logik, Agent-Adapter, Approval-/Governance-Pfade, Workspace-/Worktree-Logik, Export/Import, Skill-System und ai-employees CONTRACT/CAPABILITIES/SCHEDULE/SKILL-Strukturen auf Quellcodeebene erfassen.",
       "acceptance_criteria": [
@@ -87,7 +87,9 @@
         "Lizenzhinweise und ggf. uebernommene Codebereiche sind nachvollziehbar dokumentiert.",
         "Keine Architekturentscheidung basiert nur auf README-Marketingtext."
       ],
-      "depends_on": []
+      "depends_on": [],
+      "progress_percent": 100,
+      "implementation_note": "docs/integrations/paperclip-agent-organization-audit.md: Source-Audit beider Repos (paperclip @5a6d0d0, ai-employees @37bfe17) mit konkreten Dateien/Modulen, Commit-SHAs, MIT-Lizenz und adopt/adapt/reference-only/reject-Klassifikation."
     },
     {
       "id": "PAO-002",
@@ -95,7 +97,7 @@
       "type": "architecture",
       "priority": "P0",
       "risk": "high",
-      "status": "todo",
+      "status": "done",
       "title": "Overlap-Matrix gegen bestehende Ananta-Dienste erstellen",
       "description": "Bestehende Ananta-Komponenten wie task_claim_service, task_delegation_services, task_management_service, task_orchestration_service, run_control_service, Worker-Registrierung, Policies, Approval, Memory, CodeCompass und Blueprints gegen die Upstream-Funktionen abgleichen.",
       "acceptance_criteria": [
@@ -106,7 +108,9 @@
       ],
       "depends_on": [
         "PAO-001"
-      ]
+      ],
+      "progress_percent": 100,
+      "implementation_note": "Overlap-Matrix im Audit-Dokument: jede Funktion einem Ananta-Owner zugeordnet, doppelte Task-/State-Machines ausgeschlossen, Migrationsrisiken dokumentiert; ADR docs/decisions/ADR-enterprise-organization-control-plane.md ist die Single-Control-Plane-Regel."
     },
     {
       "id": "PAO-003",
@@ -114,7 +118,7 @@
       "type": "schema",
       "priority": "P0",
       "risk": "high",
-      "status": "todo",
+      "status": "partial",
       "title": "Agent-Organization-Domainmodell definieren",
       "description": "Native Entitaeten fuer Organization/Team/Role/AgentAssignment/ReportingLine/Responsibility/CapabilityBoundary modellieren und auf bestehende Ananta-Agenten/Worker abbilden.",
       "acceptance_criteria": [
@@ -126,7 +130,9 @@
       ],
       "depends_on": [
         "PAO-002"
-      ]
+      ],
+      "progress_percent": 60,
+      "implementation_note": "Domänenmodell bereits durch organization_* gedeckt (role_slots/role_assignments/memberships/units/policies) und wiederverwendet; additive Vertraege: ananta_contracts/agent_routine.py (Schedule/Window/Period-Key) und agent/services/agent_wakeup.py (koalesziert/idempotent). 25 Tests."
     },
     {
       "id": "PAO-004",
@@ -134,7 +140,7 @@
       "type": "orchestration",
       "priority": "P0",
       "risk": "critical",
-      "status": "todo",
+      "status": "partial",
       "title": "Hierarchische Delegation ohne Worker-zu-Worker-Autoritaet implementieren",
       "description": "Paperclip-aehnliche Chain-of-Command-Semantik auf den Hub abbilden. Ein Agent kann Delegation vorschlagen; nur der Hub erzeugt/veraendert Tasks und autorisiert den Ziel-Worker.",
       "acceptance_criteria": [
@@ -146,7 +152,9 @@
       ],
       "depends_on": [
         "PAO-003"
-      ]
+      ],
+      "progress_percent": 60,
+      "implementation_note": "agent/services/agent_delegation_policy.py: Hub-only Chain-of-Command-Validierung (nur Vorschlag, Hub besitzt Task-Mutation), Scope-/Depth-Grenzen, Capability-Eskalation und Reporting-Zyklen fail-closed; 3 Hierarchieebenen getestet. Offen: Verdrahtung an produktive Task-Mutation und E2E-Container."
     },
     {
       "id": "PAO-005",
@@ -410,12 +418,278 @@
     "Neue UI darf keine Security-Entscheidungen clientseitig treffen."
   ],
   "progress_summary": {
-    "state": "todo",
-    "total_tasks": 15,
-    "todo": 15,
+    "state": "partial",
+    "todo_remaining": 11,
     "in_progress": 0,
+    "partial": 2,
     "blocked": 0,
-    "done": 0,
-    "progress_percent": 0
+    "done": 2,
+    "milestones_done": 0,
+    "milestones_total": 5
+  },
+  "tasks_status_summary": {
+    "total": 15,
+    "by_status": {
+      "todo": 11,
+      "in_progress": 0,
+      "partial": 2,
+      "blocked": 0,
+      "done": 2
+    },
+    "progress_percent_done": 13.3,
+    "by_priority": {
+      "P0": 8,
+      "P1": 6,
+      "P2": 1,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 1,
+      "medium": 6,
+      "high": 5,
+      "critical": 3
+    },
+    "critical_path": {
+      "total": 0,
+      "done": 0,
+      "remaining": 0
+    },
+    "milestones": {
+      "total": 5,
+      "todo": 5,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 15,
+    "by_type": {
+      "research": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "architecture": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "schema": {
+        "total": 1,
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 60.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 1,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "orchestration": {
+        "total": 1,
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 60.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 1,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "cost-control": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 1,
+        "in_progress": 0,
+        "progress_percent": 0.0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "runtime": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 1,
+        "in_progress": 0,
+        "progress_percent": 0.0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "governance": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 1,
+        "in_progress": 0,
+        "progress_percent": 0.0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "blueprints": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 1,
+        "in_progress": 0,
+        "progress_percent": 0.0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "skills": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 1,
+        "in_progress": 0,
+        "progress_percent": 0.0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "integration": {
+        "total": 2,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 2,
+        "in_progress": 0,
+        "progress_percent": 0.0,
+        "by_status": {
+          "todo": 2,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "ui": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 1,
+        "in_progress": 0,
+        "progress_percent": 0.0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "testing": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 1,
+        "in_progress": 0,
+        "progress_percent": 0.0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "benchmark": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 1,
+        "in_progress": 0,
+        "progress_percent": 0.0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "documentation": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 1,
+        "in_progress": 0,
+        "progress_percent": 0.0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      }
+    }
   }
 }
