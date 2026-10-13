@@ -130,6 +130,8 @@ class HarnessSandboxService:
                 "metrics": dict(observation.metrics),
                 "gates": report.to_mapping(),
                 "completed_task_ids": list(completed),
+                "model_tokens": 0,
+                "api_cost": 0.0,
             }
 
         outcome = self._evidence.execute(bound_request, execute)

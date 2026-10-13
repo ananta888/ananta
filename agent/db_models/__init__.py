@@ -67,6 +67,13 @@ from .governance import (
     WebrtcKeyConfirmationDB,
     WebrtcReplayStateDB,
 )
+from .harness_evolution import (
+    HarnessBenchmarkRunDB,
+    HarnessExperimentDB,
+    HarnessGenomeDB,
+    HarnessMutationDB,
+)
+from .harness_search import HarnessSearchRevisionDB
 from .hrm_experiment_idempotency import HrmIdempotencyReceiptDB
 from .hrm_experiments import (
     HrmCheckpointDB,
@@ -80,12 +87,6 @@ from .hub_git_authorization import (
     HubGitRemoteRegistrationAuditDB,
     HubGitRemoteRegistrationDB,
     HubGitRemoteRegistrationRevisionDB,
-)
-from .harness_evolution import (
-    HarnessBenchmarkRunDB,
-    HarnessExperimentDB,
-    HarnessGenomeDB,
-    HarnessMutationDB,
 )
 from .kanban_projection import KanbanBoardSequenceDB, KanbanOutboxEventDB
 from .knowledge import (
@@ -114,10 +115,10 @@ from .memory import (
     MemoryTreeJobDB,
     MemoryTreeNodeDB,
 )
-from .memory_quarantine import MemoryQuarantineEventDB
 from .memory_audit import MemoryAuditEventDB, MemoryAuditHeadDB
 from .memory_migration import MemoryMigrationBackupDB
 from .memory_policy import MemoryRunPolicyDB
+from .memory_quarantine import MemoryQuarantineEventDB
 from .memory_snapshot import MemorySnapshotDB
 from .ml_intern_training import (
     MlInternDatasetDB,
@@ -493,6 +494,7 @@ __all__ = [
     "HarnessBenchmarkRunDB",
     "HarnessExperimentDB",
     "HarnessGenomeDB",
+    "HarnessSearchRevisionDB",
     "HarnessMutationDB",
     "HeuristicDecisionLeaseDB",
     "HubGitRemoteRegistrationAuditDB",

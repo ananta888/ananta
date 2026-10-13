@@ -135,3 +135,48 @@ Failure-Tests. Der vorhandene ProcessGroupController liegt noch im Training-Name
 (bewahrte DIP-Kopplung); eine spätere gemeinsame Worker-Core-Fassade kann diesen Import
 ersetzen. Der bisherige Research-Code-Sandbox-Adapter bleibt unverändert und benötigt
 separat die Migration auf die begrenzte Prozess-/Cleanup-Infrastruktur.
+
+## Persistierter Hub-Suchlauf (SEH-011/020, Teilimplementierung)
+
+`HarnessSearchService` besitzt keine Hintergrundschleife. Jeder `advance` führt genau
+einen begrenzten Hub-Schritt aus: ready → dispatch_pending → awaiting_result → ready,
+beziehungsweise cancel_pending → finished/containment_failed. Persistierte, append-only
+SQL-Revisionen und Unique Keys verhindern, dass zwei konkurrierende Schritte denselben
+Zustandswechsel übernehmen. Tenant/Project sind bei jedem Zugriff erforderlich.
+
+Der Hypothesengenerator verwendet ausschließlich typisierte Telemetrie: Truncation zählt
+als Hypothese für größere, vom realen Modelllimit unterstützte Context-Budgets;
+explizit sichere Fusion-Gelegenheiten als Hypothese für Action Fusion. Seed und Attempt
+bestimmen Exploration/Exploitation reproduzierbar. Bereits versuchte Ideen werden über
+Neustarts hinweg ausgeschlossen. Mutationen erhalten Hypothese, Parent und Diff.
+
+Die unveränderliche Suchpolicy liegt außerhalb des Genoms. Run-/Zeit-/Token-/Kostenlimits
+werden vor dem persistierten Dispatch-Intent geprüft; jeder Run reserviert konservativ
+seine maximalen Kosten/Tokens, ohne unbekannte oder fehlgeschlagene Arbeit zu erstatten.
+Die Implementierung fährt seriell und überschreitet dadurch keinen Parallelitätsdeckel.
+Der injizierte Hub-Task-Transport muss Submit nach Dispatch-Key idempotent machen,
+Caps und absolute Deadline am tatsächlichen Dispatch erzwingen und Poll ohne Warten
+zurückgeben. Verlorene Acknowledgements dürfen keinen zweiten Task erzeugen.
+
+Ergebnisse werden ausschließlich nach `HubEvidenceRegistryService.require_run_result`
+unter exakter Assignment-/Lease-/Input-/Result-Bindung ausgewertet. Unregistrierte,
+mutierte oder fremde Resultate lösen Containment aus. Nur registrierte technische Runs
+mit bestandenem Gate und vollständigen Objective-Metriken können in die lokale
+Pareto-Population gelangen; ihre Registry-Referenzen und Testklassifikation bleiben
+gespeichert. Auswahl ändert nur den Such-Parent, niemals die produktive Baseline.
+
+Kill-Switch, abgelaufene Deadline und erschöpfte Budgets stoppen neue Kandidaten.
+Aktive Intents müssen idempotent gecancelt und tatsächlich contained werden. Nach
+begrenzten erfolglosen Containment-Versuchen bleibt ein maschinenlesbarer Fehler
+mit dem aktiven Dispatch-Key erhalten; keine weitere Arbeit und kein menschliches Warten.
+
+**Offen:** produktiver Hub-Queue-Adapter, Scheduler-/Operator-Mutationsverdrahtung,
+weitere Engine-Hypothesen und systemweite/gemeinsame Quota-Integration. Die neue
+Zustandsmaschine ist kein Ersatz für bestehende Task-Ownership oder Approval-Policy.
+Die Tests verwenden synthetische, von der echten Registry registrierte Runs und decken
+Neustarts, Ack-Verlust, konkurrierende Revisionen, Budget, Kill-Switch, Timeout und
+mutierte Evidenz ab. Alle Schritte sind headless und bounded.
+
+**SOLID:** Vorschläge, Suchpolicy, Zustandsübergänge, Persistence und Task-Transport
+liegen in eigenen Modulen. Der Controller hängt an kleinen Ports (SRP/ISP/DIP);
+er besitzt weder Docker-Implementierung noch Worker-Tools oder Release-Autorität.

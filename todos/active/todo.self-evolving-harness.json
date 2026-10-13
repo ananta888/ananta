@@ -160,7 +160,7 @@
         "SEH-019",
         "SEH-020"
       ],
-      "status": "todo"
+      "status": "partial"
     },
     {
       "id": "SEH-M6",
@@ -400,17 +400,18 @@
     {
       "id": "SEH-011",
       "title": "Hypothesis Generator und Evolutions-Loop implementieren",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 70,
       "details": "Agent generiert aus Telemetrie konkrete Hypothesen, wählt Mutationstyp, erzeugt Kandidaten, startet Evaluation, analysiert Resultat und entscheidet über nächste Generation. Explizite Exploration/Exploitation-Strategie mit Budgetgrenzen.",
       "acceptance_criteria": [
         "Jede Mutation ist an eine Hypothese gebunden",
         "Loop respektiert maximale Runs, Kosten, Zeit und Parallelität",
         "Fehlgeschlagene Ideen werden nicht blind erneut erzeugt",
         "Exploration ist reproduzierbar und auditierbar"
-      ]
+      ],
+      "implementation_note": "Persistierte Hub-State-Machine mit append-only scoped SQL-Revisionen/CAS, deterministischem Hypothesengenerator und Exploration/Exploitation. Native Mutationen, Hypothesen/Lineage, deduplizierte Ideen, Budgetreservation, idempotente Dispatch-Intents, restartbarer bounded Poll, exakte Registry-Result-Bindung und Pareto-Auswahl des Such-Parents. Tests für Neustart/Ack-Verlust/Concurrency/Scope/Budget/Timeout/Kill/mutierte Evidenz. Offen: produktiver Hub-Queue-/Scheduler-Adapter und weitere Engine-Hypothesen."
     },
     {
       "id": "SEH-012",
@@ -536,16 +537,17 @@
     {
       "id": "SEH-020",
       "title": "Budget-, Quota- und Kill-Switch-Mechanismen integrieren",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 65,
       "details": "Globale und pro Experiment definierte Limits für API-Kosten, Tokens, Laufzeit, Parallelität und GPU/CPU. Harte Kill-Switches auf System- und Experimentebene.",
       "acceptance_criteria": [
         "Kostenlimit kann nicht durch Mutation überschrieben werden",
         "Budgetüberschreitung stoppt neue Runs und beendet definierte aktive Runs",
         "Operator kann Evolution sofort deaktivieren, ohne produktive Baseline zu beeinträchtigen"
-      ]
+      ],
+      "implementation_note": "Immutable HarnessSearchPolicy außerhalb der Genomoberfläche erzwingt Run-/Zeit-/Token-/Kostengrenzen vor jedem Intent; konservative Maximalreservation ohne unsichere Refunds, serialisierte Parallelität, absolute Run-Deadline und Kill-Switch. Cancellation/Containment mit bounded Retry und machine-readable containment_failed. Sandbox erzwingt CPU/RAM/Swap/PIDs. Offen: produktiver Hub-Gateway-/Queue-Adapter, globale/systemweite Quotas und GPU-Lanes."
     },
     {
       "id": "SEH-021",
@@ -931,9 +933,9 @@
   "tasks_status_summary": {
     "total": 44,
     "by_status": {
-      "todo": 28,
+      "todo": 26,
       "in_progress": 0,
-      "partial": 4,
+      "partial": 6,
       "blocked": 0,
       "done": 12
     },
@@ -957,18 +959,18 @@
     },
     "milestones": {
       "total": 9,
-      "todo": 5,
+      "todo": 4,
       "in_progress": 0,
-      "partial": 3,
+      "partial": 4,
       "blocked": 0,
       "done": 1
     }
   },
   "progress_summary": {
     "state": "partial",
-    "todo_remaining": 28,
+    "todo_remaining": 26,
     "in_progress": 0,
-    "partial": 4,
+    "partial": 6,
     "blocked": 0,
     "done": 12,
     "milestones_done": 1,
@@ -1159,15 +1161,15 @@
       "unknown": {
         "total": 44,
         "done": 12,
-        "partial": 4,
+        "partial": 6,
         "blocked": 0,
-        "todo": 28,
+        "todo": 26,
         "in_progress": 0,
-        "progress_percent": 33.5,
+        "progress_percent": 36.6,
         "by_status": {
-          "todo": 28,
+          "todo": 26,
           "in_progress": 0,
-          "partial": 4,
+          "partial": 6,
           "blocked": 0,
           "done": 12
         }
