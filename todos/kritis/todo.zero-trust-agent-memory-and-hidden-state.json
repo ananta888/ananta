@@ -1516,5 +1516,21 @@
       "Operator API and affected derivation inspection",
       "Productive acceptance"
     ]
+  },
+  "result_memory_channel_quarantine_review": {
+    "status": "partially_implemented_and_locally_verified",
+    "report": "tests/security/test_result_memory_quarantine.py",
+    "production_release_evidence": false,
+    "deployment_performed": false,
+    "implemented": [
+      "Scoped hub-result-memory quarantine/release/revoke with content-free audit events",
+      "Derived Memory-Tree leaves blocked by provenance_ref so a quarantined result cannot return through a summary",
+      "Result-memory reads (get_by_namespace, get_by_task, get_by_goal) exclude quarantined/revoked entries"
+    ],
+    "remaining": [
+      "Already delivered caches/indexes/exports and final prompt revalidation",
+      "Operator API for quarantine events and affected derivation inspection",
+      "Productive acceptance"
+    ]
   }
 }
