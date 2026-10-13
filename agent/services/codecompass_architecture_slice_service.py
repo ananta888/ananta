@@ -267,17 +267,9 @@ class CodeCompassArchitectureSliceService:
 
 
 def _path_allowed(path: str, allowed: list[str]) -> bool:
-    candidate = str(path or "").replace("\\", "/").strip("/")
-    if not candidate:
-        return False
-    parts = candidate.split("/")
-    for prefix in allowed:
-        clean = str(prefix or "").strip("/")
-        if clean and parts[: len(clean.split("/"))] == clean.split("/"):
-            return True
-        if candidate == clean or candidate.startswith(clean):
-            return True
-    return False
+    from agent.services.codecompass_scoped_graph import path_allowed
+
+    return path_allowed(path, allowed)
 
 
 _slice_service = CodeCompassArchitectureSliceService()

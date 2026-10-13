@@ -45,9 +45,14 @@ from scripts.codecompass_content_redaction import (
 )
 from scripts.codecompass_index_hub_client import (  # noqa: F401 - compatibility re-exports
     SOURCE_SCOPE,
-    get_index_job as _get_index_job,
+)
+from scripts.codecompass_index_hub_client import (
     login as _login,
+)
+from scripts.codecompass_index_hub_client import (
     post_index as _post_index,
+)
+from scripts.codecompass_index_hub_client import (
     wait_for_index_job as _wait_for_index_job,
 )
 from scripts.codecompass_semantic_index_records import build_semantic_translation_records
@@ -503,9 +508,9 @@ def _build_records_from_plan(plan: IndexScanPlan) -> tuple[list[dict], FileTypeC
             else descriptor.format_id if descriptor else "unknown_text"
         )
         try:
-            content = candidate.path.read_text(encoding="utf-8", errors="replace").strip()
+            content = candidate.path.read_text(encoding="utf-8", errors="replace")
             plan.limits.preflight(path=candidate.relative_path, content=content)
-            if not content:
+            if not content.strip():
                 plan.coverage.add(
                     path=candidate.relative_path,
                     descriptor=descriptor,
@@ -537,6 +542,9 @@ def _build_records_from_plan(plan: IndexScanPlan) -> tuple[list[dict], FileTypeC
                     "file": candidate.relative_path,
                     "path": candidate.relative_path,
                     "content": content_with_header,
+                    "start_line": 1,
+                    "end_line": len(content.splitlines()),
+                    "content_line_offset": len(header.splitlines()),
                     "file_type": {
                         "detected_type": detected_type,
                         "family": descriptor.family if descriptor else "unknown",

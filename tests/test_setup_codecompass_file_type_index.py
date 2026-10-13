@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import json
 import ast
+import json
 from pathlib import Path
 
 import pytest
@@ -181,6 +181,51 @@ def validate_token_file(metadata: object) -> bool:
     assert "sensitive" not in redacted
     assert redacted.count("[REDACTED]") == 2
     ast.parse(redacted)
+
+
+def test_whole_file_index_preserves_source_lines_through_redaction_and_retrieval(
+    monkeypatch, tmp_path, registry
+):
+    from types import SimpleNamespace
+
+    from agent.services.knowledge_index_retrieval_service import KnowledgeIndexRetrievalService
+    from agent.services.rag_helper_source_record_manifest import normalize_source_records
+
+    source = (
+        "\n\n-----BEGIN PRIVATE KEY-----\nsecret-material\n"
+        "-----END PRIVATE KEY-----\n\ndef rag_helper_target():\n    pass\n"
+    )
+    (tmp_path / "sample.py").write_text(source, encoding="utf-8")
+    _configure_scan(monkeypatch, tmp_path, registry, ["sample.py"])
+    records, _coverage = setup_index._build_records_from_plan(
+        setup_index._collect_index_plan(max_records=20)
+    )
+    record = next(item for item in records if item.get("path") == "sample.py")
+    assert record["start_line"] == 1
+    assert record["end_line"] == 8
+    assert "secret-material" not in record["content"]
+    assert record["content"].count("\n") == source.count("\n") + record["content_line_offset"]
+    normalized = normalize_source_records(
+        normalized_scope="repo_path", source_id="test-repository", records=[record]
+    )
+    output = tmp_path / "index"
+    output.mkdir()
+    (output / "index.jsonl").write_text(json.dumps(normalized[0]), encoding="utf-8")
+    index = SimpleNamespace(
+        id="test-index", artifact_id=None, source_scope="repo_path",
+        profile_name="default", output_dir=str(output), status="completed",
+    )
+    service = KnowledgeIndexRetrievalService(
+        knowledge_index_repository=SimpleNamespace(list_completed=lambda: [index])
+    )
+    hit = service.search_records_page("rag_helper_target", passage_chars=500)["records"][0]
+    assert hit["metadata"]["line_start"] == 1
+    assert hit["metadata"]["line_end"] == 8
+    assert hit["metadata"]["line_range_status"] == "available"
+    passage = hit["passage"]
+    target_offset = passage["text"].splitlines().index("def rag_helper_target():")
+    assert passage["line_start"] + target_offset == 7
+    assert "# sample.py" not in passage["text"]
 
 
 def test_semantic_builder_uses_registry_for_typescript_and_honours_record_limit(

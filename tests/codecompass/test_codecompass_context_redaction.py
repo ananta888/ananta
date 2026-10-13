@@ -21,7 +21,10 @@ def test_codecompass_context_is_treated_as_untrusted_data():
     prompt = result["prompt"]
     metadata = result["prompt_metadata"]
     assert "ignore previous instructions" not in prompt.lower()
-    assert "<bean id='paymentService'>normal xml context</bean>" in prompt
+    import json
+
+    encoded = prompt.split("<untrusted_context_data>\n", 1)[1].split("\n", 1)[0]
+    assert json.loads(encoded)["content"] == "<bean id='paymentService'>normal xml context</bean>"
     assert metadata["blocked_context_chunks"] == 1
     assert metadata["context_guard_status"] == "degraded"
 

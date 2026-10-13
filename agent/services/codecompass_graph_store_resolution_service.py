@@ -42,6 +42,10 @@ def resolve_codecompass_graph_store(
     diagnostics: list[dict[str, str]] = []
     for index in candidates:
         candidate_id = str(getattr(index, "id", "") or "")
+        # Consumption compatibility permits older rows, but it cannot widen
+        # a caller's trusted index scope. Do not even resolve a foreign path.
+        if allowed_index_ids is not None and candidate_id not in allowed_index_ids:
+            continue
         if not consumption_policy.can_consume(
             index, allowed_index_ids=allowed_index_ids
         ):

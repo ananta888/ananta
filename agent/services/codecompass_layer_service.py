@@ -95,6 +95,12 @@ class CodeCompassLayerDispatchBackend:
     def show_head(self, profile_id: str) -> dict[str, Any] | None:
         return self._query.show_head(profile_id)
 
+    def scoped_query(self, capability):
+        resolve = getattr(self._query, "scoped_query", None)
+        if not callable(resolve):
+            raise ValueError("codecompass_layer_scoped_query_unavailable")
+        return resolve(capability)
+
     def diff(self, **kwargs: Any) -> dict[str, Any]:
         return self._query.diff(**kwargs)
 
@@ -285,6 +291,11 @@ class CodeCompassLayerService:
 
     def list_profiles(self) -> list[str]: return self._backend.list_profiles()
     def show_head(self, profile_id: str) -> dict[str, Any] | None: return self._backend.show_head(profile_id)
+    def scoped_query(self, capability):
+        resolve = getattr(self._backend, "scoped_query", None)
+        if not callable(resolve):
+            raise ValueError("codecompass_layer_scoped_query_unavailable")
+        return resolve(capability)
     def diff(self, **kwargs: Any) -> dict[str, Any]: return self._backend.diff(**kwargs)
     def plan_update(self, **kwargs: Any) -> dict[str, Any]: return self._backend.plan_update(**kwargs)
     def apply_update(self, **kwargs: Any) -> dict[str, Any]: return self._backend.apply_update(**kwargs)

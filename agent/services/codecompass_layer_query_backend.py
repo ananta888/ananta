@@ -82,6 +82,16 @@ class CodeCompassLayerQueryBackend:
     def show_head(self, profile_id: str) -> dict[str, Any] | None:
         return self._heads.get_head(str(profile_id))
 
+    def scoped_query(self, capability, *, indices=None):
+        from agent.services.codecompass_scoped_layers import CodeCompassScopedLayers
+
+        if indices is None:
+            from agent.services.repository_registry import get_repository_registry
+
+            indices = get_repository_registry().knowledge_index_repo
+        return CodeCompassScopedLayers(capability, layers=self._layers, heads=self._heads,
+                                       snapshots=self._snapshots, indices=indices, policy=self._policy)
+
     def diff(self, **kwargs: Any) -> dict[str, Any]:
         old = self._manifest(kwargs.get("from_snapshot_ref"), kwargs.get("old_manifest"))
         new = self._manifest(kwargs.get("to_snapshot_ref"), kwargs.get("new_manifest"))

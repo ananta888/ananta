@@ -67,5 +67,9 @@ def redact_sensitive_values(
 
     pattern = _PYTHON_ASSIGNMENT if language == "python" else _ASSIGNMENT
     redacted = pattern.sub(redact_assignment, content)
-    redacted, private_count = _PRIVATE_KEY.subn("[REDACTED PRIVATE KEY]", redacted)
+    # Keep source coordinates stable even when a key spans several lines.
+    redacted, private_count = _PRIVATE_KEY.subn(
+        lambda match: "[REDACTED PRIVATE KEY]" + "\n" * match.group(0).count("\n"),
+        redacted,
+    )
     return redacted, bool(redaction_count or private_count)

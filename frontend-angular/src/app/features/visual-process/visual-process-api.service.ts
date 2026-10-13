@@ -148,6 +148,15 @@ export interface BpmnCapabilities {
 }
 export interface BpmnImportResult { graph: VpGraph; warnings: string[]; validation: ValidationResult; execution_support?: BpmnExecutionSupport; }
 export interface BpmnExportResult { bpmn_xml: string; warnings: string[]; }
+export interface BpmnDefinitionSnapshot {
+  schema: 'ananta.bpmn_definition_snapshot.v1';
+  workflow_id: string;
+  run_id: string;
+  plan_hash: string;
+  definition_hash: string;
+  source_sha256: string;
+  bpmn_xml: string;
+}
 export interface WorkflowRequestResult { workflow_request: Record<string, unknown>; validation: ValidationResult; errors: string[]; }
 export interface WorkflowStatus { schema: string; backend: string; workflow_id: string; status: string; steps?: unknown[]; events?: unknown[]; [key: string]: unknown; }
 export interface WorkflowPreflight {
@@ -158,7 +167,7 @@ export interface WorkflowPreflight {
   definition_hash: string;
   reason_codes: string[];
 }
-export type BpmnWorkflowCommand = 'resume' | 'retry' | 'cancel';
+export type BpmnWorkflowCommand = 'pause' | 'resume' | 'retry' | 'cancel';
 export interface BpmnCommandBinding {
   expected_revision: number;
   run_id: string;
@@ -375,6 +384,12 @@ export class VisualProcessApiService {
 
   getWorkflowStatus(workflowId: string): Observable<WorkflowStatus> {
     return this.http.get<WorkflowStatus>(`${this.baseUrl}/api/visual-process/workflow/${encodeURIComponent(workflowId)}/status`);
+  }
+
+  getBpmnDefinition(workflowId: string): Observable<BpmnDefinitionSnapshot> {
+    return this.http.get<BpmnDefinitionSnapshot>(
+      `${this.baseUrl}/api/visual-process/workflow/${encodeURIComponent(workflowId)}/bpmn-definition`,
+    );
   }
 
   cancelWorkflow(workflowId: string, reason = '', commandId = ''): Observable<WorkflowStatus> {

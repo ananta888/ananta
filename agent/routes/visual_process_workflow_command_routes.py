@@ -126,6 +126,12 @@ def workflow_message(workflow_id: str):
     )
 
 
+@vp_bp.post("/workflow/<workflow_id>/pause")
+@check_strict_auth
+def workflow_pause(workflow_id: str):
+    return _named_workflow_control(workflow_id, "pause")
+
+
 @vp_bp.post("/workflow/<workflow_id>/resume")
 @check_strict_auth
 def workflow_resume(workflow_id: str):
