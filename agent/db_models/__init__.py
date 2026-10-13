@@ -81,6 +81,12 @@ from .hub_git_authorization import (
     HubGitRemoteRegistrationDB,
     HubGitRemoteRegistrationRevisionDB,
 )
+from .harness_evolution import (
+    HarnessBenchmarkRunDB,
+    HarnessExperimentDB,
+    HarnessGenomeDB,
+    HarnessMutationDB,
+)
 from .kanban_projection import KanbanBoardSequenceDB, KanbanOutboxEventDB
 from .knowledge import (
     KnowledgeCollectionDB,
@@ -484,6 +490,10 @@ __all__ = [
     "EvolutionRunDB",
     "ExtractedDocumentDB",
     "GoalDB",
+    "HarnessBenchmarkRunDB",
+    "HarnessExperimentDB",
+    "HarnessGenomeDB",
+    "HarnessMutationDB",
     "HeuristicDecisionLeaseDB",
     "HubGitRemoteRegistrationAuditDB",
     "HubGitRemoteRegistrationDB",

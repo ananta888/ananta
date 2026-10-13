@@ -5,7 +5,7 @@
   "version": "1.2",
   "owner": "Peter Stuiber / Ananta",
   "track": "self-evolving-harness",
-  "status": "todo",
+  "status": "partial",
   "created_at": "2026-09-26",
   "updated_at": "2026-09-30",
   "purpose": "Ananta soll nicht nur Prompts und Modellparameter optimieren, sondern die komplette Agent-Steuerungsschicht (Harness) inklusive Prompt-Programme, Context-Strategie, Retrieval, Tool-Routing, Agent-Topologie, Delegation, Scaffold-/Code-Struktur und Runtime-Policies reproduzierbar, messbar und sicher weiterentwickeln. Vorhandene Ananta-Fähigkeiten werden explizit wiederverwendet: PlanningPromptOptimizerService, PlanningPromptEvolverService, DSPy Optimization Engine mit LabeledFewShot/BootstrapFewShot und bereits gepinnten GEPA-Abhängigkeiten, EvoMap-Evolver-Adapter/Bridge, Benchmarks, Gates, Worker, MCP, CodeCompass, Tracing und Promotion/Rollback. Referenzen wie NVIDIA SoL-Pi dienen ergänzend für Harness-Effizienzmechanismen; es wird keine parallele zweite Evolutionsarchitektur aufgebaut.",
@@ -116,7 +116,7 @@
         "SEH-003",
         "SEH-004"
       ],
-      "status": "todo"
+      "status": "partial"
     },
     {
       "id": "SEH-M2",
@@ -243,10 +243,11 @@
     {
       "id": "SEH-001",
       "title": "Bestehende Evolver-, Planner-, Worker-, Gate-, Benchmark- und Tracing-Pfade inventarisieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
+      "implementation_note": "docs/self-evolving-harness-inventory.md: Mapping-Tabelle mit konkreten Dateien/Modulen, Ownership, Wiederverwendung, Duplikationsrisiken und Migrationspfaden fuer Evolver/Planner/DSPy/GEPA/EvoMap/Gates/Benchmark/Tracing/Context/CodeCompass.",
       "details": "Repositoryweit konkrete Integrationspunkte ermitteln, insbesondere vorhandene planning_prompt_evolver/optimizer-Services, Worker-Todo-Verträge, Simulation-Harness, Tool/MCP-Pfade, Kosten-/Tokenmessung, Traces und vorhandene Gate-Logik. Ergebnis ist eine Quellcode-Mapping-Tabelle mit Ownership und Wiederverwendungsentscheidung.",
       "acceptance_criteria": [
         "Keine neue Kernkomponente wird eingeführt, bevor vorhandene äquivalente Funktionalität identifiziert oder ausgeschlossen wurde",
@@ -257,10 +258,11 @@
     {
       "id": "SEH-002",
       "title": "Versioniertes Harness-Genome-Schema definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
+      "implementation_note": "ananta_contracts/harness_genome.py: versioniertes, kanonisches Genome (Sektionen Prompt/Context/Memory/Retrieval/Tools/Topology/ModelRouting/Reducer/Verification/Gates) mit content-addressed genome_id, Diff, Migrationsregistry und Secret-Referenz-Pflicht. 12 Tests in tests/harness/test_harness_genome.py.",
       "details": "Ein kanonisches, serialisierbares Genome modelliert Prompt-Strategien, Context Policy, Memory Policy, Retrieval, Tool-Auswahl, Tool-Parameter, Action-Fusion-Regeln, Delegation, Agent-Loop, Stopbedingungen, Modellrouting, Reducer/Compactor, Verification und Gate-Konfiguration. Genome enthält immutable ID, Parent(s), Mutation-Operatoren, Code-/Config-Hashes, Runtime- und Modellanforderungen.",
       "acceptance_criteria": [
         "JSON-Schema/Pydantic-Modell mit stabiler Versionierung und Migrationspfad",
@@ -272,10 +274,11 @@
     {
       "id": "SEH-003",
       "title": "Harness Runtime mit klaren Erweiterungspunkten abstrahieren",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 70,
+      "implementation_note": "agent/services/harness_runtime.py: typisierte Strategie-Ports (Context/Tools/Memory/Delegation/Verification/StopRetry/Reducer), capability-getriebene StrategyRegistry, Gate-/Capability-Invarianten ausserhalb der mutierbaren Oberflaeche, baseline_genome reproduziert das heutige Verhalten. 11 Tests. Offen: Baseline-Genome in den produktiven Agent-Loop verdrahten.",
       "details": "Agent-Steuerungsschicht so kapseln, dass Genome-Parameter Laufzeitverhalten kontrollieren können, ohne Business-Logik oder Sicherheitsgrenzen zu umgehen. Strategy-/Policy-Interfaces für Context, Tools, Memory, Delegation, Verification und Stop/Retry.",
       "acceptance_criteria": [
         "Baseline-Harness reproduziert bestehendes Verhalten ohne Regression",
@@ -286,10 +289,11 @@
     {
       "id": "SEH-004",
       "title": "Experiment- und Lineage-Store implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
+      "implementation_note": "agent/db_models/harness_evolution.py + agent/repositories/harness_evolution.py: append-only Genome/Mutation/Experiment/Benchmark-Run-Tabellen mit Content-Hashes, Lineage-Rekonstruktion und Queries nach Modell/Task/Mutation/Gate/Pareto. 12 Tests.",
       "details": "Persistenz für Genome, Parent/Child-Lineage, Mutationen, Hypothesen, Benchmark-Runs, Gates, Artefakte, Traces, Kosten und Promotion-Status. Append-only Audit-Trail mit Content-Hashes.",
       "acceptance_criteria": [
         "Jeder Benchmarkwert ist auf Genome, Code-Commit, Modell, Dataset-Version und Runtime zurückführbar",
@@ -915,13 +919,13 @@
   "tasks_status_summary": {
     "total": 44,
     "by_status": {
-      "todo": 44,
+      "todo": 40,
       "in_progress": 0,
-      "partial": 0,
+      "partial": 1,
       "blocked": 0,
-      "done": 0
+      "done": 3
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 6.8,
     "by_priority": {
       "P0": 29,
       "P1": 12,
@@ -936,24 +940,27 @@
     },
     "critical_path": {
       "total": 22,
-      "done": 0,
-      "remaining": 22
+      "done": 2,
+      "remaining": 20
     },
     "milestones": {
       "total": 9,
-      "todo": 9,
+      "todo": 8,
       "in_progress": 0,
+      "partial": 1,
       "blocked": 0,
       "done": 0
     }
   },
   "progress_summary": {
-    "state": "todo",
-    "todo_remaining": 44,
+    "state": "partial",
+    "todo_remaining": 40,
     "in_progress": 0,
-    "partial": 0,
+    "partial": 1,
     "blocked": 0,
-    "done": 0
+    "done": 3,
+    "milestones_done": 0,
+    "milestones_total": 9
   },
   "summary_notes": [
     "Dieser Track erweitert die bestehende Prompt-Evolution auf die vollständige Agent-Steuerungsschicht, ohne die vorhandenen Evolutionspfade zu duplizieren.",
@@ -1133,5 +1140,26 @@
       "EvoMap Hub, Skill Store, Asset Publishing, Evolution Circle und Worker Pool sind nicht integriert und sollen nur nach Nutzen-/Risikoanalyse optional folgen",
       "Live-Kompatibilität mit dem aktuell gepinnten bzw. künftig gepinnten EvoMap-Release ist nicht als verpflichtendes Release-Gate etabliert"
     ]
+  },
+  "tasks_type_summary": {
+    "total": 44,
+    "by_type": {
+      "unknown": {
+        "total": 44,
+        "done": 3,
+        "partial": 1,
+        "blocked": 0,
+        "todo": 40,
+        "in_progress": 0,
+        "progress_percent": 8.4,
+        "by_status": {
+          "todo": 40,
+          "in_progress": 0,
+          "partial": 1,
+          "blocked": 0,
+          "done": 3
+        }
+      }
+    }
   }
 }
