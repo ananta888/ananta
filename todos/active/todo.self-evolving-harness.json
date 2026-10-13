@@ -822,10 +822,10 @@
     {
       "id": "SEH-038",
       "title": "EvoMap-Bridge auf korrektes Git-/Workspace-Modell umstellen",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 65,
       "details": "Evolver benötigt einen Git-Kontext für Rollback, Blast-Radius und Solidify. Der aktuelle temporäre Workdir darf daher nicht als leerer Nicht-Git-Kontext dienen. Einen sicheren, read-mostly Workspace-/Checkout-Mechanismus implementieren, der nur die für Analyse notwendigen Repo-Daten bereitstellt, Secrets und nicht freigegebene Pfade ausschließt und keinen direkten Schreibzugriff auf main oder Host-Arbeitsbaum erlaubt.",
       "acceptance_criteria": [
         "Jeder Evolver-Run erhält einen gültigen, reproduzierbaren Git-Kontext",
@@ -834,7 +834,8 @@
         "Secrets, .env, Credentials und ausgeschlossene Pfade werden nicht an EvoMap weitergegeben",
         "Cleanup bei Erfolg, Timeout und Crash ist getestet",
         "Blast-Radius-/Git-Funktionen von Evolver können im Integrationstest tatsächlich ausgeführt werden"
-      ]
+      ],
+      "implementation_note": "Dedicated workspace.js creates isolated deterministic Git repos from optional bounded scoped snapshots; origin/scope/content/optional execution revision are checked, unsafe paths/Git/secret/env/key files denied, no host/main checkout or external Git state mounted. Context-only compatibility explicitly synthetic/unverified, never claims project checkout. Cleanup covers prepare/Git failures and analyze success/failure/timeout. 19 real-Git/identity Node tests plus offline pinned-sidecar bounded analyze/cleanup test. Open: Hub registered-source admission/projector and origin-to-file validation; strict per-run containment/egress and full structured-GEP compatibility. Python adapter deliberately does not forward raw unadmitted snapshots."
     },
     {
       "id": "SEH-039",
@@ -936,9 +937,9 @@
   "tasks_status_summary": {
     "total": 44,
     "by_status": {
-      "todo": 23,
+      "todo": 22,
       "in_progress": 0,
-      "partial": 9,
+      "partial": 10,
       "blocked": 0,
       "done": 12
     },
@@ -971,9 +972,9 @@
   },
   "progress_summary": {
     "state": "partial",
-    "todo_remaining": 23,
+    "todo_remaining": 22,
     "in_progress": 0,
-    "partial": 9,
+    "partial": 10,
     "blocked": 0,
     "done": 12,
     "milestones_done": 1,
@@ -1164,15 +1165,15 @@
       "unknown": {
         "total": 44,
         "done": 12,
-        "partial": 9,
+        "partial": 10,
         "blocked": 0,
-        "todo": 23,
+        "todo": 22,
         "in_progress": 0,
-        "progress_percent": 41.4,
+        "progress_percent": 42.8,
         "by_status": {
-          "todo": 23,
+          "todo": 22,
           "in_progress": 0,
-          "partial": 9,
+          "partial": 10,
           "blocked": 0,
           "done": 12
         }

@@ -80,5 +80,36 @@ def test_pinned_runtime_health_as_nonroot_in_readonly_offline_container():
         descriptor = EvolverAdapter(transport=Transport()).describe()
         assert descriptor.status == "available" and descriptor.provider_metadata["runtime"] == metadata
         assert subprocess.check_output(["docker", "exec", name, "id", "-u"], text=True, timeout=5).strip() == "1000"
+        # Real pinned CLI invocation is bounded even without a model gateway.
+        # Success is not required here: this is a containment/cleanup probe,
+        # not a fabricated successful production GEP evaluation.
+        analyze = (
+            "const r=await fetch('http://127.0.0.1:8080/evolution/analyze',{method:'POST',"
+            "headers:{'Content-Type':'application/json'},body:JSON.stringify({context:"
+            "{objective:'synthetic containment fixture',constraints:{synthetic:true}}})});"
+            "console.log(JSON.stringify({code:r.status,body:await r.json()}));"
+        )
+        executed = subprocess.run(
+            ["docker", "exec", name, "node", "--input-type=module", "-e", analyze],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=True,
+        )
+        outcome = json.loads(executed.stdout)
+        assert outcome["code"] in {200, 500}
+        remaining = subprocess.check_output(
+            [
+                "docker",
+                "exec",
+                name,
+                "node",
+                "-e",
+                "console.log(require('fs').readdirSync('/tmp').filter(n=>n.startsWith('evolver-run-')).length)",
+            ],
+            text=True,
+            timeout=5,
+        )
+        assert remaining.strip() == "0"
     finally:
         subprocess.run(["docker", "rm", "--force", name], capture_output=True, timeout=10, check=False)

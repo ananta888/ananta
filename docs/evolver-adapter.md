@@ -189,3 +189,46 @@ projected through a narrow allowlist. The existing persistent sidecar subprocess
 path still needs stronger per-run containment and enforced egress isolation;
 clearing environment URLs is not a network sandbox. These preserved infrastructure
 boundaries must be fixed before productive self-modification is enabled.
+
+## Scoped Git workspaces (SEH-038, partial)
+
+Every CLI invocation now receives a new Git repository. An optional
+`context.constraints.repository_snapshot` uses this additive contract:
+
+```json
+{
+  "schema": "ananta.evolver-workspace.v1",
+  "origin_revision": "<40-character immutable origin commit>",
+  "tenant_id": "<Hub-authorized tenant>",
+  "project_id": "<Hub-authorized project>",
+  "files": {"src/example.py": "<admitted UTF-8 text>"},
+  "content_digest": "<Hub canonical digest of origin_revision, tenant_id, project_id, files>",
+  "execution_revision": "<optional expected filtered-workspace commit>"
+}
+```
+
+The file map is limited to 128 files and 512 KiB. Absolute paths, traversal,
+Git internals, credential/secret directories and environment/key files fail
+admission before execution. Files are created as regular text files; no host
+path, active checkout, external Git database or symlink is mounted. The filtered
+execution commit has deterministic author/date/content and is distinct from
+the supplied origin revision. Context digests use the Hub's canonical JSON,
+including Unicode escaping and sorted keys.
+
+Without a snapshot, compatibility mode creates a **synthetic context-only**
+repository; it never claims to have checked out or analyzed the real project.
+Worker metadata always declares `evidence_status=unverified`; a checksum and
+caller-provided revision are not Registry evidence. Source issuance remains
+Hub-owned. The normal Python adapter continues withholding raw file maps until
+a Hub-governed source-projector is implemented.
+
+Workspace preparation is isolated in `workspace.js` (SRP). Setup/Git failures
+and the analyze success/failure/timeout path clean up temporary state. Headless
+Node tests perform real Git diff operations, reject unsafe paths and compare
+independent workspaces; the real offline sidecar test exercises bounded analyze
+and verifies no run directories remain. These are technical/test observations.
+
+**Open:** registered immutable Hub source admission/projector, mandatory origin-
+to-snapshot verification, full per-run containment/egress and structured GEP
+compatibility. This partial implementation cannot alone authorize production
+repository analysis or release promotion.
