@@ -368,17 +368,18 @@
     {
       "id": "SEH-009",
       "title": "Mutation Engine für Genome und kontrollierte Code-Patches implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "details": "Mehrere Mutationsklassen: parametrisch, strukturell, Prompt, Routing, Tool Policy, Context Policy sowie optional agent-generierte Code-Patches. Code-Patches nur in explizit freigegebenen Harness-Modulen und niemals in Gate-/Sandbox-/Security-Enforcement.",
       "acceptance_criteria": [
         "Jede Mutation hat Typ, Begründung, Parent und maschinenlesbaren Diff",
         "Mutation Budgets und erlaubte Zielbereiche sind erzwingbar",
         "Ungültige Genome/Patches werden vor Ausführung verworfen",
         "Deterministische Seed-/Replay-Unterstützung vorhanden"
-      ]
+      ],
+      "implementation_note": "agent/services/harness_mutation.py: typisierte Mutationsklassen (context/tool/prompt), Mutation-Ergebnis mit Typ/Begruendung/Parent/Diff, Budget-Enforcement, deterministischer Seed-Plan, Code-Patch nur in erlaubten Modulen und nie in Gate-/Security-/Sandbox-Modulen. 6 Tests."
     },
     {
       "id": "SEH-010",
@@ -442,32 +443,34 @@
     {
       "id": "SEH-014",
       "title": "Harte Gates für Correctness, Security und Regression integrieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "details": "Bestehende Gates wiederverwenden und um Harness-spezifische Checks ergänzen: Tests, Schema, Tool-Rechte, Prompt Injection, Secret Leakage, Evidence Integrity, Timeout/Loop Detection, Retry Storms, Cost Caps und Regression gegen Baseline.",
       "acceptance_criteria": [
         "Hard-Gate-Failure disqualifiziert Kandidat unabhängig von Fitness",
         "Gate-Ergebnisse sind strukturiert und reproduzierbar",
         "Security-Gates liegen außerhalb mutierbarer Harness-Fläche",
         "Baseline-Regressionstoleranzen sind pro Benchmarkklasse konfigurierbar"
-      ]
+      ],
+      "implementation_note": "agent/services/harness_gates.py: Hard-Gates disqualifizieren unabhaengig von Fitness, Security-Gates immer hart und ausserhalb der mutierbaren Flaeche, Regression-Gate mit Toleranz, strukturierte/reproduzierbare Reports, fail-closed bei Fehlern. 7 Tests."
     },
     {
       "id": "SEH-015",
       "title": "Pareto-Front und Multi-Objective-Selektion implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "details": "Keine Reduktion aller Ziele auf einen einzigen Score. Kandidaten werden nach Dominanz, Constraints und optionalen Betriebsprofilen wie quality, balanced, cheap, low-latency verwaltet.",
       "acceptance_criteria": [
         "Pareto-Dominanz korrekt getestet",
         "Mehrere nicht-dominierte Kandidaten bleiben erhalten",
         "Betriebsprofile wählen aus Pareto-Menge ohne Historie zu zerstören",
         "Konfidenz/Varianz aus Wiederholungsläufen wird berücksichtigt"
-      ]
+      ],
+      "implementation_note": "agent/services/harness_pareto.py: korrekte Dominanz, Front behaelt alle nicht-dominierten Kandidaten, Profile quality/balanced/cheap/low_latency waehlen nur aus der Front, Confidence/Varianz beruecksichtigt. 7 Tests."
     },
     {
       "id": "SEH-016",
@@ -923,13 +926,13 @@
   "tasks_status_summary": {
     "total": 44,
     "by_status": {
-      "todo": 36,
+      "todo": 33,
       "in_progress": 0,
       "partial": 1,
       "blocked": 0,
-      "done": 7
+      "done": 10
     },
-    "progress_percent_done": 15.9,
+    "progress_percent_done": 22.7,
     "by_priority": {
       "P0": 29,
       "P1": 12,
@@ -944,8 +947,8 @@
     },
     "critical_path": {
       "total": 22,
-      "done": 2,
-      "remaining": 20
+      "done": 5,
+      "remaining": 17
     },
     "milestones": {
       "total": 9,
@@ -958,11 +961,11 @@
   },
   "progress_summary": {
     "state": "partial",
-    "todo_remaining": 36,
+    "todo_remaining": 33,
     "in_progress": 0,
     "partial": 1,
     "blocked": 0,
-    "done": 7,
+    "done": 10,
     "milestones_done": 1,
     "milestones_total": 9
   },
@@ -1150,18 +1153,18 @@
     "by_type": {
       "unknown": {
         "total": 44,
-        "done": 7,
+        "done": 10,
         "partial": 1,
         "blocked": 0,
-        "todo": 36,
+        "todo": 33,
         "in_progress": 0,
-        "progress_percent": 17.5,
+        "progress_percent": 24.3,
         "by_status": {
-          "todo": 36,
+          "todo": 33,
           "in_progress": 0,
           "partial": 1,
           "blocked": 0,
-          "done": 7
+          "done": 10
         }
       }
     }
