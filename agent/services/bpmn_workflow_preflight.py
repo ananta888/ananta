@@ -69,6 +69,16 @@ class BpmnWorkflowPreflight:
             "required_capabilities": sorted(plan.capabilities),
             "rejected": [],
         }
+        if any(node.node_type == "bpmn_wait" for node in plan.nodes):
+            from agent.services.bpmn_native_event_runtime import event_plan_scope
+
+            try:
+                event_plan_scope(plan)
+            except ValueError as exc:
+                # The same pure scope guard is mandatory at Native start.
+                # A preview never admits an unbound catch or creates a run.
+                result["reason_codes"] = [str(exc)]
+                return result
         try:
             selection, errors = self._control.preflight(
                 principal=principal,

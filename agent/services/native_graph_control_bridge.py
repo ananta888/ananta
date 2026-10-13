@@ -314,6 +314,8 @@ class NativeGraphWorkflowControlBridge:
                 state = "skipped"
             elif node.node_id in failed:
                 state = "failed"
+            elif result.status == "cancelled":
+                state = "cancelled"
             elif node.node_id in running:
                 state = "running"
             elif node.node_id in gate_nodes:
@@ -365,6 +367,13 @@ class NativeGraphWorkflowControlBridge:
             **(
                 {
                     "definition_hash": plan.metadata["bpmn_definition_hash"],
+                    "command_binding": {
+                        "schema": "ananta.workflow_command_binding.v1",
+                        "expected_revision": result.checkpoint.revision,
+                        "run_id": result.run_id,
+                        "plan_hash": result.checkpoint.plan_hash,
+                        "checkpoint_ref": result.checkpoint.checkpoint_id,
+                    },
                     "allowed_commands": list(
                         self._orchestrator.available_commands(plan=plan, checkpoint=result.checkpoint)
                     ),

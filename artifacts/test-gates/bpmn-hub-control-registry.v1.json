@@ -1,0 +1,87 @@
+{
+  "schema": "ananta.bpmn-hub-control-registry-gate.v1",
+  "classification": "actual_signed_hub_control_leases_and_sql_registry_synthetic_test_scope",
+  "production_release_evidence": false,
+  "deployment_performed": false,
+  "database_gates": {
+    "postgresql": {
+      "reference_cases": 13,
+      "worker_runs": 16,
+      "control_runs": 132,
+      "seconds": 51.75,
+      "cleanup_verified": true,
+      "controller_run_counts": {
+        "and_join": 60,
+        "artifact_handoff": 5,
+        "loop": 15,
+        "message": 5,
+        "native_node": 4,
+        "policy_approve": 5,
+        "policy_blocked": 3,
+        "policy_reject": 4,
+        "subprocess": 8,
+        "timer": 5,
+        "xor_default": 6,
+        "xor_false": 6,
+        "xor_true": 6
+      }
+    },
+    "sqlite": {
+      "reference_cases": 13,
+      "worker_runs": 16,
+      "control_runs": 123,
+      "seconds": 116.4,
+      "cleanup_verified": true,
+      "controller_run_counts": {
+        "and_join": 51,
+        "artifact_handoff": 5,
+        "loop": 15,
+        "message": 5,
+        "native_node": 4,
+        "policy_approve": 5,
+        "policy_blocked": 3,
+        "policy_reject": 4,
+        "subprocess": 8,
+        "timer": 5,
+        "xor_default": 6,
+        "xor_false": 6,
+        "xor_true": 6
+      }
+    }
+  },
+  "broad_regression": {
+    "passed": 1145,
+    "skipped": 13,
+    "deselected": 1,
+    "seconds": 91.16
+  },
+  "final_command_regression": {
+    "passed": 263,
+    "seconds": 14.21
+  },
+  "verified": [
+    "Every reference control invocation reserves a Registry RUN under its actual signed Hub control-lease owner and checkpoint before orchestration",
+    "Input source binds actual plan, inputs, parallel limits and full signed command including actor/revision/payload",
+    "Successful control action completes Registry RUN against actual persisted and verified signed workflow checkpoint",
+    "Reject and blocked cases have real controller RUNs and correctly have zero Worker RUNs",
+    "Actual SQL Task tenant/project must still match at completion; input/command changes leave original RUN uncompleted",
+    "Registry reservation failure rolls back source/run and stops execution before the leased action",
+    "All controller and Worker test RUNs fail production release verification",
+    "Separate Hub/Worker containers and private Worker SQLite remain preserved"
+  ],
+  "remaining": [
+    "Pre-reserved Registry identities for Worker-loss/redelivery/expiry fault modes and browser acceptance",
+    "Complete authenticated UI recovery/command and CaseFlow trace coverage",
+    "Optional backend and productive provider/rollout/release acceptance"
+  ],
+  "solid": {
+    "protected": "A narrow injectable control-lease port allows an evidence decorator around unchanged actual signed lease acquisition. Evidence issuance and completion remain in their own fixture module.",
+    "preserved_debt": "Existing broad Native orchestrator composition and full-app fixture driver remain SRP/coupling debt."
+  },
+  "checks": {
+    "ruff": "passed",
+    "cli_backend_shim_imports": "passed",
+    "todo_consistency": "passed",
+    "git_diff_check": "passed"
+  }
+}

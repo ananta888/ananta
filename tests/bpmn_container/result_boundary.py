@@ -33,25 +33,25 @@ def result_binding_case(hub, field):
         return response
 
     deadline = time.monotonic() + 15
+    rejection = None
     while hub.pending and time.monotonic() < deadline:
-        hub.collect(transform_result=tamper)
+        try:
+            hub.collect(transform_result=tamper)
+        except ValueError as exc:
+            rejection = str(exc)
         time.sleep(0.025)
-    assert injected and not hub.pending
-    try:
-        hub.orchestrator.advance(request)
-    except ValueError as exc:
-        assert str(exc) == "native_node_result_binding_mismatch", str(exc)
-    else:
-        raise AssertionError("mismatched_worker_result_completed_workflow")
+    assert injected and not hub.pending and rejection == "native_node_result_binding_mismatch", rejection
+    task = hub.tasks_for(request.run_id)[0]
+    assert task.status == "in_progress" and not task.verification_status.get("native_node_result")
     events = event_summary(hub, request)
     assert not any(event["event_type"] == "workflow.step.completed" and event["step_id"] == "work" for event in events)
     owner = hub.ownership.get(tenant_id=request.plan.tenant_id, run_id=request.run_id, step_id="work")
     assert not owner.result_ack_key
     return {
-        "status": "rejected_by_native_result_binding",
+        "status": "rejected_before_task_result_persistence",
         "field": field,
         "fault_injection": "mutated_http_result_after_real_worker_execution",
         "canonical_step_completed": False,
         "ownership_acknowledged": False,
-        "ingress_limitation": "generic_forwarder_persists_untrusted_task_result_before_native_validation",
+        "untrusted_task_result_persisted": False,
     }

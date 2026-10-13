@@ -1,0 +1,57 @@
+{
+  "schema": "ananta.bpmn-definition-browser-recovery-gate.v1",
+  "classification": "owner_authorized_persisted_bpmn_source_and_actual_authenticated_chromium_reload_technical_observation",
+  "production_release_evidence": false,
+  "deployment_performed": false,
+  "container_cases": 22,
+  "container_seconds": 67.55,
+  "actual_page_reload": true,
+  "actual_reauthentication": true,
+  "original_definition_restored": true,
+  "terminal_state_restored": true,
+  "actual_worker_tasks": 2,
+  "workflow_start_requests": 1,
+  "cleanup_verified": true,
+  "backend_broad": {
+    "passed": 1192,
+    "skipped": 13,
+    "deselected": 1,
+    "seconds": 93.11
+  },
+  "backend_focused": {
+    "passed": 41,
+    "seconds": 5.56
+  },
+  "frontend_tests": {
+    "passed": 67,
+    "seconds": 3.27
+  },
+  "typescript_changed_dependency_closure": "passed_with_existing_repository_ambient_declarations",
+  "full_app_typescript": "blocked_in_cached_image_by_missing_echarts_and_packages_ananta_game_core_dependencies",
+  "verified": [
+    "Additive authenticated owner-only definition endpoint; foreign owner/tenant receive no XML",
+    "Hub-persisted read authorization without runtime query, new start or Worker side effect",
+    "Exact source SHA and original canonical plan/policy binding; changing bytes plus caller-updated source SHA still fails original plan binding",
+    "Public workflow alias is distinct from admitted BPMN definition identity; both remain bound",
+    "Frontend checks typed identifiers/hash fields, bounded source bytes and WebCrypto source digest before canvas import",
+    "Concurrent draft edits or workflow changes make delayed recovery responses obsolete",
+    "Runtime run/plan/definition identity must still match the recovered snapshot before display or control",
+    "Restoration never grants start readiness; compilation/admission is still required",
+    "Actual Chromium full reload and second login restore edited original source plus completed Hub state; one start/two actual Worker tasks"
+  ],
+  "remaining": [
+    "Browser pre-execution Hub Registry identities",
+    "Complete UI pause/resume/retry/cancel recovery matrix and expanded CaseFlow edge traces",
+    "Optional backend and productive provider/rollout/release acceptance",
+    "Provision cached frontend test dependencies for full-app TypeScript build"
+  ],
+  "solid": {
+    "protected": "Snapshot projection owns only immutable source validation; existing Hub query authorization is reused through a narrow read method; editor state recovery does not create another control plane.",
+    "preserved_debt": "Existing broad AuthorizedWorkflowBackend/editor component and global composition retain SRP/coupling debt."
+  },
+  "checks": {
+    "ruff": "passed",
+    "git_diff_check": "passed",
+    "todo_consistency": "passed"
+  }
+}

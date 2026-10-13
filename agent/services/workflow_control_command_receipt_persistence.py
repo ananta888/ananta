@@ -36,6 +36,7 @@ from agent.services.workflow_control_command_receipts import (
     validate_persisted_public_status,
     validate_result_status,
 )
+from agent.services.workflow_runtime.commands import SignedWorkflowCommand
 from agent.services.workflow_runtime.security import (
     InMemoryReplayNonceStore,
     ReplayNonceStore,
@@ -319,12 +320,56 @@ class SQLAlchemyWorkflowControlCommandReceiptStore:
         *,
         clock: Any = time.time,
         fault_injector: Any | None = None,
+        retry_wait: Any = time.sleep,
     ) -> None:
         self._engine = engine
         self._clock = clock
         self._fault_injector = fault_injector or (lambda _stage: None)
+        self._retry_wait = retry_wait
 
     def stage(
+        self,
+        *,
+        binding: WorkflowControlRunBinding,
+        command_id: str,
+        actor_id: str,
+        command_type: str,
+        request_payload: dict[str, Any],
+        expected_revision: int,
+        checkpoint_ref: str,
+    ) -> WorkflowControlCommandReceipt:
+        values = dict(binding=binding, command_id=command_id, actor_id=actor_id, command_type=command_type,
+                      request_payload=request_payload, expected_revision=expected_revision,
+                      checkpoint_ref=checkpoint_ref)
+        for attempt in range(5):
+            try:
+                return self._stage_once(**values)
+            except WorkflowControlCommandReceiptError as exc:
+                if (attempt == 4 or str(exc) != 'workflow_control_command_receipt_stage_conflict'
+                        or not self._retryable_stage_contention(binding=binding, command_id=command_id,
+                            request_payload=request_payload, expected_revision=expected_revision,
+                            checkpoint_ref=checkpoint_ref)):
+                    raise
+                self._retry_wait(0.05 * (2 ** attempt))
+        raise AssertionError('bounded_receipt_admission_exhausted')
+
+    def _retryable_stage_contention(self, *, binding, command_id, request_payload,
+                                   expected_revision, checkpoint_ref):
+        command = SignedWorkflowCommand.from_mapping(request_payload['admitted_command'])
+        nonce_hash = hashlib.sha256(command.nonce.encode('utf-8')).hexdigest()
+        nonce_id = hashlib.sha256(f'{command.tenant_id}\0{nonce_hash}'.encode('utf-8')).hexdigest()
+        with Session(self._engine) as session:
+            row = session.get(WorkflowControlBindingDB, binding.workflow_id)
+            _assert_binding(row, binding)
+            return bool(row is not None
+                and row.runtime_revision == expected_revision and row.runtime_checkpoint_ref == checkpoint_ref
+                and not row.dispatch_intent_id and not row.command_observation_pending
+                and not row.command_receipt_id and not row.active_transition_id
+                and not (row.command_claim and row.command_claim_expires_at > float(self._clock()))
+                and session.get(WorkflowControlCommandReceiptDB, command_id) is None
+                and session.get(WorkflowCommandNonceDB, nonce_id) is None)
+
+    def _stage_once(
         self,
         *,
         binding: WorkflowControlRunBinding,

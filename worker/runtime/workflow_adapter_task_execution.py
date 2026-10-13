@@ -13,6 +13,20 @@ from worker.runtime.workflow_adapter_task_consumer import (
 _CONSUMER_EXTENSION = "workflow_adapter_task_consumer"
 
 
+def authorize_delegated_native_task(task: dict[str, Any]) -> bool:
+    """Current Hub permission for reservation; no execution or nonce consumption."""
+    from worker.runtime.workflow_adapter_runtime_composition import (
+        WorkflowAdapterWorkerRuntime,
+        build_workflow_adapter_worker_runtime,
+    )
+
+    runtime = current_app.extensions.get('workflow_adapter_worker_runtime') if has_app_context() else None
+    if not isinstance(runtime, WorkflowAdapterWorkerRuntime):
+        config = dict(current_app.config.get('AGENT_CONFIG') or {}) if has_app_context() else {}
+        runtime = build_workflow_adapter_worker_runtime(agent_config=config)
+    return runtime.native_admission is not None and runtime.native_admission.authorize(task) is True
+
+
 def consume_delegated_workflow_task(task: dict[str, Any]) -> dict[str, Any] | None:
     """Return a route payload for a recognized task, otherwise ``None``."""
 
@@ -56,4 +70,4 @@ def _consumer() -> WorkflowAdapterTaskConsumer:
     ).consumer
 
 
-__all__ = ["consume_delegated_workflow_task"]
+__all__ = ["authorize_delegated_native_task", "consume_delegated_workflow_task"]

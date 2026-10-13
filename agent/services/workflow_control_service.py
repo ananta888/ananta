@@ -325,8 +325,12 @@ class WorkflowControlService:
             raise RuntimeError("workflow_runtime_not_executable")
 
     def query(self, *, principal: WorkflowPrincipal, workflow_id: str, run_id: str) -> dict[str, Any]:
-        self._authorize_bound(principal, "query", workflow_id, run_id)
+        self.authorize_query(principal=principal, workflow_id=workflow_id, run_id=run_id)
         return self._bridge.query(principal=principal, run_id=run_id)
+
+    def authorize_query(self, *, principal: WorkflowPrincipal, workflow_id: str, run_id: str) -> None:
+        """Authorize Hub-persisted reads without requiring a live execution backend."""
+        self._authorize_bound(principal, 'query', workflow_id, run_id)
 
     def history(
         self,

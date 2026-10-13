@@ -1,0 +1,67 @@
+{
+  "schema": "ananta.bpmn-native-maintenance-cadence-gate.v1",
+  "classification": "actual_sql_queue_grants_assignment_and_ed25519_worker_http_private_sqlite_synthetic_policy_technical_observation",
+  "status": "durable_policy_bound_hub_cadence_implemented_and_locally_verified",
+  "production_release_evidence": false,
+  "deployment_performed": false,
+  "broad_passed": 1236,
+  "broad_skipped": 11,
+  "broad_deselected": 1,
+  "broad_seconds": 83.06,
+  "final_policy_cases": 98,
+  "final_policy_seconds": 8.57,
+  "owned_postgres_passed": 11,
+  "owned_postgres_seconds": 27.89,
+  "owned_postgres_image": "sha256:5d143123fdf80462d1778cd4f24b9f7ca13c87174bca19141fb194c5a1ebca59",
+  "owned_postgres_cleanup_verified": true,
+  "verified": [
+    "Explicit default-off preauthorization; no work for missing or malformed policy",
+    "Existing fast lifecycle-owned Hub reconciler; no Worker scheduler or new independent loop",
+    "Actual active SQL control Task/project and strict registered owner before reservation/delegation",
+    "Closed low-priority one-node plan; existing runtime rollout/health/budget/locality/release gates retained",
+    "Mandatory human tool policy cannot be bypassed by automatic approval",
+    "Actual durable recipient-fenced SQL Task ingestion and SQL grant/ownership reservation",
+    "Actual registered assignment, independent Ed25519 Worker HTTP and private SQLite scoped expiry",
+    "Actual terminal Hub receipt acceptance under exact current assignment/lease; foreign project payload preserved",
+    "Restart and uncertainty retain the same reserved Run",
+    "Crash after actual queue commit adopts one existing child and executes one batch",
+    "Policy withdrawal, malformed preauthorization and owner/revision changes cancel before same-schedule replacement",
+    "Confirmed completed Run wins over later withdrawal",
+    "Signed120sHub deadline terminates a silent run and cancels queued work",
+    "Before-start retirement validates current Run lease in its SQL transaction; stale starter creates no child",
+    "SQLite independent-engine and PostgreSQL parallel reserve create one identical pending Run",
+    "PostgreSQL generic Native fence does not claim a BPMN definition"
+  ],
+  "limits": {
+    "configured_schedules": 64,
+    "global_pending_runs": 64,
+    "interval_seconds_min": 600,
+    "interval_seconds_max": 86400,
+    "batch_size_max": 1000,
+    "pending_poll_seconds_max": 5,
+    "run_timeout_seconds": 120,
+    "node_timeout_seconds": 60,
+    "node_attempts": 1
+  },
+  "checks": {
+    "ruff": "passed",
+    "memory_channels": "passed",
+    "memory_legacy_access": "passed",
+    "cli_backend_shim_imports": "passed",
+    "git_diff_check": "passed"
+  },
+  "remaining": [
+    "Authority-bound Worker replay-tombstone retirement or safe rotation",
+    "Full compiled reference/container/PostgreSQL matrix",
+    "Actual productive policy/registration/release admission"
+  ],
+  "solid": {
+    "protected": "Closed policy/plan builder, SQL outbox, finite domain tick, read-only admission and runtime composition have separate responsibilities and narrow seams.",
+    "preserved_debt": "Existing global repository/engine composition and larger Native scheduling infrastructure remain coupling/SRP debt."
+  },
+  "regression_limits": {
+    "skipped": "Eleven owned PostgreSQL cases executed separately; broad host run is not productive container/reference acceptance.",
+    "warnings": "Four existing startup Pydantic deprecations"
+  },
+  "activation": "Source implementation only; Hub and Worker opt-in, strict registration, live rollout/health and immutable release admission are still required."
+}

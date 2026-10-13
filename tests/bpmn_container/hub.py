@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import base64
-import hashlib
 import json
 import os
 import secrets
@@ -43,7 +42,6 @@ class AcceptanceHub:
         )
         from agent.services.workflow_worker_assignment_runtime import get_workflow_worker_assignment_store
         from agent.services.workflow_worker_gateway_service import WorkflowWorkerGatewayService
-        from ananta_contracts.runtime_authorization_crypto import Ed25519SigningKeyRing
 
         SQLModel.metadata.create_all(engine)
         self.engine = engine
@@ -51,11 +49,21 @@ class AcceptanceHub:
         self.agents = agent_repo
         self.app = Flask(__name__)
         self.app.config.update(
-            MAX_CONTENT_LENGTH=262_144, AGENT_CONFIG={}, ANANTA_WORKFLOW_REQUIRE_REGISTERED_WORKER_AUTH=True
+            MAX_CONTENT_LENGTH=262_144, AGENT_CONFIG={}, ROLE='hub',
+            ANANTA_WORKFLOW_REQUIRE_REGISTERED_WORKER_AUTH=True
         )
-        self.keys = Ed25519SigningKeyRing(
-            {"ephemeral-hub": base64.b64encode(secrets.token_bytes(32)).decode()}, active_key_id="ephemeral-hub"
-        )
+        signing = {"schema": "ananta.workflow-auth-signing-keyring.v1", "algorithm": "ed25519",
+                   "active_key_id": "ephemeral-hub",
+                   "private_keys": {"ephemeral-hub": base64.b64encode(secrets.token_bytes(32)).decode()}}
+        signing_path = Path("/sandbox/secrets/hub-signing.json")
+        with signing_path.open("x", encoding="utf-8") as output:
+            json.dump(signing, output)
+        signing_path.chmod(0o600)
+        os.environ["ANANTA_WORKFLOW_AUTH_SIGNING_KEYRING_FILE"] = str(signing_path)
+        # Use the production composition lookup, including Task completion policy.
+        from agent.services.workflow_hub_task_gateway_runtime import get_workflow_authorization_key_ring
+
+        self.keys = get_workflow_authorization_key_ring()
         self._register_worker()
         self.assignments = get_workflow_worker_assignment_store()
         self.grants = SQLAlchemyWorkflowAuthorizationGrantService(engine)
@@ -85,6 +93,9 @@ class AcceptanceHub:
         )
         self.authorizations = []
         self._routes()
+        from bpmn_container.artifacts import compose_hub_artifacts
+
+        self.artifacts = compose_hub_artifacts(self)
         from bpmn_container.public_api import PublicApi
 
         self.public = PublicApi(self)
@@ -99,61 +110,9 @@ class AcceptanceHub:
         self.dispatched = set()
 
     def _register_worker(self):
-        from agent.db_models import AgentInfoDB
-        from agent.services.workflow_worker_service_auth import (
-            STRICT_WORKER_REGISTRATION_PROVENANCE,
-            WORKER_REGISTRATION_KEYRING_SCHEMA,
-            validate_strict_worker_registration,
-        )
+        from bpmn_container.registration import register_worker
 
-        registration = secrets.token_urlsafe(48)
-        token = os.environ["BPMN_WORKER_TOKEN"]
-        capabilities = ["workflow.adapter.native"]
-        path = Path("/tmp/registration-keyring.json")
-        with path.open("x", encoding="utf-8") as output:
-            json.dump(
-                {
-                    "schema": WORKER_REGISTRATION_KEYRING_SCHEMA,
-                    "workers": {
-                        WORKER_ID: {
-                            "worker_url": WORKER_URL,
-                            "registration_token": registration,
-                            "service_token_sha256": hashlib.sha256(token.encode()).hexdigest(),
-                            "session_signing_key_sha256": hashlib.sha256(secrets.token_bytes(48)).hexdigest(),
-                            "allowed_capabilities": capabilities,
-                        }
-                    },
-                },
-                output,
-            )
-        path.chmod(0o600)
-        self.app.config["ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE"] = str(path)
-        credential = validate_strict_worker_registration(
-            {
-                "name": WORKER_ID,
-                "url": WORKER_URL,
-                "role": "worker",
-                "token": token,
-                "registration_token": registration,
-                "capabilities": capabilities,
-            },
-            registered_agents=(),
-            hub_service_token=None,
-            config=self.app.config,
-        )
-        self.worker = self.agents.save(
-            AgentInfoDB(
-                url=credential.worker_url,
-                name=credential.worker_id,
-                token=token,
-                role="worker",
-                status="online",
-                registration_validated=True,
-                registration_provenance=STRICT_WORKER_REGISTRATION_PROVENANCE,
-                capabilities=capabilities,
-                authorized_capabilities=list(credential.allowed_capabilities),
-            )
-        )
+        self.worker = register_worker(self.app, self.agents)
 
     def _routes(self):
         from agent.services.workflow_worker_gateway_service import WorkflowWorkerGatewayError
@@ -279,4 +238,5 @@ class AcceptanceHub:
         self.server.server_close()
         self.thread.join(timeout=3)
         self.public.close()
+        self.artifacts.close()
         self.engine.dispose()

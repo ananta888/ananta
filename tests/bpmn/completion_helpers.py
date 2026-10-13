@@ -12,19 +12,18 @@ from pathlib import Path
 import pytest
 from sqlmodel import SQLModel, create_engine
 
-from agent.db_models.workflow_runtime import WorkflowAuthorizationGrantDB
 from agent.services.native_graph_orchestration_service import NativeGraphOrchestrator, NativeGraphRequest
 from agent.services.workflow_authorization_grant_service import SQLAlchemyWorkflowAuthorizationGrantService
 from agent.services.workflow_runtime import (
     AuthorizationVerifier,
     HmacKeyRing,
     InMemoryReplayNonceStore,
-    InMemorySideEffectLedger,
     WorkflowCommandVerifier,
 )
 from agent.services.workflow_runtime.native_graph_ports import HubTaskSubmission
-from agent.services.workflow_runtime.ownership import SQLiteExecutionOwnershipStore
-from agent.services.workflow_runtime.persistence import SQLiteCheckpointStore, SQLiteEventStore
+from agent.services.workflow_runtime.sqlalchemy_event_stores import SQLAlchemyCheckpointStore, SQLAlchemyEventStore
+from agent.services.workflow_runtime.sqlalchemy_ownership import SQLAlchemyExecutionOwnershipStore
+from agent.services.workflow_runtime.sqlalchemy_side_effects import SQLAlchemySideEffectLedger
 from tests.bpmn.test_execution_admission import diagram
 from tests.bpmn.test_execution_recovery import advance_bounded
 from tests.bpmn.test_execution_routing import compile_request, execution_plan
@@ -48,19 +47,23 @@ class ReplayableWorkerQueue(ImmediateHubQueue):
         This fixture does not offer durable task ingestion. Production must
         supply its own same-transaction recipient or refuse fenced submission.
         """
-        from agent.services.workflow_runtime.lease_fencing import validate_sqlite_lease
+        from agent.services.workflow_runtime.lease_fencing import validate_sqlalchemy_lease
 
         store = lease.store
-        with store._lock:
-            store._begin()
-            try:
-                validate_sqlite_lease(store._connection, lease, command)
-                receipt = self.submit(command)
-                store._commit()
-                return receipt
-            except BaseException:
-                store._rollback()
-                raise
+        with store._transaction() as session:
+            validate_sqlalchemy_lease(session, lease, command)
+            return self.submit(command)
+
+    def cancel_fenced(self, *, lease, **values):
+        from agent.services.workflow_runtime.lease_fencing import (
+            OwnershipLeaseRecipient,
+            validate_sqlalchemy_lease,
+        )
+
+        recipient = OwnershipLeaseRecipient(values["tenant_id"], lease.checkpoint.workflow_id, values["run_id"])
+        with lease.store._transaction() as session:
+            validate_sqlalchemy_lease(session, lease, recipient)
+            return self.cancel(**values)
 
     def poll(self, *, tenant_id, run_id, hub_task_ids):
         return tuple(self.results[key] for key in hub_task_ids if key in self.results)
@@ -94,10 +97,10 @@ class CompletionHarness:
     def __post_init__(self):
         self.keys = HmacKeyRing({"synthetic-completion": "k" * 32}, active_key_id="synthetic-completion")
         self.handler = DeterministicHandler()
-        self.ledger = InMemorySideEffectLedger()
         self.policy = AllowPolicy()
-        self.grant_database = create_engine(f"sqlite:///{self.directory / 'grants.sqlite'}")
-        SQLModel.metadata.create_all(self.grant_database, tables=[WorkflowAuthorizationGrantDB.__table__])
+        self.grant_database = create_engine(f"sqlite:///{self.directory / 'checkpoints.sqlite'}")
+        SQLModel.metadata.create_all(self.grant_database)
+        self.ledger = SQLAlchemySideEffectLedger(self.grant_database)
         self.grants = SQLAlchemyWorkflowAuthorizationGrantService(self.grant_database, clock=lambda: self.now)
         worker = NativeDelegatedNodeRuntime(
             handler=self.handler,
@@ -122,9 +125,9 @@ class CompletionHarness:
 
     def restart(self):
         self.stores = {
-            "checkpoints": SQLiteCheckpointStore(self.directory / "checkpoints.sqlite"),
-            "events": SQLiteEventStore(self.directory / "checkpoints.sqlite"),
-            "ownership": SQLiteExecutionOwnershipStore(self.directory / "checkpoints.sqlite"),
+            "checkpoints": SQLAlchemyCheckpointStore(self.grant_database),
+            "events": SQLAlchemyEventStore(self.grant_database),
+            "ownership": SQLAlchemyExecutionOwnershipStore(self.grant_database),
         }
         self.connections.extend(self.stores.values())
         self.hub = NativeGraphOrchestrator(
@@ -153,7 +156,9 @@ class CompletionHarness:
 
     def close(self):
         for store in reversed(self.connections):
-            store.close()
+            close = getattr(store, "close", None)
+            if callable(close):
+                close()
         self.grant_database.dispose()
 
 

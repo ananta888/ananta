@@ -19,6 +19,7 @@ WORKFLOW_WORKER_COMMANDS = frozenset(
         "authorize_tool",
         "consume_retry",
         "native_context_read",
+        "pi_evidence_read",
         "native_side_effect_claim",
         "native_side_effect_complete",
         "native_side_effect_fail",

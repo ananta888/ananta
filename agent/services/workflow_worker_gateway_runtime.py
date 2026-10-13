@@ -104,6 +104,7 @@ def get_workflow_worker_gateway_service() -> WorkflowWorkerGatewayService:
                 get_approval_request_service,
             )
             from agent.services.native_context_bundle_composition import HubNativeContextBundleReader
+            from agent.services.pi_dispatch_runtime import read_pi_reserved_context, read_pi_worker_evidence
             from agent.services.workflow_authorization_grant_service import (
                 SQLAlchemyWorkflowAuthorizationGrantService,
             )
@@ -135,6 +136,8 @@ def get_workflow_worker_gateway_service() -> WorkflowWorkerGatewayService:
                 ),
                 assignments=get_workflow_worker_assignment_store(),
                 context_bundles=HubNativeContextBundleReader(engine=engine),
+                pi_evidence=read_pi_worker_evidence,
+                pi_contexts=read_pi_reserved_context,
             )
     return _SERVICE
 

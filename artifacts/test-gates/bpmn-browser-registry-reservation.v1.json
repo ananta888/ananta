@@ -1,0 +1,65 @@
+{
+  "schema": "ananta.bpmn-browser-registry-reservation-gate.v1",
+  "classification": "synthetic_test_technical_observation",
+  "production_release_evidence": false,
+  "deployment_performed": false,
+  "scope": "Isolated authenticated Chromium executor with an actual Hub SQL task, assignment, ownership lease and pre-reserved Hub Registry test run",
+  "verified": [
+    "Hub Registry issues SRC/RUN identities before Chromium starts; browser receives only the closed assigned projection",
+    "Actual current Task/project, Worker assignment and fenced ownership lease are checked under SQL locks before result completion",
+    "Changed input, foreign assignment/worker/project, stale lease, cancelled Task and modified evidence identity are denied",
+    "Browser completion follows Hub checks of actual Native tasks and pause/resume/cancel/retry events",
+    "Identical result replay verifies the original completed result; changed or unverified outcomes cannot be promoted",
+    "Synthetic test scope cannot satisfy a production release gate",
+    "Host source snapshot includes mounted frontend source/config and rejects changes during the gate",
+    "The cached browser image is resolved and pinned to its immutable Docker image ID"
+  ],
+  "registry": {
+    "browser_runs": 1,
+    "browser_sources": 1,
+    "scope": "test",
+    "state": "succeeded",
+    "reserved_before_execution": true,
+    "production_release_denied": true,
+    "assignment_revision": 1,
+    "ownership_fencing_token": 1
+  },
+  "full_core_browser": {
+    "cases": 22,
+    "seconds": 149.44,
+    "partial_case_selection": false,
+    "cleanup_verified": true,
+    "scope": "before the final cancelled-Task guard"
+  },
+  "final_focused_browser": {
+    "passed": true,
+    "seconds": 68.48,
+    "partial_case_selection": true,
+    "cleanup_verified": true
+  },
+  "focused_tests": {
+    "passed": 43,
+    "seconds": 4.75
+  },
+  "broad_tests": {
+    "passed": 1412,
+    "skipped": 13,
+    "deselected": 1,
+    "seconds": 132.86,
+    "scope": "before the final cancelled-Task guard"
+  },
+  "solid_review": {
+    "protected": "Browser coordination delegates Registry/SQL admission to a dedicated Hub adapter; host source/image binding is separated from the runner loop (SRP/DIP). Worker receives a closed projection without identity issuance authority.",
+    "preserved_debt": "SyntheticBrowserEvidence composes task/assignment/lease persistence and result validation for this bounded fixture. The existing browser coordination/public API fixtures remain coupled to SQL/Flask composition."
+  },
+  "limits": [
+    "The dedicated bootstrap token admits this synthetic acceptance executor only; it is not productive registered-Worker admission",
+    "The reserved browser run covers Chromium execution, not earlier bundle preparation or every independent core component test",
+    "Productive provider/image rollout and release acceptance remain separate requirements"
+  ],
+  "checks": {
+    "ruff": "passed",
+    "diff_check": "passed",
+    "runner_source_change_rejection": "passed"
+  }
+}

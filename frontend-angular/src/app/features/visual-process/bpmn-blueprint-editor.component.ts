@@ -12,11 +12,11 @@ import {
 } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
-import { Subscription, take, timeout } from 'rxjs';
+import { firstValueFrom, Subscription, take, timeout } from 'rxjs';
 import type BpmnModeler from 'bpmn-js/lib/Modeler';
 import type { BpmnElement } from 'bpmn-js/lib/Modeler';
 import { ANANTA_MODDLE, bpmnMetadataExtension, readBpmnMetadata } from './bpmn-metadata';
-import { bpmnRecord, bpmnRuntimeView, bpmnRuntimeMarker, BpmnRuntimeView } from './bpmn-runtime-view';
+import { bpmnCanvasStates, bpmnCommandBinding, bpmnRecord, bpmnRuntimeView, bpmnRuntimeMarker, BpmnRuntimeView } from './bpmn-runtime-view';
 import { loadBpmnRuntime } from './bpmn-runtime-loader';
 
 import {
@@ -107,6 +107,8 @@ const STARTER_XML = `<?xml version="1.0" encoding="UTF-8"?>
       <button type="button" (click)="compileGraph()" [disabled]="importing() || starting()">Graph</button>
       <button type="button" (click)="compileWorkflowRequest()" [disabled]="importing() || starting()">WorkflowRequest</button>
       <button type="button" (click)="startWorkflow()" [disabled]="!canStart() || starting() || controlling()">Start</button>
+      <label>Projekt-ID <input [(ngModel)]="projectId" (ngModelChange)="projectChanged()" maxlength="160"
+        [disabled]="importing() || starting() || controlling() || recovering()" /></label>
     </div>
   </div>
 
@@ -193,9 +195,11 @@ const STARTER_XML = `<?xml version="1.0" encoding="UTF-8"?>
 
       <section class="bpmn-runtime">
         <h2>Hub-Laufzeitstatus</h2>
-        <label>Workflow-ID <input [(ngModel)]="workflowId" (ngModelChange)="clearRuntime()" [disabled]="starting()" /></label>
-        <button type="button" (click)="refreshRuntime()" [disabled]="!workflowId.trim() || starting() || controlling()">Status laden</button>
+        <label>Workflow-ID <input [(ngModel)]="workflowId" (ngModelChange)="clearRuntime()" [disabled]="starting() || recovering()" /></label>
+        <button type="button" (click)="recoverRuntime()" [disabled]="!workflowId.trim() || importing() || starting() || controlling() || recovering()">Lauf wieder laden</button>
+        <button type="button" (click)="refreshRuntime()" [disabled]="!workflowId.trim() || starting() || controlling() || recovering()">Status laden</button>
         <div class="bpmn-actions">
+          <button type="button" (click)="controlWorkflow('pause')" [disabled]="!canControl('pause')">Pause</button>
           <button type="button" (click)="controlWorkflow('resume')" [disabled]="!canControl('resume')">Resume</button>
           <button type="button" (click)="controlWorkflow('retry')" [disabled]="!canControl('retry')">Retry</button>
           <button type="button" (click)="controlWorkflow('cancel')" [disabled]="!canControl('cancel')">Cancel</button>
@@ -223,9 +227,9 @@ const STARTER_XML = `<?xml version="1.0" encoding="UTF-8"?>
           </table>
           <table class="bpmn-runtime-edges">
             <caption>Vom Hub gemeldete Kanten</caption>
-            <thead><tr><th>Kante</th><th>Status</th><th>Quelle</th></tr></thead>
+            <thead><tr><th>Kante / Originalelement / Iteration</th><th>Status</th><th>Quelle</th></tr></thead>
             <tbody>@for (edge of runtime.edges; track edge.id) {
-              <tr><td>{{ edge.id }}</td><td>{{ edge.status }}</td><td>{{ edge.source }}</td></tr>
+              <tr><td>{{ edge.id }} / {{ edge.elementId || edge.id }} / {{ edge.iteration || '–' }}</td><td>{{ edge.status }}</td><td>{{ edge.source }}</td></tr>
             }</tbody>
           </table>
         }
@@ -360,6 +364,7 @@ export class BpmnBlueprintEditorComponent implements AfterViewInit, OnDestroy {
   private readonly workflowOptions = { policy_scope: { source: 'bpmn_blueprint_editor' } };
 
   xmlBuffer = STARTER_XML;
+  projectId = '';
   selectedName = '';
   selectedMetadata: ElementMetadata = this.defaultMetadata();
   workflowId = '';
@@ -374,6 +379,7 @@ export class BpmnBlueprintEditorComponent implements AfterViewInit, OnDestroy {
   readonly importing = signal(false);
   readonly starting = signal(false);
   readonly controlling = signal(false);
+  readonly recovering = signal(false);
   readonly editorDefinitionHash = signal('');
   readonly metadataError = signal('');
   readonly supportIssues = signal<BpmnExecutionSupport['issues']>([]);
@@ -525,7 +531,7 @@ export class BpmnBlueprintEditorComponent implements AfterViewInit, OnDestroy {
     this.runtimeMessage.set('Noch kein Laufzeitstatus vom Hub geladen.');
   }
 
-  refreshRuntime(): void {
+  refreshRuntime(expected?: { runId: string; planHash: string; definitionHash: string }): void {
     const id = this.workflowId.trim();
     if (!id || this.starting() || this.controlling() || this.destroyed) return;
     this.clearRuntime();
@@ -543,6 +549,12 @@ export class BpmnBlueprintEditorComponent implements AfterViewInit, OnDestroy {
           this.runtimeMessage.set('Hub-Revision während des Ladens geändert. Status erneut laden.');
           return;
         }
+        if (expected && (view.runId !== expected.runId || view.planHash !== expected.planHash
+          || view.definitionHash !== expected.definitionHash)) {
+          this.editorDefinitionHash.set('');
+          this.runtimeMessage.set('Hub-Lauf hat sich beim Wiederladen geändert. Lauf erneut laden.');
+          return;
+        }
         this.runtimeView.set(view);
         this.runtimeMessage.set('Statusmeldung des Hubs. Sie allein ist kein Ausführungs- oder Release-Nachweis.');
         this.paintRuntime();
@@ -552,9 +564,47 @@ export class BpmnBlueprintEditorComponent implements AfterViewInit, OnDestroy {
     }));
   }
 
+  async recoverRuntime(): Promise<void> {
+    const id = this.workflowId.trim();
+    if (!id || !this.canInspect() || this.recovering()) return;
+    this.clearRuntime();
+    this.invalidateCompilation();
+    const request = this.runtimeRequest;
+    const revision = this.revision;
+    const buffer = this.xmlBuffer;
+    const current = () => !this.destroyed && request === this.runtimeRequest && id === this.workflowId.trim();
+    this.recovering.set(true);
+    this.runtimeMessage.set('Gespeicherte Definition wird vom Hub geladen.');
+    try {
+      const snapshot = await firstValueFrom(this.api.getBpmnDefinition(id).pipe(take(1), timeout(15000)));
+      if (!current() || revision !== this.revision || buffer !== this.xmlBuffer) return;
+      if (snapshot.schema !== 'ananta.bpmn_definition_snapshot.v1' || snapshot.workflow_id !== id
+        || typeof snapshot.run_id !== 'string' || !snapshot.run_id || snapshot.run_id.length > 200
+        || typeof snapshot.plan_hash !== 'string' || !/^[a-f0-9]{64}$/.test(snapshot.plan_hash)
+        || typeof snapshot.definition_hash !== 'string' || !/^[a-f0-9]{64}$/.test(snapshot.definition_hash)
+        || typeof snapshot.source_sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(snapshot.source_sha256)
+        || typeof snapshot.bpmn_xml !== 'string') throw new Error('Ungültige Definitionsbindung');
+      const bytes = new TextEncoder().encode(snapshot.bpmn_xml);
+      if (!bytes.length || bytes.length > 512 * 1024) throw new Error('Definitionsgröße ungültig');
+      const hash = await crypto.subtle.digest('SHA-256', bytes);
+      const digest = Array.from(new Uint8Array(hash), value => value.toString(16).padStart(2, '0')).join('');
+      if (!current() || revision !== this.revision || buffer !== this.xmlBuffer) return;
+      if (digest !== snapshot.source_sha256) throw new Error('Definitionshash stimmt nicht überein');
+      if (!await this.importIntoModeler(snapshot.bpmn_xml) || !current()) return;
+      this.xmlBuffer = snapshot.bpmn_xml;
+      if (this.documentWarnings.length) throw new Error('Definition konnte nicht verlustfrei geladen werden');
+      this.editorDefinitionHash.set(snapshot.definition_hash);
+      this.refreshRuntime({ runId: snapshot.run_id, planHash: snapshot.plan_hash, definitionHash: snapshot.definition_hash });
+    } catch {
+      if (current()) this.runtimeMessage.set('Gespeicherter Lauf konnte nicht sicher geladen werden.');
+    } finally {
+      if (!this.destroyed) this.recovering.set(false);
+    }
+  }
+
   canControl(command: BpmnWorkflowCommand): boolean {
     const runtime = this.runtimeView();
-    return !this.destroyed && !this.starting() && !this.controlling()
+    return !this.destroyed && !this.starting() && !this.controlling() && !this.recovering()
       && runtime?.workflowId === this.workflowId.trim() && !!runtime?.commands.includes(command);
   }
 
@@ -571,9 +621,11 @@ export class BpmnBlueprintEditorComponent implements AfterViewInit, OnDestroy {
       next: status => {
         this.controlling.set(false);
         if (!current()) return;
+        const binding = bpmnCommandBinding(status);
         if (status.workflow_id !== id || status['run_id'] !== runtime.runId || status['plan_hash'] !== runtime.planHash
           || status['definition_hash'] !== runtime.definitionHash || typeof status['revision'] !== 'number'
-          || status['revision'] < runtime.commandBinding!.expected_revision) {
+          || status['revision'] < Number(runtime.revision) || !binding
+          || binding.expected_revision < runtime.commandBinding!.expected_revision) {
           this.clearRuntime();
           this.runtimeMessage.set('Kommandoantwort hat eine abweichende Laufbindung. Status erneut laden.');
           return;
@@ -666,7 +718,8 @@ export class BpmnBlueprintEditorComponent implements AfterViewInit, OnDestroy {
   }
 
   private canInspect(): boolean {
-    return !this.destroyed && !this.importing() && !this.starting() && !this.controlling() && !this.metadataError();
+    return !this.destroyed && !this.importing() && !this.starting() && !this.controlling()
+      && !this.recovering() && !this.metadataError();
   }
 
   private beginOperation(): EditorOperation {
@@ -722,6 +775,10 @@ export class BpmnBlueprintEditorComponent implements AfterViewInit, OnDestroy {
     }
   }
 
+  projectChanged(): void {
+    this.invalidateCompilation();
+  }
+
   private withCurrentGraph(next: (graph: VpGraph, result: BpmnImportResult) => void, operation: EditorOperation): void {
     void this.withCurrentXml(xml => {
       this.subscriptions.add(this.api.importBpmn(xml).pipe(take(1)).subscribe({
@@ -729,7 +786,9 @@ export class BpmnBlueprintEditorComponent implements AfterViewInit, OnDestroy {
           if (!this.isCurrent(operation)) return;
           this.setWarnings(result.warnings || []);
           this.showSupport(result);
-          next(result.graph, result);
+          const graph = this.projectId ? { ...result.graph,
+            metadata: { ...result.graph.metadata, project_id: this.projectId } } : result.graph;
+          next(graph, result);
         },
         error: err => { if (this.isCurrent(operation)) this.showError(err); },
       }));
@@ -798,7 +857,7 @@ export class BpmnBlueprintEditorComponent implements AfterViewInit, OnDestroy {
     this.clearRuntimeMarkers();
     const runtime = this.runtimeView();
     if (!runtime || !this.runtimeMatchesDefinition()) return;
-    const states = [...runtime.steps.map(step => ({ id: step.elementId, status: step.status })), ...runtime.edges];
+    const states = bpmnCanvasStates(runtime);
     for (const state of states) {
       const marker = bpmnRuntimeMarker(state.status);
       const element = this.modeler?.get('elementRegistry').get(state.id);

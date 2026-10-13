@@ -6,6 +6,7 @@ import os
 import socket
 import threading
 import time
+from pathlib import Path
 
 from bpmn_container.transport import HUB_URL, WORKER_ID, WORKER_URL, request_json, require_isolation, require_token
 from flask import Flask, jsonify, request
@@ -18,6 +19,13 @@ class DeterministicHandler:
         self._releases = {}
         self._lock = threading.Lock()
         self._artifact_store = artifact_store
+        self._tasks = {}
+
+    def bind_task(self, task):
+        from copy import deepcopy
+
+        with self._lock:
+            self._tasks[task["id"]] = deepcopy(task)
 
     def _release_for(self, task_id):
         with self._lock:
@@ -30,18 +38,30 @@ class DeterministicHandler:
         from worker.runtime.native_graph.contracts import NativeNodeResult
 
         started = time.time()
+        isolation_observation = {}
+        if os.environ.get("BPMN_TOOL_ISOLATION_ENABLED") == "1":
+            from bpmn_container.tool_isolation import exercise_worker_store_isolation
+
+            isolation_observation["tool_isolation"] = exercise_worker_store_isolation(hub_task_id)
         # The Hub fixture releases this task only after observing the first
         # sibling completion. This makes join assertions independent of CPU speed.
         if command.node.node_id == "slow" and not self._release_for(hub_task_id).wait(timeout=6):
             raise RuntimeError("bpmn_test_hub_release_timeout")
         artifact_refs, artifact_observation = {}, {}
         if command.node.node_id == "artifact_work":
-            from bpmn_container.artifacts import produce_artifact
-
-            artifact_refs, artifact_observation = produce_artifact(self._artifact_store, command, hub_task_id)
+            artifact_refs, artifact_observation = self._artifact_store.produce(command, self._tasks[hub_task_id])
+        elif command.node.node_id == "artifact_consumer":
+            artifact_observation = self._artifact_store.consume(command, self._tasks[hub_task_id])
         scoped = command.input_data.get("workflow_input", {})
         value = scoped.get("value")
         projected_output = {"value": value + 1} if type(value) is int else {}
+        evidence = self._tasks[hub_task_id].get('worker_execution_context', {}).get('synthetic_hub_evidence_assignment')
+        if evidence is not None:
+            from ananta_contracts.hub_evidence import validate_hub_evidence_assignment
+
+            evidence = validate_hub_evidence_assignment(evidence)
+            assert evidence['task_id'] == hub_task_id and evidence['evidence_scope'] == 'test'
+            projected_output['hub_test_evidence_assignment'] = evidence
         return NativeNodeResult(
             result_id="bpmn-result-" + command.command_id,
             command_id=command.command_id,
@@ -61,6 +81,7 @@ class DeterministicHandler:
                 "synthetic": True,
                 **projected_output,
                 **artifact_observation,
+                **isolation_observation,
             },
             artifact_refs=artifact_refs,
             budget_usage={"tokens": 0, "cost_micros": 0},
@@ -79,7 +100,11 @@ def main() -> None:
     from worker.runtime.workflow_hub_gateway import HttpWorkflowHubDecisionClient, HubExecutionAuthorizationAdapter
 
     app = Flask(__name__)
-    app.config["MAX_CONTENT_LENGTH"] = 262_144
+    app.config.update(MAX_CONTENT_LENGTH=262_144, ROLE="worker")
+    result_directory = (Path("/native-results") if os.environ.get("BPMN_WORKER_REDELIVERY_ENABLED") == "1"
+                        else Path("/tmp/native-result-private"))
+    result_directory.mkdir(mode=0o700, exist_ok=True)
+    app.config["ANANTA_NATIVE_RESULT_STORE_PATH"] = str(result_directory / "results.sqlite3")
     initialization = threading.Lock()
     from bpmn_container.artifacts import prepare_artifact_store
 
@@ -98,12 +123,12 @@ def main() -> None:
         handler.release(task_id)
         return jsonify(released=True)
 
-    @app.post("/execute")
-    def execute():
-        require_token("BPMN_DISPATCH_TOKEN")
+    def initialize():
         with initialization:
             if "workflow_adapter_task_consumer" not in app.extensions:
-                public = request_json(HUB_URL + "/verification-keyring", token=os.environ["BPMN_WORKER_TOKEN"])
+                public = request_json(HUB_URL + "/verification-keyring", token=os.environ["BPMN_WORKER_TOKEN"],
+                                      headers={"X-Ananta-Worker-ID": WORKER_ID, "X-Ananta-Worker-URL": WORKER_URL})
+                app.extensions["native_execution_verification"] = Ed25519VerificationKeyRing.from_mapping(public)
                 client = HttpWorkflowHubDecisionClient(
                     hub_url=HUB_URL,
                     bearer_token=os.environ["BPMN_WORKER_TOKEN"],
@@ -123,7 +148,55 @@ def main() -> None:
                     authorization=HubExecutionAuthorizationAdapter(client),
                     native_adapter=NativeGraphWorkerTaskAdapter(runtime),
                 )
-        result = consume_delegated_workflow_task(request.get_json())
+    def consume(task):
+        initialize()
+        handler.bind_task(task)
+        result = consume_delegated_workflow_task(task)
+        if (os.environ.get("BPMN_WORKER_LOSS_ENABLED") == "1"
+                and os.environ.get("BPMN_WORKER_REDELIVERY_ENABLED") != "1"):
+            # Dedicated isolated fault gate: real process/container termination
+            # after execution, before any HTTP result reaches Hub admission.
+            os._exit(73)
+        return result
+
+    def verification():
+        initialize()
+        return app.extensions["native_execution_verification"]
+
+    from worker.runtime.native_graph.http_execution import create_native_execution_blueprint
+    from worker.runtime.native_graph.result_store_runtime import configured_native_result_store
+
+    def result_store():
+        store = configured_native_result_store()
+        if os.environ.get("BPMN_WORKER_REDELIVERY_ENABLED") != "1":
+            return store
+
+        class FaultAfterPublication:
+            def reserve(self, task):
+                store.reserve(task)
+
+            def read(self, task):
+                return store.read(task)
+
+            def publish(self, task, result):
+                store.publish(task, result)
+                marker = result_directory / "fault-once"
+                if not marker.exists():
+                    marker.touch(mode=0o600)
+                    os._exit(73)
+
+        return FaultAfterPublication()
+
+    app.register_blueprint(create_native_execution_blueprint(
+        token_provider=lambda: os.environ["BPMN_WORKER_TOKEN"],
+        recipient_provider=lambda: (WORKER_ID, WORKER_URL), verification_provider=verification, consumer=consume,
+        result_store_provider=result_store,
+    ))
+
+    @app.post("/execute")
+    def execute():
+        require_token("BPMN_DISPATCH_TOKEN")
+        result = consume(request.get_json())
         if result is None:
             return jsonify(reason_code="unsupported_task_contract"), 422
         return jsonify(result)

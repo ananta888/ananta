@@ -1,0 +1,69 @@
+{
+  "schema": "ananta.bpmn-maintenance-capacity-gate.v1",
+  "classification": "actual_sql_queue_grant_assignment_and_signed_worker_http_private_sqlite_synthetic_policy_technical_observation",
+  "status": "owner_bound_extra_capacity_durable_identity_and_current_admission_implemented_and_locally_verified",
+  "production_release_evidence": false,
+  "deployment_performed": false,
+  "broad_passed": 1725,
+  "broad_skipped": 22,
+  "broad_deselected": 1,
+  "broad_seconds": 117.08,
+  "final_focused_passed": 55,
+  "final_focused_seconds": 6.48,
+  "earlier_focused_passed": 120,
+  "earlier_focused_seconds": 7.96,
+  "verified": [
+    "Actual Hub queue/grant/assignment, independent Ed25519 Worker HTTP and Hub receipt finish maintenance with ordinary result capacity fully occupied",
+    "Extra capacity requires an explicit installed store identity, exact bound owner, maintenance kind and project",
+    "Generic, foreign-store and unbound requests cannot consume the reserve",
+    "Existing maintenance uses ordinary capacity before the additional reserve",
+    "Durable classification and result reservation are one SQLite transaction",
+    "Parallel independent connections cannot exceed the globally bounded per-store reserve",
+    "Restart preserves capacity accounting and result retrieval",
+    "Expiry never frees a replay fence or emergency reservation",
+    "Signed Hub compaction recycles emergency capacity atomically while permanent markers deny old execution",
+    "Mismatched accounting metadata does not widen available capacity",
+    "Durable singleton identity rejects another binding after restart before expiry/result changes",
+    "Concurrent first binding admits one durable owner",
+    "Productive default HTTP composition reads current Hub permission before private-store resolution/reservation",
+    "Actual SQL grant revocation denies allocation despite an independently valid transport signature",
+    "Malformed, unavailable and nonboolean permission decisions deny before store or consumer calls",
+    "Read-only admission has no execution, nonce, task-queue or delegation capability",
+    "Consumer public interface remains consume/supports; normal execution-time Hub checks remain"
+  ],
+  "limits": {
+    "default_additional_maintenance_records": 64,
+    "additional_maintenance_records_min": 0,
+    "additional_maintenance_records_max": 1000,
+    "capacity_scope": "global per private store, not per tenant",
+    "unknown_outcomes_retain_capacity": true,
+    "identity_relabeling": false,
+    "implicit_emergency_capacity_for_unbound_store": false,
+    "retirement_capability_advertised": false
+  },
+  "remaining": [
+    "Productive Hub retirement issuer under current authority and policy",
+    "Bounded candidate selection and durable Hub acknowledgements that advance beyond compacted slots",
+    "Explicit opted-in Worker retirement handler and pre/post Hub authority revalidation",
+    "Retirement cadence reconciliation under restart, revocation and unknown outcomes",
+    "Exact historical proof for superseded assignments/leases",
+    "Full compiled reference/container/PostgreSQL and productive release acceptance"
+  ],
+  "checks": {
+    "ruff": "passed",
+    "memory_channels": "passed",
+    "memory_legacy_access": "passed",
+    "cli_backend_shim_imports": "passed",
+    "todo_consistency": "passed",
+    "git_diff_check": "passed"
+  },
+  "solid": {
+    "protected": "Atomic capacity and owner identity remain in the private persistence adapter. NativeExecutionAdmission is a narrow read-only Hub port; shared command projection avoids duplicating bindings without expanding the consumer interface.",
+    "preserved_debt": "Existing Flask/global runtime fallback composition remains DIP coupling and broader Native infrastructure remains SRP debt. No Worker task ownership or orchestration added."
+  },
+  "regression_limits": {
+    "skipped": "Eleven owned PostgreSQL cases and additional live Pi/SDK/process cases remain explicit opt-in in this host run; no PostgreSQL retirement or productive container acceptance claim.",
+    "warnings": "Four existing startup Pydantic deprecations",
+    "policy_fixture": "Synthetic release/outer policy fixture; actual SQL grants, queue, ownership and assignment, signed Worker HTTP and private SQLite."
+  }
+}

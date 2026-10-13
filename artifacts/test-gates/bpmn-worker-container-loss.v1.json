@@ -1,0 +1,125 @@
+{
+  "acceptance": {
+    "capability_scope": "worker_loss_containment",
+    "cases": {
+      "full_application_boot": {
+        "background_services_configured_off": true,
+        "http_boundaries": {
+          "health": 200,
+          "login": {
+            "access_token_issued": true,
+            "status": 200
+          },
+          "native_autopilot": {
+            "worker_loss": {
+              "bootstrap_fixture": "Synthetic graph admission, deterministic handler and explicit Hub status reset",
+              "durable_dispatch_journal": "unknown",
+              "followup_autopilot_ticks": 2,
+              "generic_llm_proposal_used": false,
+              "headless_reconciliation": "unresolved",
+              "hub_receipt_created": false,
+              "loss_boundary": "Worker process exit after execution before HTTP result response",
+              "passed": true,
+              "production_release_evidence": false,
+              "status_reset_contained": true,
+              "task_status": "waiting_for_review",
+              "unchanged_dispatch_claim": true,
+              "worker_exit_requires_host_docker_inspection": true,
+              "workflow_completed": false
+            }
+          },
+          "native_input": {
+            "data": {
+              "error_help": {
+                "next_steps": [
+                  "Melde dich erneut an oder pruefe den verwendeten Token.",
+                  "Pruefe, ob dein Benutzer die noetige Rolle oder Freigabe hat."
+                ],
+                "summary": "Zugriff nicht moeglich."
+              },
+              "reason_code": "workflow_auth_bearer_required"
+            },
+            "status": 401
+          },
+          "native_publish": {
+            "data": {
+              "error_help": {
+                "next_steps": [
+                  "Melde dich erneut an oder pruefe den verwendeten Token.",
+                  "Pruefe, ob dein Benutzer die noetige Rolle oder Freigabe hat."
+                ],
+                "summary": "Zugriff nicht moeglich."
+              },
+              "reason_code": "workflow_auth_bearer_required"
+            },
+            "status": 401
+          },
+          "workflow_start": {
+            "data": {
+              "error_help": {
+                "next_steps": [
+                  "Melde dich erneut an oder pruefe den verwendeten Token.",
+                  "Pruefe, ob dein Benutzer die noetige Rolle oder Freigabe hat."
+                ],
+                "summary": "Zugriff nicht moeglich."
+              },
+              "reason_code": "workflow_auth_bearer_required"
+            },
+            "status": 401
+          }
+        },
+        "passed": true,
+        "production_bootstrap": true,
+        "required_routes_registered": [
+          "/api/internal/tasks/<task_id>/native-artifact-inputs/<input_name>",
+          "/api/internal/tasks/<task_id>/native-artifacts",
+          "/api/visual-process/workflow/start",
+          "/health",
+          "/login"
+        ],
+        "testing_flag": false,
+        "unauthorized_tasks_created": 0
+      }
+    },
+    "evidence_classification": "synthetic_test_technical_observation",
+    "not_covered": [
+      "real_container_loss_recovery",
+      "production_release_admission",
+      "public_production_release_admission",
+      "worker_result_redelivery_and_workflow_completion"
+    ],
+    "passed": true,
+    "production_release_evidence": false,
+    "schema": "bpmn_full_app_worker_loss.v1"
+  },
+  "cleanup_complete": true,
+  "elapsed_seconds": 28.98,
+  "evidence_classification": "synthetic_test_technical_observation",
+  "exit_code": 0,
+  "production_release_evidence": false,
+  "worker_container_exit_observed": true,
+  "schema": "bpmn_worker_container_loss_gate.v1",
+  "command": "python3 scripts/test_bpmn_container.py --full-app-worker-loss",
+  "loss_boundary": "After production Native consumer execution, before HTTP result response",
+  "host_observation": {
+    "worker_container_state": "exited",
+    "worker_exit_code": 73,
+    "hub_container_state": "exited",
+    "hub_exit_code": 0,
+    "inspection_before_cleanup": true
+  },
+  "regression": {
+    "focused_tests_passed": 35,
+    "focused_seconds": 5.02,
+    "normal_full_app_container_passed": true,
+    "normal_full_app_seconds": 35.42,
+    "normal_full_app_scope": "Native node and artifact handoff, accepted SQL journal rows, fault mode disabled"
+  },
+  "remaining": [
+    "Durable Worker-result redelivery and eventual workflow completion",
+    "Scheduler reconciliation integration",
+    "Policy-authorized recovery/new attempts after lease expiry",
+    "Loss before execution and within external tool/provider operations",
+    "PostgreSQL concurrency and production packaging/release admission"
+  ]
+}

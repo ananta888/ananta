@@ -42,6 +42,19 @@ def append_native_event(store: EventStore, event: CanonicalWorkflowEvent, *, obs
         except OptimisticConcurrencyError as exc:
             if not str(exc).startswith(("event_sequence_conflict:", "dedupe_key_payload_conflict")):
                 raise
+            lookup = getattr(store, 'get_by_dedupe', None)
+            if callable(lookup):
+                existing = lookup(tenant_id=event.tenant_id, workflow_id=event.workflow_id,
+                                  run_id=event.run_id, dedupe_key=event.dedupe_key)
+                if existing is not None and existing.sequence <= observed_sequence:
+                    if _intent(existing) != _intent(event):
+                        raise OptimisticConcurrencyError('dedupe_key_payload_conflict') from exc
+                    if lease is not None:
+                        lease.ensure_valid()
+                    # append_fenced already checked the current lease. This
+                    # known occurrence is covered by the caller's checkpoint;
+                    # preserve its original timestamp and never rebase control.
+                    return existing
             updates = store.list_events(
                 tenant_id=event.tenant_id, run_id=event.run_id, after_sequence=cursor, limit=257
             )

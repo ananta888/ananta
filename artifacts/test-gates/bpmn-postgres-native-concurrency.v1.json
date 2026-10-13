@@ -1,0 +1,61 @@
+{
+  "classification": "owned_postgres_native_concurrency_technical_observation",
+  "postgres_advisory_locks_exercised": true,
+  "postgres_image": "sha256:5a65324fe84dc41709ff914e90b07f3e2f577073ed27bf917d4873aca0c9ec51",
+  "process_locks_shared": false,
+  "production_release_evidence": false,
+  "tests_passed": 6,
+  "schema": "ananta.bpmn.postgres-native-concurrency-gate.v1",
+  "status": "native_dispatch_result_boundaries_verified_full_bpmn_matrix_pending",
+  "duration_seconds": 16.75,
+  "gate": "scripts/test_bpmn_postgres.py",
+  "tests": "tests/bpmn/test_native_postgres_concurrency.py",
+  "cases": [
+    "Independent SQL engines race to reserve one durable dispatch slot.",
+    "Separate Hub mutation-lock instances use PostgreSQL advisory locks for exact terminal receipt replay.",
+    "Contradictory concurrent terminal result cannot replace the first accepted receipt.",
+    "Authority row locks reject concurrent lease mutation with PostgreSQL55P03; superseding lease then blocks stale admission.",
+    "Unknown transport settlement cannot downgrade concurrent accepted journal state.",
+    "Caller rollback removes dispatch fence and Task transition together."
+  ],
+  "fixture": {
+    "owned_database": true,
+    "user_id": 999,
+    "rootfs": "read_only",
+    "capabilities": "none",
+    "temporary_database_storage": "tmpfs",
+    "published_host_interface": "127.0.0.1",
+    "test_schemas": "unique_per_case_removed_after_case",
+    "container_cleanup_verified": true,
+    "network_cleanup_verified": true,
+    "serving_database_changed": false,
+    "test_credentials": "synthetic_only",
+    "statement_timeout_ms": 5000,
+    "lock_timeout_ms": 1000,
+    "pytest_wall_timeout_seconds": 90,
+    "junit_counts_verified": true,
+    "skipped": 0
+  },
+  "default_run": {
+    "cases": 6,
+    "skipped": 6,
+    "scope": "Explicit owned PostgreSQL fixture URL required; no automatic connection to serving DB."
+  },
+  "production_source_changed": false,
+  "initial_fixture_corrections": [
+    "Docker internal network did not publish localhost port; own regular bridge with localhost-only port used.",
+    "Copy immutable ORM identity before session close.",
+    "Superseding ownership updates both canonical payload and SQL projection.",
+    "Eliminate shared local mutex from concurrent admission test with separate PostgreSQL-backed Hub lock ports."
+  ],
+  "remaining": [
+    "PostgreSQL concurrency for remaining compiled BPMN waits, controls and full reference-process matrix.",
+    "Hub/deployment-controlled idle result maintenance cadence.",
+    "Authority-bound replay-tombstone retirement or safe store rotation.",
+    "Full editor/browser and production packaging/provider/release acceptance."
+  ],
+  "solid": {
+    "protected": "Fixture lifecycle separate from domain assertions (SRP); existing Task repository, authority and lock ports reused (DIP/ISP).",
+    "preserved_debt": "Task repository/global engine and mutation-lock locator coupling remains; explicit ContextVar test injection is not a new production singleton."
+  }
+}

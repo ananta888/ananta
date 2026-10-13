@@ -9,9 +9,10 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any, Literal, Mapping
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr, field_validator, model_validator
 
 from agent.providers.lc_lg import LangGraphProviderConfig
+from ananta_contracts.native_result_maintenance import require_result_store_identifier
 from worker.runtime.native_graph.pi_configuration import NativePiWorkerProfile
 
 WORKFLOW_ADAPTER_WORKER_PROFILE_SCHEMA = (
@@ -35,6 +36,14 @@ class NativeGraphWorkerProfile(BaseModel):
     allowed_task_types: list[str] = Field(default_factory=list, max_length=128)
     capabilities: list[str] = Field(default_factory=list, max_length=128)
     pi: NativePiWorkerProfile | None = None
+    result_maintenance: StrictBool | None = None
+    result_retirement: StrictBool | None = None
+    result_store_binding_id: StrictStr | None = None
+
+    @field_validator('result_store_binding_id')
+    @classmethod
+    def _result_store_binding(cls, value):
+        return require_result_store_identifier(value) if value is not None else None
 
     @field_validator("allowed_task_types", "capabilities")
     @classmethod
@@ -56,6 +65,15 @@ class NativeGraphWorkerProfile(BaseModel):
             or "coding.agent.pi" not in self.capabilities
         ):
             raise ValueError("pi_native_deployment_scope_required")
+        if self.result_maintenance and (not self.enabled
+                or 'native_result_maintenance' not in self.allowed_task_types
+                or 'workflow.result_maintenance' not in self.capabilities):
+            raise ValueError('native_result_maintenance_deployment_scope_required')
+        if self.result_store_binding_id is not None and self.result_maintenance is not True:
+            raise ValueError('native_result_store_maintenance_scope_required')
+        if self.result_retirement is True and (self.result_maintenance is not True
+                or self.result_store_binding_id is None or 'workflow.result_retirement' not in self.capabilities):
+            raise ValueError('native_result_retirement_deployment_scope_required')
         return self
 
 

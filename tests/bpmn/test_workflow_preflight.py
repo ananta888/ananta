@@ -107,6 +107,46 @@ def test_ready_preflight_cannot_write_or_start(preflight_setup, monkeypatch):
     assert s["gates"].plans[0].tenant_id == s["owner"].tenant_id
 
 
+@pytest.mark.parametrize('project,reason', [
+    (None, 'bpmn_wait_project_binding_required'),
+    ([], 'bpmn_wait_project_binding_required'),
+])
+def test_event_preflight_rejects_the_same_missing_or_invalid_scope_as_native_start(preflight_setup, project, reason):
+    s = preflight_setup
+    request = _timer_workflow()
+    if project is not None:
+        request = replace(request, metadata={**request.metadata, 'project_id': project})
+    result = s['bound'].preflight_workflow(request)
+    assert result['ready'] is False
+    assert result['reason_codes'] == [reason]
+    assert s['facade'].bindings.get(request.workflow_id) is None
+    assert s['ownership']._owners == {}
+    assert s['gates'].plans == []
+
+
+def test_event_preflight_keeps_explicit_project_under_existing_runtime_and_policy_checks(preflight_setup):
+    s = preflight_setup
+    request = _timer_workflow()
+    request = replace(request, metadata={**request.metadata, 'project_id': 'synthetic-project'})
+    result = s['bound'].preflight_workflow(request)
+    assert result['ready'] is True
+    assert s['gates'].plans[0].metadata['workflow_rollout_scope']['project_id'] == 'synthetic-project'
+    assert s['facade'].bindings.get(request.workflow_id) is None
+
+
+def _timer_workflow():
+    from tests.bpmn.test_execution_admission import diagram
+
+    return compile_request(diagram(
+        '<startEvent id="start"/><intermediateCatchEvent id="catch">'
+        '<timerEventDefinition><timeDuration>PT60S</timeDuration></timerEventDefinition>'
+        '</intermediateCatchEvent><serviceTask id="work"/><endEvent id="end"/>'
+        '<sequenceFlow id="begin" sourceRef="start" targetRef="catch"/>'
+        '<sequenceFlow id="next" sourceRef="catch" targetRef="work"/>'
+        '<sequenceFlow id="finish" sourceRef="work" targetRef="end"/>'
+    ))
+
+
 @pytest.mark.parametrize(
     "gate,reason",
     [

@@ -1,0 +1,86 @@
+{
+  "schema": "ananta.bpmn-pause-cancel-command-recovery-gate.v1",
+  "classification": "synthetic_test_technical_observation",
+  "production_release_evidence": false,
+  "deployment_performed": false,
+  "verified": [
+    "Signed Hub cancel settles unresolved edges while preserving accepted completion, skips and prior failure",
+    "Crash replay with a later clock produces one cancellation observation per edge",
+    "Cancelled runs project unresolved steps as cancelled rather than pending or waiting",
+    "Pause has an owner-authenticated named endpoint and an editor action using explicit Hub hints",
+    "Timer/message preflight uses the same project/definition scope guard as Native start",
+    "The editor binds an explicit project to compile/preflight/start and invalidates readiness when it changes",
+    "Unchanged BPMN ticks preserve a verified checkpoint after current lease and revision checks",
+    "An expired SQL control lease cannot use unchanged-state checkpoint reuse",
+    "Closed command_binding preserves the real signed checkpoint alongside compatibility public references",
+    "Foreign or malformed command bindings fail closed without falling back to a compatibility alias",
+    "Command receipts validate bound execution progress and retain exact public observation metadata",
+    "Admission retries only a still-unexecuted signed command with unchanged immutable binding and unconsumed nonce",
+    "Bounded contention retry leaves no receipt or nonce when the snapshot changes or the competing lease persists",
+    "Public status publication retries the same immutable candidate with progression revalidation after compare-and-set contention"
+  ],
+  "focused_browser": {
+    "passed": true,
+    "seconds": 48.39,
+    "partial_case_selection": true,
+    "cleanup_verified": true,
+    "authenticated_paused_page_reload": true,
+    "pause_resume_cancel": true,
+    "unique_cancelled_edges": 3,
+    "cancelled_timer_successor_tasks": 0,
+    "cancelled_timer_retry_denied": true
+  },
+  "command_binding_and_contention": {
+    "passed": 11,
+    "seconds": 6.18
+  },
+  "frontend": {
+    "passed": 76,
+    "seconds": 3.6
+  },
+  "changed_dependency_typescript": "passed",
+  "solid_review": {
+    "protected": "Focused edge observations and command-binding projection (SRP); existing owner-authenticated control path and injected bounded retry wait (DIP/ISP). No worker orchestration or queue ownership changes.",
+    "preserved_debt": "Native command application, status projection and the SQL receipt adapter retain broad responsibilities. The legacy rollout adapter still normalizes project scope values; this change does not migrate that compatibility behavior."
+  },
+  "remaining": [
+    "Positive authenticated retry/reload coverage for service or approval runs",
+    "Browser pre-execution Hub Evidence Registry identities",
+    "Optional backend and productive provider/rollout/release acceptance",
+    "Full frontend build dependency provisioning"
+  ],
+  "broad_regression": {
+    "passed": 1387,
+    "skipped": 13,
+    "deselected": 1,
+    "seconds": 129.12,
+    "scope": "before bounded public status publication follow-up"
+  },
+  "full_core_browser": {
+    "passed": true,
+    "cases": 22,
+    "seconds": 130.02,
+    "partial_case_selection": false,
+    "cleanup_verified": true
+  },
+  "final_publication_regression": {
+    "passed": 228,
+    "seconds": 28.26
+  },
+  "postgres_reference_regression": {
+    "references": 13,
+    "canonical_edge_observations": 130,
+    "worker_registry_runs": 16,
+    "control_registry_runs": 85,
+    "seconds": 58.05,
+    "cleanup_verified": true,
+    "scope": "after idle checkpoint reuse, before additive public command binding follow-up"
+  },
+  "checks": {
+    "ruff": "passed",
+    "changed_dependency_typescript": "passed",
+    "cli_backend_shim_imports": "passed",
+    "diff_check": "passed",
+    "todo_consistency": "passed"
+  }
+}

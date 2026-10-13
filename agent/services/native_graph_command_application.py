@@ -163,6 +163,10 @@ class NativeGraphCommandApplier:
                     "reason_code": state.reason_code,
                 },
             )
+            from agent.services.bpmn_edge_events import emit_bpmn_edge_cancellation
+
+            emit_bpmn_edge_cancellation(plan=plan, request=request, state=state,
+                                       command_id=command.command_id, emitter=self._emitter)
             return plan
         if command.command_type == "retry":
             if any(node.node_type == "bpmn_wait" for node in plan.nodes):
@@ -186,6 +190,10 @@ class NativeGraphCommandApplier:
                 dedupe_key=f"native:{request.run_id}:{command.command_id}:retry",
                 payload={"command_id": command.command_id},
             )
+            from agent.services.bpmn_edge_events import emit_bpmn_edge_restart
+
+            emit_bpmn_edge_restart(plan=plan, request=request, state=state,
+                                   command_id=command.command_id, emitter=self._emitter)
             return plan
         if command.command_type in {"edit", "request_changes"}:
             if state.running:

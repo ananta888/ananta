@@ -227,6 +227,11 @@ def test_remaining_worker_agent_imports_are_explicit_contract_facades() -> None:
             # ananta_contracts.coding_agent_run; the policy consumes the contract ProviderBudgetPort.
             "agent.cli_backends.pi_policy",
             "agent.cli_backends.pi_provider",
+            # Worker-local execution/probe utilities in the mandated CLI subsystem.
+            # No Hub Task service, policy ownership or orchestration is imported.
+            "agent.cli_backends.pi_runtime",
+            "agent.cli_backends.coding_agent_process",
+            "agent.cli_backends.provisioning",
         }
     )
     worker_files = [

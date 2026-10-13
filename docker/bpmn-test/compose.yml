@@ -31,7 +31,7 @@ x-environment: &environment
   PYTHONDONTWRITEBYTECODE: "1"
   HOME: /tmp
   DATA_DIR: /tmp
-  DATABASE_URL: sqlite:////tmp/runtime.sqlite
+  DATABASE_URL: ${BPMN_HUB_DATABASE_URL:-sqlite:////tmp/runtime.sqlite}
   REDIS_URL: ""
   DEFAULT_PROVIDER: mock
   DEFAULT_MODEL: mock
@@ -39,6 +39,9 @@ x-environment: &environment
   BPMN_CONTAINER_ACCEPTANCE: "1"
   BPMN_WORKER_TOKEN: ${BPMN_WORKER_TOKEN:?}
   BPMN_DISPATCH_TOKEN: ${BPMN_DISPATCH_TOKEN:?}
+  BPMN_REPOSITORY_REVISION: ${BPMN_REPOSITORY_REVISION:-}
+  BPMN_REPOSITORY_SOURCE_DIGEST: ${BPMN_REPOSITORY_SOURCE_DIGEST:-}
+  BPMN_BROWSER_IMAGE_ID: ${BPMN_BROWSER_IMAGE_ID:-}
 
 services:
   worker:
@@ -47,6 +50,7 @@ services:
     environment:
       <<: *environment
       ROLE: worker
+      DATABASE_URL: sqlite:////tmp/runtime.sqlite
     healthcheck:
       test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://localhost:8080/health', timeout=2).read()"]
       interval: 2s
@@ -69,6 +73,110 @@ services:
       interval: 2s
       timeout: 3s
       retries: 40
+  fullapp: &fullapp
+    <<: *runtime
+    profiles: [full-app]
+    command: [-m, bpmn_container.full_app]
+    volumes:
+      - ${BPMN_TEST_ROOT:?}/agent:/sandbox/agent:ro
+      - ${BPMN_TEST_ROOT:?}/ananta_contracts:/sandbox/ananta_contracts:ro
+      - ${BPMN_TEST_ROOT:?}/ananta_codecompass:/sandbox/ananta_codecompass:ro
+      - ${BPMN_TEST_ROOT:?}/worker:/sandbox/worker:ro
+      - ${BPMN_TEST_ROOT:?}/voice_runtime:/sandbox/voice_runtime:ro
+      - ${BPMN_TEST_ROOT:?}/client_surfaces:/sandbox/client_surfaces:ro
+      - ${BPMN_TEST_ROOT:?}/client_runtime:/sandbox/client_runtime:ro
+      - ${BPMN_TEST_ROOT:?}/rag-helper/rag_helper:/sandbox/rag_helper:ro
+      - ${BPMN_TEST_ROOT:?}/schemas:/sandbox/schemas:ro
+      - ${BPMN_TEST_ROOT:?}/prompts:/sandbox/prompts:ro
+      - ${BPMN_TEST_ROOT:?}/assets/geomaps:/sandbox/assets/geomaps:ro
+      - ${BPMN_TEST_ROOT:?}/config/codecompass:/sandbox/config/codecompass:ro
+      - ${BPMN_TEST_ROOT:?}/config/workflow_runtime:/sandbox/config/workflow_runtime:ro
+      - ${BPMN_TEST_ROOT:?}/config/security:/sandbox/config/security:ro
+      - ${BPMN_TEST_ROOT:?}/config/livekit.semantic-media.yaml:/sandbox/config/livekit.semantic-media.yaml:ro
+      - ${BPMN_TEST_ROOT:?}/config/sfu_broadcast_background.default.json:/sandbox/config/sfu_broadcast_background.default.json:ro
+      - ${BPMN_TEST_ROOT:?}/config/sfu_broadcast_baseline_activation.default.json:/sandbox/config/sfu_broadcast_baseline_activation.default.json:ro
+      - ${BPMN_TEST_ROOT:?}/config/sfu_broadcast_baseline_limits.v1.json:/sandbox/config/sfu_broadcast_baseline_limits.v1.json:ro
+      - ${BPMN_TEST_ROOT:?}/config/sfu_broadcast_capacity.default.json:/sandbox/config/sfu_broadcast_capacity.default.json:ro
+      - ${BPMN_TEST_ROOT:?}/config/sfu_broadcast_cluster_directory.json:/sandbox/config/sfu_broadcast_cluster_directory.json:ro
+      - ${BPMN_TEST_ROOT:?}/config/sfu_broadcast_data_limits.json:/sandbox/config/sfu_broadcast_data_limits.json:ro
+      - ${BPMN_TEST_ROOT:?}/config/sfu_broadcast_egress_limits.json:/sandbox/config/sfu_broadcast_egress_limits.json:ro
+      - ${BPMN_TEST_ROOT:?}/config/sfu_broadcast_fairness_profiles.json:/sandbox/config/sfu_broadcast_fairness_profiles.json:ro
+      - ${BPMN_TEST_ROOT:?}/config/sfu_broadcast_layer_profiles.json:/sandbox/config/sfu_broadcast_layer_profiles.json:ro
+      - ${BPMN_TEST_ROOT:?}/config/sfu_broadcast_layer_transition_profiles.json:/sandbox/config/sfu_broadcast_layer_transition_profiles.json:ro
+      - ${BPMN_TEST_ROOT:?}/config/sfu_broadcast_observability_catalog.json:/sandbox/config/sfu_broadcast_observability_catalog.json:ro
+      - ${BPMN_TEST_ROOT:?}/config/sfu_broadcast_slo_profiles.json:/sandbox/config/sfu_broadcast_slo_profiles.json:ro
+      - ${BPMN_TEST_ROOT:?}/config/sfu_broadcast_version_compatibility.json:/sandbox/config/sfu_broadcast_version_compatibility.json:ro
+      - ${BPMN_TEST_ROOT:?}/config/sfu_fanout_traffic_projection.json:/sandbox/config/sfu_fanout_traffic_projection.json:ro
+      - ${BPMN_TEST_ROOT:?}/config/sfu_member_digest_key_policy.json:/sandbox/config/sfu_member_digest_key_policy.json:ro
+      - ${BPMN_TEST_ROOT:?}/config/sfu_node_trust.default.json:/sandbox/config/sfu_node_trust.default.json:ro
+      - ${BPMN_TEST_ROOT:?}/config/sfu_runtime_observation.default.json:/sandbox/config/sfu_runtime_observation.default.json:ro
+      - ${BPMN_TEST_ROOT:?}/config/geomaps/registry.v1.json:/sandbox/config/geomaps/registry.v1.json:ro
+      - ${BPMN_TEST_ROOT:?}/tests/bpmn_container:/sandbox/tests/bpmn_container:ro
+    environment: &fullapp_environment
+      <<: *environment
+      ROLE: hub
+      ANANTA_DISABLE_BACKGROUND_THREADS: "1"
+      DISABLE_LLM_CHECK: "1"
+      ANANTA_CONTEXT_PROVIDER_PROBE: "0"
+      LMSTUDIO_URL: http://127.0.0.1:9/v1
+      OLLAMA_URL: http://127.0.0.1:9/api/generate
+  fullapp-autopilot:
+    <<: *fullapp
+    profiles: [full-app-autopilot]
+    environment:
+      <<: *fullapp_environment
+      BPMN_AUTOPILOT_ENABLED: "1"
+      BPMN_POSTGRES_ENABLED: ${BPMN_POSTGRES_ENABLED:-0}
+      BPMN_WORKER_LOSS_ENABLED: ${BPMN_WORKER_LOSS_ENABLED:-0}
+      BPMN_WORKER_REDELIVERY_ENABLED: ${BPMN_WORKER_REDELIVERY_ENABLED:-0}
+      BPMN_NATIVE_RETRY_ENABLED: ${BPMN_NATIVE_RETRY_ENABLED:-0}
+      BPMN_TOOL_ISOLATION_ENABLED: ${BPMN_TOOL_ISOLATION_ENABLED:-0}
+      BPMN_HUB_URL: http://fullapp-autopilot:8080
+      BPMN_WORKER_URL: http://autopilot-worker:8080
+      BPMN_RESTART_TOKEN: ${BPMN_RESTART_TOKEN:-unused}
+      HUB_URL: http://fullapp-autopilot:8080
+      AGENT_URL: http://fullapp-autopilot:8080
+    depends_on:
+      autopilot-worker:
+        condition: service_healthy
+  autopilot-worker:
+    <<: *runtime
+    profiles: [full-app-autopilot]
+    command: [-m, bpmn_container.worker]
+    environment:
+      <<: *environment
+      ROLE: worker
+      DATABASE_URL: sqlite:////tmp/runtime.sqlite
+      BPMN_HUB_URL: http://fullapp-autopilot:8080
+      BPMN_WORKER_URL: http://autopilot-worker:8080
+      BPMN_WORKER_LOSS_ENABLED: ${BPMN_WORKER_LOSS_ENABLED:-0}
+      BPMN_WORKER_REDELIVERY_ENABLED: ${BPMN_WORKER_REDELIVERY_ENABLED:-0}
+      BPMN_NATIVE_RETRY_ENABLED: ${BPMN_NATIVE_RETRY_ENABLED:-0}
+      BPMN_TOOL_ISOLATION_ENABLED: ${BPMN_TOOL_ISOLATION_ENABLED:-0}
+    volumes:
+      - ${BPMN_TEST_ROOT:?}/agent:/sandbox/agent:ro
+      - ${BPMN_TEST_ROOT:?}/ananta_contracts:/sandbox/ananta_contracts:ro
+      - ${BPMN_TEST_ROOT:?}/worker:/sandbox/worker:ro
+      - ${BPMN_TEST_ROOT:?}/schemas:/sandbox/schemas:ro
+      - ${BPMN_TEST_ROOT:?}/config/codecompass:/sandbox/config/codecompass:ro
+      - ${BPMN_TEST_ROOT:?}/config/workflow_runtime:/sandbox/config/workflow_runtime:ro
+      - ${BPMN_TEST_ROOT:?}/tests/bpmn_container:/sandbox/tests/bpmn_container:ro
+      - worker-results:/native-results
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://localhost:8080/health', timeout=2).read()"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+  result-volume-init:
+    <<: *runtime
+    profiles: [full-app-autopilot]
+    user: "0:0"
+    cap_add: [CHOWN]
+    networks: []
+    network_mode: none
+    volumes:
+      - worker-results:/native-results
+    command: [-I, -c, "import os; os.chmod('/native-results', 0o700); os.chown('/native-results', 65534, 65534)"]
   browser:
     profiles: [browser]
     image: ${BPMN_BROWSER_IMAGE:-ananta-frontend-tests:local}
@@ -99,6 +207,37 @@ services:
       hub:
         condition: service_healthy
 
+  postgres:
+    profiles: [postgres]
+    image: ${BPMN_POSTGRES_IMAGE:-sha256:5d143123fdf80462d1778cd4f24b9f7ca13c87174bca19141fb194c5a1ebca59}
+    pull_policy: never
+    read_only: true
+    user: "999:999"
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    mem_limit: 768m
+    cpus: 2
+    tmpfs:
+      - /var/lib/postgresql/data:rw,nosuid,nodev,noexec,size=512m,uid=999,gid=999,mode=0700
+      - /var/run/postgresql:rw,nosuid,nodev,noexec,size=16m,uid=999,gid=999,mode=0755
+      - /tmp:rw,nosuid,nodev,noexec,size=64m,uid=999,gid=999,mode=0700
+    environment:
+      POSTGRES_USER: ananta_fixture
+      POSTGRES_DB: ananta_bpmn_fixture
+      POSTGRES_PASSWORD: synthetic-postgres-fixture-password
+    command: [postgres, -c, shared_buffers=32MB, -c, min_wal_size=32MB, -c, max_wal_size=64MB]
+    healthcheck:
+      test: [CMD, pg_isready, -U, ananta_fixture, -d, ananta_bpmn_fixture]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+    networks: [acceptance]
+
 networks:
   acceptance:
     internal: true
+
+volumes:
+  worker-results:
+    driver: local

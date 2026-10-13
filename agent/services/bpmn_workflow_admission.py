@@ -49,6 +49,11 @@ def validate_bpmn_request(request) -> list[str]:
     errors = []
     for step in request.steps:
         original = graph.step_by_id(step.step_id)
+        if not graph.metadata.get("bpmn_xml_regions") and (
+            tuple(step.input_artifacts) != tuple(original.io.input_names())
+            or tuple(step.output_artifacts) != tuple(original.io.output_names())
+        ):
+            errors.append("bpmn_artifact_binding_mismatch")
         if graph.metadata.get("bpmn_xml_regions"):
             if step.task_kind != original.kind or step.role != (
                 original.role or original.agent_skill_profile_id or "default"

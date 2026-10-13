@@ -1,0 +1,67 @@
+{
+  "schema": "ananta.bpmn-result-retirement-foundation-gate.v1",
+  "classification": "synthetic_signed_permits_and_actual_sql_historical_admission_technical_observation",
+  "status": "signed_private_compaction_and_historical_hub_admission_locally_verified_productive_composition_pending",
+  "production_release_evidence": false,
+  "deployment_performed": false,
+  "broad_passed": 1797,
+  "broad_skipped": 23,
+  "broad_deselected": 1,
+  "broad_seconds": 143.36,
+  "focused_passed": 115,
+  "focused_seconds": 9.96,
+  "owned_postgres_regression_passed": 11,
+  "owned_postgres_regression_seconds": 30.46,
+  "owned_postgres_image": "sha256:5d143123fdf80462d1778cd4f24b9f7ca13c87174bca19141fb194c5a1ebca59",
+  "owned_postgres_cleanup_verified": true,
+  "verified": [
+    "Expired exact tenant/project/private-binding slots compact atomically under a closed Ed25519 permit",
+    "Permanent minimal markers deny replay even after reopening or changing project/input bindings",
+    "Separate bounded result and tombstone capacity; marker exhaustion rolls back the whole batch",
+    "Unexpired, unscoped, foreign-project and differently bound slots remain untouched",
+    "Permit binds current maintenance Task, immutable command, stronger tools/capability, owner and grant expiry",
+    "Permit expiry rechecked after SQLite write-lock acquisition",
+    "Tampered, unsigned, foreign, duplicated, oversized and content-bearing permit entries denied",
+    "Concurrent compaction/reservation never reopens an execution",
+    "Shared private binding preserves the frozen legacy ASCII JSON digest for Unicode input paths",
+    "Hub historical proof requires actual terminal Native/Pi receipt and accepted immutable dispatch",
+    "Registered owner, stronger retirement capability, exact expired grant and congruent SQL/JSON lease required",
+    "Unknown dispatch, altered receipts/bindings, active authority and changed store deny historical admission",
+    "Expiry-only handler refuses retirement; unavailable capability is not advertised",
+    "Existing isolated PostgreSQL Native dispatch/event-wait/cadence gate passes without skips"
+  ],
+  "limits": {
+    "permit_ttl_seconds_max": 60,
+    "permit_entries_max": 1000,
+    "default_result_records_max": 10000,
+    "default_tombstones_max": 1000000,
+    "tombstone_deletion": false,
+    "physical_erasure_claim": false
+  },
+  "remaining": [
+    "Hub issuance under current maintenance authority and policy",
+    "Bounded candidate selection and durable Hub acknowledgements that advance beyond compacted slots",
+    "Explicit opted-in Worker retirement composition and pre/post Hub authority revalidation",
+    "Bounded maintenance capacity when regular result capacity is already full",
+    "Cadence reconciliation under restart, revocation and unknown outcomes",
+    "Historical proof for superseded assignments/leases remains conservatively denied",
+    "Full compiled reference/container/PostgreSQL and productive release acceptance"
+  ],
+  "checks": {
+    "ruff": "passed",
+    "memory_channels": "passed",
+    "memory_legacy_access": "passed",
+    "cli_backend_shim_imports": "passed",
+    "todo_consistency": "passed",
+    "git_diff_check": "passed"
+  },
+  "solid": {
+    "protected": "Shared binding, closed permit validation, Worker persistence and Hub SQL historical authorization have focused responsibilities. Canonical grant and ownership checks are reused at their owning boundaries.",
+    "preserved_debt": "Existing broad Native scheduling and Flask/global runtime composition remain SRP/DIP debt. No Worker orchestration or evidence identity issuance introduced."
+  },
+  "regression_limits": {
+    "skipped": "Owned PostgreSQL tests run separately; additional live Pi/SDK/process fixtures and another PostgreSQL-only grant test remain opt-in. No broad production acceptance claim.",
+    "postgres": "Existing eleven component regression cases; new retirement admission was exercised with SQLite, not represented as a PostgreSQL retirement gate.",
+    "productive_activation": "Not composed; explicit bounded refusal rather than false completion."
+  }
+}

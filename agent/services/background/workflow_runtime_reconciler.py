@@ -20,6 +20,15 @@ def start_workflow_runtime_reconciler_thread(app) -> None:
         import agent.common.context
 
         while not agent.common.context.shutdown_requested:
+            maintenance = {}
+            try:
+                from agent.services.native_result_maintenance_runtime import run_native_result_maintenance_tick
+
+                maintenance = run_native_result_maintenance_tick(app)
+                if maintenance.get('reserved') or maintenance.get('cancelled') or maintenance.get('blocked'):
+                    logging.info('Native private-result cadence: %s', maintenance)
+            except Exception as exc:
+                logging.warning('Native maintenance reconciliation unavailable: %s', type(exc).__name__)
             try:
                 with app.app_context():
                     from agent.services.workflow_runtime_reconciler_service import (
@@ -40,7 +49,7 @@ def start_workflow_runtime_reconciler_thread(app) -> None:
                     "Workflow runtime reconciliation unavailable: %s",
                     type(exc).__name__,
                 )
-            if not _wait(interval):
+            if not _wait(_maintenance_interval(app, interval, maintenance)):
                 break
 
     thread = threading.Thread(
@@ -62,6 +71,12 @@ def _interval_seconds() -> float:
     except (TypeError, ValueError):
         value = 1.0
     return max(0.25, min(value, 60.0))
+
+
+def _maintenance_interval(app, interval, result):
+    policy = (app.config.get('AGENT_CONFIG') or {}).get('native_result_maintenance') or {}
+    enabled = isinstance(policy, dict) and policy.get('enabled') is True
+    return min(interval, 5.0) if enabled or result.get('pending', 0) else interval
 
 
 def _wait(seconds: float) -> bool:

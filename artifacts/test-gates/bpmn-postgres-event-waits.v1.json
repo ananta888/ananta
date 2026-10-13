@@ -1,0 +1,48 @@
+{
+  "schema": "ananta.bpmn.postgres-event-waits-gate.v1",
+  "classification": "owned_postgres_component_concurrency_technical_observation",
+  "status": "native_dispatch_and_event_wait_components_verified_full_bpmn_matrix_pending",
+  "production_release_evidence": false,
+  "tests_passed": 9,
+  "seconds": 22.04,
+  "gate": "scripts/test_bpmn_postgres.py",
+  "tests": [
+    "tests/bpmn/test_native_postgres_concurrency.py",
+    "tests/bpmn/test_event_wait_postgres.py"
+  ],
+  "postgres_image": "sha256:5a65324fe84dc41709ff914e90b07f3e2f577073ed27bf917d4873aca0c9ec51",
+  "new_cases": [
+    "Concurrent timer cancellation and consumption have one durable winner.",
+    "Duplicate message delivery and parallel consumption preserve one receipt across a successor control lease.",
+    "An expired control lease cannot mutate event waits after a signed successor lease takes ownership."
+  ],
+  "fixture": {
+    "owned_database": true,
+    "serving_database_changed": false,
+    "independent_sql_engines": true,
+    "actual_checkpoint_compare_and_swap": true,
+    "actual_signed_hub_control_leases": true,
+    "rootfs": "read_only",
+    "user_id": 999,
+    "capabilities": "none",
+    "published_host_interface": "127.0.0.1",
+    "temporary_database_storage_mib": 512,
+    "shared_buffers_mib": 32,
+    "min_wal_mib": 32,
+    "max_wal_mib": 64,
+    "checkpoint_timeout_seconds": 30,
+    "statement_timeout_ms": 5000,
+    "lock_timeout_ms": 1000,
+    "pytest_wall_timeout_seconds": 90,
+    "junit_executed_count_required": 9,
+    "skipped": 0,
+    "remaining_owned_containers_after_gate": 0,
+    "remaining_owned_networks_after_gate": 0
+  },
+  "initial_failure": "The extended owned fixture exhausted its former 256MiB tmpfs with default WAL settings: eight tests passed and one setup failed. Only the disposable fixture storage/WAL limits were adjusted before the successful nine-case run.",
+  "scope_limit": "Component-level event-wait races with a compiled XOR plan binding and synthetic catch targets/message authorizer; not a complete compiled timer/message workflow or separate Hub process acceptance.",
+  "remaining": [
+    "Complete PostgreSQL compiled BPMN control/wait/reference-process matrix.",
+    "Independent full Hub process concurrency and productive release admission."
+  ]
+}

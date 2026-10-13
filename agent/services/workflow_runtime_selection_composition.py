@@ -236,6 +236,9 @@ def _candidate(runtime_id: str, *, native_production: bool) -> RuntimeCandidate:
     if runtime_id == "ananta-native":
         capabilities = set(PROTECTED_COMPATIBILITY_CAPABILITIES)
         if native_production:
+            from agent.services.native_graph_delegated_capabilities import NATIVE_DELEGATED_CAPABILITIES
+
+            capabilities.update(NATIVE_DELEGATED_CAPABILITIES)
             capabilities.update(
                 {
                     "approval",

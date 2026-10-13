@@ -1,0 +1,70 @@
+{
+  "artifact_denial": {
+    "canonical_step_completed": false,
+    "consistent_envelope_references": true,
+    "ownership_acknowledged": false,
+    "reason_code": "native_artifact_hub_receipt_required"
+  },
+  "artifact_transfer": {
+    "consumer_bytes_verified": true,
+    "hub_bytes_verified": true,
+    "hub_signing_material_private": true,
+    "producer_local_bytes_verified": true,
+    "producer_receipt_classification": "technical_observation",
+    "worker_hub_storage_separate": true
+  },
+  "case_selection": "full_unselected",
+  "cases": {
+    "and_join": true,
+    "artifact_handoff": true,
+    "artifact_unadmitted_output_denied": true,
+    "assignment_fence": true,
+    "authenticated_browser_editor": true,
+    "loop_sql_restart": true,
+    "message_sql_restart": true,
+    "policy_approve": true,
+    "policy_blocked": true,
+    "policy_reject": true,
+    "public_auth_and_release_denial": true,
+    "public_graph_start": true,
+    "public_graph_start_replay": true,
+    "public_sql_recovery": true,
+    "public_start_replay": true,
+    "result_attempt_binding": true,
+    "result_fence_binding": true,
+    "subprocess_sql_restart": true,
+    "timer_sql_restart": true,
+    "xor_default": true,
+    "xor_false": true,
+    "xor_true": true
+  },
+  "checks": {
+    "diff_check": "passed",
+    "ruff": "passed",
+    "todo_consistency": "passed"
+  },
+  "classification": "synthetic_test_technical_observation",
+  "cleanup_complete": true,
+  "command": "python3 scripts/test_bpmn_container.py --browser --timeout 240",
+  "composition_limits": [
+    "Injected deterministic execution handler and explicit synthetic Hub approval policy",
+    "Artifact runtime composition lookup injected; production routes/auth/SQL authority/storage/result admission unchanged",
+    "Service-level container suite uses shared dependency image; not production Worker packaging admission"
+  ],
+  "deployment": false,
+  "not_covered": [
+    "full_application_boot",
+    "autopilot_dispatch_loop",
+    "production_runtime_release_admission",
+    "container_restart_recovery",
+    "optional_backends"
+  ],
+  "production_release_evidence": false,
+  "review_date": "2026-10-11",
+  "schema": "ananta.bpmn-native-artifact-container-review.v1",
+  "targeted_tests": {
+    "compiler_http_ingress_runner": 57,
+    "file_transfer_input_todo": 92,
+    "total_unique": 149
+  }
+}

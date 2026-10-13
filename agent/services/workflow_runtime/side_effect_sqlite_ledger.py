@@ -113,6 +113,7 @@ class SQLiteSideEffectLedger:
         step_id: str,
         declared_operation: str,
         side_effect_class: str,
+        _control_lease=None,
     ) -> SideEffectRecord:
         record = _new_record(
             tenant_id=tenant_id,
@@ -125,6 +126,10 @@ class SQLiteSideEffectLedger:
         with self._lock:
             self._connection.execute("BEGIN IMMEDIATE")
             try:
+                if _control_lease is not None:
+                    from agent.services.workflow_runtime.lease_fencing import validate_sqlite_lease
+
+                    validate_sqlite_lease(self._connection, _control_lease, record)
                 existing = self._read(record.operation_id)
                 if existing is not None:
                     if _binding(existing) != _binding(record):
@@ -138,6 +143,12 @@ class SQLiteSideEffectLedger:
                 self._connection.rollback()
                 raise
 
+    def plan_fenced(self, *, lease, **values):
+        return self.plan(**values, _control_lease=lease)
+
+    def authorize_fenced(self, operation_id, *, lease, **values):
+        return self.authorize(operation_id, **values, _control_lease=lease)
+
     def authorize(
         self,
         operation_id: str,
@@ -145,6 +156,7 @@ class SQLiteSideEffectLedger:
         expected_revision: int,
         fencing_token: int,
         authorization_envelope_id: str,
+        _control_lease=None,
     ) -> SideEffectRecord:
         if not authorization_envelope_id:
             raise ValueError("authorization_envelope_id_required")
@@ -154,6 +166,7 @@ class SQLiteSideEffectLedger:
             fencing_token=fencing_token,
             to_status="authorized",
             authorization_envelope_id=authorization_envelope_id,
+            _control_lease=_control_lease,
         )
 
     def claim(
@@ -436,11 +449,16 @@ class SQLiteSideEffectLedger:
         authorization_envelope_id: str = "",
         result_ref: str = "",
         failure_code: str = "",
+        _control_lease=None,
     ) -> SideEffectRecord:
         with self._lock:
             self._connection.execute("BEGIN IMMEDIATE")
             try:
                 current = self._read_required(operation_id)
+                if _control_lease is not None:
+                    from agent.services.workflow_runtime.lease_fencing import validate_sqlite_lease
+
+                    validate_sqlite_lease(self._connection, _control_lease, current)
                 updated = _transition(
                     current,
                     expected_revision=expected_revision,

@@ -7,6 +7,7 @@ from collections.abc import Mapping
 from typing import Any, Protocol
 
 from agent.services.native_context_preparation_service import NativeContextPreparationPort
+from agent.services.native_project_task_scope import NativeProjectTaskScopePort
 from agent.services.pi_native_result_validation import validate_pi_native_result
 from agent.services.pi_task_scope_preparation import PiTaskScopePreparationPort
 from agent.services.workflow_runtime.native_graph_contracts import (
@@ -16,6 +17,7 @@ from agent.services.workflow_runtime.native_graph_contracts import (
 )
 from agent.services.workflow_runtime.native_graph_ports import HubTaskSubmission
 from ananta_contracts.native_context_bundle import native_context_digest
+from ananta_contracts.native_result_maintenance import MAINTENANCE_TASK_KIND
 
 
 class TaskRepositoryPort(Protocol):
@@ -51,12 +53,14 @@ class AnantaHubTaskQueueAdapter:
         task_runtime: TaskRuntimeMutationPort,
         context_preparer: NativeContextPreparationPort | None = None,
         pi_scope_preparer: PiTaskScopePreparationPort | None = None,
+        maintenance_scope_preparer: NativeProjectTaskScopePort | None = None,
     ) -> None:
         self._queue = task_queue
         self._repository = task_repository
         self._runtime = task_runtime
         self._context_preparer = context_preparer
         self._pi_scope_preparer = pi_scope_preparer
+        self._maintenance_scope_preparer = maintenance_scope_preparer
 
     def submit(self, command: NativeNodeCommand) -> HubTaskReceipt:
         return self._submit(command)
@@ -71,6 +75,11 @@ class AnantaHubTaskQueueAdapter:
     def _submit(self, command: NativeNodeCommand, *, lease=None) -> HubTaskReceipt:
         command.assert_valid()
         hub_task_id = _task_id(command.command_id)
+        maintenance_scope = None
+        if command.node.task_kind == MAINTENANCE_TASK_KIND:
+            if self._maintenance_scope_preparer is None:
+                raise ValueError('native_result_maintenance_scope_unavailable')
+            maintenance_scope = self._maintenance_scope_preparer.prepare(command=command)
         # Fenced duplicate admission belongs inside the recipient transaction.
         existing = self._repository.get_by_id(hub_task_id) if lease is None else None
         if existing is not None:
@@ -83,6 +92,11 @@ class AnantaHubTaskQueueAdapter:
             identical = isinstance(stored, Mapping) and native_context_digest(dict(stored)) == native_context_digest(
                 command.to_dict()
             )
+            if identical and maintenance_scope is not None:
+                for key, value in maintenance_scope.items():
+                    present = existing.get(key) if isinstance(existing, Mapping) else getattr(existing, key, None)
+                    if native_context_digest(present) != native_context_digest(value):
+                        raise ValueError('native_result_maintenance_scope_changed_before_ingestion')
             return HubTaskReceipt(
                 hub_task_id=hub_task_id,
                 command_id=command.command_id,
@@ -90,6 +104,10 @@ class AnantaHubTaskQueueAdapter:
                 reason_code="" if identical else "native_hub_task_id_conflict",
             )
         extra_fields = self._submission_fields(command, hub_task_id)
+        if maintenance_scope is not None:
+            if any(key in extra_fields and extra_fields[key] != value for key, value in maintenance_scope.items()):
+                raise ValueError('native_result_maintenance_scope_changed_before_ingestion')
+            extra_fields.update(maintenance_scope)
         if command.node.task_kind == "pi_coding_agent" and self._pi_scope_preparer is not None:
             scope = self._pi_scope_preparer.prepare(command=command)
             if any(key in extra_fields and extra_fields[key] != value for key, value in scope.items()):
@@ -202,6 +220,10 @@ class AnantaHubTaskQueueAdapter:
                         command=admitted_command,
                         candidate=pi_task_result_candidate(task, admitted_command),
                     )
+                else:
+                    from agent.services.native_result_task_projection import require_native_result_receipt
+
+                    require_native_result_receipt(task, command)
                 results.append(result)
                 continue
             results.append(_missing_result_failure(command, task_id, status))
@@ -237,10 +259,20 @@ class AnantaHubTaskQueueAdapter:
                 event_details={"run_id": run_id, "reason": str(reason)[:240]},
             )
 
+    def cancel_fenced(self, *, tenant_id, run_id, hub_task_ids, reason, lease):
+        from agent.services.native_task_cancellation import cancel_native_task_fenced
+
+        for task_id in sorted(set(hub_task_ids)):
+            cancel_native_task_fenced(
+                repository=self._repository, runtime=self._runtime, task_id=task_id, lease=lease,
+                tenant_id=tenant_id, run_id=run_id, reason=reason,
+            )
+
 
 def build_native_graph_task_queue_adapter() -> AnantaHubTaskQueueAdapter:
     from agent.repository import task_repo
     from agent.services.native_context_preparation_composition import HubNativeContextPreparer
+    from agent.services.native_result_maintenance_scope import HubResultMaintenanceScopePreparer
     from agent.services.pi_task_scope_composition import HubPiTaskScopePreparer
     from agent.services.task_queue_service import get_task_queue_service
     from agent.services.task_runtime_service import TaskRuntimeService
@@ -251,6 +283,7 @@ def build_native_graph_task_queue_adapter() -> AnantaHubTaskQueueAdapter:
         task_runtime=TaskRuntimeService(),
         context_preparer=HubNativeContextPreparer(),
         pi_scope_preparer=HubPiTaskScopePreparer(),
+        maintenance_scope_preparer=HubResultMaintenanceScopePreparer(),
     )
 
 

@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "classification": "local_headless_technical_observation",
+  "production_release_evidence": false,
+  "deployment_performed": false,
+  "checks": {
+    "full_application_typescript": "passed",
+    "full_angular_build": "passed",
+    "angular_build_duration_seconds": 38.982
+  },
+  "environment": {
+    "image": "ananta-frontend-tests:local",
+    "dependencies": "existing frontend-angular/node_modules mounted read-only",
+    "game_core": "actual packages/ananta-game-core/src mounted read-only",
+    "network": "none",
+    "container_user": "65534:65534",
+    "filesystem": "read-only with bounded build/cache tmpfs"
+  },
+  "limitations": [
+    "existing node_modules used; fresh lockfile installation not verified",
+    "existing Angular unused-import and CommonJS optimization warnings remain"
+  ]
+}

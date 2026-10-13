@@ -1,0 +1,155 @@
+{
+  "acceptance": {
+    "capability_scope": "full_application_native_autopilot",
+    "cases": {
+      "full_application_boot": {
+        "background_services_configured_off": true,
+        "http_boundaries": {
+          "health": 200,
+          "login": {
+            "access_token_issued": true,
+            "status": 200
+          },
+          "native_autopilot": {
+            "artifact_handoff": {
+              "bootstrap_fixture": "Synthetic Hub graph input; production queue/dispatch/auth/result services",
+              "generic_llm_proposal_used": false,
+              "hub_receipt_classification": "technical_observation",
+              "passed": true,
+              "production_release_evidence": false,
+              "real_autopilot_http_tick": true,
+              "separate_worker": true,
+              "signed_closed_projection": true,
+              "task_count": 2,
+              "task_status": "completed",
+              "ticks": [
+                {
+                  "completed": null,
+                  "dispatched": 0,
+                  "failed": null
+                },
+                {
+                  "completed": 1,
+                  "dispatched": 1,
+                  "failed": 0
+                },
+                {
+                  "completed": 1,
+                  "dispatched": 1,
+                  "failed": 0
+                }
+              ],
+              "workflow_status": "completed"
+            },
+            "native_node": {
+              "bootstrap_fixture": "Synthetic Hub graph input; production queue/dispatch/auth/result services",
+              "generic_llm_proposal_used": false,
+              "hub_receipt_classification": "technical_observation",
+              "passed": true,
+              "production_release_evidence": false,
+              "real_autopilot_http_tick": true,
+              "separate_worker": true,
+              "signed_closed_projection": true,
+              "task_count": 1,
+              "task_status": "completed",
+              "ticks": [
+                {
+                  "completed": null,
+                  "dispatched": 0,
+                  "failed": null
+                },
+                {
+                  "completed": 1,
+                  "dispatched": 1,
+                  "failed": 0
+                }
+              ],
+              "workflow_status": "completed"
+            }
+          },
+          "native_input": {
+            "data": {
+              "error_help": {
+                "next_steps": [
+                  "Melde dich erneut an oder pruefe den verwendeten Token.",
+                  "Pruefe, ob dein Benutzer die noetige Rolle oder Freigabe hat."
+                ],
+                "summary": "Zugriff nicht moeglich."
+              },
+              "reason_code": "workflow_auth_bearer_required"
+            },
+            "status": 401
+          },
+          "native_publish": {
+            "data": {
+              "error_help": {
+                "next_steps": [
+                  "Melde dich erneut an oder pruefe den verwendeten Token.",
+                  "Pruefe, ob dein Benutzer die noetige Rolle oder Freigabe hat."
+                ],
+                "summary": "Zugriff nicht moeglich."
+              },
+              "reason_code": "workflow_auth_bearer_required"
+            },
+            "status": 401
+          },
+          "workflow_start": {
+            "data": {
+              "error_help": {
+                "next_steps": [
+                  "Melde dich erneut an oder pruefe den verwendeten Token.",
+                  "Pruefe, ob dein Benutzer die noetige Rolle oder Freigabe hat."
+                ],
+                "summary": "Zugriff nicht moeglich."
+              },
+              "reason_code": "workflow_auth_bearer_required"
+            },
+            "status": 401
+          }
+        },
+        "passed": true,
+        "production_bootstrap": true,
+        "required_routes_registered": [
+          "/api/internal/tasks/<task_id>/native-artifact-inputs/<input_name>",
+          "/api/internal/tasks/<task_id>/native-artifacts",
+          "/api/visual-process/workflow/start",
+          "/health",
+          "/login"
+        ],
+        "testing_flag": false,
+        "unauthorized_tasks_created": 0
+      }
+    },
+    "evidence_classification": "synthetic_test_technical_observation",
+    "not_covered": [
+      "real_container_loss_recovery",
+      "production_release_admission",
+      "public_production_release_admission"
+    ],
+    "passed": true,
+    "production_release_evidence": false,
+    "schema": "bpmn_full_app_native_autopilot.v1"
+  },
+  "cleanup_complete": true,
+  "elapsed_seconds": 35.26,
+  "evidence_classification": "synthetic_test_technical_observation",
+  "exit_code": 0,
+  "production_release_evidence": false,
+  "schema": "bpmn_full_app_native_autopilot_gate.v1",
+  "command": "python3 scripts/test_bpmn_container.py --full-app-autopilot",
+  "fixture_scope": "Synthetic Hub graph admission and deterministic Worker handlers; actual production app, Autopilot HTTP, queue, assignment, signatures, artifact ingress and result admission.",
+  "regression": {
+    "tests_passed": 989,
+    "seconds": 90.99,
+    "core_container_browser_cases_passed": 22,
+    "core_container_browser_seconds": 60.79,
+    "post_composition_focused_tests_passed": 66
+  },
+  "remaining": [
+    "Durable dispatch outbox and real container-loss recovery",
+    "PostgreSQL concurrency",
+    "Production image packaging and actual provider/tool execution",
+    "Public production release admission",
+    "Complete CaseFlow/browser recovery matrix"
+  ]
+}

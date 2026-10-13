@@ -1,0 +1,34 @@
+{
+  "schema": "ananta.bpmn-postgres-full-app-gate.v1",
+  "classification": "owned_three_container_synthetic_test_technical_observation",
+  "production_release_evidence": false,
+  "deployment_performed": false,
+  "hub_database": "postgresql",
+  "worker_database": "private_sqlite",
+  "reference_cases": 13,
+  "unique_pre_reserved_hub_worker_runs": 16,
+  "reference_seconds": 55.42,
+  "worker_recreation_redelivery_seconds": 43.96,
+  "expired_lease_authorized_retry_seconds": 43.69,
+  "runner_and_isolation_tests_passed": 25,
+  "runner_and_isolation_seconds": 3.57,
+  "cleanup_verified": true,
+  "verified": [
+    "Actual production Hub bootstrap, authenticated Autopilot, SQL queue/assignment/grants/journal/receipt use an isolated PostgreSQL database",
+    "All thirteen references complete with their expected terminal/blocked states and actual Task/edge/artifact observations",
+    "All sixteen Worker test RUNs are Hub-issued before execution and denied for production release",
+    "Only explicitly enabled Hub uses exact owned PostgreSQL URL; Worker cannot opt into shared PostgreSQL",
+    "PostgreSQL uses cached immutable image, internal network, no host ports or persistent host data",
+    "Actual Worker loss and recreation recover original persisted result without another dispatch",
+    "Expired original result is denied; retry without policy is denied; exact Hub policy produces fresh higher-fenced attempt",
+    "Each gate removes its exact owned containers, networks and volumes"
+  ],
+  "remaining": [
+    "Controller/event/browser Registry reservation and complete UI recovery/command coverage",
+    "Optional backend conformance and productive provider/rollout/release admission"
+  ],
+  "solid": {
+    "protected": "Database option validation, owned database startup and fixture transport admission have focused functions. Dialect-specific transaction syntax stays at the persistence fixture seam.",
+    "preserved_debt": "Existing broad full-app driver and global Flask/engine composition retain SRP and coupling debt."
+  }
+}

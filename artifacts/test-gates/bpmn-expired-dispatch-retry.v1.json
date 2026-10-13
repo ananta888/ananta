@@ -1,0 +1,34 @@
+{
+  "broad_tests_passed": 996,
+  "broad_tests_seconds": 66.45,
+  "classification": "synthetic_test_technical_observation",
+  "cleanup_complete": true,
+  "elapsed_seconds": 40.45,
+  "exact_hub_policy_permitted_fresh_attempt": true,
+  "expired_result_admitted": false,
+  "fixture_limits": [
+    "Synthetic compiled graph and handler",
+    "Explicit SQL lease-expiry fault injection",
+    "Signed controls through production orchestrator, not HTTP control endpoint"
+  ],
+  "focused_tests_passed": 23,
+  "full_app_testing_flag": false,
+  "higher_fencing_token": true,
+  "new_task_and_attempt": true,
+  "normal_redelivery_regression_passed": true,
+  "normal_redelivery_regression_seconds": 38.95,
+  "old_journal_unknown": true,
+  "passed": true,
+  "production_release_evidence": false,
+  "remaining": [
+    "Retention maintenance and execution-tool filesystem isolation",
+    "PostgreSQL concurrency",
+    "Production packaging/providers/release admission"
+  ],
+  "report": "artifacts/test-gates/bpmn-expired-dispatch-retry.v1.json",
+  "retry_without_policy_denied": true,
+  "schema": "ananta.bpmn-expired-dispatch-retry-review.v1",
+  "solid_review": "Retry SQL policy has a focused read-only port (SRP/ISP). Cancellation reuses central active-state definitions; transactional lease validation is preserved. Global SQL/Flask composition remains DIP debt.",
+  "worker_container_recreated": true,
+  "workflow_completed": true
+}

@@ -72,13 +72,16 @@ class HubGovernedNativeControlPolicy:
         plan: ExecutionPlan,
         state: NativeRunState,
     ) -> tuple[bool, str]:
-        del plan
         if command.command_type not in self._COMMANDS:
             return False, "native_control_command_not_admitted"
         if not command.actor_id:
             return False, "native_control_actor_required"
         if state.status == "completed":
             return False, "native_control_run_completed"
+        if command.command_type == "retry":
+            from agent.services.native_uncertain_retry_policy import production_uncertain_native_retry
+
+            return production_uncertain_native_retry(command, plan=plan, state=state)
         return True, "native_control_hub_decision_admitted"
 
     def authorize_delegation(

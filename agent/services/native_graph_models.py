@@ -163,6 +163,7 @@ class NativeRunState:
     budget_usage: dict[str, int | float] = field(default_factory=dict)
     event_sequence: int = 0
     plan_revision: int = 1
+    bpmn_edge_epoch: int = 0
     tenant_parallel_limit: int = 1
     worker_parallel_limit: int = 1
     reason_code: str = ""
@@ -172,6 +173,8 @@ class NativeRunState:
     last_command_fingerprint: str = ""
     bpmn_started_at: float | None = None
     bpmn_deadline_at: float | None = None
+    hub_started_at: float | None = None
+    hub_deadline_at: float | None = None
     bpmn_waits: dict[str, dict[str, Any]] = field(default_factory=dict)
     bpmn_applied_wakeups: set[str] = field(default_factory=set)
     # Per-invocation collaborators/cursor, not checkpoint payload authority.
@@ -182,6 +185,9 @@ class NativeRunState:
     def from_workflow_state(cls, state: WorkflowState) -> "NativeRunState":
         business = dict(state.business_data)
         runtime = dict(state.runtime_metadata)
+        edge_epoch = runtime.get('bpmn_edge_epoch', 0)
+        if type(edge_epoch) is not int or edge_epoch < 0:
+            raise ValueError('bpmn_edge_epoch_invalid')
         return cls(
             status=str(runtime.get("status") or "running"),
             input_data=dict(business.get("input_data") or {}),
@@ -197,6 +203,7 @@ class NativeRunState:
             budget_usage={str(key): value for key, value in dict(runtime.get("budget_usage") or {}).items()},
             event_sequence=int(runtime.get("event_sequence") or 0),
             plan_revision=int(runtime.get("plan_revision") or 1),
+            bpmn_edge_epoch=edge_epoch,
             tenant_parallel_limit=int(runtime.get("tenant_parallel_limit") or 1),
             worker_parallel_limit=int(runtime.get("worker_parallel_limit") or 1),
             reason_code=str(runtime.get("reason_code") or ""),
@@ -206,6 +213,8 @@ class NativeRunState:
             last_command_fingerprint=str(runtime.get("last_command_fingerprint") or ""),
             bpmn_started_at=runtime.get("bpmn_started_at"),
             bpmn_deadline_at=runtime.get("bpmn_deadline_at"),
+            hub_started_at=runtime.get('hub_started_at'),
+            hub_deadline_at=runtime.get('hub_deadline_at'),
             bpmn_waits={key: dict(value) for key, value in dict(runtime.get("bpmn_waits") or {}).items()},
             bpmn_applied_wakeups=set(runtime.get("bpmn_applied_wakeups") or ()),
         )
@@ -230,6 +239,7 @@ class NativeRunState:
                 "budget_usage": dict(sorted(self.budget_usage.items())),
                 "event_sequence": self.event_sequence,
                 "plan_revision": self.plan_revision,
+                **({'bpmn_edge_epoch': self.bpmn_edge_epoch} if self.bpmn_edge_epoch else {}),
                 "tenant_parallel_limit": self.tenant_parallel_limit,
                 "worker_parallel_limit": self.worker_parallel_limit,
                 "reason_code": self.reason_code,
@@ -249,6 +259,8 @@ class NativeRunState:
                     if self.bpmn_deadline_at is not None
                     else {}
                 ),
+                **({'hub_started_at': self.hub_started_at, 'hub_deadline_at': self.hub_deadline_at}
+                   if self.hub_deadline_at is not None else {}),
             },
             secret_refs=secret_refs,
             artifact_refs=tuple(sorted(set(self.artifact_refs.values()))),

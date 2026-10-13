@@ -100,11 +100,19 @@ def test_cancel_crash_keeps_successor_ineligible(harness, monkeypatch, after):
     )
     with pytest.raises(SimulatedHubCrash):
         harness.hub.resume(request, command=command)
+    harness.now += 10  # Recovery preserves the first durable occurrence, not this later clock.
     harness.restart()
     cancelled = harness.hub.resume(request, command=command, admitted_replay=True)
     assert cancelled.status == "cancelled"
     assert harness.hub.advance(request).status == "cancelled"
     assert harness.handler.calls == ["work"]
+
+    events = harness.hub.stream(request)
+    cancelled_edges = [event for event in events if event.event_type == "workflow.bpmn.edge.cancelled"]
+    assert {event.payload["edge_id"] for event in cancelled_edges} == {"begin", "next", "finish"}
+    assert len(cancelled_edges) == 3, "Cancel replay duplicated edge settlement"
+    assert all(event.payload["command_id"] == command.command_id for event in cancelled_edges)
+    assert not any(event.event_type == "workflow.bpmn.edge.completed" for event in events)
 
 
 def test_acknowledged_result_cannot_change_content_during_crash_replay(harness, monkeypatch):
@@ -181,7 +189,8 @@ def test_crash_after_gateway_event_reuses_immutable_selection(harness, monkeypat
     result = advance_bounded(harness.hub, request, first)
     assert result.status == "completed"
     assert harness.handler.calls == ["yes_task"]
-    selected = [event for event in harness.hub.stream(request) if event.step_id == "choose"]
+    selected = [event for event in harness.hub.stream(request)
+                if event.step_id == "choose" and event.event_type == 'workflow.step.completed']
     assert len(selected) == 1
     assert selected[0].payload["selected_edge"] == "yes"
 
@@ -191,11 +200,11 @@ def test_expired_operation_cannot_commit_after_successor_lease_acquisition(harne
     """Pause after caller's last lease check, at the mutation recipient."""
     from agent.services.bpmn_run_lease import BpmnRunLeaseService
     from agent.services.workflow_runtime.errors import WorkflowRuntimeError
-    from agent.services.workflow_runtime.persistence import SQLiteCheckpointStore
+    from agent.services.workflow_runtime.sqlalchemy_event_stores import SQLAlchemyCheckpointStore
 
     request = linear_request()
     harness.hub.start(request)
-    successor_store = SQLiteCheckpointStore(harness.directory / "checkpoints.sqlite")
+    successor_store = SQLAlchemyCheckpointStore(harness.grant_database)
     harness.connections.append(successor_store)
     successor_leases = BpmnRunLeaseService(checkpoints=successor_store, keys=harness.keys, clock=lambda: harness.now)
     target, method = {
@@ -280,15 +289,17 @@ def test_process_exit_leaves_lease_until_bounded_takeover(harness):
     import multiprocessing
     import os
 
+    from sqlmodel import create_engine
+
     from agent.services.bpmn_run_lease import BpmnRunLeaseService
     from agent.services.workflow_runtime.errors import OptimisticConcurrencyError
-    from agent.services.workflow_runtime.persistence import SQLiteCheckpointStore
+    from agent.services.workflow_runtime.sqlalchemy_event_stores import SQLAlchemyCheckpointStore
 
     request = linear_request()
     initial = harness.hub.start(request)
 
     def acquire_and_exit():
-        store = SQLiteCheckpointStore(harness.directory / "checkpoints.sqlite")
+        store = SQLAlchemyCheckpointStore(create_engine(f"sqlite:///{harness.directory / 'checkpoints.sqlite'}"))
         lease = BpmnRunLeaseService(checkpoints=store, keys=harness.keys, clock=lambda: 100.0)
         with lease.acquire(request):
             os._exit(73)

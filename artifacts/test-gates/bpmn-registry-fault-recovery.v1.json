@@ -1,0 +1,86 @@
+{
+  "schema": "ananta.bpmn-registry-fault-recovery-gate.v1",
+  "classification": "actual_sql_registry_signed_native_dispatch_and_owned_worker_recreation_synthetic_test",
+  "production_release_evidence": false,
+  "deployment_performed": false,
+  "database_gates": {
+    "postgresql": {
+      "redelivery": {
+        "seconds": 40.04,
+        "actual_worker_recreated": true,
+        "cleanup_verified": true,
+        "controller_runs": 4,
+        "uncompleted_controller_runs": 0,
+        "original_worker_run_reserved": true,
+        "same_run_completed_after_admission": true,
+        "unique_worker_runs": 1
+      },
+      "expired_retry": {
+        "seconds": 40.51,
+        "actual_worker_recreated": true,
+        "cleanup_verified": true,
+        "controller_runs": 7,
+        "uncompleted_controller_runs": 1,
+        "old_run_uncompleted": true,
+        "new_attempt_distinct_run": true,
+        "unique_worker_runs": 2
+      }
+    },
+    "sqlite": {
+      "redelivery": {
+        "seconds": 40.39,
+        "actual_worker_recreated": true,
+        "cleanup_verified": true,
+        "controller_runs": 4,
+        "uncompleted_controller_runs": 0,
+        "original_worker_run_reserved": true,
+        "same_run_completed_after_admission": true,
+        "unique_worker_runs": 1
+      },
+      "expired_retry": {
+        "seconds": 42.28,
+        "actual_worker_recreated": true,
+        "cleanup_verified": true,
+        "controller_runs": 7,
+        "uncompleted_controller_runs": 1,
+        "old_run_uncompleted": true,
+        "new_attempt_distinct_run": true,
+        "unique_worker_runs": 2
+      }
+    }
+  },
+  "focused_tests": {
+    "passed": 52,
+    "seconds": 9.77
+  },
+  "verified": [
+    "Actual pre-execution Registry source/run for original Worker attempt and every signed Hub control lease",
+    "Worker loss leaves original run reserved and unknown; no terminal result or receipt is manufactured",
+    "Successful current-authority redelivery completes the original reserved RUN with actual accepted Worker result",
+    "Expired result remains unadmitted; exact bounded Hub retry policy produces higher fence and distinct pre-reserved RUN",
+    "Refused control action has a verified existing reservation but no successful Registry completion",
+    "Task state machine persists pre-execution review refusal without force or fictional execution; terminal/reserved tasks are not reopened",
+    "Test control Task provisioning is separated from execution dependency ancestry; native command carries canonical control owner",
+    "All successful test RUNs fail production scope; uncompleted RUNs fail successful-result requirement"
+  ],
+  "remaining": [
+    "Pre-reserved Registry coverage for browser acceptance",
+    "Complete authenticated UI recovery/command and CaseFlow trace coverage",
+    "Optional backend and productive provider/rollout/release acceptance"
+  ],
+  "solid": {
+    "protected": "Canonical review transition uses one transition table instead of duplicate special cases. Controller provisioning, pending evidence observation and Worker completion are focused collaborators.",
+    "preserved_debt": "Existing full-app and host lifecycle orchestration remain broad fixture coupling debt."
+  },
+  "broad_regression": {
+    "passed": 1863,
+    "skipped": 13,
+    "deselected": 58,
+    "seconds": 186.15
+  },
+  "checks": {
+    "ruff": "passed",
+    "git_diff_check": "passed",
+    "todo_consistency": "passed"
+  }
+}

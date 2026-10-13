@@ -57,6 +57,7 @@ def test_worker_composition_fails_closed_without_hub_authority(monkeypatch) -> N
     assert runtime.capabilities == ()
     assert runtime.runtime_targets == ()
     assert runtime.reason_codes == ("workflow_hub_gateway_not_configured",)
+    assert runtime.native_admission is None
 
 
 def test_worker_adapters_compose_without_hub_database_or_service_imports(

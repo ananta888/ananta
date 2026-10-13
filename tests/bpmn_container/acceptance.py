@@ -13,7 +13,7 @@ import urllib.request
 from dataclasses import replace
 
 from bpmn_container import fixtures
-from bpmn_container.artifacts import artifact_case
+from bpmn_container.artifacts import artifact_case, artifact_transfer_case
 from bpmn_container.extensions import catch_case, region_case
 from bpmn_container.hub import AcceptanceHub
 from bpmn_container.public_api import PublicScenario, public_auth_case, public_scenario
@@ -38,7 +38,7 @@ def compile_request(xml, name, input_data=None):
             **workflow.metadata,
             "project_id": "synthetic-bpmn-project",
             "execution_budget": {
-                "max_attempts": 1,
+                "max_attempts": 2 if os.environ.get("BPMN_NATIVE_RETRY_ENABLED") == "1" else 1,
                 "timeout_seconds": 120.0,
                 "max_tokens": 1000,
                 "max_cost_micros": 1000,
@@ -334,28 +334,15 @@ def main() -> int:
             "deterministic execution handler",
             "explicit signed policy fixtures",
             "explicit synthetic runtime admission port",
-            "public facade composition lookup and diagnostic observer",
+            "public facade and artifact runtime composition lookup; diagnostic observer",
         ],
         "not_covered": [
             "full_application_boot",
             "autopilot_dispatch_loop",
             "production_runtime_release_admission",
-            "artifact_ingress",
             "container_restart_recovery",
             "optional_backends",
         ],
-        "missing_production_contracts": {
-            "native_artifact_ingress": (
-                "BPMN artifact plans are denied before execution: "
-                "no assignment-bound content upload/receipt admission; "
-                "generic forwarded artifacts are metadata normalization only. Recovery artifact ingress requires "
-                "a recovery-child contract and cannot authorize ordinary Native tasks."
-            ),
-            "native_result_ingress": (
-                "Generic forwarding persists worker result fields before Native validates attempt/fence. "
-                "A rejected result cannot complete the canonical step but already appears on the task row."
-            ),
-        },
         "cases": {},
     }
     hub = None
@@ -373,6 +360,7 @@ def main() -> int:
             "result_attempt_binding": lambda: result_binding_case(hub, "attempt_id"),
             "result_fence_binding": lambda: result_binding_case(hub, "fencing_token"),
             "artifact_unadmitted_output_denied": lambda: artifact_case(hub),
+            "artifact_handoff": lambda: artifact_transfer_case(hub),
             "loop_sql_restart": lambda: region_case(hub, "loop"),
             "subprocess_sql_restart": lambda: region_case(hub, "subprocess"),
             "timer_sql_restart": lambda: catch_case(hub, "timer"),

@@ -1,0 +1,137 @@
+{
+  "schema": "ananta.bpmn-full-app-reference-matrix-gate.v1",
+  "classification": "actual_full_app_boot_authenticated_autopilot_separate_worker_synthetic_technical_observation",
+  "status": "complete_native_reference_matrix_in_full_application_locally_verified",
+  "production_release_evidence": false,
+  "deployment_performed": false,
+  "full_app_reference_cases": 13,
+  "full_app_seconds": 96.42,
+  "core_browser_cases": 22,
+  "core_browser_seconds": 68.71,
+  "runner_safety_passed": 20,
+  "runner_safety_seconds": 2.83,
+  "cleanup_verified": true,
+  "backend_image": "sha256:67198cb6c25ea8a6ffc73c30e0315f0f8d931941207d806991c1207852f31481",
+  "browser_image": "sha256:bf0c735d056d58d2ff24a07542368235b37e231470bb3122d2e62cc6c29d71d1",
+  "references": {
+    "and_join": {
+      "passed": true,
+      "workflow_status": "completed",
+      "task_count": 3,
+      "selected_edge": null,
+      "projected_values": null
+    },
+    "artifact_handoff": {
+      "passed": true,
+      "workflow_status": "completed",
+      "task_count": 2,
+      "selected_edge": null,
+      "projected_values": null
+    },
+    "loop": {
+      "passed": true,
+      "workflow_status": "completed",
+      "task_count": 3,
+      "selected_edge": null,
+      "projected_values": [
+        1,
+        2,
+        3
+      ]
+    },
+    "message": {
+      "passed": true,
+      "workflow_status": "completed",
+      "task_count": 1,
+      "selected_edge": null,
+      "projected_values": null
+    },
+    "native_node": {
+      "passed": true,
+      "workflow_status": "completed",
+      "task_count": 1,
+      "selected_edge": null,
+      "projected_values": null
+    },
+    "policy_approve": {
+      "passed": true,
+      "workflow_status": "completed",
+      "task_count": 1,
+      "selected_edge": null,
+      "projected_values": null
+    },
+    "policy_blocked": {
+      "passed": true,
+      "workflow_status": "waiting_for_approval",
+      "task_count": 0,
+      "selected_edge": null,
+      "projected_values": null
+    },
+    "policy_reject": {
+      "passed": true,
+      "workflow_status": "failed",
+      "task_count": 0,
+      "selected_edge": null,
+      "projected_values": null
+    },
+    "subprocess": {
+      "passed": true,
+      "workflow_status": "completed",
+      "task_count": 1,
+      "selected_edge": null,
+      "projected_values": [
+        1
+      ]
+    },
+    "timer": {
+      "passed": true,
+      "workflow_status": "completed",
+      "task_count": 1,
+      "selected_edge": null,
+      "projected_values": null
+    },
+    "xor_default": {
+      "passed": true,
+      "workflow_status": "completed",
+      "task_count": 1,
+      "selected_edge": "no",
+      "projected_values": null
+    },
+    "xor_false": {
+      "passed": true,
+      "workflow_status": "completed",
+      "task_count": 1,
+      "selected_edge": "no",
+      "projected_values": null
+    },
+    "xor_true": {
+      "passed": true,
+      "workflow_status": "completed",
+      "task_count": 1,
+      "selected_edge": "yes",
+      "projected_values": null
+    }
+  },
+  "verified": [
+    "Actual create_app(testing=False), real health/login and authenticated Autopilot HTTP",
+    "Actual Hub persistent queue, strict Worker registry/assignment, grants, signed transport and result admission",
+    "Separate unprivileged read-only Worker and Hub containers, distinct private stores/signing material",
+    "Accepted exact dispatch journals and technical Native receipt for every completed Worker Task",
+    "Both XOR branches/default compared with actual delegated nodes and selected edge events",
+    "Loop/subprocess actual projected values and no private input/dependency broadening",
+    "Headless explicit approve/reject; missing policy produces zero Tasks and a bounded blocked observation",
+    "Timer/message consume exactly one canonical event and delegate one successor",
+    "AND pending sibling, successor chronology and canonical event order verified",
+    "Authenticated browser/editor and existing 21 core cases pass against current source",
+    "Owned project containers/network/volume cleaned; no serving application targeted"
+  ],
+  "remaining": [
+    "Full PostgreSQL reference and fault matrix",
+    "Pre-reserved synthetic Hub Evidence Registry runs for complete acceptance chain",
+    "Optional backend and productive packaging/provider/rollout/release admission"
+  ],
+  "solid": {
+    "protected": "Policy commands and asynchronous tick/sibling observation are focused modules with bounded lifecycle.",
+    "preserved_debt": "Existing full-app scenario driver mixes orchestration/assertion concerns; no product Hub/Worker boundaries changed."
+  }
+}

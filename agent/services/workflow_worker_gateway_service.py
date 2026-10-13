@@ -85,6 +85,8 @@ class WorkflowWorkerGatewayService:
         tool_descriptors: WorkflowToolDescriptorPort | None = None,
         assignments: WorkflowWorkerAssignmentStore | None = None,
         context_bundles: NativeContextBundleReadPort | None = None,
+        pi_evidence=None,
+        pi_contexts=None,
         clock=time.time,
         authority: WorkflowWorkerAuthorityPort | None = None,
         tool_guard: WorkflowToolGuardPort | None = None,
@@ -93,6 +95,8 @@ class WorkflowWorkerGatewayService:
         self._ownership = ownership
         self._assignments = assignments
         self._context_bundles = context_bundles
+        self._pi_evidence = pi_evidence
+        self._pi_contexts = pi_contexts
         self._clock = clock
         self._authority: WorkflowWorkerAuthorityPort = authority or WorkflowWorkerAuthorityVerifier(
             authorization=authorization,
@@ -134,7 +138,8 @@ class WorkflowWorkerGatewayService:
         command = str(raw.get("command") or "")
         if command not in WORKFLOW_WORKER_COMMANDS:
             raise WorkflowWorkerGatewayError("workflow_worker_command_unsupported", status_code=422)
-        if command == "native_context_read" and not (authenticated_worker_id and authenticated_worker_url):
+        if command in {"native_context_read", "pi_evidence_read"} and not (
+                authenticated_worker_id and authenticated_worker_url):
             raise WorkflowWorkerGatewayError("native_context_registered_worker_required", status_code=403)
         try:
             binding = WorkflowWorkerBinding.from_mapping(raw.get("binding"))
@@ -149,7 +154,38 @@ class WorkflowWorkerGatewayService:
         )
 
         try:
+            if command == "pi_evidence_read":
+                self._authority.ownership_binding(binding, raw)
+                self._authority.verify(binding, raw)
+                if self._pi_evidence is None:
+                    raise WorkflowWorkerGatewayError("pi_evidence_service_unavailable", status_code=503)
+                return self._pi_evidence(task_id=raw.get("hub_task_id"),
+                    expected_command_id=raw.get("command_id"), expected_input_digest=raw.get("input_digest"),
+                    expected_worker_id=authenticated_worker_id, expected_worker_url=authenticated_worker_url,
+                    expected_tenant_id=binding.tenant_id, expected_workflow_id=binding.workflow_id,
+                    expected_run_id=binding.run_id, expected_step_id=binding.step_id)
             if command == "native_context_read":
+                if self._pi_contexts is not None:
+                    self._authority.ownership_binding(binding, raw)
+                    self._authority.verify(binding, raw)
+                    result = self._pi_contexts(task_id=raw.get("hub_task_id"),
+                        expected_command_id=raw.get("command_id"),
+                        expected_worker_id=authenticated_worker_id, expected_worker_url=authenticated_worker_url,
+                        expected_tenant_id=binding.tenant_id, expected_workflow_id=binding.workflow_id,
+                        expected_run_id=binding.run_id, expected_step_id=binding.step_id)
+                    from ananta_contracts.native_context_bundle import NativeContextBundleProjection
+
+                    projection = NativeContextBundleProjection.from_mapping(result)
+                    if projection.hub_task_id != raw.get("hub_task_id"):
+                        raise ValueError("pi_context_evidence_projection_binding_denied")
+                    self._events.append(binding, event_type="workflow.context.bundle_read",
+                        dedupe_key=f"context:{projection.command_digest}:{projection.content_digest}:"
+                                   f"{projection.policy_digest}", causation_id=command_attempt_id(raw),
+                        payload={"hub_task_id": projection.hub_task_id, "bundle_id": projection.bundle_id,
+                                 "command_digest": projection.command_digest,
+                                 "content_digest": projection.content_digest,
+                                 "policy_digest": projection.policy_digest})
+                    return projection.to_dict()
                 return self._read_native_context(binding, raw, worker_id=authenticated_worker_id)
             if command == "consume_retry":
                 return self._consume_retry(binding, raw)
@@ -271,7 +307,8 @@ class WorkflowWorkerGatewayService:
             or assignment.fencing_token != ownership.fencing_token
             or assignment.worker_id != worker_id
             or assignment.worker_url != worker_url
-            or (raw.get("command") == "native_context_read" and assignment.hub_task_id != raw.get("hub_task_id"))
+            or (raw.get("command") in {"native_context_read", "pi_evidence_read"}
+                and assignment.hub_task_id != raw.get("hub_task_id"))
         ):
             raise WorkflowWorkerGatewayError(
                 "workflow_worker_authenticated_owner_mismatch",

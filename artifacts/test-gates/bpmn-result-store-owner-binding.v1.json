@@ -1,0 +1,61 @@
+{
+  "schema": "ananta.bpmn-result-store-owner-binding-gate.v1",
+  "classification": "actual_sql_and_signed_http_private_sqlite_synthetic_authorization_technical_observation",
+  "status": "registered_exact_owner_binding_implemented_and_locally_verified",
+  "production_release_evidence": false,
+  "deployment_performed": false,
+  "focused_passed": 126,
+  "focused_seconds": 8.63,
+  "final_owner_cases": 26,
+  "final_owner_seconds": 4.04,
+  "broad_passed": 1111,
+  "broad_skipped": 9,
+  "broad_deselected": 1,
+  "broad_seconds": 81.13,
+  "verified": [
+    "Typed default-off Worker opt-in advertises only configured store binding",
+    "Registration payload and Hub normalization preserve the opaque store binding",
+    "Actual SQL active parent/project and registered owner checked before Task ingestion",
+    "Recipient pinned; duplicate command refuses registry/store drift",
+    "Routing selects exact owner and cannot use another eligible store",
+    "Signer and independently signed wrong-recipient consumer check both deny substitution",
+    "HTTP store mismatch refuses before private store creation or consumer invocation",
+    "Correct signed HTTP uses configured bound store",
+    "Actual owner-bound handler expires only the scoped results",
+    "Handler mismatch refuses before store factory",
+    "Missing/changed registration cannot relabel cached store"
+  ],
+  "checks": {
+    "ruff": "passed",
+    "memory_channels": "passed",
+    "memory_legacy_access": "passed",
+    "cli_backend_shim_imports": "passed",
+    "todo_consistency": "passed",
+    "git_diff_check": "passed"
+  },
+  "compatibility": "Existing explicit batch-only maintenance remains compatible; automatic cadence must require bound owner inputs.",
+  "remaining": [
+    "Automatic Hub cadence and its durable admission/outbox",
+    "Authority-bound tombstone retirement",
+    "Full compiled reference/PostgreSQL/container acceptance"
+  ],
+  "limits": {
+    "batch_size_max": 1000,
+    "owner_fields": [
+      "worker_id",
+      "worker_url",
+      "store_binding_id"
+    ],
+    "registry_liveness_seconds": 300
+  },
+  "solid": {
+    "protected": "Shared pure closed inputs, small read-only owner eligibility and Worker store composition separate responsibilities.",
+    "preserved_debt": "Global repository/engine composition and large Autopilot dispatcher remain DIP/SRP debt."
+  },
+  "regression_limits": {
+    "skipped": "Nine explicit owned PostgreSQL tests require the separate owned fixture runner; this run is not a PostgreSQL acceptance.",
+    "warnings": "Four existing startup Pydantic deprecations"
+  },
+  "final_contract_routing_passed": 72,
+  "final_contract_routing_seconds": 3.72
+}

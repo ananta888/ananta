@@ -51,6 +51,7 @@ from agent.services.workflow_runtime.sqlalchemy_ownership_rows import (  # noqa:
     SQLAlchemyOwnershipRows,
     _ownership,
     execution_ownership_from_row,
+    execution_ownership_history_from_row,
 )
 from agent.services.workflow_runtime.sqlalchemy_transition_reservations import (
     SQLAlchemyTransitionReservations,
@@ -130,6 +131,7 @@ class SQLAlchemyExecutionOwnershipStore(SQLAlchemyStoreSupport, ExecutionOwnersh
         lease_seconds: float,
         maximum_retries: int,
         now: float | None = None,
+        _control_lease=None,
     ) -> OwnershipClaim:
         timestamp = _validate_lease(lease_seconds, now)
         values = {
@@ -139,6 +141,8 @@ class SQLAlchemyExecutionOwnershipStore(SQLAlchemyStoreSupport, ExecutionOwnersh
             "step_id": str(step_id),
             "owner_id": str(owner_id),
         }
+        if _control_lease is not None:
+            values["_control_lease"] = _control_lease
         try:
             return self._claim_once(
                 values,
@@ -164,6 +168,7 @@ class SQLAlchemyExecutionOwnershipStore(SQLAlchemyStoreSupport, ExecutionOwnersh
         maximum_retries: int,
     ) -> OwnershipClaim:
         with self._transaction() as session:
+            self._validate_control_lease(session, values)
             row = self._rows.read(
                 session,
                 tenant_id=values["tenant_id"],
@@ -206,6 +211,9 @@ class SQLAlchemyExecutionOwnershipStore(SQLAlchemyStoreSupport, ExecutionOwnersh
             ownership.assert_valid()
             self._rows.write(session, row=row, value=ownership)
             return OwnershipClaim(ownership, True, "acquired" if current is None else "recovered")
+
+    def claim_fenced(self, *, lease, **values):
+        return self.claim(**values, _control_lease=lease)
 
     def heartbeat(self, **values: Any) -> ExecutionOwnership:
         timestamp = _validate_lease(float(values["lease_seconds"]), values.get("now"))

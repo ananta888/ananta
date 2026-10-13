@@ -6,7 +6,7 @@ import pytest
 
 from agent.services.bpmn_run_lease import BpmnRunLeaseService
 from agent.services.workflow_runtime.errors import OptimisticConcurrencyError
-from agent.services.workflow_runtime.persistence import SQLiteCheckpointStore
+from agent.services.workflow_runtime.sqlalchemy_event_stores import SQLAlchemyCheckpointStore
 from tests.bpmn.completion_helpers import harness as harness
 from tests.bpmn.completion_helpers import linear_request
 
@@ -50,7 +50,7 @@ def test_result_recipient_rechecks_lease_inside_the_ownership_transaction(harnes
     harness.queue.results["hub-task-1"] = replace(first, status=status)
     store = harness.stores["ownership"]
     original = getattr(store, method)
-    takeover_store = SQLiteCheckpointStore(harness.directory / "checkpoints.sqlite")
+    takeover_store = SQLAlchemyCheckpointStore(harness.grant_database)
     harness.connections.append(takeover_store)
     takeover = BpmnRunLeaseService(checkpoints=takeover_store, keys=harness.keys, clock=lambda: harness.now)
 

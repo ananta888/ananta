@@ -1,0 +1,57 @@
+{
+  "schema": "ananta.bpmn-canonical-edge-events-gate.v1",
+  "classification": "fenced_hub_canonical_edge_observations_and_exact_replay_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "deployment_performed": false,
+  "full_app_postgres": {
+    "references": 13,
+    "canonical_edge_observations": 130,
+    "seconds": 54.52,
+    "cleanup_verified": true
+  },
+  "core_browser": {
+    "cases": 22,
+    "seconds": 113.97,
+    "cleanup_verified": true
+  },
+  "focused_regression": {
+    "passed": 120,
+    "seconds": 18.19
+  },
+  "frontend": {
+    "passed": 70,
+    "seconds": 3.51
+  },
+  "changed_dependency_typescript": "passed",
+  "verified": [
+    "Hub scheduler emits exact edge IDs/directions and selected/skipped/blocked plus actual completed/failed target observations",
+    "Selection is distinct from Task execution/completion; no result or receipt is manufactured",
+    "Existing fenced canonical emitter and append-only event stream remain authoritative",
+    "CaseFlow admits new edge facts only under exact canonical schema/Hub actor/tenant/workflow/run/plan/definition/direction and noncoercive attempts",
+    "Both actual XOR branches project complete verified edge traces with chosen completed and rejected skipped outcomes",
+    "Completed Full-App references require coverage of every actual plan edge and validate each event binding",
+    "Exact already-observed replay retains the first durable timestamp; changed intent and stale lease are rejected",
+    "Current explicit trace outcome takes precedence over older gateway selection in UI"
+  ],
+  "remaining": [
+    "Cancel-specific edge settlement and full authenticated UI command/recovery matrix",
+    "Browser pre-execution Registry identities",
+    "Optional backend and productive provider/rollout/release acceptance"
+  ],
+  "solid": {
+    "protected": "Edge observation generation and wire validation have focused collaborators; existing emitter/fencing/storage ports are reused.",
+    "preserved_debt": "Existing broad scheduler/projection/composition modules retain SRP/coupling debt."
+  },
+  "checks": {
+    "ruff": "passed",
+    "cli_backend_shim_imports": "passed",
+    "git_diff_check": "passed",
+    "todo_consistency": "passed"
+  },
+  "broad_regression": {
+    "passed": 1209,
+    "skipped": 13,
+    "deselected": 1,
+    "seconds": 94.52
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "schema": "bpmn_native_worker_result_recovery_gate.v1",
+  "classification": "synthetic_test_technical_observation",
+  "production_release_evidence": false,
+  "component_scope": [
+    "Worker-local SQLite reopen preserves exact projection-bound result",
+    "Signed retrieval-only Worker HTTP never executes consumer",
+    "Hub SQL admits original current assignment and closes original dispatch journal",
+    "Expired lease, changed fence/assignment, revoked grant/registration and non-transport review denied",
+    "Bounded streaming retrieval without redirects or automatic retries"
+  ],
+  "regression": {
+    "tests_passed": 1042,
+    "seconds": 92.08,
+    "final_focused_tests_passed": 69,
+    "final_focused_seconds": 6.11
+  },
+  "container_regression": {
+    "normal_full_app_passed": true,
+    "normal_full_app_seconds": 36.49,
+    "loss_containment_passed": true,
+    "loss_containment_seconds": 30.01,
+    "cleanup_complete": true,
+    "scope": "Full application Native/artifact publication and actual Worker loss containment; no container restart/redelivery claim"
+  },
+  "required_configuration": "ANANTA_NATIVE_RESULT_STORE_PATH: absolute database in Worker-owned private directory on persistent Worker volume",
+  "remaining": [
+    "Worker recreation with persistent volume and complete container-chain result redelivery",
+    "Bounded scheduler reconciliation integration",
+    "Expiry/new-attempt policy and full dispatch recovery",
+    "Retention maintenance and tool filesystem isolation of result store",
+    "PostgreSQL concurrency and production packaging/release admission"
+  ]
+}

@@ -100,6 +100,8 @@ def fixture(
     hub_task_id: str = "hub-task-1",
     allowed_artifacts: tuple[str, ...] = (),
     context_bundles: NativeContextBundleReadPort | None = None,
+    pi_evidence=None,
+    pi_contexts=None,
 ) -> tuple[
     WorkflowWorkerGatewayService,
     dict,
@@ -179,6 +181,8 @@ def fixture(
         tool_descriptors=_HubToolDescriptors(),
         assignments=assignments,
         context_bundles=context_bundles,
+        pi_evidence=pi_evidence,
+        pi_contexts=pi_contexts,
         clock=lambda: now + 1,
     )
     binding = {

@@ -41,7 +41,9 @@ class OwnershipLeaseRecipient:
 
 
 def ownership_lease_recipient(values, lease):
-    return OwnershipLeaseRecipient(values["tenant_id"], lease.checkpoint.workflow_id, values["run_id"])
+    return OwnershipLeaseRecipient(
+        values["tenant_id"], values.get("workflow_id", lease.checkpoint.workflow_id), values["run_id"],
+    )
 
 
 def validate_sqlite_lease(connection, lease: CheckpointLeaseFence, recipient) -> None:

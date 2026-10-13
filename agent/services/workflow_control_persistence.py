@@ -638,6 +638,18 @@ class SQLAlchemyWorkflowControlBindingStore:
             return deepcopy(dict(row.last_status))
 
     def record_public_status(self, workflow_id: str, status: dict[str, Any]) -> None:
+        # Publishing an immutable observation can race a scheduler's claim or
+        # release without any runtime state change. Re-read and revalidate the
+        # same candidate; progression checks still reject a newer observation.
+        for attempt in range(3):
+            try:
+                self._record_public_status_once(workflow_id, status)
+                return
+            except WorkflowControlBindingPersistenceError as exc:
+                if attempt == 2 or str(exc) != 'workflow_control_public_status_cas_conflict':
+                    raise
+
+    def _record_public_status_once(self, workflow_id: str, status: dict[str, Any]) -> None:
         normalized = str(workflow_id or "").strip()
         safe_status = deepcopy(status)
         with Session(self._engine) as session:

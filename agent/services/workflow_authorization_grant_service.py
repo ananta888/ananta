@@ -97,6 +97,20 @@ class UnavailableHubAuthorizationRevalidator:
 
 
 class InMemoryWorkflowAuthorizationGrantService:
+    def grant_fenced(self, envelope, *, lease):
+        return lease.store.mutate_fenced(
+            lease=lease, recipient=envelope, mutation=lambda: self.grant(envelope),
+        )
+
+    def revoke_fenced(self, envelope_id, *, lease, **values):
+        with self._lock:
+            current = self._values.get(envelope_id)
+        if current is None:
+            raise KeyError("workflow_authorization_grant_not_found")
+        return lease.store.mutate_fenced(
+            lease=lease, recipient=current, mutation=lambda: self.revoke(envelope_id, **values),
+        )
+
     def __init__(self, *, clock=time.time) -> None:
         self._values: dict[str, WorkflowAuthorizationGrant] = {}
         self._clock = clock
@@ -216,11 +230,18 @@ class SQLAlchemyWorkflowAuthorizationGrantService(SQLAlchemyStoreSupport):
             recorded_at=float(self._clock()),
         )
 
+    def grant_fenced(self, envelope, *, lease):
+        return self.commit_transition_grant(envelope, recorded_at=float(self._clock()), _control_lease=lease)
+
+    def revoke_fenced(self, envelope_id, *, lease, **values):
+        return self.revoke(envelope_id, _control_lease=lease, **values)
+
     def commit_transition_grant(
         self,
         envelope: RuntimeAuthorizationEnvelope,
         *,
         recorded_at: float,
+        _control_lease=None,
     ) -> WorkflowAuthorizationGrant:
         envelope._assert_structure()
         candidate = _grant_from_envelope(
@@ -229,6 +250,10 @@ class SQLAlchemyWorkflowAuthorizationGrantService(SQLAlchemyStoreSupport):
         )
         try:
             with self._transaction() as session:
+                if _control_lease is not None:
+                    from agent.services.workflow_runtime.lease_fencing import validate_sqlalchemy_lease
+
+                    validate_sqlalchemy_lease(session, _control_lease, envelope)
                 current = session.get(WorkflowAuthorizationGrantDB, envelope.envelope_id)
                 if current is not None:
                     stored = _grant_from_row(current)
@@ -240,7 +265,9 @@ class SQLAlchemyWorkflowAuthorizationGrantService(SQLAlchemyStoreSupport):
                 session.flush()
                 return candidate
         except IntegrityError as exc:
-            with self._read_session() as session:
+            with self._transaction() as session:
+                if _control_lease is not None:
+                    validate_sqlalchemy_lease(session, _control_lease, envelope)
                 current = session.get(WorkflowAuthorizationGrantDB, envelope.envelope_id)
                 if current is not None:
                     stored = _grant_from_row(current)
@@ -255,12 +282,17 @@ class SQLAlchemyWorkflowAuthorizationGrantService(SQLAlchemyStoreSupport):
         *,
         reason_code: str,
         expected_revision: int | None = None,
+        _control_lease=None,
     ) -> WorkflowAuthorizationGrant:
         reason = str(reason_code).strip()
         if not reason:
             raise ValueError("workflow_authorization_revocation_reason_required")
         timestamp = float(self._clock())
         with self._transaction() as session:
+            if _control_lease is not None:
+                from agent.services.workflow_runtime.lease_fencing import validate_sqlalchemy_lease
+
+                validate_sqlalchemy_lease(session, _control_lease, _control_lease.checkpoint)
             current = session.execute(
                 self._for_update(
                     sa.select(WorkflowAuthorizationGrantDB).where(
@@ -271,6 +303,8 @@ class SQLAlchemyWorkflowAuthorizationGrantService(SQLAlchemyStoreSupport):
             if current is None:
                 raise KeyError("workflow_authorization_grant_not_found")
             stored = _grant_from_row(current)
+            if _control_lease is not None:
+                validate_sqlalchemy_lease(session, _control_lease, stored)
             if expected_revision is not None and stored.revision != int(expected_revision):
                 raise WorkflowAuthorizationGrantConflict("workflow_authorization_grant_cas_conflict")
             if stored.status == "revoked":
@@ -358,6 +392,10 @@ def _grant_matches(
     assert_workflow_authorization_grant_projection(grant)
     if grant.status != "active" or grant.expires_at <= now:
         return False
+    return _grant_binding_matches(grant, envelope)
+
+
+def _grant_binding_matches(grant, envelope):
     return bool(
         grant.envelope_id == envelope.envelope_id
         and grant.tenant_id == envelope.tenant_id
@@ -370,6 +408,17 @@ def _grant_matches(
         and grant.expires_at == envelope.expires_at
         and grant.grant_digest == workflow_authorization_grant_digest(envelope)
     )
+
+
+def require_expired_workflow_grant_row(row, envelope, *, now):
+    """Historical exact grant proof; never substitutes for current authorization."""
+    if type(now) not in (int, float) or not math.isfinite(now):
+        raise WorkflowAuthorizationGrantConflict('workflow_authorization_grant_clock_invalid')
+    grant = _grant_from_row(row)
+    assert_workflow_authorization_grant_projection(grant)
+    if grant.expires_at > now or not _grant_binding_matches(grant, envelope):
+        raise WorkflowAuthorizationGrantConflict('workflow_authorization_grant_not_expired')
+    return grant
 
 
 def workflow_authorization_grant_digest(
@@ -624,5 +673,6 @@ __all__ = [
     "WorkflowAuthorizationGrantReadPort",
     "WorkflowTransitionAuthorizationGrantCommitPort",
     "assert_workflow_authorization_grant_projection",
+    "require_expired_workflow_grant_row",
     "workflow_authorization_grant_digest",
 ]

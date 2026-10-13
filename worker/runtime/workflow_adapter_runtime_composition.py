@@ -14,6 +14,9 @@ from typing import Any, Mapping
 from flask import Flask
 
 from agent.providers.lc_lg import LangGraphProviderConfig
+from ananta_contracts.native_result_maintenance import MAINTENANCE_CAPABILITY
+from ananta_contracts.native_result_retirement import RETIREMENT_CAPABILITY
+from ananta_contracts.pi_native import PI_NATIVE_CAPABILITY
 from worker.adapters.langgraph_adapter import LangGraphAdapter
 from worker.adapters.langgraph_checkpoint_adapter import (
     HttpLangGraphCheckpointGateway,
@@ -21,6 +24,7 @@ from worker.adapters.langgraph_checkpoint_adapter import (
 from worker.runtime.native_graph.composition import (
     build_native_graph_worker_task_adapter,
 )
+from worker.runtime.native_graph.execution_admission import NativeExecutionAdmission
 from worker.runtime.workflow_adapter_task_consumer import (
     ExecutionAuthorizationDecision,
     WorkflowAdapterTaskConsumer,
@@ -60,13 +64,18 @@ class WorkflowAdapterWorkerRuntime:
     capabilities: tuple[str, ...] = ()
     runtime_targets: tuple[dict[str, Any], ...] = ()
     reason_codes: tuple[str, ...] = ()
+    result_store_binding_id: str | None = None
+    native_admission: NativeExecutionAdmission | None = None
 
     def registration_metadata(self) -> dict[str, Any]:
-        return {
+        metadata = {
             "capabilities": list(self.capabilities),
             "runtime_targets": [dict(value) for value in self.runtime_targets],
             "reason_codes": list(self.reason_codes),
         }
+        if self.result_store_binding_id is not None:
+            metadata['execution_limits'] = {'native_result_store_binding_id': self.result_store_binding_id}
+        return metadata
 
 
 def build_workflow_adapter_worker_runtime(
@@ -77,6 +86,7 @@ def build_workflow_adapter_worker_runtime(
     tool_invoker: Any | None = None,
     native_executor: Any | None = None,
     native_authorization_verifier: Any | None = None,
+    native_artifact_publication: Any | None = None,
 ) -> WorkflowAdapterWorkerRuntime:
     """Build configured adapters; missing authority/config always fails closed."""
 
@@ -120,6 +130,7 @@ def build_workflow_adapter_worker_runtime(
             agent_config=resolved_agent_config,
             executor=native_executor,
             authorization_verifier=native_authorization_verifier,
+            artifact_publication=native_artifact_publication,
         )
     except Exception as exc:  # noqa: BLE001 - composition must remain fail-closed
         reasons.append(_safe_reason(exc, "native_worker_adapter_config_invalid"))
@@ -185,6 +196,11 @@ def build_workflow_adapter_worker_runtime(
         capabilities=tuple(sorted(capabilities)),
         runtime_targets=tuple(targets),
         reason_codes=tuple(dict.fromkeys(reasons)),
+        result_store_binding_id=(
+            ((resolved_agent_config.get('worker_runtime') or {}).get('native_graph') or {})
+            .get('result_store_binding_id') if native_adapter is not None else None
+        ),
+        native_admission=NativeExecutionAdmission(authorization=authorization) if native_adapter is not None else None,
     )
 
 
@@ -196,6 +212,7 @@ def initialize_workflow_adapter_worker_runtime(
     tool_invoker: Any | None = None,
     native_executor: Any | None = None,
     native_authorization_verifier: Any | None = None,
+    native_artifact_publication: Any | None = None,
 ) -> WorkflowAdapterWorkerRuntime:
     """Install the composition before Worker registration/background startup."""
 
@@ -206,6 +223,7 @@ def initialize_workflow_adapter_worker_runtime(
         tool_invoker=tool_invoker,
         native_executor=native_executor,
         native_authorization_verifier=native_authorization_verifier,
+        native_artifact_publication=native_artifact_publication,
     )
     app.extensions[_CONSUMER_EXTENSION] = runtime.consumer
     app.extensions[_RUNTIME_EXTENSION] = runtime
@@ -259,7 +277,11 @@ def _native_worker_capabilities(
     )
     pi = native.get("pi")
     if not isinstance(pi, Mapping) or pi.get("enabled") is not True:
-        values = tuple(value for value in values if value != "coding.agent.pi")
+        values = tuple(value for value in values if value != PI_NATIVE_CAPABILITY)
+    if native.get("result_maintenance") is not True:
+        values = tuple(value for value in values if value != MAINTENANCE_CAPABILITY)
+    if native.get('result_retirement') is not True:
+        values = tuple(value for value in values if value != RETIREMENT_CAPABILITY)
     if len(values) > 128 or any(len(value) > 128 or "\x00" in value for value in values):
         raise ValueError("native_graph_worker_capabilities_invalid")
     return values

@@ -1,0 +1,76 @@
+{
+  "schema": "ananta.bpmn-result-retirement-pipeline-gate.v1",
+  "classification": "actual_hub_sql_authority_autopilot_and_signed_worker_http_private_sqlite_synthetic_policy_technical_observation",
+  "status": "hub_issued_retirement_worker_compaction_and_durable_acknowledgement_implemented_and_locally_verified",
+  "production_release_evidence": false,
+  "deployment_performed": false,
+  "broad_passed": 1737,
+  "broad_skipped": 24,
+  "broad_deselected": 1,
+  "broad_seconds": 132.26,
+  "final_focused_passed": 115,
+  "final_focused_seconds": 17.04,
+  "owned_postgres_passed": 13,
+  "owned_postgres_seconds": 33.51,
+  "owned_postgres_image": "sha256:5d143123fdf80462d1778cd4f24b9f7ca13c87174bca19141fb194c5a1ebca59",
+  "owned_postgres_cleanup_verified": true,
+  "verified": [
+    "Explicit default-off Hub schedule and strict Worker profile opt-in with separate retirement tools/capabilities",
+    "Existing false-flag schedule serialization and plan hashes preserved",
+    "Hub issuer requires current policy, actual project/control Task, cadence reservation and exact assignment/grant/lease",
+    "Mandatory human retirement-tool policy cannot be bypassed",
+    "Bounded scoped cursor, historical admission, signing, Task context and manifest persistence share one transaction",
+    "Task context is reloaded and signed before actual Native Autopilot journal reservation and transport",
+    "Post-dispatch manifest issuance rejected; exact existing manifest cannot be silently renewed or replaced",
+    "Worker checks signed manifest before effects and revalidates Hub authority before/after expiry and compaction",
+    "Actual SQL Hub, independent Ed25519 Worker HTTP and private SQLite complete exact result-slot compaction",
+    "Actual Autopilot route branch accepts the actual Hub Native receipt and confirms the journal",
+    "Existing exact replay markers are acknowledged idempotently; absent/foreign/active slots are not claimed as retired",
+    "Accepted immutable dispatch and result projection, manifest signature, digest, recipient and output membership required for confirmation",
+    "Interruption after accepted receipt before confirmation reconciles the same manifest without reexecution",
+    "Existing Hub cadence tick performs finite bounded acknowledgement reconciliation even when new execution is disabled",
+    "Invalid acknowledgement journal data becomes blocked without confirmed markers or fabricated success",
+    "Current policy withdrawal, revoked grant and wrong assignment prevent issuance and persistence",
+    "Superseding higher canonical fence requires exact original immutable Hub history revision and expired original grant",
+    "Missing/mutated original history is denied",
+    "Owned PostgreSQL independent Hubs advance one cursor without lost updates; cursor rollback preserves candidates",
+    "PostgreSQL bounded lock/statement ceilings retain stricter existing settings"
+  ],
+  "limits": {
+    "retirement_manifest_entries_max": 128,
+    "retirement_task_id_bytes_max": 200,
+    "expiry_batch_size_max": 1000,
+    "permit_ttl_seconds_max": 60,
+    "acknowledgement_batch_size_max": 64,
+    "acknowledgement_loop_budget_seconds": 5,
+    "postgres_lock_timeout_ceiling_ms": 5000,
+    "postgres_statement_timeout_ceiling_ms": 15000,
+    "tombstone_deletion": false,
+    "unverified_unknown_slots_retained": true,
+    "physical_erasure_claim": false
+  },
+  "remaining": [
+    "Full compiled BPMN reference/container/PostgreSQL acceptance matrix",
+    "Actual productive Worker packaging, provider/registration/rollout/release admission",
+    "Additional transport byte-boundary and explicit deployment-fault/retirement concurrency coverage",
+    "Unknown or unadmitted execution outcomes remain protected and are not eligible for retirement"
+  ],
+  "checks": {
+    "ruff": "passed",
+    "memory_channels": "passed",
+    "memory_legacy_access": "passed",
+    "cli_backend_shim_imports": "passed",
+    "todo_consistency": "passed",
+    "git_diff_check": "passed"
+  },
+  "solid": {
+    "protected": "SQL journal/scanning, one-Task authorization/signing/receipt lifecycle, Worker effects and exact ownership decoding have focused seams. Autopilot uses a narrow prepare/confirm port; existing consumer interface is preserved.",
+    "preserved_debt": "Large Native scheduling/ownership modules and Flask/global engine composition remain SRP/DIP debt. No Worker orchestration introduced."
+  },
+  "regression_limits": {
+    "skipped": "Thirteen owned PostgreSQL cases run separately; remaining live Pi/SDK/process cases remain explicit opt-in in the host run.",
+    "warnings": "Four existing startup Pydantic deprecations",
+    "postgres": "New PostgreSQL cases cover selector cursor concurrency/rollback/timeouts using explicitly synthetic candidate rows, not a full PostgreSQL retirement execution gate.",
+    "policy": "Synthetic release/outer policy fixtures; actual SQL grants, assignment, ownership, signed transport, private SQLite and Hub receipt admission. No production evidence promotion."
+  }
+}

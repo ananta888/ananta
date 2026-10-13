@@ -51,6 +51,7 @@ class SQLAlchemySideEffectLedger(SQLAlchemyStoreSupport, SideEffectLedger):
         step_id: str,
         declared_operation: str,
         side_effect_class: str,
+        _control_lease=None,
     ) -> SideEffectRecord:
         candidate = _new_record(
             tenant_id=tenant_id,
@@ -62,6 +63,10 @@ class SQLAlchemySideEffectLedger(SQLAlchemyStoreSupport, SideEffectLedger):
         )
         try:
             with self._transaction() as session:
+                if _control_lease is not None:
+                    from agent.services.workflow_runtime.lease_fencing import validate_sqlalchemy_lease
+
+                    validate_sqlalchemy_lease(session, _control_lease, candidate)
                 current = session.get(WorkflowSideEffectLedgerDB, candidate.operation_id)
                 if current is not None:
                     return _same_binding_or_raise(current, candidate)
@@ -69,11 +74,19 @@ class SQLAlchemySideEffectLedger(SQLAlchemyStoreSupport, SideEffectLedger):
                 session.flush()
                 return SideEffectRecord.from_mapping(candidate.to_dict())
         except IntegrityError as exc:
-            with self._read_session() as session:
+            with self._transaction() as session:
+                if _control_lease is not None:
+                    validate_sqlalchemy_lease(session, _control_lease, candidate)
                 current = session.get(WorkflowSideEffectLedgerDB, candidate.operation_id)
                 if current is not None:
                     return _same_binding_or_raise(current, candidate)
             raise OptimisticConcurrencyError("side_effect_plan_compare_and_set_failed") from exc
+
+    def plan_fenced(self, *, lease, **values):
+        return self.plan(**values, _control_lease=lease)
+
+    def authorize_fenced(self, operation_id, *, lease, **values):
+        return self.authorize(operation_id, **values, _control_lease=lease)
 
     def authorize(
         self,
@@ -82,6 +95,7 @@ class SQLAlchemySideEffectLedger(SQLAlchemyStoreSupport, SideEffectLedger):
         expected_revision: int,
         fencing_token: int,
         authorization_envelope_id: str,
+        _control_lease=None,
     ) -> SideEffectRecord:
         if not authorization_envelope_id:
             raise ValueError("authorization_envelope_id_required")
@@ -91,6 +105,7 @@ class SQLAlchemySideEffectLedger(SQLAlchemyStoreSupport, SideEffectLedger):
             fencing_token=fencing_token,
             to_status="authorized",
             authorization_envelope_id=str(authorization_envelope_id),
+            _control_lease=_control_lease,
         )
 
     def claim(
@@ -372,8 +387,15 @@ class SQLAlchemySideEffectLedger(SQLAlchemyStoreSupport, SideEffectLedger):
         )
 
     def _mutate(self, operation_id: str, **changes: object) -> SideEffectRecord:
+        lease = changes.pop("_control_lease", None)
         with self._transaction() as session:
+            if lease is not None:
+                from agent.services.workflow_runtime.lease_fencing import validate_sqlalchemy_lease
+
+                validate_sqlalchemy_lease(session, lease, lease.checkpoint)
             row, current = self._required(session, operation_id, lock=True)
+            if lease is not None:
+                validate_sqlalchemy_lease(session, lease, current)
             updated = _transition(current, **changes)
             self._compare_and_set(session, row, updated)
             return updated

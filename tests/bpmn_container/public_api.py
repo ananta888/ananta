@@ -144,6 +144,33 @@ class ObservedBackend:
     def get_workflow_status(self, *args, **kwargs):
         return self._call("get_workflow_status", *args, **kwargs)
 
+    def command_workflow(self, *args, **kwargs):
+        try:
+            return self.backend.command_workflow(*args, **kwargs)
+        except Exception as exc:
+            status = self.backend._bindings.last_status(args[0]) or {}
+            from sqlmodel import Session
+
+            from agent.db_models.workflow_runtime import WorkflowControlBindingDB
+
+            with Session(self.backend._bindings.engine) as session:
+                row = session.get(WorkflowControlBindingDB, args[0])
+                pending = {name: bool(getattr(row, name, None)) for name in (
+                    'dispatch_intent_id', 'command_observation_pending', 'command_receipt_id',
+                    'active_transition_id', 'scheduler_owner', 'command_claim')}
+                pending['runtime_revision_matches'] = row.runtime_revision == kwargs.get('expected_revision')
+                pending['runtime_checkpoint_matches'] = row.runtime_checkpoint_ref == kwargs.get('checkpoint_ref')
+            print('PUBLIC_COMMAND_BINDING_DIAGNOSTIC=' + str({
+                'provided_checkpoint': kwargs.get('checkpoint_ref'),
+                'stored_checkpoint': status.get('checkpoint_ref'),
+                'provided_revision': kwargs.get('expected_revision'),
+                'stored_revision': status.get('revision'),
+                'pending': pending,
+                'cause_type': type(exc.__cause__).__name__,
+                'cause_reason': str(exc.__cause__)[:128] if exc.__cause__ is not None else str(exc)[:128],
+            }), flush=True)
+            raise
+
 
 @dataclass(frozen=True)
 class PublicScenario:

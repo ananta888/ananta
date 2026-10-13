@@ -11,6 +11,7 @@ import math
 import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
+from typing import ContextManager, Protocol
 
 from agent.services.workflow_runtime.errors import OptimisticConcurrencyError
 from agent.services.workflow_runtime.security import SignedCheckpoint, WorkflowState
@@ -67,6 +68,12 @@ class BpmnRunLease:
             raise OptimisticConcurrencyError("bpmn_control_lease_stale")
 
 
+class BpmnRunLeasePort(Protocol):
+    """Hub control-lease acquisition; execution remains in the orchestrator."""
+
+    def acquire(self, request, *, command=None) -> ContextManager[BpmnRunLease | None]: ...
+
+
 class BpmnRunLeaseService:
     def __init__(self, *, checkpoints, keys, clock, lease_seconds=30.0):
         if type(lease_seconds) not in {int, float} or not math.isfinite(lease_seconds) or not 0 < lease_seconds <= 300:
@@ -75,8 +82,8 @@ class BpmnRunLeaseService:
         self._duration = float(lease_seconds)
 
     @contextmanager
-    def acquire(self, request):
-        if not is_bpmn_plan(request.plan):
+    def acquire(self, request, *, command=None):
+        if not is_bpmn_plan(request.plan) and request.plan.metadata.get('hub_control_lease_required') is not True:
             yield None
             return
         current = self._store.get_latest(tenant_id=request.plan.tenant_id, run_id=request.run_id, task_id=_TASK)

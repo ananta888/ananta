@@ -30,7 +30,7 @@ describe('BPMN Hub HTTP contracts', () => {
     request.flush({ ready: false, reason_codes: ['synthetic-denial'] });
   });
 
-  it.each(['resume', 'retry', 'cancel'] as const)('posts %s with exact loaded preconditions to the existing Hub route', command => {
+  it.each(['pause', 'resume', 'retry', 'cancel'] as const)('posts %s with exact loaded preconditions to the existing Hub route', command => {
     api.controlBpmnWorkflow('workflow / test', command, binding, 'synthetic-command').subscribe();
     const request = http.expectOne(`http://hub/api/visual-process/workflow/workflow%20%2F%20test/${command}`);
     expect(request.request.method).toBe('POST');

@@ -30,6 +30,7 @@ from ananta_contracts.workflow_worker_gateway import (
 )
 from worker.adapters.workflow_adapter_base import DryRunResult, WorkflowArtifactResult
 from worker.runtime.native_graph.contracts import NativeNodeCommand, NativeNodeResult
+from worker.runtime.native_graph.worker_binding import native_command_worker_binding
 
 NATIVE_GRAPH_WORKER_CONTEXT_SCHEMA = "ananta.native_graph_worker_context.v1"
 NATIVE_GRAPH_RUNTIME_PATH = "native_graph_node"
@@ -138,17 +139,7 @@ class WorkflowAdapterTaskConsumer:
         except (TypeError, ValueError) as exc:
             return _failure(hub_task_id, "native", _reason(exc, "native_node_command_invalid"))
         try:
-            binding = WorkflowWorkerBinding.from_mapping(
-                {
-                    "tenant_id": command.tenant_id,
-                    "workflow_id": command.workflow_id,
-                    "run_id": command.run_id,
-                    "step_id": command.node.node_id,
-                    "plan_hash": command.plan_hash,
-                    "policy_version": command.policy_version,
-                    "authorization_envelope": command.authorization.to_dict(),
-                }
-            )
+            binding = native_command_worker_binding(command)
         except WorkflowWorkerContractError as exc:
             return _native_failure_result(command, hub_task_id, exc.reason_code)
         decision = self._authorize(

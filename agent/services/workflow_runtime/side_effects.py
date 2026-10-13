@@ -182,6 +182,20 @@ class SideEffectLedger(Protocol):
 
 
 class InMemorySideEffectLedger:
+    def plan_fenced(self, *, lease, **values):
+        from agent.services.workflow_runtime.lease_fencing import OwnershipLeaseRecipient
+
+        recipient = OwnershipLeaseRecipient(values["tenant_id"], values["workflow_id"], values["run_id"])
+        return lease.store.mutate_fenced(lease=lease, recipient=recipient, mutation=lambda: self.plan(**values))
+
+    def authorize_fenced(self, operation_id, *, lease, **values):
+        current = self.get(tenant_id=lease.checkpoint.tenant_id, operation_id=operation_id)
+        if current is None:
+            raise KeyError("side_effect_operation_not_found")
+        return lease.store.mutate_fenced(
+            lease=lease, recipient=current, mutation=lambda: self.authorize(operation_id, **values),
+        )
+
     def __init__(self) -> None:
         self._records: dict[str, SideEffectRecord] = {}
         self._transition_authorization_receipts: dict[str, WorkflowTransitionSideEffectAuthorizationReceipt] = {}

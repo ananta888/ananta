@@ -361,11 +361,12 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/bpmn_container -
 
 The [harness contract](../../tests/bpmn_container/README.md) names the production
 queue, assignment, lease, worker authorization, result and SQL checkpoint paths
-used, plus boundaries it does not cover. The full 21-case container run is green,
-including actual `/login`, public graph replay and the Angular editor. The
-artifact case is explicitly **negative**: artifact-bearing plans are blocked
-before Task creation until Hub-owned transfer/receipt admission exists. It does
-not count as positive artifact acceptance.
+used, plus boundaries it does not cover. The full 22-case container run is green
+(2026-10-11), including actual `/login`, public graph replay and the Angular editor.
+The positive artifact producer/consumer case verifies actual bytes through Hub
+admission and immutable technical receipts. A separate unadmitted-reference
+case rejects completion before Task persistence. File declarations alone are
+not authority; Full-App/Autopilot/container-loss recovery remains separate work.
 
 Core and extension tests use no production credentials, external LLMs or human
 approval. The CaseFlow edge-trace endpoint can remain unavailable in this narrow
@@ -389,3 +390,12 @@ debt, not another orchestration layer. Loop/event additions must continue throug
 Hub-owned activation and durable wait contracts, never Worker orchestration.
 
 The metadata descriptor uses the upstream [bpmn-moddle XML model](https://github.com/bpmn-io/bpmn-moddle).
+
+
+2026-10-11: Positive full-application Native Autopilot dispatch and artifact
+producer/consumer handoff now pass the separate `--full-app-autopilot` gate.
+The Hub owns queue/assignment/receipts; the separate Worker accepts only a
+short-lived Ed25519-signed recipient-bound projection. Synthetic graph admission
+and deterministic handlers remain test fixtures. Durable dispatch outbox,
+real container-loss recovery, PostgreSQL and production packaging remain open.
+See [the dispatch contract](../architecture/native-autopilot-dispatch.md).

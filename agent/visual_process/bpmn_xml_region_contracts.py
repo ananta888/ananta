@@ -33,11 +33,12 @@ from agent.visual_process.bpmn_execution_support import (
     BpmnExecutionIssue,
     parse_ananta_metadata,
 )
+from ananta_contracts.native_artifact_files import NATIVE_ARTIFACT_FILE_KEYS
 
 ORIGIN_KEY = "bpmn_activation_origin"
 REGIONS_KEY = "bpmn_xml_regions"
 CONTROL_KEY = "bpmn_region_control"
-BOUND_METADATA = (PROJECTION_KEY, ORIGIN_KEY, CONTROL_KEY, JOIN_KEY)
+BOUND_METADATA = (PROJECTION_KEY, ORIGIN_KEY, CONTROL_KEY, JOIN_KEY, *NATIVE_ARTIFACT_FILE_KEYS)
 
 
 def reject(owner, reason, detail=""):

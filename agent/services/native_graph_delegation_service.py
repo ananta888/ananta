@@ -66,6 +66,13 @@ class NativeGraphDelegationService:
         fail: Callable[[ExecutionPlan, NativeGraphRequest, NativeRunState, str], None],
         emit: Callable[..., Any],
     ) -> None:
+        missing_inputs = sorted(
+            name for name in node.input_artifacts
+            if not isinstance(state.artifact_refs.get(name), str) or not state.artifact_refs[name].strip()
+        )
+        if missing_inputs:
+            fail(plan, request, state, f"native_input_artifact_missing:{','.join(missing_inputs)}")
+            return
         requires_provider = native_node_requires_provider(node)
         try:
             provider_decision = self._provider_decisions.decide(
@@ -94,7 +101,14 @@ class NativeGraphDelegationService:
 
         budget = node.budget or plan.budget
         owner_id = f"hub-native:{request.run_id}:{node.node_id}"
-        claim = self._ownership.claim(
+        claim_ownership = self._ownership.claim
+        claim_arguments = {}
+        if state.control_lease is not None:
+            claim_ownership = getattr(self._ownership, "claim_fenced", None)
+            if not callable(claim_ownership):
+                raise RuntimeError("bpmn_ownership_recipient_fencing_unavailable")
+            claim_arguments["lease"] = state.control_lease
+        claim = claim_ownership(
             tenant_id=plan.tenant_id,
             workflow_id=plan.workflow_id,
             run_id=request.run_id,
@@ -103,6 +117,7 @@ class NativeGraphDelegationService:
             lease_seconds=max(30.0, budget.timeout_seconds + 30.0),
             maximum_retries=max(0, plan.budget.max_attempts - 1),
             now=float(self._clock()),
+            **claim_arguments,
         )
         if not claim.acquired:
             if state.control_lease is not None and claim.reason in {"already_owned", "already_completed"}:
@@ -166,7 +181,13 @@ class NativeGraphDelegationService:
             ttl_seconds=max(30.0, min(3600.0, budget.timeout_seconds + 30.0)),
             now=float(self._clock()),
         )
-        self._authorization_grants.grant(authorization)
+        if state.control_lease is not None:
+            grant = getattr(self._authorization_grants, "grant_fenced", None)
+            if not callable(grant):
+                raise RuntimeError("bpmn_grant_recipient_fencing_unavailable")
+            grant(authorization, lease=state.control_lease)
+        else:
+            self._authorization_grants.grant(authorization)
         operation_id, side_effect_revision = self._authorize_side_effect(
             plan=plan,
             request=request,
@@ -341,11 +362,19 @@ class NativeGraphDelegationService:
         running = tuple(state.running.items())
         task_ids = tuple(sorted(item["hub_task_id"] for _node_id, item in running))
         if task_ids:
-            self._queue.cancel(
+            cancel = self._queue.cancel
+            cancel_arguments = {}
+            if state.control_lease is not None:
+                cancel = getattr(self._queue, "cancel_fenced", None)
+                if not callable(cancel):
+                    raise RuntimeError("bpmn_cancel_recipient_fencing_unavailable")
+                cancel_arguments["lease"] = state.control_lease
+            cancel(
                 tenant_id=plan.tenant_id,
                 run_id=request.run_id,
                 hub_task_ids=task_ids,
                 reason=reason,
+                **cancel_arguments,
             )
         for node_id, item in running:
             grant_ref = str(item.get("grant_ref") or "")
@@ -355,9 +384,17 @@ class NativeGraphDelegationService:
                     grant_ref = legacy_ref
             if grant_ref:
                 try:
-                    self._authorization_grants.revoke(
+                    revoke = self._authorization_grants.revoke
+                    revoke_arguments = {}
+                    if state.control_lease is not None:
+                        revoke = getattr(self._authorization_grants, "revoke_fenced", None)
+                        if not callable(revoke):
+                            raise RuntimeError("bpmn_grant_recipient_fencing_unavailable")
+                        revoke_arguments["lease"] = state.control_lease
+                    revoke(
                         grant_ref,
                         reason_code=safe_native_reason_code(reason),
+                        **revoke_arguments,
                     )
                 except KeyError:
                     pass
@@ -404,13 +441,21 @@ class NativeGraphDelegationService:
         }:
             return "", 0
         operation = str(node.metadata.get("operation_name") or node.metadata.get("declared_operation") or "").strip()
-        record = self._ledger.plan(
+        plan_effect = self._ledger.plan
+        effect_arguments = {}
+        if state.control_lease is not None:
+            plan_effect = getattr(self._ledger, "plan_fenced", None)
+            if not callable(plan_effect):
+                raise RuntimeError("bpmn_side_effect_recipient_fencing_unavailable")
+            effect_arguments["lease"] = state.control_lease
+        record = plan_effect(
             tenant_id=plan.tenant_id,
             workflow_id=plan.workflow_id,
             run_id=request.run_id,
             step_id=node.node_id,
             declared_operation=operation,
             side_effect_class=node.side_effect_class,
+            **effect_arguments,
         )
         if record.status in {"completed", "uncertain", "started"}:
             fail(
@@ -421,11 +466,17 @@ class NativeGraphDelegationService:
             )
             return None, 0
         if record.status in {"planned", "failed"}:
-            record = self._ledger.authorize(
+            authorize = self._ledger.authorize
+            if state.control_lease is not None:
+                authorize = getattr(self._ledger, "authorize_fenced", None)
+                if not callable(authorize):
+                    raise RuntimeError("bpmn_side_effect_recipient_fencing_unavailable")
+            record = authorize(
                 record.operation_id,
                 expected_revision=record.revision,
                 fencing_token=fencing_token,
                 authorization_envelope_id=envelope_id,
+                **effect_arguments,
             )
         elif record.status != "authorized" or record.fencing_token != fencing_token:
             fail(

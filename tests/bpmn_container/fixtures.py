@@ -166,6 +166,23 @@ def artifact() -> str:
             '<serviceTask id="artifact_work"/>',
             '<serviceTask id="artifact_work"><extensionElements>'
             f'<ananta:metadata xmlns:ananta="{ANANTA_NS}">'
-            + '{"outputs":["report"]}</ananta:metadata></extensionElements></serviceTask>',
+            + '{"outputs":["report"],"native_output_files":{"report":{"path":"outputs/report.json",'
+            '"media_type":"application/json"}}}</ananta:metadata></extensionElements></serviceTask>',
         )
     )
+
+
+def artifact_handoff() -> str:
+    from agent.visual_process.bpmn_execution_support import ANANTA_NS
+
+    return artifact().replace(
+        '<endEvent id="end"/>',
+        '<serviceTask id="artifact_consumer"><extensionElements>'
+        f'<ananta:metadata xmlns:ananta="{ANANTA_NS}">'
+        + '{"inputs":["report"],"native_input_files":{"report":"inputs/report.json"}}'
+        '</ananta:metadata></extensionElements></serviceTask>'
+        '<endEvent id="end"/>',
+    ).replace('sourceRef="artifact_work" targetRef="end"',
+              'sourceRef="artifact_work" targetRef="artifact_consumer"').replace(
+                  '</process>', '<sequenceFlow id="artifact_finish" sourceRef="artifact_consumer" '
+                  'targetRef="end"/></process>')

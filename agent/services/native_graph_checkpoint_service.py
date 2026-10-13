@@ -49,6 +49,20 @@ class NativeGraphCheckpointService:
             state.control_lease.ensure_valid()
             if (latest.revision if latest else 0) != state.checkpoint_revision:
                 raise OptimisticConcurrencyError("bpmn_checkpoint_revision_stale")
+        if (
+            plan.metadata.get("bpmn_definition_hash")
+            and latest is not None
+            and latest.plan_hash == plan.plan_hash
+            and latest.state == state.to_workflow_state(secret_refs=request.secret_refs)
+        ):
+            # An unchanged BPMN tick must not invalidate an operator's loaded
+            # preconditions. Lease validation and revision checks still run;
+            # any event, result, wait consumption or command changes the state.
+            latest.verify(key_ring=self._key_ring, tenant_id=plan.tenant_id,
+                          workflow_id=plan.workflow_id, run_id=request.run_id,
+                          task_id=request.control_task_id, plan_hash=plan.plan_hash,
+                          policy_version=plan.policy_version)
+            return latest
         revision = (latest.revision + 1) if latest else 1
         fence = max(
             [

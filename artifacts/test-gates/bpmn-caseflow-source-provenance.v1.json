@@ -1,0 +1,50 @@
+{
+  "schema": "ananta.bpmn-caseflow-source-provenance-gate.v1",
+  "classification": "immutable_hub_bpmn_source_lineage_and_unambiguous_runtime_projection_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "deployment_performed": false,
+  "verified": [
+    "All expanded loop/subprocess edge IDs bind their original source element, activation, direction, lexical scope and iteration",
+    "Canonical source SHA/plan/policy validation precedes lineage; changed binding yields no trusted catalog",
+    "Catalog IDs and directions must exactly match regenerated admitted XML; another valid predecessor cannot replace an edge source",
+    "No event or Worker payload supplies lineage or Source/Run evidence identities",
+    "Absent events remain unverified; source lineage alone is never execution evidence",
+    "Source flow activations retain independent table rows; collapsed canvas edges require all known activation slots and unanimous states",
+    "Mixed collapsed activity states do not add contradictory canvas markers"
+  ],
+  "focused_backend": {
+    "passed": 36,
+    "seconds": 3.72
+  },
+  "broad_backend": {
+    "passed": 1187,
+    "skipped": 13,
+    "deselected": 1,
+    "seconds": 91.76
+  },
+  "frontend": {
+    "passed": 69,
+    "seconds": 3.21
+  },
+  "container_browser": {
+    "passed": 22,
+    "seconds": 68.64,
+    "cleanup_verified": true
+  },
+  "changed_dependency_typescript": "passed",
+  "remaining": [
+    "Canonical traversal event coverage and complete original-edge correlation for every control/activation boundary",
+    "Browser pre-execution Hub Registry coverage",
+    "Full UI pause/resume/retry/cancel recovery matrix",
+    "Optional backend and productive rollout/provider/release acceptance"
+  ],
+  "solid": {
+    "protected": "Immutable source lineage and collapsed canvas-state selection use focused pure collaborators; existing event correlation/authorization stays unchanged.",
+    "preserved_debt": "Existing large CaseFlow projection and editor orchestration retain SRP/coupling debt."
+  },
+  "checks": {
+    "ruff": "passed",
+    "git_diff_check": "passed",
+    "todo_consistency": "passed"
+  }
+}

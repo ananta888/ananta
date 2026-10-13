@@ -528,13 +528,22 @@ class WorkflowRequestExecutionPlanAdapter:
 
 
 def _validate_bpmn_artifact_admission(plan: ExecutionPlan) -> tuple[ContractIssue, ...]:
-    # Native BPMN has no assignment-bound transfer/Hub receipt admission yet.
-    # A Worker-local artifact:// ID cannot establish Hub-owned bytes. Preserve
-    # editing/roundtrip and legacy plans; fail execution closed until this port
-    # is supplied and verified, instead of fabricating receipt references.
+    from ananta_contracts.native_artifact_files import validate_native_artifact_files
+
     bpmn = plan.metadata.get("bpmn_definition_hash") or plan.metadata.get("bpmn_activation_expansion")
     artifacts = plan.artifacts or any(node.input_artifacts or node.output_artifacts for node in plan.nodes)
-    return (ContractIssue("bpmn_artifact_ingress_unavailable", "artifacts"),) if bpmn and artifacts else ()
+    if not bpmn or not artifacts:
+        return ()
+    try:
+        for node in plan.nodes:
+            validate_native_artifact_files(
+                node.metadata, inputs=node.input_artifacts, outputs=node.output_artifacts, require_files=True,
+            )
+    except ValueError:
+        return (ContractIssue("bpmn_artifact_ingress_unavailable", "artifacts"),)
+    # Bytes still require current assignment-bound Hub admission and an exact
+    # Task completion receipt. Declarations alone never establish evidence.
+    return ()
 
 
 def _clean_tuple(values: Any) -> tuple[str, ...]:
@@ -669,6 +678,12 @@ def _validate_node_runtime_metadata(
 
     issues: list[ContractIssue] = []
     metadata = node.metadata
+    from ananta_contracts.native_artifact_files import validate_native_artifact_files
+
+    try:
+        validate_native_artifact_files(metadata, inputs=node.input_artifacts, outputs=node.output_artifacts)
+    except ValueError as exc:
+        issues.append(ContractIssue(str(exc), f"{path}.metadata"))
     from agent.services.bpmn_control_nodes import validate_control_node
     from agent.visual_process.bpmn_event_definitions import validate_event_node
 

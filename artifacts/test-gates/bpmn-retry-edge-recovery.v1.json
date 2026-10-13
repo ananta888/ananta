@@ -1,0 +1,63 @@
+{
+  "schema": "ananta.bpmn-retry-edge-recovery-gate.v1",
+  "classification": "synthetic_test_technical_observation",
+  "production_release_evidence": false,
+  "deployment_performed": false,
+  "verified": [
+    "Hub retry emits pending observations for unresolved edges and uses a persisted BPMN edge epoch for fresh selections",
+    "Completed targets, skipped branches and remaining failures retain their existing outcomes",
+    "The new epoch does not change the immutable definition or plan revision and is not an Evidence Registry identity",
+    "Crash after pending-event persistence recovers the same epoch and emits no duplicate reset facts",
+    "Confirmed service output is retained without reexecuting its Worker task",
+    "Existing open approval/resume gates restore the appropriate waiting/paused run status after retry",
+    "Actual authenticated editor cancellation/reload/retry/reload preserves an unapproved gate with zero Worker delegation",
+    "CaseFlow and frontend preserve explicit pending observations over historical gateway selection",
+    "Boolean, negative, string and null edge epochs fail closed when decoding checkpoint state"
+  ],
+  "focused_backend": {
+    "passed": 46,
+    "seconds": 16.45
+  },
+  "broad_backend": {
+    "passed": 1394,
+    "skipped": 13,
+    "deselected": 1,
+    "seconds": 135.91
+  },
+  "frontend": {
+    "passed": 77,
+    "seconds": 3.34
+  },
+  "focused_browser": {
+    "passed": true,
+    "partial_case_selection": true,
+    "seconds": 65.62,
+    "cleanup_verified": true,
+    "approval_retry_after_reload": true,
+    "reopened_approval_page_reload": true,
+    "unapproved_retry_worker_tasks": 0
+  },
+  "changed_dependency_typescript": "passed",
+  "checks": {
+    "ruff": "passed",
+    "cli_backend_shim_imports": "passed",
+    "diff_check": "passed",
+    "todo_consistency": "passed"
+  },
+  "solid_review": {
+    "protected": "Focused Hub edge-observation generation separates read-model facts from scheduling and Worker execution (SRP). Retry generation is explicit signed checkpoint state; no implicit browser or Worker orchestration state.",
+    "preserved_debt": "The Native scheduler and state serialization remain broad collaborators. Existing source/target attempt decoding still uses legacy coercion; the new edge epoch has strict validation."
+  },
+  "remaining": [
+    "Browser pre-execution Hub Evidence Registry reservation",
+    "Additional productive-provider and deployment/release acceptance",
+    "Locked full-frontend build dependency provisioning"
+  ],
+  "full_core_browser": {
+    "passed": true,
+    "cases": 22,
+    "seconds": 147.21,
+    "partial_case_selection": false,
+    "cleanup_verified": true
+  }
+}

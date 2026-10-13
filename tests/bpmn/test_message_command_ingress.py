@@ -147,7 +147,7 @@ def test_generic_signal_cannot_bypass_message_envelope(message_setup):
     assert s["backend"].signals == []
 
 
-@pytest.mark.parametrize("endpoint", ["signal", "cancel", "resume", "retry"])
+@pytest.mark.parametrize("endpoint", ["signal", "pause", "cancel", "resume", "retry"])
 @pytest.mark.parametrize("revision,code", [(55, 409), (None, 422)])
 def test_existing_command_routes_never_substitute_a_supplied_revision(message_setup, endpoint, revision, code):
     s = message_setup
@@ -161,7 +161,7 @@ def test_existing_command_routes_never_substitute_a_supplied_revision(message_se
     assert s["backend"].cancels == 0
 
 
-@pytest.mark.parametrize("endpoint", ["cancel", "resume", "retry"])
+@pytest.mark.parametrize("endpoint", ["pause", "cancel", "resume", "retry"])
 @pytest.mark.parametrize("field", ["run_id", "checkpoint_ref"])
 def test_ui_control_binding_mismatch_is_rejected(message_setup, endpoint, field):
     s = message_setup

@@ -39,6 +39,8 @@ SPEECH_EVIDENCE_CURATION_WORKER_SCOPE = "speech.evidence.curate"
 RECOVERY_TASK_DISPATCH_SCOPE = "task.recovery.dispatch"
 RECOVERY_TASK_MANIFEST_SCOPE = "task.recovery.manifest.read"
 RECOVERY_ARTIFACT_INGRESS_SCOPE = "task.recovery.artifacts.publish"
+NATIVE_ARTIFACT_INGRESS_SCOPE = "task.native.artifacts.publish"
+NATIVE_ARTIFACT_INPUT_SCOPE = "task.native.artifacts.read_input"
 VECTOR_INDEX_DISPATCH_ADMISSION_SCOPE = (
     "task.vector_index.dispatch.admit"
 )
@@ -90,6 +92,8 @@ _SCOPE_CAPABILITIES = {
     # dispatch lease and authoritative task assignment.  This scope grants no
     # generic Artifact create/read capability.
     RECOVERY_ARTIFACT_INGRESS_SCOPE: frozenset(),
+    NATIVE_ARTIFACT_INGRESS_SCOPE: frozenset({"workflow.adapter.native"}),
+    NATIVE_ARTIFACT_INPUT_SCOPE: frozenset({"workflow.adapter.native"}),
     VECTOR_INDEX_DISPATCH_ADMISSION_SCOPE: frozenset(
         {"vector_index_operation"}
     ),
@@ -807,6 +811,8 @@ __all__ = [
     "RECOVERY_TASK_DISPATCH_SCOPE",
     "RECOVERY_TASK_MANIFEST_SCOPE",
     "RECOVERY_ARTIFACT_INGRESS_SCOPE",
+    "NATIVE_ARTIFACT_INGRESS_SCOPE",
+    "NATIVE_ARTIFACT_INPUT_SCOPE",
     "STRICT_WORKER_REGISTRATION_PROVENANCE",
     "WORKER_ID_HEADER",
     "WORKER_REGISTRATION_KEYRING_SCHEMA",

@@ -1,0 +1,61 @@
+{
+  "schema": "ananta.bpmn-full-app-registry-runs-gate.v1",
+  "classification": "actual_hub_registry_sql_native_autopilot_and_separate_worker_synthetic_test_scope",
+  "status": "pre_reserved_hub_registry_worker_reference_runs_implemented_and_locally_verified",
+  "production_release_evidence": false,
+  "deployment_performed": false,
+  "full_app_reference_cases": 13,
+  "unique_hub_reserved_worker_runs": 16,
+  "full_app_seconds": 112.34,
+  "cleanup_verified": true,
+  "broad_passed": 1795,
+  "broad_skipped": 24,
+  "broad_deselected": 1,
+  "broad_seconds": 129.74,
+  "focused_passed": 80,
+  "focused_seconds": 12.27,
+  "final_runner_dispatch_passed": 33,
+  "final_runner_dispatch_seconds": 4.93,
+  "verified": [
+    "Actual control Task/project, current assignment/grant/ownership and Registry in one Hub transaction",
+    "Registry-issued immutable synthetic task-input SRC and pre-execution test RUN for every Worker task",
+    "Exact closed projection persisted before actual native signature/dispatch reservation and transport",
+    "Separate Worker validates and returns original projection; no Worker identity issuance",
+    "Actual accepted Native receipt and result digest complete/verify exact registered assignment and dispatch lease",
+    "Reservation timestamps precede actual Worker start/finish",
+    "All sixteen test-scope runs explicitly fail production release verification",
+    "Actual HEAD and bounded selected dirty-source digest; source changes invalidate owned runner success",
+    "Preparation failure/rewritten command stop before journal reservation or Worker contact",
+    "No host .env, serving project, production credentials or Worker access to Hub signing/database introduced"
+  ],
+  "reference_worker_run_counts": {
+    "and_join": 3,
+    "artifact_handoff": 2,
+    "loop": 3,
+    "message": 1,
+    "native_node": 1,
+    "policy_approve": 1,
+    "policy_blocked": 0,
+    "policy_reject": 0,
+    "subprocess": 1,
+    "timer": 1,
+    "xor_default": 1,
+    "xor_false": 1,
+    "xor_true": 1
+  },
+  "remaining": [
+    "Full PostgreSQL reference and fault matrix",
+    "Registry identities for controller-only/event/browser acceptance actions; Worker runs are covered",
+    "Optional backend and productive packaging/provider/rollout/release admission"
+  ],
+  "solid": {
+    "protected": "Source identity, fixture Registry lifecycle and generic pre-dispatch preparation are focused seams; cached image validation is extracted.",
+    "preserved_debt": "Existing large native dispatch and host-runner orchestration retain SRP/coupling debt."
+  },
+  "checks": {
+    "ruff": "passed",
+    "todo_consistency": "passed",
+    "git_diff_check": "passed",
+    "cli_backend_shim_imports": "passed"
+  }
+}

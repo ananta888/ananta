@@ -1,0 +1,133 @@
+{
+  "acceptance": {
+    "capability_scope": "worker_recreation_redelivery",
+    "cases": {
+      "full_application_boot": {
+        "background_services_configured_off": true,
+        "http_boundaries": {
+          "health": 200,
+          "login": {
+            "access_token_issued": true,
+            "status": 200
+          },
+          "native_autopilot": {
+            "worker_redelivery": {
+              "containment": {
+                "bootstrap_fixture": "Synthetic graph admission, deterministic handler and explicit Hub status reset",
+                "durable_dispatch_journal": "unknown",
+                "followup_autopilot_ticks": 2,
+                "generic_llm_proposal_used": false,
+                "headless_reconciliation": "unresolved",
+                "hub_receipt_created": false,
+                "loss_boundary": "Worker process exit after execution before HTTP result response",
+                "passed": true,
+                "production_release_evidence": false,
+                "status_reset_contained": true,
+                "task_status": "waiting_for_review",
+                "unchanged_dispatch_claim": true,
+                "worker_exit_requires_host_docker_inspection": true,
+                "workflow_completed": false
+              },
+              "current_worker_hostname_differs_from_result": true,
+              "hub_receipt_classification": "technical_observation",
+              "journal_state": "accepted",
+              "original_dispatch_claim_preserved": true,
+              "passed": true,
+              "persisted_result_from_original_worker": true,
+              "production_release_evidence": false,
+              "scheduler_http_tick": true,
+              "task_status": "completed",
+              "workflow_status": "completed"
+            }
+          },
+          "native_input": {
+            "data": {
+              "error_help": {
+                "next_steps": [
+                  "Melde dich erneut an oder pruefe den verwendeten Token.",
+                  "Pruefe, ob dein Benutzer die noetige Rolle oder Freigabe hat."
+                ],
+                "summary": "Zugriff nicht moeglich."
+              },
+              "reason_code": "workflow_auth_bearer_required"
+            },
+            "status": 401
+          },
+          "native_publish": {
+            "data": {
+              "error_help": {
+                "next_steps": [
+                  "Melde dich erneut an oder pruefe den verwendeten Token.",
+                  "Pruefe, ob dein Benutzer die noetige Rolle oder Freigabe hat."
+                ],
+                "summary": "Zugriff nicht moeglich."
+              },
+              "reason_code": "workflow_auth_bearer_required"
+            },
+            "status": 401
+          },
+          "workflow_start": {
+            "data": {
+              "error_help": {
+                "next_steps": [
+                  "Melde dich erneut an oder pruefe den verwendeten Token.",
+                  "Pruefe, ob dein Benutzer die noetige Rolle oder Freigabe hat."
+                ],
+                "summary": "Zugriff nicht moeglich."
+              },
+              "reason_code": "workflow_auth_bearer_required"
+            },
+            "status": 401
+          }
+        },
+        "passed": true,
+        "production_bootstrap": true,
+        "required_routes_registered": [
+          "/api/internal/tasks/<task_id>/native-artifact-inputs/<input_name>",
+          "/api/internal/tasks/<task_id>/native-artifacts",
+          "/api/visual-process/workflow/start",
+          "/health",
+          "/login"
+        ],
+        "testing_flag": false,
+        "unauthorized_tasks_created": 0
+      }
+    },
+    "evidence_classification": "synthetic_test_technical_observation",
+    "not_covered": [
+      "lease_expiry_recovery",
+      "postgresql_concurrency",
+      "production_release_admission"
+    ],
+    "passed": true,
+    "production_release_evidence": false,
+    "schema": "bpmn_full_app_worker_redelivery.v1"
+  },
+  "elapsed_seconds": 37.92,
+  "exit_code": 0,
+  "cleanup_complete": true,
+  "evidence_classification": "synthetic_test_technical_observation",
+  "production_release_evidence": false,
+  "worker_container_exit_observed": true,
+  "worker_container_recreated": true,
+  "schema": "bpmn_native_result_scheduler_gate.v1",
+  "command": "python3 scripts/test_bpmn_container.py --full-app-worker-redelivery",
+  "policy": {
+    "opt_in": "Hub ANANTA_NATIVE_RESULT_RECOVERY_ENABLED=true or environment=1; explicit false overrides environment",
+    "batch": "One scope-selected Task per existing tick; no new loop",
+    "scope": "Tenant/task SQL filter and reloaded Goal/Team snapshot match",
+    "fairness": "Existing persisted tick count rotates eligible candidates"
+  },
+  "regression": {
+    "broad_tests_passed": 1037,
+    "broad_seconds": 95.44,
+    "focused_tests_passed": 34,
+    "focused_seconds": 6.57
+  },
+  "remaining": [
+    "Expired-lease recovery and Hub-authorized new-attempt policy",
+    "Retention maintenance and execution-tool filesystem isolation",
+    "PostgreSQL concurrency",
+    "Production packaging/providers/release admission"
+  ]
+}

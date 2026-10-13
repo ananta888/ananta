@@ -179,12 +179,18 @@ class SQLiteExecutionOwnershipStore:
         lease_seconds: float,
         maximum_retries: int,
         now: float | None = None,
+        _control_lease=None,
     ) -> OwnershipClaim:
         timestamp = _validate_lease(lease_seconds, now)
         key = (str(tenant_id), str(run_id), str(step_id))
         with self._lock:
             self._connection.execute("BEGIN IMMEDIATE")
             try:
+                if _control_lease is not None:
+                    self._validate_control_lease({
+                        "tenant_id": tenant_id, "workflow_id": workflow_id,
+                        "run_id": run_id, "_control_lease": _control_lease,
+                    })
                 current = self._read(*key)
                 if current is not None and current.workflow_id != str(workflow_id):
                     raise OptimisticConcurrencyError("execution_ownership_workflow_binding_conflict")
@@ -223,6 +229,9 @@ class SQLiteExecutionOwnershipStore:
             except Exception:
                 self._connection.rollback()
                 raise
+
+    def claim_fenced(self, *, lease, **values):
+        return self.claim(**values, _control_lease=lease)
 
     def observe_transition_reservation(
         self,

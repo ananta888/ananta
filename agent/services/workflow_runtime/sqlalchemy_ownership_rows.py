@@ -125,6 +125,11 @@ def _history_exact(row: WorkflowExecutionAttemptHistoryDB) -> ExecutionOwnership
         ) from exc
 
 
+def execution_ownership_history_from_row(row: WorkflowExecutionAttemptHistoryDB) -> ExecutionOwnership:
+    """Exact immutable history projection for caller-owned Hub transactions."""
+    return _history_exact(row)
+
+
 def _retry_consumption_exact(
     row: WorkflowRetryConsumptionDB,
     *,

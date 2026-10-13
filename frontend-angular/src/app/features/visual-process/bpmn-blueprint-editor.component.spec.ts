@@ -1,4 +1,5 @@
 import { ChangeDetectorRef } from '@angular/core';
+import { createHash } from 'node:crypto';
 import { TestBed } from '@angular/core/testing';
 import { of, Subject } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -18,6 +19,10 @@ const readiness: WorkflowPreflight = { ready: true, workflow_id: graph.id, runti
 const status: WorkflowStatus = { schema: 'synthetic', workflow_id: graph.id, backend: 'ananta-native', status: 'running',
   plan_hash: readiness.plan_hash, definition_hash: readiness.definition_hash,
   run_id: 'synthetic-run', revision: 3, checkpoint_ref: 'synthetic-checkpoint', allowed_commands: ['cancel'] };
+const definitionSnapshot = { schema: 'ananta.bpmn_definition_snapshot.v1',
+  workflow_id: graph.id, run_id: 'synthetic-run', plan_hash: readiness.plan_hash,
+  definition_hash: readiness.definition_hash, bpmn_xml: '<definitions/>',
+  source_sha256: createHash('sha256').update('<definitions/>').digest('hex') };
 
 interface EditorHarness {
   modeler: BpmnModeler;
@@ -30,7 +35,8 @@ describe('BPMN execution admission UI', () => {
   let compilation: Subject<WorkflowRequestResult>;
   let started: Subject<WorkflowStatus>;
   let api: Record<'importBpmn' | 'compileWorkflowRequest' | 'startWorkflowFromGraph' | 'getWorkflowStatus'
-    | 'preflightWorkflowFromGraph' | 'getWorkflowEvents' | 'getBpmnEdgeTrace' | 'controlBpmnWorkflow', ReturnType<typeof vi.fn>>;
+    | 'preflightWorkflowFromGraph' | 'getWorkflowEvents' | 'getBpmnEdgeTrace' | 'controlBpmnWorkflow'
+    | 'getBpmnDefinition', ReturnType<typeof vi.fn>>;
   let saveXML: ReturnType<typeof vi.fn>;
   let importXML: ReturnType<typeof vi.fn>;
 
@@ -46,6 +52,7 @@ describe('BPMN execution admission UI', () => {
       getWorkflowEvents: vi.fn(() => of({ events: [] })),
       getBpmnEdgeTrace: vi.fn(() => of(null)),
       controlBpmnWorkflow: vi.fn(() => of(status)),
+      getBpmnDefinition: vi.fn(() => of(definitionSnapshot)),
     };
     TestBed.configureTestingModule({ providers: [
       { provide: VisualProcessApiService, useValue: api },
@@ -70,6 +77,58 @@ describe('BPMN execution admission UI', () => {
     await vi.waitFor(() => expect(api.compileWorkflowRequest).toHaveBeenCalled());
     compilation.next(compiled);
   }
+
+  it('recovers admitted source and current status without starting another workflow', async () => {
+    component.workflowId = graph.id;
+    await component.recoverRuntime();
+    expect(importXML).toHaveBeenCalledWith('<definitions/>');
+    expect(component.editorDefinitionHash()).toBe(readiness.definition_hash);
+    expect(component.runtimeView()?.runId).toBe('synthetic-run');
+    expect(api.startWorkflowFromGraph).not.toHaveBeenCalled();
+    expect(component.canStart()).toBe(false);
+  });
+
+  it('rejects changed source bytes before touching the canvas', async () => {
+    const snapshot = definitionSnapshot;
+    api.getBpmnDefinition.mockReturnValue(of({ ...snapshot, bpmn_xml: '<changed/>' }));
+    component.workflowId = graph.id;
+    await component.recoverRuntime();
+    expect(importXML).not.toHaveBeenCalled();
+    expect(component.runtimeView()).toBeNull();
+    expect(component.runtimeMessage()).toContain('nicht sicher');
+  });
+
+  it('rejects malformed run identities and coercible hash arrays before import', async () => {
+    component.workflowId = graph.id;
+    for (const changed of [{ run_id: 1 }, { plan_hash: [readiness.plan_hash] }]) {
+      api.getBpmnDefinition.mockReturnValue(of({ ...definitionSnapshot, ...changed }));
+      await component.recoverRuntime();
+      expect(importXML).not.toHaveBeenCalled();
+      expect(component.runtimeView()).toBeNull();
+    }
+  });
+
+  it('does not overwrite a draft edited while source recovery is pending', async () => {
+    const pending = new Subject();
+    const snapshot = definitionSnapshot;
+    api.getBpmnDefinition.mockReturnValue(pending);
+    component.workflowId = graph.id;
+    const recovery = component.recoverRuntime();
+    component.xmlBuffer = '<new draft/>';
+    pending.next(snapshot);
+    await recovery;
+    expect(importXML).not.toHaveBeenCalled();
+    expect(component.xmlBuffer).toBe('<new draft/>');
+  });
+
+  it('rejects runtime identity drift after restoring source', async () => {
+    api.getWorkflowStatus.mockReturnValue(of({ ...status, run_id: 'different-run' }));
+    component.workflowId = graph.id;
+    await component.recoverRuntime();
+    expect(component.runtimeView()).toBeNull();
+    expect(component.editorDefinitionHash()).toBe('');
+    expect(component.runtimeMessage()).toContain('beim Wiederladen geändert');
+  });
 
   it('does not start before successful compilation or after model edits', async () => {
     component.startWorkflow();
@@ -276,6 +335,20 @@ describe('BPMN execution admission UI', () => {
     expect(component.canStart()).toBe(true);
   });
 
+  it('binds the chosen project to compile/preflight and invalidates readiness when it changes', async () => {
+    component.projectId = 'synthetic-project';
+    await compile();
+    const scopedGraph = { ...graph, metadata: { project_id: 'synthetic-project' } };
+    expect(api.compileWorkflowRequest.mock.calls[0][0]).toEqual(scopedGraph);
+    expect(api.preflightWorkflowFromGraph.mock.calls[0][0]).toEqual(scopedGraph);
+    expect(component.canStart()).toBe(true);
+    component.projectId = 'different-project';
+    component.projectChanged();
+    expect(component.canStart()).toBe(false);
+    component.startWorkflow();
+    expect(api.startWorkflowFromGraph).not.toHaveBeenCalled();
+  });
+
   it.each([
     { ...readiness, ready: false, reason_codes: ['runtime_disabled'] },
     { ...readiness, workflow_id: 'other' }, { ...readiness, plan_hash: '' },
@@ -330,7 +403,7 @@ describe('BPMN execution admission UI', () => {
     expect(component.runtimeMessage()).toContain('Revision');
   });
 
-  it.each(['resume', 'retry', 'cancel'] as const)('sends %s only with explicit Hub support and loaded binding', command => {
+  it.each(['pause', 'resume', 'retry', 'cancel'] as const)('sends %s only with explicit Hub support and loaded binding', command => {
     api.getWorkflowStatus.mockReturnValue(of({ ...status, allowed_commands: [command] }));
     component.workflowId = status.workflow_id;
     component.refreshRuntime();
@@ -338,6 +411,21 @@ describe('BPMN execution admission UI', () => {
     expect(api.controlBpmnWorkflow).toHaveBeenCalledWith(status.workflow_id, command, {
       expected_revision: 3, run_id: status['run_id'], plan_hash: status['plan_hash'], checkpoint_ref: status['checkpoint_ref'],
     }, expect.stringMatching(/^bpmn-command-/));
+  });
+
+  it('accepts a command response whose public revision advances while execution revisions are larger', () => {
+    const command_binding = { schema: 'ananta.workflow_command_binding.v1', expected_revision: 13,
+      run_id: status['run_id'], plan_hash: status['plan_hash'], checkpoint_ref: 'wfc-' + 'a'.repeat(32) };
+    api.getWorkflowStatus.mockReturnValue(of({ ...status, allowed_commands: ['pause'], command_binding }));
+    component.workflowId = status.workflow_id;
+    component.refreshRuntime();
+    const refresh = vi.spyOn(component, 'refreshRuntime').mockImplementation(() => {});
+    api.controlBpmnWorkflow.mockReturnValue(of({ ...status, status: 'paused', revision: 4,
+      command_binding: { ...command_binding, expected_revision: 14, checkpoint_ref: 'wfc-' + 'b'.repeat(32) } }));
+    component.controlWorkflow('pause');
+    expect(api.controlBpmnWorkflow.mock.calls[0][2].expected_revision).toBe(13);
+    expect(refresh).toHaveBeenCalledOnce();
+    expect(component.runtimeMessage()).not.toContain('abweichende Laufbindung');
   });
 
   it('does not infer supported controls from a running status', () => {

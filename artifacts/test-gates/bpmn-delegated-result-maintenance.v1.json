@@ -1,0 +1,77 @@
+{
+  "schema": "ananta.bpmn.delegated-result-maintenance-gate.v1",
+  "classification": "synthetic_scoped_execution_technical_observation",
+  "status": "scoped_delegated_operation_verified_automatic_cadence_pending",
+  "production_release_evidence": false,
+  "deployment_performed": false,
+  "task_kind": "native_result_maintenance",
+  "capability": "workflow.result_maintenance",
+  "allowed_tool": "native.result.expire",
+  "enabled_by_default": false,
+  "batch_size": {
+    "minimum": 1,
+    "maximum": 1000
+  },
+  "focused_tests": {
+    "passed": 37,
+    "seconds": 4.86,
+    "files": [
+      "tests/bpmn/test_result_maintenance_node.py",
+      "tests/bpmn/test_result_maintenance_scope.py",
+      "tests/pi/test_pi_task_scope_preparation.py"
+    ]
+  },
+  "final_registration_check": {
+    "passed": 36,
+    "seconds": 10.03,
+    "warnings": 4,
+    "scope": "Maintenance handler/profile/registration, Pi Worker composition and startup smoke.",
+    "new_cases": "Absent, false and true result_maintenance settings: registration advertises the maintenance capability only for explicit true."
+  },
+  "regression": {
+    "passed": 1661,
+    "skipped": 11,
+    "deselected": 1,
+    "warnings": 4,
+    "seconds": 116.3,
+    "skip_scope": "Nine explicit-owned-PostgreSQL cases and two real-model checks; the separate PostgreSQL gate executed all nine successfully.",
+    "warning_scope": "Existing Pydantic model_fields deprecation in startup smoke tests."
+  },
+  "verified": [
+    "Actual signed Worker HTTP execution, result retrieval and rejection of duplicate execution.",
+    "Actual SQLite tenant/project scoped payload expiry without removing replay tombstones.",
+    "Foreign tenant/project payloads remain intact across maintenance execution and result retrieval.",
+    "Unknown legacy project scope is not guessed or backfilled.",
+    "Actual SQL control Task/project validation before Hub child ingestion.",
+    "Missing, foreign or terminal control Task and missing/archived project fail before ingestion.",
+    "An identical command cannot accept a duplicate Task with changed persisted project scope.",
+    "Legacy Worker profile serialization and Pi scope error contracts remain compatible."
+  ],
+  "checks": {
+    "ruff": "passed",
+    "memory_channels": "passed",
+    "memory_legacy_access": "passed",
+    "cli_backend_shim_imports": "passed",
+    "todo_consistency": "passed",
+    "diff_check": "passed"
+  },
+  "inventory_correction": [
+    "Hub Pi dispatch evidence SQL projection registered with its actual authority/persistence bindings.",
+    "Meet task-only CUDA scratch lifetime registered without granting cross-task memory authority."
+  ],
+  "scope_limit": "In-process Hub orchestration uses a synthetic queue; SQL-backed parent scope tests use a fake child queue. No full productive container dispatch/registration acceptance is claimed.",
+  "remaining": [
+    "Automatic bounded Hub maintenance cadence with exact Worker-store destination binding.",
+    "Full productive container/policy/registration acceptance.",
+    "Authority-bound tombstone retirement or safe store rotation; quota semantics remain unchanged."
+  ],
+  "solid": {
+    "protected": "Scope validation is shared business logic behind small read/prepare ports; Pi and maintenance retain separate composition (SRP/ISP/DIP). Worker executes one delegated operation without scheduling.",
+    "preserved_debt": "Productive repository/global engine locator coupling remains. Explicit injected repository/engine providers would improve the composition seam."
+  },
+  "worker_runtime_compatibility": {
+    "passed": 7,
+    "seconds": 2.49,
+    "tests": "tests/workflow/test_workflow_adapter_worker_composition.py"
+  }
+}

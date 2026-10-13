@@ -1,0 +1,34 @@
+{
+  "access_token_issued": true,
+  "background_services_configured_off": true,
+  "capability_scope": "full_application_bootstrap_only",
+  "classification": "synthetic_test_technical_observation",
+  "cleanup_complete": true,
+  "command": "python3 scripts/test_bpmn_container.py --full-app",
+  "deployment": false,
+  "http_statuses": {
+    "health": 200,
+    "login": 200,
+    "native_input": 401,
+    "native_publish": 401,
+    "workflow_start": 401
+  },
+  "not_covered": [
+    "positive_autopilot_dispatch",
+    "real_container_loss_recovery",
+    "production_release_admission"
+  ],
+  "passed": true,
+  "production_bootstrap": true,
+  "production_release_evidence": false,
+  "required_routes_registered": [
+    "/api/internal/tasks/<task_id>/native-artifact-inputs/<input_name>",
+    "/api/internal/tasks/<task_id>/native-artifacts",
+    "/api/visual-process/workflow/start",
+    "/health",
+    "/login"
+  ],
+  "schema": "ananta.bpmn-full-app-bootstrap-review.v1",
+  "testing_flag": false,
+  "unauthorized_tasks_created": 0
+}

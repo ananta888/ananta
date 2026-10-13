@@ -19,6 +19,7 @@ from agent.visual_process.bpmn_execution_support import (
     has_bpmn_source_metadata,
 )
 from agent.visual_process.bpmn_xml_region_contracts import BOUND_METADATA, CONTROL_KEY, JOIN_KEY, REGIONS_KEY
+from ananta_contracts.native_artifact_files import validate_native_artifact_files
 
 SCHEMA = "ananta.bpmn_execution_graph.v1"
 _IDENTITY = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]*$")
@@ -60,6 +61,10 @@ def compile_bpmn_graph(graph):
     node_metadata = {}
     edges = []
     for step in graph.steps:
+        try:
+            validate_native_artifact_files(step.metadata, inputs=step.io.input_names(), outputs=step.io.output_names())
+        except ValueError as exc:
+            _reject(step.id, str(exc), "Artifact file declarations must match source-bound task IO and confined paths.")
         original = admitted.step_by_id(step.id)
         _validate_node_binding(step, original)
         element_type = original.metadata["bpmn_element_type"]
@@ -165,6 +170,7 @@ def _shape(graph):
                 step.id,
                 step.metadata.get("bpmn_element_type"),
                 step.metadata.get("bpmn_default_flow", ""),
+                step.io.model_dump(),
                 {key: step.metadata[key] for key in (*BOUND_METADATA, "bpmn_wait") if key in step.metadata},
                 (
                     step.kind,

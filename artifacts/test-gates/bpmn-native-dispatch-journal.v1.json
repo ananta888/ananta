@@ -1,0 +1,163 @@
+{
+  "acceptance": {
+    "capability_scope": "full_application_native_autopilot",
+    "cases": {
+      "full_application_boot": {
+        "background_services_configured_off": true,
+        "http_boundaries": {
+          "health": 200,
+          "login": {
+            "access_token_issued": true,
+            "status": 200
+          },
+          "native_autopilot": {
+            "artifact_handoff": {
+              "bootstrap_fixture": "Synthetic Hub graph input; production queue/dispatch/auth/result services",
+              "durable_dispatch_journal": "accepted",
+              "generic_llm_proposal_used": false,
+              "hub_receipt_classification": "technical_observation",
+              "passed": true,
+              "production_release_evidence": false,
+              "real_autopilot_http_tick": true,
+              "separate_worker": true,
+              "signed_closed_projection": true,
+              "task_count": 2,
+              "task_status": "completed",
+              "ticks": [
+                {
+                  "completed": null,
+                  "dispatched": 0,
+                  "failed": null
+                },
+                {
+                  "completed": 1,
+                  "dispatched": 1,
+                  "failed": 0
+                },
+                {
+                  "completed": 1,
+                  "dispatched": 1,
+                  "failed": 0
+                }
+              ],
+              "workflow_status": "completed"
+            },
+            "native_node": {
+              "bootstrap_fixture": "Synthetic Hub graph input; production queue/dispatch/auth/result services",
+              "durable_dispatch_journal": "accepted",
+              "generic_llm_proposal_used": false,
+              "hub_receipt_classification": "technical_observation",
+              "passed": true,
+              "production_release_evidence": false,
+              "real_autopilot_http_tick": true,
+              "separate_worker": true,
+              "signed_closed_projection": true,
+              "task_count": 1,
+              "task_status": "completed",
+              "ticks": [
+                {
+                  "completed": null,
+                  "dispatched": 0,
+                  "failed": null
+                },
+                {
+                  "completed": 1,
+                  "dispatched": 1,
+                  "failed": 0
+                }
+              ],
+              "workflow_status": "completed"
+            }
+          },
+          "native_input": {
+            "data": {
+              "error_help": {
+                "next_steps": [
+                  "Melde dich erneut an oder pruefe den verwendeten Token.",
+                  "Pruefe, ob dein Benutzer die noetige Rolle oder Freigabe hat."
+                ],
+                "summary": "Zugriff nicht moeglich."
+              },
+              "reason_code": "workflow_auth_bearer_required"
+            },
+            "status": 401
+          },
+          "native_publish": {
+            "data": {
+              "error_help": {
+                "next_steps": [
+                  "Melde dich erneut an oder pruefe den verwendeten Token.",
+                  "Pruefe, ob dein Benutzer die noetige Rolle oder Freigabe hat."
+                ],
+                "summary": "Zugriff nicht moeglich."
+              },
+              "reason_code": "workflow_auth_bearer_required"
+            },
+            "status": 401
+          },
+          "workflow_start": {
+            "data": {
+              "error_help": {
+                "next_steps": [
+                  "Melde dich erneut an oder pruefe den verwendeten Token.",
+                  "Pruefe, ob dein Benutzer die noetige Rolle oder Freigabe hat."
+                ],
+                "summary": "Zugriff nicht moeglich."
+              },
+              "reason_code": "workflow_auth_bearer_required"
+            },
+            "status": 401
+          }
+        },
+        "passed": true,
+        "production_bootstrap": true,
+        "required_routes_registered": [
+          "/api/internal/tasks/<task_id>/native-artifact-inputs/<input_name>",
+          "/api/internal/tasks/<task_id>/native-artifacts",
+          "/api/visual-process/workflow/start",
+          "/health",
+          "/login"
+        ],
+        "testing_flag": false,
+        "unauthorized_tasks_created": 0
+      }
+    },
+    "evidence_classification": "synthetic_test_technical_observation",
+    "not_covered": [
+      "real_container_loss_recovery",
+      "production_release_admission",
+      "public_production_release_admission"
+    ],
+    "passed": true,
+    "production_release_evidence": false,
+    "schema": "bpmn_full_app_native_autopilot.v1"
+  },
+  "cleanup_complete": true,
+  "elapsed_seconds": 35.38,
+  "evidence_classification": "synthetic_test_technical_observation",
+  "exit_code": 0,
+  "production_release_evidence": false,
+  "schema": "bpmn_native_dispatch_journal_gate.v1",
+  "command": "python3 scripts/test_bpmn_container.py --full-app-autopilot",
+  "regression": {
+    "tests_passed": 994,
+    "seconds": 89.0,
+    "final_focused_tests_passed": 40,
+    "final_focused_seconds": 4.82
+  },
+  "scope": [
+    "Durable Hub send reservation before HTTP",
+    "One send claim across independent concurrent SQL engines",
+    "Reopened Hub denies duplicate transport",
+    "Only persisted assignment-bound Hub receipts close journal entries",
+    "Bounded headless reconciliation with unresolved outcomes",
+    "Full-app Native node and artifact handoff with accepted SQL journal entries"
+  ],
+  "not_covered": [
+    "Actual mid-execution container loss",
+    "Durable Worker-result redelivery",
+    "Pre-send recovery or policy-authorized new attempts",
+    "PostgreSQL concurrency",
+    "Production packaging and release admission"
+  ]
+}

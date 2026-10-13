@@ -324,6 +324,11 @@ def _project_optional_public_fields(
         if not isinstance(definition_hash, str) or re.fullmatch(r"[a-f0-9]{64}", definition_hash) is None:
             raise ValueError("workflow_runtime_definition_hash_invalid")
         result["definition_hash"] = definition_hash
+        from agent.services.bpmn_command_binding import project_bpmn_command_binding
+
+        command_binding = project_bpmn_command_binding(raw, binding=binding)
+        if command_binding is not None:
+            result['command_binding'] = command_binding
     if raw.get("definition_hash") is not None and raw["definition_hash"] != definition_hash:
         raise ValueError("workflow_runtime_source_definition_hash_mismatch")
     if definition_hash or "allowed_commands" in raw:
