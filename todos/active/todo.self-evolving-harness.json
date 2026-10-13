@@ -127,7 +127,7 @@
         "SEH-007",
         "SEH-008"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "SEH-M3",
@@ -304,62 +304,66 @@
     {
       "id": "SEH-005",
       "title": "Action Fusion als allgemeine Tool-/MCP-Optimierung integrieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "details": "SoL-Pi-Prinzip generalisieren: sichere Sequenzen mehrerer Tool-Aktionen dürfen zu einer atomaren/kompakten Operation fusioniert werden. Fusion nur bei deklarierter Semantik, Idempotenz-/Rollback-Eigenschaften und Kostenmodell.",
       "acceptance_criteria": [
         "Fusionierbare Sequenzen werden deklarativ beschrieben",
         "Semantik bleibt gegenüber ungefusionierter Baseline äquivalent",
         "Fehler, Partial Failure und Retry sind definiert",
         "Messung zeigt Tool-Call-, Token- und Latenzunterschied pro Variante"
-      ]
+      ],
+      "implementation_note": "agent/services/harness_action_fusion.py: deklarative Fusionsgruppen, nur idempotente/side-effect-freie Folgen, atomare Gruppe mit whole_group-Retry, Semantik-Aequivalenz und Kostenmessung. 6 Tests."
     },
     {
       "id": "SEH-006",
       "title": "ObservationPack/Observation Archive implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "details": "Große Tool-Ausgaben werden unverändert archiviert; der aktive Kontext enthält kompakte Handles, strukturierte Metadaten und gezielte Ausschnitte. Agent kann exakte Originalbereiche bedarfsgesteuert wieder laden.",
       "acceptance_criteria": [
         "Originalbeobachtung bleibt unverändert und per Hash referenzierbar",
         "Handles sind scopesicher und nicht zwischen Tasks/Tenants verwechselbar",
         "Selektiver Recall liefert exakt die angeforderte Quelle",
         "Tokenersparnis wird pro Observation gemessen"
-      ]
+      ],
+      "implementation_note": "agent/services/observation_archive.py: unveraenderte, content-addressed Originale; scopesichere Handles (tenant/projekt/task/run), exakter Selective Recall und Tokenersparnis. 7 Tests."
     },
     {
       "id": "SEH-007",
       "title": "Evidence-Preserving Reducer mit Verifikations-Fallback bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "details": "Reducer darf Logs/Tool-Output komprimieren, muss aber alle übernommenen Belege auf Originalquelle zurückführen. Zitate/Spans werden maschinell gegen Original validiert; bei Unsicherheit oder fehlender Evidenz wird das Original bzw. größerer Kontext verwendet.",
       "acceptance_criteria": [
         "Keine reduzierte Evidenz ohne überprüfbare Source-Referenz",
         "Automatische Span-/Zitat-Verifikation gegen Original",
         "Fail-closed/Fallback auf ungekürzte Observation",
         "Benchmark umfasst adversariale Fälle mit fast identischen oder widersprüchlichen Textstellen"
-      ]
+      ],
+      "implementation_note": "agent/services/harness_reducer.py: Span-/Zitat-Verifikation gegen das Original, Fail-closed-Fallback auf ungekuerzte Observation, adversariale Nah-Duplikate/Widersprueche. 7 Tests."
     },
     {
       "id": "SEH-008",
       "title": "Online Context Compaction mit Zustandsinvarianten implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "details": "Erledigte Arbeit, redundante Tool-Outputs und alte Zwischenschritte aus aktivem Kontext entfernen, während Plan, offene Verpflichtungen, Fehlerzustände, Evidence-Handles und Benutzeranforderungen erhalten bleiben. Kein stilles Vergessen offener Todos.",
       "acceptance_criteria": [
         "Offene Tasks/Constraints bleiben nach beliebig vielen Compactions erhalten",
         "Kompaktion ist nachvollziehbar und rückverfolgbar",
         "Originalquellen bleiben über Handles zugänglich",
         "Property-Tests prüfen Invarianten über lange Agent-Loops"
-      ]
+      ],
+      "implementation_note": "agent/services/harness_compaction.py: entfernt erledigte Arbeit/redundante Outputs, bewahrt Plan/offene Verpflichtungen/Constraints/Fehler/Evidence-Handles; Invariante ueber viele Compactions, tracebare Drops. 5 Tests."
     },
     {
       "id": "SEH-009",
@@ -919,13 +923,13 @@
   "tasks_status_summary": {
     "total": 44,
     "by_status": {
-      "todo": 40,
+      "todo": 36,
       "in_progress": 0,
       "partial": 1,
       "blocked": 0,
-      "done": 3
+      "done": 7
     },
-    "progress_percent_done": 6.8,
+    "progress_percent_done": 15.9,
     "by_priority": {
       "P0": 29,
       "P1": 12,
@@ -945,21 +949,21 @@
     },
     "milestones": {
       "total": 9,
-      "todo": 8,
+      "todo": 7,
       "in_progress": 0,
       "partial": 1,
       "blocked": 0,
-      "done": 0
+      "done": 1
     }
   },
   "progress_summary": {
     "state": "partial",
-    "todo_remaining": 40,
+    "todo_remaining": 36,
     "in_progress": 0,
     "partial": 1,
     "blocked": 0,
-    "done": 3,
-    "milestones_done": 0,
+    "done": 7,
+    "milestones_done": 1,
     "milestones_total": 9
   },
   "summary_notes": [
@@ -1146,18 +1150,18 @@
     "by_type": {
       "unknown": {
         "total": 44,
-        "done": 3,
+        "done": 7,
         "partial": 1,
         "blocked": 0,
-        "todo": 40,
+        "todo": 36,
         "in_progress": 0,
-        "progress_percent": 8.4,
+        "progress_percent": 17.5,
         "by_status": {
-          "todo": 40,
+          "todo": 36,
           "in_progress": 0,
           "partial": 1,
           "blocked": 0,
-          "done": 3
+          "done": 7
         }
       }
     }
