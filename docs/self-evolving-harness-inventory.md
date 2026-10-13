@@ -59,3 +59,33 @@ Goal → Hub Planner → HarnessGenome (Registry/Store, SEH-002/004)
 
 Benchmark-Holdouts, Evaluatoren, Security-Enforcement, Budget-Caps, Promotion-Autorität, Auth,
 Secrets, Audit und die Gate-Registry (`GateRegistryPort`). Ein Genome kann diese nur **referenzieren**.
+
+## Kontrollierte Composition (SEH-012, Teilimplementierung)
+
+`agent/services/harness_crossover.py` kombiniert zwei vom Hub gewählte Verbesserungen
+gegen ein explizites gemeinsames Basisgenom. Der Hub bleibt für Auswahl aus der Pareto-Front,
+registrierte Herkunft, Dispatch und Promotion verantwortlich. Composition führt keine Tools aus.
+
+- Disjunkte Feldänderungen lassen sich auch innerhalb einer Sektion zusammenführen.
+  Überlappungen werden einschließlich identischer Änderungen als Konflikt abgelehnt;
+  Listen/Tool-Allowlisten werden atomar behandelt.
+- Gates, Evidenzpflicht, Secret-Referenzen, Memory-Scopes und Code-/Config-Snapshots
+  bleiben unverändert. Tool-Rechte dürfen nur verengt werden. Opaque Code-Hashes
+  werden niemals zusammengeführt; Code-Composition benötigt später einen Patch-Adapter.
+- Das Kind erhält beide Parent-Digests und den Basis-Digest als Herkunft, aber keine
+  geerbten Performancewerte. Es wird nach dem Merge erneut als vollständiges Genom validiert.
+- `CrossoverEvaluator` verlangt eine neue Beobachtung über `CrossoverBenchmarkPort`.
+  Genom und content-addressed Suite müssen exakt passen; vollständige Task-Abdeckung
+  einschließlich Holdouts, endliche Qualitäts-/Ressourcenmetriken und neue Hard-Gate-Ergebnisse
+  sind Voraussetzung für die Auswahlfähigkeit. Benchmarkfehler erzeugen kein auswählbares Kind.
+
+**Produktive Verdrahtung offen:** Der injizierte Benchmark-Port muss über die bestehenden
+Hub-Task-/Lease-/Evidence-Pfade und den noch offenen Sandbox-Runner (SEH-010) implementiert
+werden. Der Dienst ist deshalb nicht automatisch im Runtime-Pfad aktiviert. Beobachtungen
+und die deterministischen Tests sind technische beziehungsweise synthetische Ergebnisse;
+sie sind keine registrierte Produktions-Release-Evidenz. Es werden keine SRC-/RUN-IDs erzeugt.
+
+**SOLID-Prüfung:** Reine Composition und Evaluation sind getrennt (SRP); der Evaluator
+nutzt einen schmalen, injizierten Benchmark-Port (ISP/DIP). Bestehende Genom-, Suite- und
+Gate-Verträge werden wiederverwendet. Die bisherigen konkreten In-Memory-Gate-/Suite-Objekte
+bleiben bestehen; persistente Registry-/Runtime-Anbindung ist weiterhin offene Integrationsarbeit.

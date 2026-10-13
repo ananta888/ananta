@@ -7,7 +7,7 @@
   "track": "self-evolving-harness",
   "status": "partial",
   "created_at": "2026-09-26",
-  "updated_at": "2026-09-30",
+  "updated_at": "2026-10-13",
   "purpose": "Ananta soll nicht nur Prompts und Modellparameter optimieren, sondern die komplette Agent-Steuerungsschicht (Harness) inklusive Prompt-Programme, Context-Strategie, Retrieval, Tool-Routing, Agent-Topologie, Delegation, Scaffold-/Code-Struktur und Runtime-Policies reproduzierbar, messbar und sicher weiterentwickeln. Vorhandene Ananta-Fähigkeiten werden explizit wiederverwendet: PlanningPromptOptimizerService, PlanningPromptEvolverService, DSPy Optimization Engine mit LabeledFewShot/BootstrapFewShot und bereits gepinnten GEPA-Abhängigkeiten, EvoMap-Evolver-Adapter/Bridge, Benchmarks, Gates, Worker, MCP, CodeCompass, Tracing und Promotion/Rollback. Referenzen wie NVIDIA SoL-Pi dienen ergänzend für Harness-Effizienzmechanismen; es wird keine parallele zweite Evolutionsarchitektur aufgebaut.",
   "goal": "Ein produktionsreifer Self-Evolving-Harness-Stack, der bestehende native Ananta-Prompt-Evolution, DSPy/GEPA und EvoMap über eine gemeinsame provider-neutrale Evolution-Orchestrierung nutzt; Harness-Varianten als versionierte Genome erzeugt; Prompt-, Context-, Retrieval-, Tool-, Agent-, Scaffold- und kontrollierte Code-Mutationen isoliert evaluiert; 32k/64k/128k und weitere Context-Budgets als konfigurierbaren Suchraum unterstützt; gegen Benchmarks und harte Gates prüft; mehrdimensional auf einer Pareto-Front selektiert; modell-/task-/budget-spezifische Varianten verwaltet; sichere Rollbacks erlaubt; und SoL-Pi-artige Effizienzmechanismen wie Action Fusion, ObservationPack, evidence-preserving reduction und Online Context Compaction integriert.",
   "status_scale": [
@@ -138,7 +138,7 @@
         "SEH-011",
         "SEH-012"
       ],
-      "status": "todo"
+      "status": "partial"
     },
     {
       "id": "SEH-M4",
@@ -414,16 +414,17 @@
     {
       "id": "SEH-012",
       "title": "Crossover/Composition kompatibler Harness-Verbesserungen unterstützen",
-      "status": "todo",
+      "status": "partial",
       "priority": "P2",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 75,
       "details": "Pareto-starke, unabhängige Verbesserungen können kontrolliert kombiniert werden. Konflikte in denselben Genome-Feldern oder Codebereichen werden erkannt und müssen neu evaluiert werden.",
       "acceptance_criteria": [
         "Kompatibilitätsprüfung vor Crossover",
         "Keine Performancewerte werden von Eltern auf Kind übernommen",
         "Kombination wird vollständig neu gegated und benchmarked"
-      ]
+      ],
+      "implementation_note": "agent/services/harness_crossover.py: konservative Three-Way-Composition mit Feld-/Code-Konflikten, unveränderlicher Autorität, Capability-Verengung, Parent-/Basis-Lineage und erneuter Genomvalidierung. CrossoverEvaluator verlangt frischen, exakt gebundenen vollständigen Benchmark inklusive Holdout, endliche Qualitäts-/Ressourcenmetriken und neue Hard-Gates. Headless-Tests in tests/harness/test_harness_crossover.py. Offen: produktiver Benchmark-/Sandbox-Port über Hub-Task/Lease/Evidence und Patch-aware Code-Composition; keine Runtime-Aktivierung oder Produktions-Release-Evidenz."
     },
     {
       "id": "SEH-013",
@@ -928,9 +929,9 @@
   "tasks_status_summary": {
     "total": 44,
     "by_status": {
-      "todo": 31,
+      "todo": 30,
       "in_progress": 0,
-      "partial": 1,
+      "partial": 2,
       "blocked": 0,
       "done": 12
     },
@@ -954,18 +955,18 @@
     },
     "milestones": {
       "total": 9,
-      "todo": 7,
+      "todo": 6,
       "in_progress": 0,
-      "partial": 1,
+      "partial": 2,
       "blocked": 0,
       "done": 1
     }
   },
   "progress_summary": {
     "state": "partial",
-    "todo_remaining": 31,
+    "todo_remaining": 30,
     "in_progress": 0,
-    "partial": 1,
+    "partial": 2,
     "blocked": 0,
     "done": 12,
     "milestones_done": 1,
@@ -1156,15 +1157,15 @@
       "unknown": {
         "total": 44,
         "done": 12,
-        "partial": 1,
+        "partial": 2,
         "blocked": 0,
-        "todo": 31,
+        "todo": 30,
         "in_progress": 0,
-        "progress_percent": 28.9,
+        "progress_percent": 30.6,
         "by_status": {
-          "todo": 31,
+          "todo": 30,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 2,
           "blocked": 0,
           "done": 12
         }
