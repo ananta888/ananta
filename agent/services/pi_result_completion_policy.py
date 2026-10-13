@@ -7,7 +7,9 @@ import time
 from dataclasses import asdict
 
 from agent.common.pi_task_result_binding import PI_RESULT_RECEIPT, is_pi_task
+from agent.ports.native_result_authority import NativeResultAuthority
 from agent.ports.pi_result_authority import PiResultAuthorityPort
+from agent.services.pi_result_artifact_admission import require_pi_result_artifacts
 from agent.services.pi_result_receipt import require_pi_result_receipt
 from agent.services.pi_result_task_projection import pi_task_command, pi_task_result_candidate
 from ananta_contracts.native_context_bundle import native_context_digest
@@ -47,6 +49,10 @@ class PiResultCompletionPolicy:
             candidate = pi_task_result_candidate(task, command)
             previous = pi_task_result_candidate(old, command)
             require_pi_result_receipt(task=old, command=command, candidate=previous)
+            admitted = require_pi_result_artifacts(session=session, task=old, command=command,
+                candidate=previous, authority=NativeResultAuthority(**old_receipt['authority']))
+            if admitted != old_receipt.get('artifacts', []):
+                raise ValueError('pi_native_result_receipt_invalid')
             if (
                 candidate.digest != previous.digest or task.status != old.status
                 or old_receipt.get("command_digest") != command_digest
@@ -68,11 +74,14 @@ class PiResultCompletionPolicy:
             raise ValueError("pi_native_result_active_task_required")
         candidate = pi_task_result_candidate(task, command)
         authority = self._authority.require_current(session=session, command=command, task=old, now=self._clock())
+        artifacts = require_pi_result_artifacts(session=session, task=task, command=command,
+            candidate=candidate, authority=authority)
         verification[PI_RESULT_RECEIPT] = {
             "schema": "ananta.pi-native-result-receipt.v1", "classification": "technical_observation",
             "hub_task_id": task.id, "tenant_id": task.tenant_id, "project_id": task.project_id,
             "command_digest": command_digest, "result_digest": candidate.digest,
             "authority": asdict(authority),
+            **({'artifacts': artifacts} if artifacts else {}),
         }
         task.verification_status = verification
         require_pi_result_receipt(task=task, command=command, candidate=candidate)

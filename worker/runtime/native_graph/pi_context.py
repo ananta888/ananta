@@ -5,7 +5,13 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any, Protocol
 
-from ananta_contracts.native_context_bundle import NativeContextBundleProjection, native_context_digest
+from ananta_contracts.native_context_bundle import (
+    NativeContextBundleProjection,
+    native_context_digest,
+)
+from ananta_contracts.native_context_bundle import (
+    pi_context_bundle_reference as pi_context_bundle_reference,
+)
 from ananta_contracts.workflow_worker_gateway import WorkflowWorkerBinding
 from worker.runtime.native_graph.contracts import NativeNodeCommand
 
@@ -18,22 +24,6 @@ class PiTaskContextPort(Protocol):
     def read(
         self, *, task: Mapping[str, Any], command: NativeNodeCommand,
     ) -> NativeContextBundleProjection | None: ...
-
-
-def pi_context_bundle_reference(task: Mapping[str, Any]) -> str | None:
-    context = task.get("worker_execution_context")
-    if not isinstance(context, Mapping):
-        raise ValueError("pi_native_task_binding_mismatch")
-    top, nested = task.get("context_bundle_id"), context.get("context_bundle_id")
-    for value in (top, nested):
-        if value is not None and (not isinstance(value, str) or not value or len(value) > 256):
-            raise ValueError("pi_context_bundle_reference_invalid")
-    if top and nested and top != nested:
-        raise ValueError("pi_context_bundle_reference_mismatch")
-    reference = top or nested
-    if reference is None and context.get("context") is not None:
-        raise ValueError("pi_context_bundle_reference_required")
-    return reference
 
 
 class HubPiTaskContextReader:

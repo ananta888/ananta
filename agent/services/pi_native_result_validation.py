@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from typing import Any
 
 from agent.services.workflow_runtime.native_graph_contracts import NativeNodeCommand, NativeNodeResult
+from ananta_contracts.pi_result_artifact import pi_answer_artifact
 
 _FIELDS = frozenset({
     "schema", "result_id", "command_id", "hub_task_id", "tenant_id", "workflow_id", "run_id", "node_id",
@@ -42,7 +44,7 @@ def validate_pi_native_result(
         or any(not _identifier(raw[key]) for key in _IDENTIFIERS)
         or not isinstance(raw["reason_code"], str) or not isinstance(raw["status"], str)
         or raw["status"] not in {"completed", "failed", "cancelled"}
-        or raw["artifact_refs"] != {} or raw["budget_usage"] != {} or raw["side_effect_status"] != ""
+        or not _valid_artifacts(raw, command) or raw["budget_usage"] != {} or raw["side_effect_status"] != ""
         or not _valid_output(raw, command.provider_binding.model_id)
     ):
         raise ValueError("pi_native_result_contract_invalid")
@@ -54,6 +56,17 @@ def validate_pi_native_result(
 
 def _identifier(value: object) -> bool:
     return isinstance(value, str) and 0 < len(value) <= 256 and not any(ord(char) < 33 for char in value)
+
+
+def _valid_artifacts(raw, command):
+    declaration = pi_answer_artifact(command)
+    references = raw['artifact_refs']
+    if declaration is None or raw['status'] != 'completed':
+        return references == {}
+    return (isinstance(references, dict) and set(references) == {declaration.output_name}
+            and isinstance(references[declaration.output_name], str)
+            and re.fullmatch(r'artifact://native-artifact-[0-9a-f]{64}',
+                             references[declaration.output_name]) is not None)
 
 
 def _valid_output(raw: Mapping[str, Any], model_id: str) -> bool:

@@ -73,12 +73,14 @@ def pi_native_result_candidate(
     except (TypeError, ValueError) as exc:
         raise ValueError(reason) from exc
     status = {"completed": "success", "cancelled": "cancelled"}.get(result.status, "failed")
+    artifacts = [{'artifact_id': name, 'reference': reference}
+                 for name, reference in sorted(result.artifact_refs.items())]
     if (
         parsed.hub_task_id != hub_task_id or parsed.adapter_kind != "native" or parsed.status != status
-        or parsed.reason_code != result.reason_code or parsed.artifacts or parsed.sources
+        or parsed.reason_code != result.reason_code or list(parsed.artifacts) != artifacts or parsed.sources
         or response["status"] != result.status or response["adapter_kind"] != "native"
         or response["reason_code"] != result.reason_code
-        or response["artifacts"] != [] or response["sources"] != []
+        or response["artifacts"] != artifacts or response["sources"] != []
         or type(response["exit_code"]) is not int
         or response["exit_code"] != (0 if result.status == "completed" else 1)
         or response["output"] != (parsed.summary or parsed.reason_code)

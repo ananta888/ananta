@@ -48,6 +48,8 @@ def test_production_native_factory_uses_pi_only_after_explicit_configuration(tmp
     client, context, _ = composition()
     config = configuration(tmp_path, enabled=enabled)
     runner, shell = Runner(), Mock()
+    credential_read = Mock(side_effect=AssertionError('unreserved Pi must not read credentials'))
+    monkeypatch.setattr(pi_composition.PiProfileCredentialFiles, 'resolve', credential_read)
     monkeypatch.setattr(
         pi_composition,
         "NativePiNodeHandler",
@@ -74,7 +76,10 @@ def test_production_native_factory_uses_pi_only_after_explicit_configuration(tmp
     )
     assert not shell.execute.called
     if enabled:
-        assert result.status == "completed" and len(runner.calls) == 1
+        assert result.status == "failed" and not runner.calls
+        assert result.reason_code == "pi_execution_evidence_scope_required"
+        credential_read.assert_not_called()
+        assert 'provider_budget_reserve' not in [name for name, _ in client.calls]
     else:
         assert result.status == "failed" and result.reason_code == "pi_disabled" and not runner.calls
 

@@ -1,22 +1,10 @@
-"""Current Hub authority read under the caller-owned Task transaction."""
+"""Compatibility names for the shared Native result authority port."""
 
-from dataclasses import dataclass
-from typing import Any, Protocol
+from agent.ports.native_result_authority import (
+    NativeResultAuthority as PiResultAuthority,
+)
+from agent.ports.native_result_authority import (
+    NativeResultAuthorityPort as PiResultAuthorityPort,
+)
 
-from agent.services.workflow_runtime.native_graph_contracts import NativeNodeCommand
-
-
-@dataclass(frozen=True, slots=True)
-class PiResultAuthority:
-    assignment_id: str
-    assignment_revision: int
-    worker_id: str
-    worker_url: str
-    ownership_revision: int
-    grant_revision: int
-
-
-class PiResultAuthorityPort(Protocol):
-    def require_current(
-        self, *, session: Any, command: NativeNodeCommand, task: Any, now: float,
-    ) -> PiResultAuthority: ...
+__all__ = ["PiResultAuthority", "PiResultAuthorityPort"]

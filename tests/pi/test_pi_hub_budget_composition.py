@@ -40,7 +40,8 @@ class ServiceClient:
             raise WorkflowHubDecisionError(exc.reason_code) from exc
 
 
-def composition(*, hub_task_id="hub-task-1", allowed_artifacts=(), context_bundles=None):
+def composition(*, hub_task_id="hub-task-1", allowed_artifacts=(), context_bundles=None,
+                endpoint_identity="http://ollama:11434/v1/chat/completions"):
     selected = ProviderProfileExecutionBinding(
         profile_id="pi-primary",
         binding=ProviderExecutionBinding(
@@ -48,7 +49,7 @@ def composition(*, hub_task_id="hub-task-1", allowed_artifacts=(), context_bundl
             model_id="selected-model",
             source="hub_model_profile_routing",
             reason_code="hub_provider_profile_selected",
-            endpoint_identity="http://ollama:11434/v1/chat/completions",
+            endpoint_identity=endpoint_identity,
         ),
     )
     entry = ProviderProfileAttemptPlanEntry.from_profile_binding(selected, maximum_attempts=1)

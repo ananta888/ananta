@@ -12,20 +12,23 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
 
 from agent.cli_backends.pi_policy import PiInvocationPolicy
-from agent.cli_backends.pi_provider import PiCodingAgentProvider
 from ananta_contracts.coding_agent_run import CodingAgentProvider, CodingAgentRunRequest, CodingAgentRunResult
 from ananta_contracts.coding_agent_target import CodingAgentInferenceTarget
+from ananta_contracts.native_context_bundle import native_context_digest
+from ananta_contracts.pi_native import PI_NATIVE_CAPABILITY as PI_NATIVE_CAPABILITY
+from ananta_contracts.pi_native import PI_NATIVE_TASK_KIND as PI_NATIVE_TASK_KIND
+from ananta_contracts.pi_result_artifact import pi_answer_artifact
 from ananta_contracts.provider_invocation import ProviderInvocationContext
 from worker.runtime.native_graph.contracts import NativeNodeCommand, NativeNodeResult
+from worker.runtime.native_graph.pi_artifact import PiAnswerArtifactPort
 from worker.runtime.native_graph.pi_context import PiTaskContextPort, pi_context_bundle_reference
+from worker.runtime.native_graph.pi_evidence import PiEvidenceReadPort
+from worker.runtime.native_graph.pi_evidence_scope import require_pi_evidence
+from worker.runtime.native_graph.pi_process import build_worker_pi_provider
 
 if TYPE_CHECKING:
     from agent.services.workflow_runtime.security import RuntimeAuthorizationEnvelope
     from ananta_contracts.provider_invocation import ProviderBudgetPort
-
-PI_NATIVE_TASK_KIND = "pi_coding_agent"
-PI_NATIVE_CAPABILITY = "coding.agent.pi"
-
 
 class PiTaskScopePort(Protocol):
     def task_snapshot(self, *, hub_task_id: str) -> dict[str, Any]: ...
@@ -43,21 +46,37 @@ class NativePiNodeHandler:
         budget: ProviderBudgetPort,
         workspace_for_task: Callable[[Mapping[str, Any]], Path],
         credential_for_profile: Callable[[str], str],
-        provider_factory: Callable[..., CodingAgentProvider] = PiCodingAgentProvider,
+        provider_factory: Callable[..., CodingAgentProvider] = build_worker_pi_provider,
         runtime_root: Path | None = None,
         clock: Callable[[], float] = time.time,
         context_reader: PiTaskContextPort | None = None,
+        evidence_reader: PiEvidenceReadPort | None = None,
+        artifact_publisher: PiAnswerArtifactPort | None = None,
     ) -> None:
         self._scope, self._budget = scope, budget
         self._workspace, self._credential = workspace_for_task, credential_for_profile
         self._provider_factory, self._runtime_root, self._clock = provider_factory, runtime_root, clock
         self._context_reader = context_reader
+        self._evidence_reader = evidence_reader
+        self._artifact_publisher = artifact_publisher
 
     def execute(self, command: NativeNodeCommand, *, hub_task_id: str) -> NativeNodeResult:
         started_at = self._clock()
         task, prompt = self._bound_task_and_prompt(command, hub_task_id=hub_task_id)
+        if self._evidence_reader is not None:
+            from ananta_contracts.hub_evidence import validate_hub_evidence_assignment
+
+            assigned = require_pi_evidence(task_id=hub_task_id)
+            assignment = validate_hub_evidence_assignment(self._evidence_reader.read(task=task, command=command))
+            if native_context_digest(assignment) != native_context_digest(assigned):
+                raise ValueError('pi_execution_evidence_assignment_mismatch')
         if self._scope.revalidate(command.authorization) is not True:
             raise ValueError("pi_execution_not_authorized")
+        publication = None
+        if pi_answer_artifact(command) is not None:
+            if self._artifact_publisher is None:
+                raise ValueError('pi_result_artifact_transport_unavailable')
+            publication = self._artifact_publisher.prepare(command=command, task=task)
         approved_context = self._read_context(task, command)
         if approved_context is not None:
             # Context stays model input, never system/extension/tool authority.
@@ -89,7 +108,19 @@ class NativePiNodeHandler:
                 and self._read_context(task, command) == approved_context
             ),
         )
-        return self._result(command, hub_task_id=hub_task_id, result=provider.run(request))
+        result = provider.run(request)
+        references = {}
+        if publication is not None and result.succeeded and not result.output_truncated and len(result.stdout) <= 16384:
+            if self._clock() >= context.deadline_epoch_seconds:
+                raise ValueError('pi_deadline_expired')
+            if self._scope.revalidate(command.authorization) is not True:
+                raise ValueError('pi_execution_not_authorized')
+            references = publication.publish(result.stdout)
+            if self._clock() >= context.deadline_epoch_seconds:
+                raise ValueError('pi_deadline_expired')
+            if self._scope.revalidate(command.authorization) is not True:
+                raise ValueError('pi_execution_not_authorized')
+        return self._result(command, hub_task_id=hub_task_id, result=result, references=references)
 
     def _bound_task_and_prompt(self, command: NativeNodeCommand, *, hub_task_id: str) -> tuple[dict[str, Any], str]:
         command.assert_valid()
@@ -98,8 +129,12 @@ class NativePiNodeHandler:
             or PI_NATIVE_CAPABILITY not in command.node.required_capabilities
         ):
             raise ValueError("pi_native_capability_required")
-        if command.node.side_effect_class not in {"none", "read"} or command.node.output_artifacts:
+        if command.node.side_effect_class not in {"none", "read"}:
             raise ValueError("pi_native_write_capability_unsupported")
+        try:
+            pi_answer_artifact(command)
+        except ValueError:
+            raise ValueError('pi_native_write_capability_unsupported') from None
         if command.artifact_refs or command.node.input_artifacts:
             raise ValueError("pi_native_artifact_context_unsupported")
         if not command.provider_context or not command.provider_profile_bindings:
@@ -142,7 +177,8 @@ class NativePiNodeHandler:
         )
 
     @staticmethod
-    def _result(command: NativeNodeCommand, *, hub_task_id: str, result: CodingAgentRunResult) -> NativeNodeResult:
+    def _result(command: NativeNodeCommand, *, hub_task_id: str, result: CodingAgentRunResult,
+                references=None) -> NativeNodeResult:
         completed = result.succeeded and not result.output_truncated and len(result.stdout) <= 16_384
         return NativeNodeResult(
             result_id=f"nres-{uuid.uuid4().hex}",
@@ -155,6 +191,7 @@ class NativePiNodeHandler:
             attempt_id=command.attempt_id,
             fencing_token=command.fencing_token,
             status="completed" if completed else "failed",
+            artifact_refs=references or {},
             output_data={
                 "provider_id": "pi",
                 "model_id": command.provider_binding.model_id,

@@ -9,7 +9,7 @@ import pytest
 
 
 def test_pi_http_transport_node_contract():
-    node = shutil.which("node")
+    node = os.environ.get("ANANTA_TEST_NODE_BINARY") or shutil.which("node")
     if node is None:
         pytest.skip("Node is required for the optional Pi SDK transport contract")
     source = Path(__file__).with_name("pi_http_transport.test.mjs")

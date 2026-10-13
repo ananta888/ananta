@@ -92,13 +92,16 @@ def admission(tmp_path, monkeypatch):
 
 def result_fields(response):
     outer = copy.deepcopy(response["workflow_adapter_verification"]["workflow_adapter_task_result"])
-    return {
+    fields = {
         "last_output": response["output"], "last_exit_code": response["exit_code"],
         "verification_status": {
             "workflow_adapter_task_result": outer,
             "native_node_result": copy.deepcopy(outer["adapter_result"]["verification"]["native_node_result"]),
         },
     }
+    if response['artifacts']:
+        fields['verification_status']['execution_artifacts'] = copy.deepcopy(response['artifacts'])
+    return fields
 
 
 def complete(admission, mode="save"):
@@ -222,7 +225,9 @@ def test_production_composition_keeps_pi_policy_after_organization_policy(admiss
     assert complete(admission).verification_status[PI_RESULT_RECEIPT]["authority"]["worker_id"] == "worker-1"
 
 
-def test_forwarded_worker_route_reaches_real_task_status_persistence(admission, monkeypatch, forwarding_dependencies):
+def test_forwarded_worker_route_reaches_real_task_status_persistence(
+    admission, monkeypatch, forwarding_dependencies,  # noqa: F811 - imported pytest fixture
+):
     from agent.services import _task_scoped_forwarding as forwarding
     from agent.services import task_runtime_service
 
@@ -240,7 +245,9 @@ def test_forwarded_worker_route_reaches_real_task_status_persistence(admission, 
 
 
 @pytest.mark.parametrize("change", ["missing_result", "extra_field", "wrong_worker", "hidden_kind"])
-def test_original_forwarding_response_cannot_bypass_pi_policy(admission, monkeypatch, forwarding_dependencies, change):
+def test_original_forwarding_response_cannot_bypass_pi_policy(
+    admission, monkeypatch, forwarding_dependencies, change,  # noqa: F811 - imported pytest fixture
+):
     from agent.services import _task_scoped_forwarding as forwarding
 
     forwarding_dependencies(

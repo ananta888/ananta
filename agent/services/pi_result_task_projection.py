@@ -40,6 +40,8 @@ def pi_task_result_candidate(task, command):
     stored_native = native_context_digest(verification.get("native_node_result"))
     if stored_native != native_context_digest(candidate.result.to_dict()):
         raise ValueError("pi_native_result_verification_conflict")
-    if verification.get("execution_artifacts", []) != []:
+    expected_artifacts = [{'artifact_id': name, 'reference': reference}
+                          for name, reference in sorted(candidate.result.artifact_refs.items())]
+    if native_context_digest(verification.get("execution_artifacts", [])) != native_context_digest(expected_artifacts):
         raise ValueError("pi_native_result_artifacts_unsupported")
     return candidate

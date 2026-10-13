@@ -25,7 +25,7 @@ def task_command(context):
         model_id="selected-model",
         source="hub_model_profile_routing",
         reason_code="hub_provider_profile_selected",
-        endpoint_identity="http://ollama:11434/v1/chat/completions",
+        endpoint_identity=context.provider_endpoint_identity,
     )
     envelope = RuntimeAuthorizationEnvelope.from_mapping(context.authorization_envelope)
     return NativeNodeCommand(
@@ -60,11 +60,16 @@ def native_setup(
     context_reader_factory=lambda client: None,
     hub_task_id="hub-task-1",
     context_bundles=None,
+    endpoint_identity="http://ollama:11434/v1/chat/completions",
+    provider_options=None,
+    evidence_reader_factory=lambda client: None,
+    hub_composition=composition,
+    artifact_publisher=None,
 ):
-    client, context, _ = composition(
+    client, context, _ = hub_composition(
         hub_task_id=hub_task_id,
         allowed_artifacts=("not-materialized", "unhydrated"),
-        context_bundles=context_bundles,
+        context_bundles=context_bundles, endpoint_identity=endpoint_identity,
     )
     command = mutate(task_command(context))
     task = mutate_task(
@@ -81,14 +86,20 @@ def native_setup(
     workspace = tmp_path / "project"
     workspace.mkdir(exist_ok=True)
     credentials = Mock(return_value="synthetic-private-key")
+    def provider_factory(**options):
+        options.update(provider_options or {})
+        return provider(tmp_path, runner, **options)
+
     handler = NativePiNodeHandler(
         scope=scope,
         budget=HubProviderBudgetAdapter(client),
         workspace_for_task=lambda _: workspace,
         credential_for_profile=credentials,
         runtime_root=tmp_path,
-        provider_factory=lambda **kwargs: provider(tmp_path, runner, **kwargs),
+        provider_factory=provider_factory,
         context_reader=context_reader_factory(client),
+        evidence_reader=evidence_reader_factory(client),
+        artifact_publisher=artifact_publisher,
     )
     runtime = NativeDelegatedNodeRuntime(
         handler=handler,

@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { isAbsolute, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { createPiFetch } from "./pi_http_transport.mjs";
+import { selectedPiCredentials } from "./pi_runtime_credentials.mjs";
 
 let session;
 try {
@@ -27,7 +28,8 @@ try {
     routingPolicy: modelConfig.providers.ananta.compat?.openRouterRouting ?? null });
   const settingsManager = sdk.SettingsManager.inMemory(settings, { projectTrusted: false });
   const modelRuntime = await sdk.ModelRuntime.create({
-    authPath: join(configDirectory, "auth.json"), modelsPath: join(configDirectory, "models.json"),
+    credentials: selectedPiCredentials(process.env.ANANTA_PI_API_KEY),
+    modelsPath: join(configDirectory, "models.json"),
     modelsStorePath: join(configDirectory, "models-cache.json"), allowModelNetwork: false, refreshOnCreate: false,
   });
   const model = modelRuntime.getModel("ananta", modelId);

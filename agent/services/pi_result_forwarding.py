@@ -6,7 +6,7 @@ from agent.services.pi_result_task_projection import pi_task_command
 from ananta_contracts.native_context_bundle import native_context_digest
 
 
-def validate_forwarded_pi_result(*, task_id, dispatched_task, response, load_task) -> None:
+def validate_forwarded_pi_result(*, task_id, dispatched_task, response, load_task) -> list[dict] | None:
     authoritative = load_task(task_id)
     if not is_pi_task(authoritative) and not is_pi_task(dispatched_task):
         return
@@ -21,4 +21,8 @@ def validate_forwarded_pi_result(*, task_id, dispatched_task, response, load_tas
         != native_context_digest(command.to_dict())
     ):
         raise ValueError("pi_native_result_dispatch_projection_mismatch")
-    pi_native_result_candidate(response, command=command, hub_task_id=task_id)
+    candidate = pi_native_result_candidate(response, command=command, hub_task_id=task_id)
+    # Preserve only exact Hub receipt references. The Pi completion policy
+    # validates their SQL registrations; generic normalization must not create
+    # another artifact identity from these already admitted references.
+    return list(candidate.adapter_result.artifacts)

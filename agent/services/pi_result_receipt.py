@@ -13,7 +13,7 @@ _IDENTITIES = {"assignment_id", "worker_id", "worker_url"}
 
 def require_pi_result_receipt(*, task, command, candidate) -> dict:
     receipt = (task.verification_status or {}).get(PI_RESULT_RECEIPT)
-    if not isinstance(receipt, dict) or set(receipt) != _FIELDS:
+    if not isinstance(receipt, dict) or set(receipt) not in (_FIELDS, _FIELDS | {'artifacts'}):
         raise ValueError("pi_native_result_receipt_required")
     authority = receipt["authority"]
     if (
@@ -29,6 +29,19 @@ def require_pi_result_receipt(*, task, command, candidate) -> dict:
         or authority["worker_url"] != task.assigned_agent_url
     ):
         raise ValueError("pi_native_result_receipt_invalid")
+    artifacts = receipt.get('artifacts', [])
+    refs = candidate.result.artifact_refs
+    if (type(artifacts) is not list or len(artifacts) != len(refs)
+            or ('artifacts' in receipt and not artifacts)):
+        raise ValueError('pi_native_result_receipt_invalid')
+    for item in artifacts:
+        if (not isinstance(item, dict)
+                or set(item) != {'output_name', 'artifact_id', 'artifact_version_id', 'binding_digest'}
+                or item['output_name'] not in refs
+                or refs[item['output_name']] != 'artifact://' + str(item['artifact_id'])
+                or item['artifact_id'] != 'native-artifact-' + str(item['binding_digest'])
+                or item['artifact_version_id'] != 'native-version-' + str(item['binding_digest'])):
+            raise ValueError('pi_native_result_receipt_invalid')
     return receipt
 
 

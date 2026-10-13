@@ -144,3 +144,24 @@ for (const extra of [{ provider: strictRouting }, { models: ["other-model"] }, {
     assert.equal(calls.length, 0);
   });
 }
+import { selectedPiCredentials } from '../../agent/cli_backends/pi_runtime_credentials.mjs';
+
+test('selected credentials are read-only and closed to one provider', async () => {
+  const credentials = selectedPiCredentials('synthetic-selected-key');
+  assert.equal(Object.isFrozen(credentials), true);
+  assert.deepEqual(await credentials.read('ananta'), { type: 'api_key', key: 'synthetic-selected-key' });
+  assert.deepEqual(await credentials.list(), [{ providerId: 'ananta', type: 'api_key' }]);
+  await assert.rejects(credentials.read('foreign'), /pi_credential_operation_not_authorized/);
+  await assert.rejects(credentials.modify('ananta', () => 'changed'), /pi_credential_operation_not_authorized/);
+  await assert.rejects(credentials.delete('ananta'), /pi_credential_operation_not_authorized/);
+  const controller = new AbortController();
+  controller.abort();
+  await assert.rejects(credentials.read('ananta', { signal: controller.signal }), { name: 'AbortError' });
+  await assert.rejects(credentials.list({ signal: controller.signal }), { name: 'AbortError' });
+});
+
+test('credential errors never reveal the supplied key', () => {
+  for (const key of ['', null, 'synthetic\nkey', 'x'.repeat(8193)]) {
+    assert.throws(() => selectedPiCredentials(key), { message: 'pi_credential_operation_not_authorized' });
+  }
+});

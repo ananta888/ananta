@@ -7,8 +7,10 @@ from pathlib import Path
 from typing import Any
 
 from worker.runtime.native_graph.handlers import NativeTaskKindHandlers, UnavailableNativeNodeHandler
+from worker.runtime.native_graph.pi_artifact import PiAnswerArtifactPublisher, configured_pi_answer_publisher
 from worker.runtime.native_graph.pi_configuration import NativePiWorkerProfile, PiProfileCredentialFiles
 from worker.runtime.native_graph.pi_context import HubPiTaskContextReader
+from worker.runtime.native_graph.pi_evidence import HubPiEvidenceReader
 from worker.runtime.native_graph.pi_node import (
     PI_NATIVE_CAPABILITY,
     PI_NATIVE_TASK_KIND,
@@ -48,6 +50,8 @@ def build_native_node_handlers(
             credential_for_profile=credentials.resolve,
             runtime_root=runtime_root,
             context_reader=HubPiTaskContextReader(client),
+            evidence_reader=HubPiEvidenceReader(client),
+            artifact_publisher=PiAnswerArtifactPublisher(publisher_factory=configured_pi_answer_publisher),
         )
     # Even a disabled Pi task is intercepted: never reinterpret its prompt as
     # a generic shell command or silently fall back to another coding agent.
