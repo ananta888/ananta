@@ -1,0 +1,49 @@
+{
+  "schema": "ananta.meet-companion-real-llm-provider.v1",
+  "status": "actual_gpu_inference_with_prior_hub_test_runs_verified",
+  "classification": "local_headless_test_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "runtime_migrated": false,
+  "provider": {
+    "image": "sha256:0ab10b9b9dc5f50d30dc61aec25e3316822ca22cf0f27d4e98d74cc7dedd7c80",
+    "model": "qwen2.5:1.5b",
+    "manifest_digest": "65ec06548149b04c096a120e4a6da9d4017ea809c91734ea5631e89f96ddc57b",
+    "restored_and_verified_blobs": 5,
+    "gpu_resident_bytes": 1105419304,
+    "transport": "Ollama OpenAI-compatible API"
+  },
+  "checks": {
+    "actual_gpu_provider_passed": 1,
+    "actual_gpu_provider_seconds": 48.08,
+    "actual_reserved_and_completed_hub_test_runs": 2,
+    "fixture_and_related_regression_passed": 87,
+    "fixture_and_related_regression_explicit_hardware_skips": 2,
+    "fixture_and_related_seconds": 6.69,
+    "ruff": "passed",
+    "worker_boundaries": "passed_176_files",
+    "diff_check": "passed"
+  },
+  "verified": [
+    "Missing former serving model volume was not reused or created; pinned public model restored into a fresh isolated test directory",
+    "Manifest and all five blob content hashes and sizes verified; invalid download cleans only the newly owned directory",
+    "Existing model directories are never overwritten",
+    "Provider runs on an internal acceptance network with readonly model/driver mounts, nonroot user, no capabilities or public ports, no cloud provider and an outer 360-second lifetime",
+    "Both actual model HTTP requests were preceded by distinct reservations issued by the actual Hub SQL Evidence Registry",
+    "Worker owned execution/model HTTP ports completed both exact model results under the matching Hub reservations",
+    "Actual pinned model residency requires positive GPU VRAM; a CPU-only model cannot pass this gate",
+    "Changed network membership is rejected and cleanup removes only the owned provider container"
+  ],
+  "scope_boundaries": [
+    "Runs and input sources explicitly belong to synthetic/test evidence; they cannot satisfy production release admission",
+    "This gate exercises the actual assigned provider/process and signed Hub model HTTP ports with real GPU inference; it does not yet combine that provider with the full installed Task/browser/GPU speech/configured lipsync chain",
+    "The large former dialog GPU fixture preserves its public constant imports; only immutable pins were extracted into a focused shared module",
+    "No serving service, secret environment, legacy endpoint, deployment flag or production model store changed"
+  ],
+  "remaining": [
+    "Installed Task/browser with actual LLM and configured avatar/lipsync",
+    "GPU cache latency measurement and tuning",
+    "Productive rollout and release admission"
+  ],
+  "architecture_review": "The model pins, verified model restoration and owned provider execution have separate SRP responsibilities. Dependencies on the old combined provider/Worker fixture were removed by a small shared specification module; additive imports preserve existing clients. Actual execution is delegated through existing Worker process ports and the Hub remains the issuer and owner of all model run identities. The old combined DialogGpuFixture remains SRP/ISP test-infrastructure debt, and the large runtime/combined model-TTS facade remains the previously documented production extraction debt."
+}

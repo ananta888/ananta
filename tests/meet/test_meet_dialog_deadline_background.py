@@ -32,6 +32,7 @@ def test_opted_in_hub_runs_once_in_app_context_stops_and_redacts_errors(monkeypa
     app = Flask(__name__)
     app.config["ROLE"] = "hub"
     called = threading.Event()
+    recovered = threading.Event()
 
     def run_once(*, limit, stopped):
         assert current_app._get_current_object() is app
@@ -40,10 +41,19 @@ def test_opted_in_hub_runs_once_in_app_context_stops_and_redacts_errors(monkeypa
         raise RuntimeError("private-credential-never-log")
 
     app.extensions[RUNNER] = Mock(run_once=run_once)
+
+    def recover(*, limit, stopped):
+        assert current_app._get_current_object() is app
+        assert limit == 25 and not stopped()
+        recovered.set()
+        raise RuntimeError("private-model-credential-never-log")
+
+    app.extensions["meet_companion_run_reconciliation"] = Mock(run_once=recover)
     monkeypatch.setattr(agent.common.context, "active_threads", [])
     try:
         start_meet_dialog_deadlines(app)
         assert called.wait(2)
+        assert recovered.wait(2)
         thread = app.extensions[EXTENSION]["thread"]
         start_meet_dialog_deadlines(app)
         assert agent.common.context.active_threads == [thread]
@@ -52,4 +62,5 @@ def test_opted_in_hub_runs_once_in_app_context_stops_and_redacts_errors(monkeypa
         app.extensions[EXTENSION]["thread"].join(timeout=2)
     assert not thread.is_alive()
     assert "RuntimeError" in caplog.text and "private-credential" not in caplog.text
+    assert "private-model-credential" not in caplog.text
     stop_meet_dialog_deadlines(app)

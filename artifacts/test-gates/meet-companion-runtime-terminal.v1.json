@@ -1,0 +1,35 @@
+{
+  "schema": "ananta.meet-companion-runtime-terminal.v1",
+  "status": "headless_entrypoint_parent_progress_terminal_callback_verified_dispatch_pending",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "runtime_migrated": false,
+  "image": "sha256:acb7e8b8498d612942fe6247e48dfeb69ccd3835ff7832728797913c2ddb4522",
+  "checks": {
+    "runtime_control_model_http_parent_progress_cases_passed": 77,
+    "seconds": 7.1,
+    "packaged_gate_passed": 1,
+    "packaged_seconds": 2.23,
+    "exact_source_files": 20,
+    "worker_boundary_files": 160,
+    "ruff": "passed"
+  },
+  "verified": [
+    "Bounded closed stdin assignment parsed and input closed before browser/model children",
+    "Operator-bound task-grant endpoint; existing worker key and original assignment scope",
+    "Existing inherited parent progress channel receives only newly accepted Hub observation freshness",
+    "Response latency consumes parent resource-stop budget; local ticks cannot emit new progress",
+    "Existing authenticated Hub finish callback reports completed or failed once even for BaseException control loss",
+    "Container CLI rejects malformed assignment with exit 1 and empty stdout/stderr",
+    "Assignment duration is fixed and runtime has no autonomous rejoin/supervisor"
+  ],
+  "remaining": [
+    "Normal Hub admission/profile binding and signed Worker dispatch selection",
+    "Actual parent executor spawn/progress/termination acceptance of assigned mode",
+    "Full browser/SQL Task/container execution acceptance",
+    "Assigned synchronized speaking clips and live provider/GPU parity",
+    "Explicit legacy rollout policy"
+  ],
+  "architecture_review": "Existing narrow progress and terminal ports reused; no independent task loop or new task authority. Entry point owns assignment input/lifecycle, browser adapter owns browser actions and source reconciliation (SRP/ISP/DIP). Legacy supervisor/broad Companion composition remains preserved debt."
+}

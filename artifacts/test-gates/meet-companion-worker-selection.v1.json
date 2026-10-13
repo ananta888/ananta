@@ -1,0 +1,38 @@
+{
+  "schema": "ananta.meet-companion-worker-selection.v1",
+  "status": "installed_worker_dialog_selection_verified_combined_task_browser_acceptance_pending",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "runtime_migrated": false,
+  "checks": {
+    "regression_passed": 53,
+    "regression_seconds": 7.92,
+    "packaged_unique_source_files": 53,
+    "worker_image": "sha256:1c08202e9d6ebda052e72e17c6ae0c70a12c86b5649882405c565ec829d2107c",
+    "ruff": "passed",
+    "worker_boundaries": "passed_173_files",
+    "diff_check": "passed",
+    "packaged_passed": 1,
+    "packaged_seconds": 4.22
+  },
+  "verified": [
+    "Installed Task runtime creates its execution adapter from the previously signature-verified Hub grant; Worker environment alone cannot activate assigned dialog ports",
+    "Closed model profile requires both typed tool/model owner ports and is carried only on answer requests; speech rejects model negotiation fields",
+    "Actual default companion_execution_runtime selects the persistent assigned dialog from parent negotiation, overrides conflicting Worker backend defaults and refuses profile switches after the first answer",
+    "Actual installed entry performs assigned Tool HTTP, model backend/provider HTTP and exact separate Hub model-run binding; deterministic explanation does not re-execute inference",
+    "Missing model selection preserves the existing default execution profile; selected model failure does not downgrade to legacy generation",
+    "A bounded 12000-byte initial pipe frame preserves the full 2000-character Unicode message budget with added profile metadata; local model request/response port budgets remain separate"
+  ],
+  "remaining": [
+    "Combined normal SQL Task/admission/executor/browser/model-tool acceptance with the new selection enabled",
+    "Hub outstanding reserved-run cancellation/failure cleanup",
+    "Production provider/GPU/lipsync/rollout"
+  ],
+  "architecture_review": "A focused Task execution composition module selects typed adapters; main runtime retains browser/control ownership. Shared closed profile validation and per-instance assigned dialog preserve SRP/DIP/ISP. The execution entry retains legacy general-answer/TTS compatibility and reads supported provider environment settings; a focused provider factory and separate speech entry are the cleaner future seams. No additional Task orchestration or Worker-to-Worker flow was introduced.",
+  "scope_boundaries": [
+    "Actual default execution entry and Hub/provider/tool HTTP use synthetic provider/MCP and Task/source fixtures",
+    "This gate does not include normal SQL Task dispatch, browser joining or slot release with model selection enabled; runtime migration remains unproven at that combined scope",
+    "No productive inference/GPU/release evidence claim; unchanged default profiles remain a compatibility path"
+  ]
+}

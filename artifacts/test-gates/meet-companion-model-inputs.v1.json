@@ -1,0 +1,37 @@
+{
+  "schema": "ananta.meet-companion-model-inputs.v1",
+  "status": "exact_tool_input_admission_verified_model_run_reservation_and_runtime_pending",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "runtime_migrated": false,
+  "worker_packaging_changed": false,
+  "checks": {
+    "regression_passed": 85,
+    "regression_seconds": 7.01,
+    "model_input_cases_passed": 16,
+    "ruff": "passed",
+    "worker_boundaries": "passed_166_files",
+    "diff_check": "passed"
+  },
+  "verified": [
+    "Hub Registry verifies exact completed assignment projection and result digest without issuing or promoting identities",
+    "Hub-only registered-source resolution revalidates immutable source bindings; Worker consumers retain explicitly pinned lookup",
+    "Scoped SQL source reads verify tenant/project and admitted byte digest",
+    "Model-input admission verifies actual Tool RUN completion, exact result, request origin, immutable admitted bytes, current source policy, revision, environment, assignment and chat revision",
+    "Output SRC pins must have the exact Tool result origin, content digest and policy; unrelated registered identities are refused",
+    "Repeated runs, failed runs, altered text, unknown identities, stale source/chat revisions, paused chat and corrupted SQL/Registry bytes are rejected"
+  ],
+  "remaining": [
+    "Implement Hub model-run reservation before actual execution over admitted model request and verified tool sources",
+    "Bind exact model result to its reserved assignment and lease; preserve current control checkpoints",
+    "Wire assigned dialog/toolbox and execution ports into installed runtime; combined normal Task acceptance",
+    "Production provider/GPU/lipsync/rollout"
+  ],
+  "architecture_review": "A focused model-input verifier depends on a read-only admitted-content port and the existing policy/Registry ports (SRP/DIP/ISP). SQL content persistence and Hub identity verification remain separate. Existing global policy/service locator coupling remains; inject those ports in the model controller rather than reading repositories from the Worker. The caller must obtain and revalidate current assignment authority around admission and execution; this verifier alone does not grant execution.",
+  "scope_boundaries": [
+    "Actual HTTP Tool admission, SQL source/Registry stores and identity verification use explicit synthetic Task/MCP/index/policy fixtures",
+    "Two negative cases deliberately corrupt SQL rows; the other-domain source is genuinely issued by the test Hub Registry, not self-assigned",
+    "No model request is executed or reserved by this new verifier, and no grounded model-answer or production-release claim is made"
+  ]
+}

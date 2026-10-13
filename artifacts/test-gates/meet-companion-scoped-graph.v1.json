@@ -1,0 +1,38 @@
+{
+  "schema": "ananta.meet-companion-scoped-graph.v1",
+  "status": "scoped_intelligence_and_graph_boundaries_verified_layers_and_model_integration_pending",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "runtime_migrated": false,
+  "worker_packaging_changed": false,
+  "checks": {
+    "regression_passed": 160,
+    "regression_seconds": 6.17,
+    "ruff": "passed",
+    "worker_boundaries": "passed_163_files",
+    "diff_check": "passed",
+    "graph_scope_cases_passed": 6,
+    "actual_task_http_mcp_cases_passed": 3
+  },
+  "verified": [
+    "Current Task-tool execution explicitly binds the validated sealed capability in its ContextVar scope for the actual MCP call and restores it afterwards",
+    "Graph resolver applies exact allowed index IDs before any artifact path resolution, including legacy consumption-compatible rows; empty scope resolves no graph",
+    "Scoped architecture intelligence validates current capability, selects only an authorized actual index, rejects foreign snapshot/revision, filters relative paths and projects only edges between retained nodes",
+    "Architecture slice and intelligence share segment-bounded path matching; sibling prefixes and traversal paths cannot match an allowed directory",
+    "Actual Task-tool HTTP/MCP handler loads actual graph files and persists Registry evidence through explicit synthetic Task/index/artifact fixtures",
+    "Backend scope, not-found and unexpected failures become bounded coded responses; no private backend error text or legacy fallback"
+  ],
+  "remaining": [
+    "Scoped layers_heads and layers_plan adapters over current authorized source/index/head/snapshot bindings",
+    "Task tool adapter in the owned model process and toolbox; separate Hub model run reserved over admitted input sources before model execution",
+    "Combined normal Task/executor/browser/model-tool acceptance and provider/GPU/lipsync/production rollout"
+  ],
+  "architecture_review": "Pure scoped graph projection and a shared path permission function protect SRP/OCP. Resolver injection supplies a test seam; existing global repository/artifact/policy facades retain DIP coupling debt. Hub retains source/policy/Registry ownership; Worker protocol/container boundaries are unchanged. A future resolver object with injected repository, artifact resolver and consumption policy would reduce the preserved locator coupling without changing tool contracts.",
+  "scope_boundaries": [
+    "Source indices and artifact resolver admissions are explicit synthetic fixtures; actual graph parser, MCP analysis, HTTP and SQL Registry execute normally",
+    "No productive source-origin migration or model-answer grounding claim",
+    "The six current handlers are eligible; the two layer handlers remain explicitly denied until scoped adapters exist"
+  ],
+  "layer_gap_superseded_by": "artifacts/test-gates/meet-companion-scoped-layers.v1.json"
+}

@@ -13,6 +13,10 @@ from typing import Callable
 MOVED = "moved"
 
 
+class CompanionLegacyRetired(RuntimeError):
+    """The Hub has retired the unassigned grant path; never retry it."""
+
+
 @dataclass(frozen=True)
 class RejoinBackoff:
     """Exponential delay between failed sessions, reset after a stable one."""
@@ -42,6 +46,9 @@ def supervise(
         started = clock()
         try:
             outcome = run()
+        except CompanionLegacyRetired:
+            log("session_retired reason=use_hub_tasks")
+            return
         except Exception as error:  # noqa: BLE001 - any session failure is retried
             outcome = "error"
             log("session_err %r" % (error,))

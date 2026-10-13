@@ -1,0 +1,46 @@
+{
+  "schema": "ananta.meet-companion-assigned-runtime.v1",
+  "status": "assigned_browser_runtime_implemented_full_browser_dispatch_acceptance_pending",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "runtime_migrated": false,
+  "image": "sha256:66f996c46066f9b5753b9dce5de3d7207831b977ca0e241e4b237b0efb390708",
+  "checks": {
+    "contract_http_controls_execution_adapter_tests_passed": 83,
+    "seconds": 7.01,
+    "packaged_gate_passed": 1,
+    "packaged_seconds": 1.99,
+    "exact_source_files": 20,
+    "worker_boundary_files": 160,
+    "ruff": "passed",
+    "full_assigned_browser_run_verified": false,
+    "persisted_sql_verified": false
+  },
+  "implemented": [
+    "Dedicated one-assignment browser runtime without autonomous supervisor, admission or rejoin",
+    "Assigned closed client renews same Hub task/runtime/session/room",
+    "Owner-thread single-flight current control reconciliation",
+    "Chat model rounds and replies fenced before/during/after execution",
+    "Failed chat delivery does not start optional speech",
+    "Paused speech does not invalidate delivered chat",
+    "Avatar and speech closure follows independent Hub controls",
+    "Avatar preparation fenced before publication; bounded idle refresh and current-control pulses",
+    "Empty browser permissions, explicit human capture denial, fixed origin network restriction and cleanup of owned browser/model/media/control resources"
+  ],
+  "verified": [
+    "Actual synthetic model pipe normal/pause/send-failure cases",
+    "Browser adapter doubles: avatar close with continuing chat, no camera open after media-time revoke, independent speech close",
+    "Real signed loopback HTTP cancel/pause with actual owned process termination",
+    "Standalone nonroot network-none read-only packaged import/source/CPU gate"
+  ],
+  "remaining": [
+    "Normal Hub Companion profile admission and signed dispatch selection",
+    "Runtime progress/result/terminal reporting to existing Hub lifecycle",
+    "Full assigned runtime actual Meet/browser/container acceptance",
+    "Persisted SQL Task/lease/control acceptance",
+    "Assigned speech/avatar synchronized speaking clips and provider/GPU acceptance",
+    "Explicit legacy rollout policy"
+  ],
+  "architecture_review": "Assigned execution, owner-thread browser adaptation, signed authority reads and task lifecycle remain separate (SRP/ISP/DIP). Shared chat/model/media primitives reused without Hub imports or worker orchestration. Legacy Companion broad run and autonomous non-task supervisor remain preserved debt; the new mode does not invoke that supervisor."
+}

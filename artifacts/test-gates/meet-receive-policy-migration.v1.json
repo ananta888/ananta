@@ -1,0 +1,66 @@
+{
+  "schema": "ananta.meet-receive-policy-migration-review.v1",
+  "status": "implemented_and_locally_verified",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "scope": "Passive human receive-rights UI and PCM/visual export authority aligned with existing verified Hub capability policy; synthetic local browser/server only.",
+  "policy_basis": "Existing user-authored client commit add3f5f57f42724d9c6b503e757746d54b866c9c explicitly replaces separate per-peer consent for chat/media receive with verified Hub capabilities.",
+  "changes": [
+    "Passive overview separates actual Hub audio/video/chat read/send capabilities and live remote tracks; no grant editor, timer, signaling mutation or capture side effect",
+    "PCM and visual export retain exact source/track/epoch, room membership, Hub lease and scope identity plus bounded lifetimes; require current machine identity and receive capability instead of obsolete publisher consent",
+    "Legacy consent transport/service and integration-v1 observation field preserved for compatibility; active UI does not claim these records constrain Hub rights",
+    "Browser fixtures stop real synthetic publications or leave sessions for withdrawal; multi-Worker legacy selective-withdraw command fails bounded with test_hub_receive_revocation_required instead of claiming fictitious revocation"
+  ],
+  "checks": {
+    "angular_production_build": {
+      "passed": true,
+      "seconds": 8.958
+    },
+    "typescript_app": "passed",
+    "frontend_tests": {
+      "passed": 139,
+      "suites": 7,
+      "details": "136 session/endpoint/gate/legacy-control regression tests plus 3 passive observation tests"
+    },
+    "node_bridge_diagnostics": {
+      "passed": 14,
+      "seconds": 0.614212105
+    },
+    "browser_matrix": {
+      "initial_batch": {
+        "passed": 20,
+        "failed": 2,
+        "skipped": 0,
+        "seconds": 59.983989721
+      },
+      "corrected_renewal_recheck": {
+        "passed": 2,
+        "failed": 0,
+        "skipped": 0,
+        "seconds": 16.546162175
+      },
+      "unique_current_cases_passed": 22,
+      "complete_batch_repeated": false,
+      "correction": "The initial two renewal cases attempted an illegal same-session capability change. Current cases assert machine_renewal_denied, then explicit Leave and denied subsequent access. Production policy was not relaxed to make renewal succeed.",
+      "cases": "Chromium/Firefox read-only/chat pagination/three renewals/PCM/screen, early audio finish, deferred UI/operator failure, operator observation; all four browser pairings for camera and screen export."
+    }
+  },
+  "current_source_digests": {
+    "frontend/src/app/features/machine/machine-permissions-panel.component.ts": "311447c1e377c588edd90342ab332bcf1e06be97e8dd5e8521f6b83f6a90bebd",
+    "frontend/src/app/features/machine/machine-receive-observation.service.ts": "340314d3d40bf374ee9b67b16f4c79781cf429be5390290f1f37b8fb4d24e200",
+    "frontend/src/app/features/machine/machine-audio-session.service.ts": "4fbde2199c17d4793ca1df64bcbc4425fc8cb637953ccdebd8c2ced728dbdd79",
+    "frontend/src/app/features/machine/machine-visual-session.service.ts": "ed412e8d1abe68af6cfdb46a797104bc249b09881bcf436b73515233c8a7227c"
+  },
+  "solid_review": {
+    "protected": "SRP: passive observation separated from legacy grant editing and media execution. ISP/DIP: existing mesh/session ports retained; no policy in UI, no broad infrastructure interface added. Existing source/surface/graph seams preserve substitution and cancellation.",
+    "preserved_debt": "Legacy receive-control service, consent-state protocol and publisherConsentRequired integration-v1 field remain compatibility debt; multi-Worker selective Hub revocation still needs owning Hub fixture integration."
+  },
+  "remaining": [
+    "Full client block verification before push",
+    "Current pinned Python Worker/browser end-to-end control loop and bridge-consumer acceptance under new source lifecycle",
+    "Owning Hub revocation fixture for multi-Worker selective withdrawal; old bridge denies this bounded instead of fabricating success",
+    "Versioned cleanup of legacy consent transport/service and stale integration-v1 observation field",
+    "Live GPU/Lipsync/LLM/TTS, coordinated deployment and production Hub Registry admission"
+  ]
+}

@@ -8,6 +8,7 @@ from agent.services.meet_audio_profile import audio_profile_fields, bound_audio_
 from agent.services.meet_chat_admission import MeetChatAdmissionService
 from agent.services.meet_chat_contract import ChatEvent
 from agent.services.meet_chat_policy import ChatReplyPolicy
+from agent.services.meet_companion_profile import bound_companion_profile, companion_execution_fields
 from agent.services.meet_contract import MeetError
 from agent.services.meet_dialog_chat_authority import CurrentDialogChatAuthority
 from agent.services.meet_dialog_controls import (
@@ -48,6 +49,7 @@ class MeetDialogService:
         speaker_floor=None,
         recovery=None,
         media_timing=False,
+        companion_execution=False,
     ):
         self.authority, self.tasks, self.meet, self.issuer = authority, tasks, meet, issuer
         self.phases = phases
@@ -56,6 +58,9 @@ class MeetDialogService:
         self.recovery = recovery
         negotiated_media_timing(media_timing)
         self.media_timing = media_timing
+        if type(companion_execution) is not bool:
+            raise ValueError("meet_companion_execution_configuration_invalid")
+        self.companion_execution = companion_execution
         self.worker, self.media_worker, self.reservations, self.dispatches, self.clock = (
             worker,
             media_worker,
@@ -154,6 +159,7 @@ class MeetDialogService:
                 "initial_persona",
                 "browser_workspace",
                 "audio_profile",
+                "companion_execution",
             }
             != {"capabilities", "duration_seconds", "chat_mode"}
             or type(payload["duration_seconds"]) is not int
@@ -166,6 +172,7 @@ class MeetDialogService:
             <= self.authority.policies.get((principal.tenant_id, project), frozenset())
         ):
             raise MeetError("meet_dialog_start_denied", 403)
+        companion = bound_companion_profile(payload, enabled=self.companion_execution)
         if "avatar_images" in payload and (
             payload["avatar_images"] is not True or "avatar.publish" not in payload["capabilities"]
         ):
@@ -233,9 +240,12 @@ class MeetDialogService:
             context["capabilities"], context["chat_mode"], audio_mode, int(self.clock() * 1000)
         )
         context.update(audio_profile_fields(audio_profile))
-        context.update(negotiated_speaker_fields(self.speaker_floor is not None, context["capabilities"]))
-        context.update(negotiated_reconnect_fields(self.recovery is not None))
-        context.update(negotiated_media_timing(self.media_timing))
+        if companion:
+            context["companion_execution"] = True
+        else:
+            context.update(negotiated_speaker_fields(self.speaker_floor is not None, context["capabilities"]))
+            context.update(negotiated_reconnect_fields(self.recovery is not None))
+            context.update(negotiated_media_timing(self.media_timing))
         if payload.get("avatar_images") is True:
             context["avatar_selection"] = {"mode": "neutral-ai-v1"}
         if payload.get("avatar_videos") is True:
@@ -283,6 +293,7 @@ class MeetDialogService:
                 "audio_mode": scope.audio_mode,
                 "meeting": meeting,
             }
+            assignment.update(companion_execution_fields(scope.companion_execution))
             if "avatar_selection" in context:
                 assignment["avatar_images"] = True
             assignment.update(audio_profile_fields(scope.audio_profile))
@@ -341,6 +352,7 @@ class MeetDialogService:
             "controls": context.get("controls"),
             "capabilities": context.get("capabilities", []),
         }
+        result.update(companion_execution_fields(context.get("companion_execution") is True))
         if "avatar_selection" in context:
             result["avatar_selection"] = context["avatar_selection"]
         if context.get("avatar_videos") is True:
@@ -398,6 +410,19 @@ class MeetDialogService:
         ):
             self.speaker_floor.withdraw(scope)
         return self.inspect(principal, project, task_id)
+
+    def observe(self, payload):
+        """Hub verifies membership/publications; Worker supplies no phase or sources."""
+        ids = tuple(payload[key] for key in ("task_id", "lease_id", "runtime_id"))
+        scope = self.authority.current(*ids)
+        if not scope.companion_execution:
+            raise MeetError("meet_companion_execution_not_bound", 403)
+        state = self.meet.observe(*ids, payload["meet_session_id"])
+        if self.authority.current(*ids) != scope:
+            raise MeetError("meet_companion_assignment_changed", 403)
+        if self.phases is not None:
+            self.phases.observe(scope, state)
+        return {"schema": "ananta.meet-dialog-observed.v1", "nonce": payload["nonce"]}
 
     def exchange(self, payload):
         from agent.services.meet_dialog_audio import audio_job_current

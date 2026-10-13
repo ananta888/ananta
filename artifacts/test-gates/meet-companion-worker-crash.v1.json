@@ -1,0 +1,33 @@
+{
+  "schema": "ananta.meet-companion-worker-crash.v1",
+  "status": "actual_worker_container_failure_original_deadline_recovery_verified",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "runtime_migrated": false,
+  "deployment": false,
+  "checks": {
+    "actual_container_passed": 1,
+    "seconds": 106.72,
+    "worker_image": "sha256:1c08202e9d6ebda052e72e17c6ae0c70a12c86b5649882405c565ec829d2107c",
+    "ruff": "passed",
+    "diff_check": "passed"
+  },
+  "verified": [
+    "Normal SQL Task/admission/installed assigned runtime/browser use real Hub tool/model HTTP and synthetic provider/MCP",
+    "Actual Worker container is killed during provider HTTP after a Hub model Run is reserved; Docker confirms the container has stopped",
+    "No chat reply, camera disappears, and machine departs before the original Task deadline",
+    "Existing real-clock Hub deadline service settles the SQL Task only after its unchanged original 90-second deadline",
+    "Hub terminal model-run reconciliation produces exactly one successful Tool Run and one failed Model Run with explicit synthetic/test classifications",
+    "No Worker finish callback or legacy companion endpoint call occurs"
+  ],
+  "scope_boundaries": [
+    "Provider/MCP responses and CPU speech are synthetic technical fixtures",
+    "The Hub lifecycle services are driven headlessly through their existing run_once ports; their actual background ownership is covered by separate lifecycle tests",
+    "An exited container has no live executor process; this gate does not claim an HTTP slot release acknowledgement from a killed Worker"
+  ],
+  "remaining": [
+    "Combined assigned answer and normal original-deadline acceptance still running",
+    "Production provider/GPU/lipsync/rollout"
+  ],
+  "architecture_review": "A focused integration helper owns the failure/recovery assertions while invoking existing Hub services. No test changes the original Task deadline, issues evidence identifiers outside the Registry, or adds worker orchestration. The large existing scenario retains readability/SRP debt."
+}

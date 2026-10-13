@@ -17,6 +17,7 @@ import tempfile
 import time
 import urllib.error
 import urllib.request
+from dataclasses import replace
 from pathlib import Path
 
 from worker.meet_media.avatar_idle_clip import IdleClipSource
@@ -28,7 +29,17 @@ from worker.meet_media.avatar_service import (
     service_enabled,
     service_url,
 )
-from worker.meet_media.companion_chat_ledger import ChatLedger, port_closed, serve_batch
+from worker.meet_media.companion_chat_diagnostics import (
+    browser_console_diagnostic,
+    chat_event_diagnostic,
+    chat_state_diagnostic,
+    renewal_status_diagnostic,
+)
+from worker.meet_media.companion_chat_inbox import CompanionChatInbox
+from worker.meet_media.companion_chat_inbox_processing import serve_inbox
+from worker.meet_media.companion_chat_ledger import ChatLedger
+from worker.meet_media.companion_chat_pump import CompanionChatPump, CompanionSessionEnded
+from worker.meet_media.companion_execution_process import CompanionExecutionProcess
 from worker.meet_media.companion_flags import (
     avatar_enabled,
     codecompass_enabled,
@@ -42,7 +53,8 @@ from worker.meet_media.companion_media import (
     IdleClips,
     SpeechAvatarPublisher,
 )
-from worker.meet_media.companion_supervisor import supervise
+from worker.meet_media.companion_media_process import CompanionMediaPreparationProcess
+from worker.meet_media.companion_supervisor import CompanionLegacyRetired, supervise
 from worker.meet_media.contract import encode, load_key, signature
 from worker.meet_media.snake_avatar_state import IDLE, THINKING
 
@@ -54,9 +66,8 @@ HUB = os.environ.get(
 CAPABILITIES = ["avatar.publish", "speech.publish", "chat.send", "chat.read"]
 DISPLAY_NAME = "ai-snake"
 RENEW_INTERVAL = float(os.environ.get("MEET_COMPANION_RENEW", "40"))
-# The client expires an avatar activation after ~30 s; reopening the idle clip
-# below that keeps the tile continuous (the publication itself is parked, so
-# a reopen is cheap).
+# Refresh conservatively within the client's 120-s activation and initial Hub
+# deadline. Parked publication reuse keeps reopening inexpensive.
 AVATAR_REFRESH_SECONDS = float(os.environ.get("MEET_COMPANION_AVATAR_REFRESH", "25"))
 STOP_FILE = Path(os.environ.get("MEET_COMPANION_STOP", "/state/companion-stop"))
 LOG = open(os.environ.get("MEET_COMPANION_LOG", "/state/companion.log"), "a", buffering=1)
@@ -81,16 +92,16 @@ ROOM_ID = re.compile(r"room-[a-f0-9]{18}")
 
 
 def advertise_room(room_id, invite_url=None):
-    """Log and persist the room id + invite url so it can be found without the log."""
+    """Persist the discoverable invite separately from content-free diagnostics."""
     url = invite_url or "%s/?room=%s&mode=room" % (ORIGIN, room_id)
-    log("ROOM %s %s" % (room_id, url))
+    log("ROOM event=advertised")
     try:
         Path(ROOM_JSON).write_text(
             json.dumps({"room_id": room_id, "invite_url": url, "project": PROJECT}, indent=2) + "\n",
             encoding="utf-8",
         )
-    except OSError as error:  # noqa: BLE001
-        log("room_write_err %r" % (error,))
+    except OSError:  # noqa: BLE001
+        log("ROOM event=write_failed")
 
 
 def fetch_grant(identity=None):
@@ -99,8 +110,13 @@ def fetch_grant(identity=None):
     request = urllib.request.Request(
         HUB, body, {"Content-Type": "application/json", "X-Ananta-Task-Signature": signature(key, body)}
     )
-    with urllib.request.urlopen(request, timeout=10) as response:
-        return json.load(response)
+    try:
+        with urllib.request.urlopen(request, timeout=10) as response:
+            return json.load(response)
+    except urllib.error.HTTPError as error:
+        if error.code == 410:
+            raise CompanionLegacyRetired("meet_companion_legacy_retired_use_hub_tasks") from None
+        raise
 
 
 _PUBLIC_ROOM_DISABLED = False
@@ -134,13 +150,18 @@ def ensure_public_room():
             code = (json.loads(error.read(4096) or b"{}").get("error") or {}).get("code")
         except (ValueError, AttributeError, OSError):
             code = None
-        log("public_room_err status=%s code=%s" % (error.code, code))
+        marker = code if code in (
+            "meet_public_room_disabled", "meet_media_disabled", "meet_public_room_token_unavailable",
+            "meet_public_room_directory_unavailable", "meet_public_room_unauthorized",
+        ) else "unavailable"
+        status = error.code if type(error.code) is int and 100 <= error.code <= 599 else "invalid"
+        log("public_room_err status=%s code=%s" % (status, marker))
         if code in ("meet_public_room_disabled", "meet_media_disabled"):
             # Operator left it off: stop asking until the next process start.
             _PUBLIC_ROOM_DISABLED = True
         return None
-    except Exception as error:  # noqa: BLE001
-        log("public_room_err %r" % (error,))
+    except Exception:  # noqa: BLE001
+        log("public_room_err event=request_failed")
         return None
     room_id = result.get("roomId") if isinstance(result, dict) else None
     invite = result.get("inviteUrl") if isinstance(result, dict) else None
@@ -152,7 +173,7 @@ def ensure_public_room():
     ):
         log("public_room_err invalid_response")
         return None
-    log("public_room room=%s reused=%s revision=%s" % (room_id, result.get("reused"), result.get("revision")))
+    log("public_room event=resolved")
     return {"room_id": room_id, "invite_url": invite}
 
 
@@ -162,7 +183,7 @@ def public_invite(public, room_id):
         return None
     if public["room_id"] != room_id:
         # A concurrent rebind won; the grant stays authoritative for the join.
-        log("public_room_mismatch bound=%s public=%s" % (room_id, public["room_id"]))
+        log("public_room_mismatch event=binding_changed")
         return None
     return public["invite_url"]
 
@@ -399,7 +420,7 @@ def avatar_ports(page, avatar_source, speech_source):
     return AvatarPorts(avatar_open, avatar_close, speech_open, speech_push, speech_status=speech_status)
 
 
-def speak(page, source_id, pcm, *, ports=None, avatar_generation=None):
+def speak(page, source_id, pcm, *, ports=None, avatar_generation=None, cooperate=None, clip_preparer=None):
     """Publish speech (and, when the avatar is enabled, synced clips)."""
     if ports is None or not avatar_enabled():
         total = len(pcm) // 2
@@ -408,6 +429,8 @@ def speak(page, source_id, pcm, *, ports=None, avatar_generation=None):
         log("speech open gen=%s samples=%s" % (generation, total))
         started = time.monotonic()
         for offset in range(0, total, FRAME_SAMPLES):
+            if cooperate is not None:
+                cooperate()
             chunk = pcm[offset * 2:(offset + FRAME_SAMPLES) * 2]
             page.evaluate(
                 "(a) => window.anantaMachine.speech.push(a[0], a[1], a[2])",
@@ -416,9 +439,10 @@ def speak(page, source_id, pcm, *, ports=None, avatar_generation=None):
             target = started + (offset / SPEECH_RATE) - 0.12
             delay = target - time.monotonic()
             if delay > 0:
-                time.sleep(delay)
+                (ports.sleep if ports is not None else time.sleep)(delay)
         return avatar_generation
-    publisher = SpeechAvatarPublisher(ports, log=log, lipsync=lipsync_client())
+    publisher = SpeechAvatarPublisher(ports, log=log, clip_preparer=clip_preparer,
+                                     lipsync=None if clip_preparer is not None else lipsync_client())
     try:
         generation, report = publisher.speak(pcm, current_generation=avatar_generation)
         log("SYNC max_drift_us=%s segments=%s" % (report["max_drift_us"], len(report["segments"])))
@@ -430,14 +454,15 @@ def speak(page, source_id, pcm, *, ports=None, avatar_generation=None):
         return publisher.generation if publisher.generation is not None else avatar_generation
 
 
-def show_state(ports, generation, state, enabled=True):
+def show_state(ports, generation, state, enabled=True, *, idle_payload=None):
     """Swap the idle clip for ``state``; returns the new avatar generation."""
     if not enabled:
         return generation
     try:
+        payload = (idle_payload or avatar_idle)(state)
         if generation is not None:
             ports.avatar_close(generation)
-        generation = ports.avatar_open(avatar_idle(state))
+        generation = ports.avatar_open(payload)
         log("avatar state=%s gen=%s" % (state, generation))
     except Exception as error:  # noqa: BLE001
         log("avatar_state_err %r" % (error,))
@@ -451,6 +476,8 @@ def run():
         browser = playwright.chromium.launch(
             headless=True, chromium_sandbox=True, args=["--autoplay-policy=no-user-gesture-required"]
         )
+        execution = None
+        media_preparation = None
         try:
             context = browser.new_context(permissions=[], accept_downloads=False, service_workers="block")
             page = context.new_page()
@@ -460,14 +487,20 @@ def run():
                 url = response.url
                 if "/api/machine/sessions/renew" in url:
                     try:
-                        log("RENEW %s %s" % (response.status, response.text()[:300]))
-                    except Exception as error:  # noqa: BLE001
-                        log("RENEWERR %r" % (error,))
+                        log(renewal_status_diagnostic(response.status))
+                    except Exception:  # noqa: BLE001
+                        log("RENEW event=observation_failed")
 
             def _on_console(message):
-                text = str(message.text)[:1200]
-                if "[e2eedbg]" in text or message.type in ("error", "warning"):
-                    log("CONSOLE %s %s" % (message.type, text))
+                try:
+                    kind = message.type
+                    marker = browser_console_diagnostic(
+                        kind, e2ee=kind == "log" and "[e2eedbg]" in str(message.text)[:1200]
+                    )
+                    if marker is not None:
+                        log(marker)
+                except Exception:  # noqa: BLE001
+                    log("CONSOLE event=observation_failed")
 
             page.on("response", _on_response)
             page.on("console", _on_console)
@@ -485,7 +518,7 @@ def run():
             log("flags avatar=%s codecompass=%s tools=%s rag_prefix=%s" % (
                 avatar_on, codecompass_enabled(), tools_enabled(), rag_prefix_enabled()))
             log_lipsync_service()
-            log("grant room=%s exp=%s" % (grant["room_id"], grant.get("expires_at")))
+            log("grant event=received")
             room_id = grant["room_id"]
             advertise_room(room_id, public_invite(public, room_id))
             page.evaluate("(a) => window.anantaMachine.join(a[0], a[1])", [grant["room_id"], grant["grant"]])
@@ -494,9 +527,9 @@ def run():
                 if state and state.get("joined"):
                     break
                 time.sleep(1)
-            log("joined=%s" % json.dumps(page.evaluate("() => window.anantaMachine.status()"))[:260])
-            # Keep the avatar controller alive from inside the page: the Python
-            # loop blocks during LLM/TTS, which would starve the 2.5s heartbeat.
+            log("joined " + chat_state_diagnostic(page.evaluate("() => window.anantaMachine.status()")))
+            # Keep the avatar controller alive across bounded browser/media
+            # setup calls as well as the owner's cooperative execution waits.
             page.evaluate("""() => {
               if (!window.__avatarTimer) {
                 window.__avatarTimer = setInterval(() => {
@@ -505,13 +538,44 @@ def run():
                 }, 1500);
               }
             }""")
-            chat_opened = False
-            last_chat_attempt = 0.0
             last_status_log = 0.0
             ledger = ChatLedger()
 
-            last_seen = 0
-            last_renew = time.time()
+            inbox = CompanionChatInbox()
+            execution = CompanionExecutionProcess()
+            media_preparation = CompanionMediaPreparationProcess()
+
+            def renew_chat_session():
+                fresh = fetch_grant(identity)
+                if fresh["room_id"] != room_id or decode_identity(fresh["grant"]) != identity:
+                    raise ValueError("meet_companion_renew_binding_changed")
+                page.evaluate("(g) => window.anantaMachine.renew(g)", fresh["grant"])
+
+            pump = CompanionChatPump(
+                inbox, status=lambda: page.evaluate("() => window.anantaMachine.status()"),
+                open_chat=lambda: page.evaluate("() => window.anantaMachine.chat.open()"),
+                poll=lambda cursor: page.evaluate("(c) => window.anantaMachine.chat.poll(c)", cursor),
+                redeliver=lambda ids: page.evaluate("(ids) => window.anantaMachine.chat.redeliver(ids)", ids),
+                reply_pending=lambda identity: identity not in ledger.answered,
+                renew=renew_chat_session, stopped=STOP_FILE.exists, log=log, renew_interval=RENEW_INTERVAL,
+            )
+
+            def cooperative_sleep(seconds):
+                deadline = time.monotonic() + seconds
+                while True:
+                    pump.step()
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        return
+                    time.sleep(min(remaining, 0.1))
+
+            ports = replace(ports, sleep=cooperative_sleep)
+
+            def prepare_idle(state):
+                return media_preparation.idle(state, cooperate=pump.step)
+
+            def prepare_speaking(pcm):
+                return media_preparation.speaking(pcm, cooperate=pump.step)
             last_public_check = time.time()
             outcome = None
             avatar_generation = None
@@ -519,21 +583,16 @@ def run():
             while not STOP_FILE.exists():
                 now = time.time()
                 try:
-                    state = page.evaluate("() => window.anantaMachine.status()")
-                except Exception as error:  # noqa: BLE001
-                    log("status_err %r" % (error,))
-                    break
-                if not state or not state.get("joined"):
-                    log("left")
+                    state = pump.step()
+                except CompanionSessionEnded as ended:
+                    log("left" if str(ended) == "meet_companion_session_lost" else "session_ended")
                     break
                 if now - last_status_log > 10:
                     last_status_log = now
-                    log("STATE peers=%s e2ee=%s chat=%s %s" % (
-                        state.get("peers"), state.get("e2ee"), len(state.get("chat") or []),
-                        json.dumps(state.get("chat") or [], default=str)[:400]))
+                    log(chat_state_diagnostic(state))
                 # Reconcile with the client's chat state: answers already shown
                 # count as answered; delivered-never inputs are reported by ID.
-                ledger.observe(state.get("chat"))
+                ledger.observe(state.get("chat"), delivered_message_ids=inbox.pending_message_ids())
                 for missing in ledger.gaps():
                     log("chat_gap id=%s undelivered" % missing[:8])
 
@@ -543,69 +602,41 @@ def run():
                 # the client-side setup timeout gives the handshake time to land.
                 if avatar_on and (avatar_generation is None or now - avatar_opened > AVATAR_REFRESH_SECONDS):
                     try:
-                        if avatar_generation is not None:
-                            ports.avatar_close(avatar_generation)
-                    except Exception:  # noqa: BLE001
-                        pass
-                    try:
-                        avatar_generation = ports.avatar_open(avatar_idle(IDLE))
-                        avatar_opened = now
-                        log("avatar open gen=%s" % avatar_generation)
-                    except Exception as error:  # noqa: BLE001
-                        log("avatar_open_err %r" % (error,))
-                        avatar_generation = None
-                if not chat_opened and now - last_chat_attempt > 3:
-                    last_chat_attempt = now
-                    try:
-                        page.evaluate("() => window.anantaMachine.chat.open()")
-                        chat_opened = True
-                        log("chat opened")
-                    except Exception as error:  # noqa: BLE001
-                        log("chat_open_err %r" % (error,))
+                        avatar_generation = show_state(ports, avatar_generation, IDLE, idle_payload=prepare_idle)
+                    except CompanionSessionEnded:
+                        break
+                    avatar_opened = now
+                if inbox.batch()["events"]:
+                    def answer(event, deliver):
+                        nonlocal avatar_generation, avatar_opened
+                        text = str(event.get("text", "") or "")
+                        log(chat_event_diagnostic("RECV", event))
+                        avatar_generation = show_state(ports, avatar_generation, THINKING, avatar_on,
+                                                       idle_payload=prepare_idle)
+                        reply = execution.call("answer", text, cooperate=pump.step)
+                        log(chat_event_diagnostic("REPLY", event))
+                        deliver(reply)
+                        pcm = execution.call("speech", reply, cooperate=pump.step)
+                        avatar_generation = speak(
+                            page, speech_source, pcm, ports=ports, avatar_generation=avatar_generation,
+                            cooperate=pump.step,
+                            clip_preparer=prepare_speaking,
+                        )
+                        avatar_opened = time.time()
+                        avatar_generation = show_state(ports, avatar_generation, IDLE, avatar_on,
+                                                       idle_payload=prepare_idle)
 
-                if chat_opened:
                     try:
-                        batch = page.evaluate("() => window.anantaMachine.chat.poll()")
-                    except Exception as error:  # noqa: BLE001
-                        log("chat_poll_err %r" % (error,))
-                        batch = None
-                        # The chat queue closes on session renewal (lease
-                        # generation changes). Reopen at once: the client holds
-                        # unacknowledged inputs only until the next open().
-                        chat_opened = False
-                        if port_closed(error):
-                            last_chat_attempt = 0.0
-                    if batch and batch.get("events"):
-
-                        def answer(event, deliver):
-                            nonlocal avatar_generation, avatar_opened
-                            text = str(event.get("text", "") or "")
-                            log("RECV %s: %s" % (event.get("sender_peer_id", ""), text[:140]))
-                            # thinking -> speaking -> idle: the state is
-                            # visible while the model and TTS are working.
-                            avatar_generation = show_state(ports, avatar_generation, THINKING, avatar_on)
-                            reply = generate_reply(text)
-                            log("REPLY %s" % reply[:140])
-                            deliver(reply)
-                            pcm = synthesize_pcm(reply)
-                            avatar_generation = speak(
-                                page, speech_source, pcm, ports=ports, avatar_generation=avatar_generation
-                            )
-                            avatar_opened = time.time()
-                            avatar_generation = show_state(ports, avatar_generation, IDLE, avatar_on)
-
-                        serve_batch(
-                            batch,
-                            ledger,
+                        serve_inbox(
+                            inbox, ledger,
                             send=lambda message_id, reply: page.evaluate(
                                 "(a) => window.anantaMachine.chat.reply(a[0], a[1])", [message_id, reply]
                             ),
-                            # The batch has no top-level cursor: ACK the highest
-                            # delivered one, only after the inputs were handled.
                             ack=lambda cursor: page.evaluate("(c) => window.anantaMachine.chat.ack(c)", cursor),
-                            answer=answer,
-                            log=log,
+                            answer=answer, log=log,
                         )
+                    except CompanionSessionEnded:
+                        break
 
                 if PUBLIC_ROOM_CHECK > 0 and now - last_public_check > PUBLIC_ROOM_CHECK:
                     last_public_check = now
@@ -613,17 +644,9 @@ def run():
                     if public is not None and public["room_id"] != room_id:
                         # The directory entry was lost and re-created: the
                         # binding now names a new room; follow it there.
-                        log("ROOM_MOVED %s -> %s" % (room_id, public["room_id"]))
+                        log("ROOM_MOVED event=binding_changed")
                         outcome = "moved"
                         break
-                if now - last_renew > RENEW_INTERVAL:
-                    try:
-                        fresh = fetch_grant(identity)
-                        page.evaluate("(g) => window.anantaMachine.renew(g)", fresh["grant"])
-                        log("renewed exp=%s" % fresh.get("expires_at"))
-                    except Exception as error:  # noqa: BLE001
-                        log("renew_err %r" % (error,))
-                    last_renew = time.time()
                 time.sleep(0.5)
             try:
                 page.evaluate("() => window.anantaMachine.leave()")
@@ -631,7 +654,15 @@ def run():
                 pass
             return outcome
         finally:
-            browser.close()
+            try:
+                if execution is not None:
+                    execution.close()
+            finally:
+                try:
+                    if media_preparation is not None:
+                        media_preparation.close()
+                finally:
+                    browser.close()
 
 
 def main():

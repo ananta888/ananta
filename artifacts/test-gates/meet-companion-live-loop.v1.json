@@ -1,0 +1,64 @@
+{
+  "schema": "ananta.meet-companion-live-loop.v1",
+  "status": "bounded_legacy_backlog_loop_verified",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "image": "sha256:acd52a29f0b69d789b7ca9d07dda8b4511a3267778177c7a6681f191290c6e16",
+  "scope": "Actual packaged legacy companion.run; actual signed Flask Hub grant endpoint, current Meet server/receiver, sandboxed nonroot Worker browser, real CPU snake media, synthetic long-model/tone-TTS process",
+  "checks": {
+    "actual_chat_loop_passed": 1,
+    "chat_loop_seconds": 63.46,
+    "actual_chat_and_decoded_media_passed": 1,
+    "chat_media_seconds": 64.64,
+    "human_messages": 3,
+    "unique_replies": 3,
+    "first_model_delay_seconds": 50,
+    "successful_hub_grants_minimum": 3,
+    "decoded_avatar": true,
+    "non_silent_received_audio": true,
+    "human_device_captures": 0,
+    "receiver_transform_errors": 0,
+    "proxy_connection_drops": 0,
+    "bounded_stop_exit_code": 0,
+    "final_gate_passed": 1,
+    "final_gate_seconds": 64.48,
+    "recv_count": 3,
+    "reply_count": 3,
+    "chat_gap_count": 0,
+    "chat_control_error_count": 0,
+    "chat_reply_error_count": 0,
+    "successful_browser_renewals_minimum": 2
+  },
+  "harness_setup_failure": {
+    "failed": 1,
+    "cause": "Ephemeral Hub signing file had incorrect default permissions; test fixed owner-only permissions without changing signing policy",
+    "seconds": 7.8
+  },
+  "synthetic_boundaries": [
+    "Project binding and preauthorization use explicit SyntheticMeetBinding",
+    "Model answers and 0.5-second PCM tones are test-only; no configured LLM/TTS/GPU or voice quality acceptance",
+    "Certificate pinning applies only to the exact ephemeral fixture certificate",
+    "Private mounted probe substitutes model process only; production companion code is from immutable standalone image"
+  ],
+  "remaining": [
+    "Configured model/TTS/GPU/Lipsync acceptance",
+    "Legacy companion grant still lacks normal Hub Task queue assignment; preserved migration debt",
+    "Versioned legacy protocol cleanup",
+    "Coordinated productive deployment and Registry-backed release evidence"
+  ],
+  "architecture_review": "Hub grants current capabilities; Worker runs its existing closed loop without worker delegation. Model process seam and real media port stay separate (SRP/DIP). Existing broad Companion.run composition and legacy grant admission outside normal Hub Task queue remain explicit debt; this test does not validate those as the final architecture.",
+  "latest_matrix_review": {
+    "status": "implemented_and_actual_matrix_verified",
+    "report": "artifacts/test-gates/meet-companion-pressure-recovery.v1.json",
+    "image": "sha256:ab2776f0d79f3ef32200442b88df177e6594e651de78c18a47524a794728ed47",
+    "passed": 5,
+    "seconds": 241.88
+  },
+  "source_withdrawal_review": {
+    "status": "actual_source_withdrawal_verified",
+    "report": "artifacts/test-gates/meet-companion-source-withdrawal.v1.json",
+    "passed": 1,
+    "seconds": 20.24
+  }
+}

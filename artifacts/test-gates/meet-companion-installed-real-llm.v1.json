@@ -1,0 +1,666 @@
+{
+  "schema": "ananta.meet-companion-installed-real-llm.v1",
+  "status": "native_sequence_local_block_verified_productive_acceptance_pending",
+  "classification": "local_headless_test_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "runtime_migrated": false,
+  "worker_image": "sha256:26e11efc61f77d36ee00dbde75252e18ae147ee2725fb71e336e159f5dd47d09",
+  "checks": {
+    "installed_actual_llm_cpu_tone_passed": 1,
+    "installed_actual_llm_seconds": 76.98,
+    "actual_provider_requests": 3,
+    "actual_tool_requests": 3,
+    "completed_hub_test_runs": 6,
+    "fixture_provider_regression_passed": 28,
+    "fixture_provider_regression_seconds": 6.6,
+    "model_selection_http_tool_regression_passed": 39,
+    "model_selection_http_tool_regression_seconds": 6.41,
+    "ruff": "passed",
+    "node_syntax": "passed",
+    "worker_boundaries": "passed_177_files",
+    "combined_gpu_before_fix_failed": 1,
+    "combined_gpu_before_fix_seconds": 173.28,
+    "combined_gpu_diagnostic_before_fix_failed": 1,
+    "combined_gpu_diagnostic_before_fix_seconds": 173.38,
+    "initial_queue_wait_reproduction": "failed_before_fix_with_100000_us_first_segment_drift",
+    "sync_source_media_regression_after_fix_passed": 42,
+    "sync_source_media_regression_explicit_skips": 4,
+    "sync_source_media_regression_seconds": 7.62,
+    "new_image_packaged_passed": 1,
+    "new_image_packaged_seconds": 4.3,
+    "initial_buffer_image_combined_gpu_failed": 1,
+    "initial_buffer_image_combined_gpu_seconds": 184.06,
+    "initial_buffer_actual_first_video_delta_us": [
+      -3,
+      -2
+    ],
+    "initial_buffer_actual_later_video_delta_us": [
+      70715,
+      58676
+    ],
+    "initial_buffer_actual_later_audio_lead_us": [
+      -11744,
+      -12757
+    ],
+    "predictable_swap_latency_reproduction": "failed_before_fix_with_75_ms_known_swap_latency",
+    "swap_latency_sync_source_media_regression_passed": 43,
+    "swap_latency_sync_source_media_regression_explicit_skips": 4,
+    "swap_latency_sync_source_media_regression_seconds": 8.02,
+    "swap_latency_image_packaged_passed": 1,
+    "swap_latency_image_packaged_seconds": 4.24,
+    "swap_latency_image_combined_gpu_failed": 1,
+    "swap_latency_image_combined_gpu_seconds": 177.81,
+    "browser_progress_and_source_runtime_regression_passed": 59,
+    "browser_progress_regression_seconds": 8.16,
+    "cached_browser_cannot_extend_hub_authority_and_immediate_avatar_retirement_recheck_passed": 22,
+    "authority_recheck_seconds": 3.2,
+    "browser_progress_image_packaged_passed": 1,
+    "browser_progress_image_packaged_seconds": 4.22,
+    "browser_progress_packaged_unique_sources": 58,
+    "browser_progress_image_combined_gpu_failed": 1,
+    "browser_progress_image_combined_gpu_seconds": 223.61,
+    "deferred_renewal_image_combined_gpu_failed": 1,
+    "deferred_renewal_image_combined_gpu_seconds": 241.61,
+    "deferred_renewal_regression_passed": 65,
+    "deferred_renewal_regression_seconds": 8.46,
+    "deferred_renewal_image_packaged_passed": 1,
+    "deferred_renewal_image_packaged_seconds": 4.31,
+    "packaged_unique_sources": 58
+  },
+  "verified": [
+    "Actual SQL Task admission, signed Hub profile, installed Worker executor/owned helpers and live TLS browser with actual pinned GPU LLM",
+    "Three actual model replies after three scoped Hub tool executions; all six prior Hub-issued test runs succeeded",
+    "Browser reply observations use membership-classified machine messages and measure actual text uniqueness without requiring synthetic response strings",
+    "Existing Hub controls, encrypted publication, no captures, no transform errors, no legacy calls, Task cancellation, helper cleanup and slot release retained",
+    "A deterministic 100-ms first browser buffer-status wait reproduced actual first-segment drift; queue observation now completes before initial avatar opening and sample-zero publication, with strict later drift rejection retained",
+    "Current numeric container observations confirm the initial status-order fix: first video deltas -3/-2 us, while later clips revealed 59-71 ms completion delay and negative audio lead",
+    "Actual predictable-swap compensation reduces later video drift to 27049 us, within the unchanged half-frame limit; audio still arrived late under excessive browser work",
+    "Three actual GPU model requests after three Hub scoped tool requests; all six Hub-issued test runs succeeded",
+    "All three native GPU utterances completed with CPU fallback disabled; samples 301312/476672/282880 and shared private cache bytes 28715127",
+    "Two actual multisegment publications completed within the unchanged half-frame bound, maximum observed completed drift 29446 us",
+    "Active native speech deferred renewal eighteen times, leaving the success timestamp unchanged; unknown speech states and Hub denial remain fail-closed"
+  ],
+  "scope_boundaries": [
+    "Actual installed CPU-tone provider gate and latest combined native GPU delivery pass; historical combined host-timed failures below remain observations for their earlier images.",
+    "Scoped MCP result/project/repository remain synthetic fixtures; no real repository or production release claim",
+    "Avatar uses local renderer in current gate, not the configured external MuseTalk service",
+    "The deterministic first-status defect is proven independently; whether it caused the earlier actual-container failure remains unproven until numeric/current-image observations",
+    "Combined real LLM/GPU observation aligns with the existing original 300-second Task bound; only fixture receive/watchdog/pytest observation budgets change (300/340/360), never Task/TTS/drift policy",
+    "Multiclip scheduling now uses a bounded preceding swap-duration prediction and 120-ms audio lead inside the existing 200-ms queue. PCM timestamps refresh after blocking clip calls; immutable playback origin and half-frame drift limit remain unchanged. Its failed/partial actual result is retained in this report.",
+    "Current browser-progress helper limits status/chat/pulse IPC to one owner-thread poll per 100 ms. Hub controls/freshness and source reconciliation still execute on every checkpoint, and each native publication retains its browser authority fence. The cached progress state grants no execution authority.",
+    "Bounded last-operation latency prediction cannot guarantee strict shared-clock timing under variable browser/HUB IPC work. A native shared-sample-clock execution port is the required next structure; the drift/audio gate is not weakened.",
+    "Latest default-off native sequence gate passes in236seconds with actual GPU LLM/TTS and three complete native publications (two multisegment), maximum20000us within unchanged41667us. Historical host-timed failures above remain valid for those images; latest success uses the native played-sample clock. Synthetic project/repository/tools and local renderer remain outside productive lipsync/release evidence.",
+    "Final unchanged-limit full npm run check exits0. Earlier native incoming-clock failures remain unexplained historical observations; no production clock fix is claimed. Optional live infrastructure stays explicitly skipped, and productive lipsync/release admission is not established."
+  ],
+  "lipsync_runtime_observation": {
+    "documented_endpoint": "http://172.18.112.1:8189",
+    "health_timeout_seconds": 3,
+    "reachable": false,
+    "error_type": "TimeoutError",
+    "documented_portrait_present": true,
+    "documented_idle_present": true,
+    "classification": "local_readonly_technical_observation",
+    "production_release_evidence": false,
+    "latest_recheck": {
+      "reachable": false,
+      "error_type": "URLError",
+      "seconds": 3.017,
+      "health_timeout_seconds": 3,
+      "production_release_evidence": false
+    }
+  },
+  "remaining": [
+    "Actual configured lipsync service acceptance: documented endpoint did not answer bounded health probe; portrait and idle asset are present",
+    "GPU startup latency measurement and tuning",
+    "Productive rollout and release admission"
+  ],
+  "architecture_review": "Browser progress polling is now a focused SRP helper, separate from per-operation Hub control/freshness/source checks. Typed False renewal deferral is additive and never resets the success clock or extends authority; native speech lease-generation fences remain unchanged. Existing host-thread publication combines IPC and timing (SRP/DIP debt) and cannot guarantee strict multisegment clock alignment. The cleaner next structure is a narrow browser-side prepared-sequence port driven by the existing native speech sample clock, while preserving old APIs, finite activation/queue bounds and Hub-owned task/policy/Registry authority. The large runtime composition and combined model/TTS facade remain documented SRP/ISP extraction debt.",
+  "combined_gpu_before_fix_diagnostic": {
+    "provider_requests": 2,
+    "tool_requests": 2,
+    "completed_hub_test_runs": 4,
+    "tts_seconds": [
+      44.499910790000285,
+      34.1486064310011
+    ],
+    "tts_samples": [
+      416512,
+      274688
+    ],
+    "task_cache_bytes": [
+      28715127,
+      28715127
+    ],
+    "synchronization_failure_code": "meet_avatar_drift_exceeded",
+    "hub_finish_calls": 1,
+    "production_release_evidence": false
+  },
+  "new_worker_image": "sha256:e77db5ebcfa04edc1345524e53dde23b4fb136fa9358a8e0b3a5e618351f7405",
+  "current_worker_image": "sha256:8ade8937d76005fb1b49c173cf0cf3e20d9dbbf3d6d6ba0d92dd97978490ca04",
+  "initial_buffer_actual_result": {
+    "completed_model_and_tool_hub_test_runs": 6,
+    "actual_provider_requests": 3,
+    "actual_tool_requests": 3,
+    "synchronization_failure": "meet_avatar_audio_schedule_invalid",
+    "tts_seconds": [
+      44.12308415899315,
+      33.942018236994045
+    ],
+    "tts_samples": [
+      306688,
+      289280
+    ],
+    "third_tts_started_but_not_completed_before_failed_sync_assertion": true,
+    "production_release_evidence": false
+  },
+  "swap_latency_actual_result": {
+    "actual_provider_requests": 3,
+    "actual_tool_requests": 3,
+    "completed_hub_test_runs": 6,
+    "first_publication_completed": true,
+    "later_video_delta_us": 27049,
+    "later_audio_lead_us": -29604,
+    "synchronization_failure": "meet_avatar_audio_schedule_invalid",
+    "tts_seconds": [
+      44.612020886997925,
+      34.19667031300196
+    ],
+    "tts_samples": [
+      97024,
+      380416
+    ],
+    "third_tts_started_but_not_completed_before_failed_sync_assertion": true,
+    "production_release_evidence": false
+  },
+  "latest_combined_gpu_diagnostic": {
+    "callbacks": {
+      "finish": 0,
+      "grant": 229,
+      "legacy": 0,
+      "observe": 206,
+      "observe_denied": 0,
+      "provider": 3,
+      "tool": 3
+    },
+    "drift": [
+      [
+        {
+          "audio_lead_us": 0,
+          "segment": 0,
+          "video_delta_us": -6
+        },
+        {
+          "audio_lead_us": 58679,
+          "segment": 1,
+          "video_delta_us": -12443
+        }
+      ],
+      [
+        {
+          "audio_lead_us": 0,
+          "segment": 0,
+          "video_delta_us": -4
+        },
+        {
+          "audio_lead_us": 26496,
+          "segment": 1,
+          "video_delta_us": 26601
+        },
+        {
+          "audio_lead_us": 18329,
+          "segment": 2,
+          "video_delta_us": -29446
+        }
+      ],
+      [
+        {
+          "audio_lead_us": 0,
+          "segment": 0,
+          "video_delta_us": -4
+        },
+        {
+          "audio_lead_us": -27587,
+          "segment": 1,
+          "video_delta_us": -56872
+        }
+      ]
+    ],
+    "hub_run_states": {
+      "succeeded": 6
+    },
+    "production_release_evidence": false,
+    "renewal": {
+      "deferred_attempts": 18,
+      "due_attempts": 22,
+      "satisfied_attempts": 4,
+      "unchanged_success_clock_during_deferral": true
+    },
+    "synchronization": {
+      "completed": 2,
+      "failed": 1,
+      "failure_code": "meet_avatar_audio_schedule_invalid",
+      "max_drift_us": 29446,
+      "retired": 0
+    },
+    "tts": [
+      {
+        "cache_bytes": 28715127,
+        "finished": true,
+        "samples": 301312,
+        "seconds": 44.06736732400168,
+        "started": true
+      },
+      {
+        "cache_bytes": 28715127,
+        "finished": true,
+        "samples": 476672,
+        "seconds": 33.797631870998885,
+        "started": true
+      },
+      {
+        "cache_bytes": 28715127,
+        "finished": true,
+        "samples": 282880,
+        "seconds": 35.01056958999834,
+        "started": true
+      }
+    ]
+  },
+  "native_sequence_actual_gpu_result": {
+    "passed": true,
+    "seconds": 236.0,
+    "scope": "actual GPU LLM and GPU TTS; assigned SQL Hub Worker and actual Chromium native sequence; synthetic project/repository/tool data and local renderer",
+    "production_release_evidence": false,
+    "model": {
+      "model_digest": "65ec06548149b04c096a120e4a6da9d4017ea809c91734ea5631e89f96ddc57b",
+      "production_release_evidence": false,
+      "provider_requests": 3,
+      "size_vram": 1105419304,
+      "tool_requests": 3
+    },
+    "tts": {
+      "cache_bytes": [
+        28715127,
+        28715127,
+        28715127
+      ],
+      "production_release_evidence": false,
+      "samples": [
+        241664,
+        124672,
+        394240
+      ],
+      "seconds": [
+        44.40457081799832,
+        34.19301542700123,
+        35.54584954899474
+      ],
+      "shared_task_cache": true,
+      "task_cache_removed": true,
+      "utterances": 3
+    },
+    "cleanup": {
+      "callbacks": {
+        "finish": 1,
+        "grant": 207,
+        "legacy": 0,
+        "observe": 199,
+        "observe_denied": 1,
+        "provider": 3,
+        "tool": 3
+      },
+      "drift": [
+        [],
+        [],
+        []
+      ],
+      "hub_run_states": {
+        "succeeded": 6
+      },
+      "production_release_evidence": false,
+      "renewal": {
+        "deferred_attempts": 0,
+        "due_attempts": 3,
+        "satisfied_attempts": 3,
+        "unchanged_success_clock_during_deferral": true
+      },
+      "session": {},
+      "synchronization": {
+        "completed": 3,
+        "failed": 0,
+        "max_drift_us": 20000,
+        "retired": 0
+      },
+      "tts": [
+        {
+          "cache_bytes": 28715127,
+          "finished": true,
+          "samples": 241664,
+          "seconds": 44.40457081799832,
+          "started": true
+        },
+        {
+          "cache_bytes": 28715127,
+          "finished": true,
+          "samples": 124672,
+          "seconds": 34.19301542700123,
+          "started": true
+        },
+        {
+          "cache_bytes": 28715127,
+          "finished": true,
+          "samples": 394240,
+          "seconds": 35.54584954899474,
+          "started": true
+        }
+      ]
+    },
+    "max_drift_us": 20000,
+    "drift_limit_us": 41667,
+    "completed_publications": 3,
+    "multisegment_publications": 2,
+    "legacy_calls": 0
+  },
+  "native_source_withdrawal": {
+    "passed": 9,
+    "seconds": 695.18,
+    "cases": [
+      {
+        "case": "avatar-paused",
+        "seconds": 80.137,
+        "legacy_calls": 0,
+        "synchronization": {
+          "completed": 0,
+          "failed": 0,
+          "max_drift_us": 0,
+          "retired": 3
+        },
+        "hub_test_run_states": {}
+      },
+      {
+        "case": "speech-paused",
+        "seconds": 67.198,
+        "legacy_calls": 0,
+        "synchronization": {},
+        "hub_test_run_states": {}
+      },
+      {
+        "case": "avatar-mid-speech",
+        "seconds": 79.514,
+        "legacy_calls": 0,
+        "synchronization": {
+          "completed": 0,
+          "failed": 0,
+          "max_drift_us": 0,
+          "retired": 3
+        },
+        "hub_test_run_states": {}
+      },
+      {
+        "case": "speech-mid-speech",
+        "seconds": 69.098,
+        "legacy_calls": 0,
+        "synchronization": {},
+        "hub_test_run_states": {}
+      },
+      {
+        "case": "assigned-avatar-paused",
+        "seconds": 77.474,
+        "legacy_calls": 0,
+        "synchronization": {
+          "completed": 0,
+          "failed": 0,
+          "max_drift_us": 0,
+          "retired": 3
+        },
+        "hub_test_run_states": {
+          "succeeded": 6
+        }
+      },
+      {
+        "case": "assigned-speech-paused",
+        "seconds": 74.036,
+        "legacy_calls": 0,
+        "synchronization": {},
+        "hub_test_run_states": {
+          "succeeded": 6
+        }
+      },
+      {
+        "case": "assigned-avatar-mid-speech",
+        "seconds": 89.298,
+        "legacy_calls": 0,
+        "synchronization": {
+          "completed": 0,
+          "failed": 0,
+          "max_drift_us": 0,
+          "retired": 3
+        },
+        "hub_test_run_states": {
+          "succeeded": 6
+        }
+      },
+      {
+        "case": "assigned-speech-mid-speech",
+        "seconds": 78.84,
+        "legacy_calls": 0,
+        "synchronization": {},
+        "hub_test_run_states": {
+          "succeeded": 6
+        }
+      },
+      {
+        "case": "assigned-speech-preparation-paused",
+        "seconds": 78.811,
+        "legacy_calls": 0,
+        "synchronization": {},
+        "hub_test_run_states": {
+          "succeeded": 6
+        }
+      }
+    ],
+    "production_release_evidence": false,
+    "scope": "actual installed assigned SQL Hub Worker Chromium; synthetic models and CPU tones including four-second mid-speech; no actual GPU withdrawal claim"
+  },
+  "native_lifecycle_batch": {
+    "passed": 5,
+    "failed": 1,
+    "seconds": 427.4,
+    "passed_cases": [
+      "answers-cancel",
+      "model-cancel",
+      "complete",
+      "assigned-model-cancel",
+      "assigned-complete"
+    ],
+    "failure": "intentional Worker crash recovery assertions passed but new cleanup diagnostics attempted exec inside stopped container; corrected and isolated rerun pending",
+    "production_release_evidence": false
+  },
+  "native_gpu_withdrawal_first_attempt": {
+    "passed": false,
+    "seconds": 197.73,
+    "failure": "actual model request timed out before TTS; one failed model run and one successful tool run; no GPU speech or withdrawal acceptance established",
+    "scope": "ran while broad native repository tests were active; contention cause is unproven",
+    "production_release_evidence": false
+  },
+  "browser_repository_check": {
+    "passed": false,
+    "prepare": "passed including1782frontend/build/static/leakage/Go unit-vet",
+    "node_passed": 1796,
+    "node_failed": 1,
+    "node_skipped": 5,
+    "node_seconds": 877.81566524,
+    "failure": "test/native-source-audio.browser.test.js screen-first+unprocessed, revoke-screen-audio, output-ready wait aborted after15seconds",
+    "infrastructure": "not reached after Node failure",
+    "production_release_evidence": false,
+    "isolated_failing_case": {
+      "passed": true,
+      "seconds": 62.77869607,
+      "source_policy_and_15s_output_ready_bound_unchanged": true,
+      "cause_of_prior_failure": "unproven",
+      "production_release_evidence": false
+    },
+    "isolated_full_check": "running without external acceptance overlap",
+    "second_full_check": {
+      "passed": false,
+      "prepare": "passed",
+      "node_passed": 1796,
+      "node_failed": 1,
+      "node_skipped": 5,
+      "node_seconds": 859.68784236,
+      "failure": "separate native single-source gain/mute loses source authority before unmute; prior two-source cases pass",
+      "infrastructure": "not reached"
+    },
+    "passive_authority_diagnostic_unit_tests_passed": 3,
+    "isolated_gain_mute_with_diagnostics_passed": true,
+    "isolated_gain_mute_seconds": 57.795456737,
+    "paired_audio_encoding_observed": {
+      "passed": 5,
+      "seconds": 211.093873852,
+      "concurrency": 2,
+      "thresholds_changed": false,
+      "authority_policy_changed": false,
+      "production_release_evidence": false
+    },
+    "full_observed_run": "terminal failed, native clock expiry subtype investigation",
+    "third_full_check": {
+      "passed": false,
+      "prepare": "passed",
+      "node_passed": 1800,
+      "node_failed": 1,
+      "node_skipped": 5,
+      "node_seconds": 849.756463034,
+      "failure": "balanced+speech-first retained microphone; authority stable; native microphone clock expiry3; valid native output becomes silent",
+      "infrastructure": "not reached"
+    },
+    "clock_expiry_diagnostic_unit_tests": 9,
+    "preclose_clock_diagnostic": {
+      "version": 2,
+      "unit_passed": 9,
+      "unit_milliseconds": 82.69821,
+      "paired_actual_cases_passed": 5,
+      "paired_actual_seconds": 210.745874884,
+      "expiry_subtype": "not observed in this successful paired run",
+      "release_sources_modified": false,
+      "policy_changed": false,
+      "production_release_evidence": false
+    },
+    "clock_expiry_diagnostic_validation": {
+      "node_passed": 10,
+      "node_milliseconds": 92.707428,
+      "synthetic_go_expiry_subcases": 2,
+      "synthetic_go_package_seconds": 0.007,
+      "actual_focused_matrix_passed": 8,
+      "actual_focused_matrix_seconds": 267.782900809,
+      "expiry_subtype_observed": false,
+      "production_release_evidence": false
+    },
+    "full_node_v2_expiry_diagnostic": "terminal passed",
+    "node_v2_diagnostic_success": {
+      "passed": true,
+      "node_passed": 1803,
+      "node_failed": 0,
+      "node_skipped": 5,
+      "node_seconds": 852.437535566,
+      "prior_clock_failure_cause": "unproven, no production fix claimed",
+      "production_release_evidence": false
+    },
+    "latest_infrastructure": {
+      "entrypoint_exit_code": 0,
+      "live_gates_skipped": 14,
+      "actual_live_infrastructure_verified": false,
+      "production_release_evidence": false
+    },
+    "final_single_command_check": {
+      "exit_code": 0,
+      "frontend_passed": 1782,
+      "node_passed": 1803,
+      "node_failed": 0,
+      "node_skipped": 5,
+      "node_seconds": 847.964580574,
+      "live_infrastructure_skipped": 14,
+      "build_static_security_go_vet": "passed",
+      "actual_live_infrastructure_verified": false,
+      "production_release_evidence": false
+    }
+  },
+  "native_gpu_withdrawal_success": {
+    "passed": true,
+    "seconds": 123.98,
+    "model": {
+      "model_digest": "65ec06548149b04c096a120e4a6da9d4017ea809c91734ea5631e89f96ddc57b",
+      "production_release_evidence": false,
+      "provider_requests": 3,
+      "size_vram": 1105419304,
+      "tool_requests": 3
+    },
+    "tts": {
+      "cache_bytes": [
+        28715127
+      ],
+      "production_release_evidence": false,
+      "samples": [
+        260608
+      ],
+      "seconds": [
+        44.5386655310067
+      ],
+      "shared_task_cache": true,
+      "task_cache_removed": true,
+      "utterances": 1
+    },
+    "cleanup": {
+      "browser_observation_available": true,
+      "callbacks": {
+        "finish": 1,
+        "grant": 97,
+        "legacy": 0,
+        "observe": 93,
+        "observe_denied": 0,
+        "provider": 3,
+        "tool": 3
+      },
+      "container_running": true,
+      "drift": [],
+      "hub_run_states": {
+        "succeeded": 6
+      },
+      "production_release_evidence": false,
+      "renewal": {
+        "deferred_attempts": 0,
+        "due_attempts": 2,
+        "satisfied_attempts": 2,
+        "unchanged_success_clock_during_deferral": true
+      },
+      "session": {},
+      "synchronization": {},
+      "tts": [
+        {
+          "cache_bytes": 28715127,
+          "finished": true,
+          "samples": 260608,
+          "seconds": 44.5386655310067,
+          "started": true
+        }
+      ]
+    },
+    "early_before_half_pcm_verified": true,
+    "later_utterance_forbidden_verified": true,
+    "production_release_evidence": false,
+    "scope": "actual GPU model and native GPU speech greater than10seconds; early current Hub speech withdrawal, no resumed speech, actual assigned Chromium, synthetic repository/tool/project"
+  },
+  "native_crash_recovery_success": {
+    "passed": true,
+    "seconds": 106.49,
+    "original_task_deadline_preserved": true,
+    "hub_test_runs": {
+      "failed": 1,
+      "succeeded": 1
+    },
+    "stopped_container_diagnostics_corrected": true,
+    "production_release_evidence": false
+  },
+  "current_native_image_lifecycle_cases_verified": 16,
+  "local_native_sequence_migration_verified": true
+}

@@ -1,0 +1,33 @@
+{
+  "schema": "ananta.meet-avatar-observation-binding.v1",
+  "status": "implemented_and_current_image_verified",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "image": "sha256:acd52a29f0b69d789b7ca9d07dda8b4511a3267778177c7a6681f191290c6e16",
+  "scope": "Bind each Worker-owned avatar activation to the first validated browser generation and expiry; reject replacement or extension under unchanged Hub control",
+  "checks": {
+    "negative_tests_failed_before_fix": 2,
+    "pump_and_presentation_tests_passed": 53,
+    "packaged_source_gate_passed": 1,
+    "worker_boundary_files": 156,
+    "ruff": "passed"
+  },
+  "first_coupling": {
+    "passed": 0,
+    "failed": 1,
+    "total_seconds_including_packaging": 69.23,
+    "phase": "media-both-speech",
+    "avatar_pixels_observed": true,
+    "chat_reply_count": 2,
+    "worker_failure": "meet_dialog_control_state_stale",
+    "hub_authorization_http_status": 200
+  },
+  "architecture_review": "Pump retains one execution fencing responsibility (SRP); browser port unchanged (DIP/ISP). No Hub policy or task ownership moved to Worker; no new global state or orchestration.",
+  "coupling_recheck": {
+    "passed": 1,
+    "failed": 0,
+    "seconds": 68.12,
+    "same_image_as_first_attempt": true
+  }
+}

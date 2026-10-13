@@ -1,0 +1,38 @@
+{
+  "schema": "ananta.meet-companion-task-controls.v1",
+  "status": "current_control_execution_boundary_verified_runtime_migration_in_progress",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "runtime_migrated": false,
+  "sql_task_integration_verified": false,
+  "image": "sha256:a3f355f7ece21b87209373cbe2cd8237004bf968f24f99102091ca4ee344eb59",
+  "checks": {
+    "contract_client_route_controls_regression_passed": 74,
+    "regression_seconds": 3.34,
+    "real_http_model_cancellation_cases_passed": 2,
+    "http_seconds": 6.05,
+    "packaged_gate_passed": 1,
+    "packaged_seconds": 1.9,
+    "exact_source_files": 18,
+    "worker_boundary_files": 158,
+    "ruff": "passed"
+  },
+  "verified": [
+    "Single-flight read-only Hub control observation; browser remains owner-thread only",
+    "Freshness anchored to request start, never slow response completion",
+    "Fixed assignment deadline and fail-closed stale/denied reads",
+    "Per-source revision/since checkpoints invalidate changed operations independently",
+    "Resume cannot revive an operation started before pause",
+    "Real signed loopback Hub HTTP task cancellation and chat pause abort actual owned synthetic model process within three seconds",
+    "Standalone nonroot network-none read-only image constructs control gate and denies unobserved authority"
+  ],
+  "remaining": [
+    "Normal Hub Companion profile admission and dispatch",
+    "Executable Companion loop consumes gate and source-specific pause/resume without broad shutdown",
+    "Persisted Task/SQL and actual-container migrated-mode acceptance",
+    "Hub result and terminal lifecycle integration",
+    "Explicit legacy rollout policy"
+  ],
+  "architecture_review": "Control observation and local operation fencing have one responsibility (SRP); signed HTTP transport and browser/media execution stay separate (ISP/DIP). Reuse of read exchange preserves bounded single-flight behavior. Legacy broad Companion composition and autonomous non-task supervisor remain explicit SRP/architecture debt; worker receives authority and does not mint evidence identities."
+}

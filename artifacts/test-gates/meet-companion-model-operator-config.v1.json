@@ -1,0 +1,26 @@
+{
+  "schema": "ananta.meet-companion-model-operator-config.v1",
+  "status": "closed_operator_profile_configuration_verified",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "runtime_migrated": false,
+  "deployment": false,
+  "checks": {
+    "profile_and_http_passed": 23,
+    "seconds": 4.07,
+    "ruff": "passed",
+    "diff_check": "passed"
+  },
+  "verified": [
+    "Opt-in Hub model bootstrap reads an explicit bounded ANANTA_MEET_COMPANION_MODEL_PROFILE JSON only when application configuration has no profile",
+    "Only backend/model/environment_digest/boolean auto_execute are accepted; duplicate keys, non-finite JSON, oversize values and endpoint injection fail with a fixed coded error",
+    "Explicit application configuration takes precedence over environment",
+    "False auto_execute remains false; absence never infers approval or Worker defaults",
+    "Environment template keeps all execution flags disabled and profile empty"
+  ],
+  "remaining": [
+    "Existing combined assigned answer container gate has reported a failure; full diagnostics are pending completion of the still-running normal-deadline scenario",
+    "Production provider/GPU/lipsync/rollout"
+  ],
+  "architecture_review": "A separate bootstrap parser keeps infrastructure configuration apart from current Hub model authorization (SRP). Shared closed model projection validation avoids divergence without broadening Worker interfaces (ISP). No productive policy or deployment is enabled."
+}

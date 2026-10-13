@@ -46,7 +46,8 @@ def tone(seconds, *, amplitude=0.4, hz=220.0):
 
 def speech_with_pauses(pattern):
     """``pattern`` is a list of (seconds, voiced) tuples on one timeline."""
-    parts = [tone(seconds) if voiced else np.zeros(int(seconds * RATE), dtype=np.float32) for seconds, voiced in pattern]
+    parts = [tone(seconds) if voiced else np.zeros(int(seconds * RATE), dtype=np.float32)
+             for seconds, voiced in pattern]
     return np.concatenate(parts)
 
 
@@ -99,10 +100,12 @@ def test_long_answer_splits_into_contract_sized_segments_without_gaps():
     assert all(2 <= segment.frames <= MAX_CLIP_FRAMES for segment in segments)
 
 
-def test_one_frame_tail_is_folded_into_the_previous_segment():
+def test_one_frame_tail_is_balanced_without_exceeding_the_contract_clip_bound():
     samples = np.zeros(MAX_CLIP_FRAMES * RATE // FPS + RATE // FPS // 2, dtype=np.float32)
     segments = SpeechMediaTimeline(samples, RATE).segments()
-    assert len(segments) == 1 and segments[0].frames == MAX_CLIP_FRAMES + 1
+    assert [segment.frames for segment in segments] == [MAX_CLIP_FRAMES - 1, 2]
+    assert segments[0].end_sample == segments[1].start_sample
+    assert segments[-1].end_sample == len(samples)
 
 
 def test_drift_report_accepts_scheduled_clips_and_rejects_late_ones():
@@ -154,7 +157,8 @@ def test_states_have_distinct_body_language_and_idle_keeps_the_mouth_closed():
         poses[state] = AnimationController(SpeechMediaTimeline(silent, RATE), machine).poses()
     assert all(pose.mouth == 0.0 for state in STATES for pose in poses[state])
     signatures = {
-        state: (round(poses[state][6].head_tilt, 1), round(poses[state][6].gaze_dx, 1), round(poses[state][6].body_dy, 1))
+        state: (round(poses[state][6].head_tilt, 1), round(poses[state][6].gaze_dx, 1),
+                round(poses[state][6].body_dy, 1))
         for state in STATES
     }
     assert len(set(signatures.values())) == 4
@@ -186,7 +190,9 @@ def test_speaking_poses_add_calm_head_motion_that_follows_the_envelope():
 
 def test_render_distinguishes_states_open_mouth_and_blink():
     silent = np.zeros(RATE, dtype=np.float32)
-    idle = render_pose(AnimationController(SpeechMediaTimeline(silent, RATE), AvatarStateMachine(initial=IDLE)).poses()[0])
+    idle = render_pose(
+        AnimationController(SpeechMediaTimeline(silent, RATE), AvatarStateMachine(initial=IDLE)).poses()[0]
+    )
     thinking = render_pose(
         AnimationController(SpeechMediaTimeline(silent, RATE), AvatarStateMachine(initial=THINKING)).poses()[0]
     )
@@ -202,7 +208,9 @@ def test_build_video_renders_one_clip_segment_from_the_shared_timeline(tmp_path)
     samples = tone(12.0)
     data, frames = build_video(samples, RATE, 12.0, tmp_path, frames=MAX_CLIP_FRAMES, encoder=fake_encoder)
     assert frames == MAX_CLIP_FRAMES and data[4:8] == b"ftyp"
-    tail, tail_frames = build_video(samples, RATE, 2.0, tmp_path / "tail", start_frame=MAX_CLIP_FRAMES, frames=24, encoder=fake_encoder)
+    tail, tail_frames = build_video(
+        samples, RATE, 2.0, tmp_path / "tail", start_frame=MAX_CLIP_FRAMES, frames=24, encoder=fake_encoder
+    )
     assert tail_frames == 24 and tail != data
     with pytest.raises(ValueError, match="meet_snake_frame_invalid"):
         build_video(samples, RATE, 1.0, tmp_path / "bad", start_frame=-1, encoder=fake_encoder)
@@ -283,7 +291,123 @@ def test_publisher_keeps_clips_and_audio_on_one_timeline_for_long_answers(second
 
 def test_publisher_reports_drift_when_the_browser_stalls_a_clip_swap():
     clock = FakeClock()
-    ports, _events = fake_ports(clock, open_latency=0.09)
+    ports, _events = fake_ports(clock)
+    native_open = ports.avatar_open
+    opens = 0
+
+    def open_clip(clip):
+        nonlocal opens
+        opens += 1
+        if opens == 2:
+            clock.now += .086  # Unexpected later stall, not known initial setup latency.
+        return native_open(clip)
+
+    ports.avatar_open = open_clip
     pcm = pcm_bytes(tone(21.0))
     with pytest.raises(ValueError, match="meet_avatar_drift_exceeded"):
         SpeechAvatarPublisher(ports, encoder=fake_encoder).speak(pcm)
+
+
+def test_predictable_browser_swap_latency_preserves_actual_multiclip_audio_video_schedule():
+    clock = FakeClock()
+    ports, events = fake_ports(clock, open_latency=.075)
+    _generation, report = SpeechAvatarPublisher(ports, encoder=fake_encoder).speak(pcm_bytes(tone(12)))
+    assert len(report['segments']) == 2 and report['max_drift_us'] <= MAX_FRAME_DRIFT_US
+    assert len([event for event in events if event[0] == 'video']) == 2
+
+
+@pytest.mark.parametrize("retire_avatar", [True, False])
+def test_publication_observations_keep_original_origin_after_scheduler_reanchors(retire_avatar):
+    clock = FakeClock()
+    ports, events = fake_ports(clock)
+    native_push = ports.speech_push
+    retired = False
+
+    def push(generation, offset, chunk):
+        nonlocal retired
+        native_push(generation, offset, chunk)
+        if offset == FRAME_SAMPLES * 5:
+            if retire_avatar:
+                ports.avatar_close(1)
+                retired = True
+            clock.now += 0.6  # Later scheduling stall, after initial paired playback.
+
+    ports.speech_push = push
+    ports.avatar_active = lambda: not retired
+    publisher = SpeechAvatarPublisher(ports, encoder=fake_encoder)
+    if not retire_avatar:
+        # An actual later A/V timing violation must still fail, rather than
+        # being hidden by the scheduler's new anchor.
+        with pytest.raises(ValueError, match="meet_avatar_(audio_schedule_invalid|drift_exceeded)"):
+            publisher.speak(pcm_bytes(tone(12)))
+        return
+    _generation, report = publisher.speak(pcm_bytes(tone(12)))
+    assert retired and len([event for event in events if event[0] == "video"]) == 1
+    assert report["avatar_retired"] and report["sync_complete"] is False
+    assert len(report["segments"]) == 1 and report["max_drift_us"] <= MAX_FRAME_DRIFT_US
+
+
+def test_injected_preparation_finishes_before_media_anchor_without_owner_renderer():
+    clock = FakeClock()
+    started = clock.now
+    ports, events = fake_ports(clock)
+    pcm = pcm_bytes(tone(3.3))
+    calls = []
+
+    def prepare(value):
+        calls.append(value)
+        # This represents cooperative work in the execution port. Publication
+        # must establish its playback anchor only after preparation returns.
+        clock.now += 50
+        _timeline, clips = SpeechAvatarPublisher(ports, encoder=fake_encoder).prepare(value)
+        return clips
+
+    def forbidden_encoder(*_args):
+        pytest.fail("the owner must not encode when a preparation port is supplied")
+
+    publisher = SpeechAvatarPublisher(ports, encoder=forbidden_encoder, clip_preparer=prepare)
+    _generation, report = publisher.speak(pcm)
+    assert calls == [pcm]
+    assert next(event[1] for event in events if event[0] == "speech_open") >= started + 50
+    assert report["max_drift_us"] <= MAX_FRAME_DRIFT_US
+
+
+def test_initial_buffer_status_wait_finishes_before_video_and_sample_zero_start():
+    clock = FakeClock()
+    ports, events = fake_ports(clock)
+    first = True
+
+    def status():
+        nonlocal first
+        if first:
+            clock.now += .1
+            first = False
+        return {"bufferedSamples": 0}
+
+    ports.speech_status = status
+    _generation, report = SpeechAvatarPublisher(ports, encoder=fake_encoder).speak(pcm_bytes(tone(1)))
+    video = next(event[1] for event in events if event[0] == "video")
+    audio = next(event[1] for event in events if event[0] == "audio")
+    assert abs(audio - video) <= MAX_FRAME_DRIFT_US / MICROSECONDS
+    assert report["max_drift_us"] <= MAX_FRAME_DRIFT_US
+
+
+def test_prepared_segment_count_must_match_pcm_before_any_publication():
+    clock = FakeClock()
+    ports, events = fake_ports(clock)
+    publisher = SpeechAvatarPublisher(ports, clip_preparer=lambda _pcm: [])
+    with pytest.raises(ValueError, match="media_segments_invalid"):
+        publisher.speak(pcm_bytes(tone(3.3)))
+    assert events == []
+
+
+def test_permanently_full_speech_buffer_terminates_with_bounded_diagnostic():
+    clock = FakeClock()
+    started = clock.now
+    ports, events = fake_ports(clock)
+    ports.speech_status = lambda: {"bufferedSamples": 4410}
+    publisher = SpeechAvatarPublisher(ports, encoder=fake_encoder)
+    with pytest.raises(ValueError, match="publication_timeout"):
+        publisher.speak(pcm_bytes(tone(0.2)))
+    assert 30.2 <= clock.now - started < 31
+    assert not any(event[0] == "audio" for event in events)

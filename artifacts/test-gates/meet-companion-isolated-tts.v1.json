@@ -1,0 +1,42 @@
+{
+  "schema": "ananta.meet-companion-isolated-tts.v1",
+  "status": "actual_tts_preparation_pause_verified_avatar_mid_stream_sync_failure_under_diagnosis",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "runtime_migrated": false,
+  "deployment": false,
+  "checks": {
+    "execution_dialog_regression_passed": 22,
+    "execution_dialog_regression_seconds": 7.44,
+    "assigned_source_controls_baseline_passed": 4,
+    "assigned_source_controls_baseline_seconds": 301.27,
+    "baseline_worker_image": "sha256:949f9d44a9b05a4d71795a705142623294363fbab51534bcab24a08b6e708b49",
+    "final_packaged_passed": 1,
+    "final_packaged_seconds": 4.46,
+    "final_packaged_unique_source_files": 54,
+    "final_worker_image": "sha256:6d2ef46776bca29f09abbb5b6c2463cfb090d85d30e24207fca5e5528ba90815",
+    "ruff": "passed",
+    "worker_boundaries": "passed_173_files",
+    "diff_check": "passed",
+    "final_image_blocked_tts_preparation_pause_passed": 1,
+    "final_image_blocked_tts_preparation_pause_seconds": 76.48,
+    "separated_tts_source_controls_passed": 3,
+    "separated_tts_source_controls_failed": 1,
+    "separated_tts_source_controls_seconds": 296.4,
+    "separated_tts_matrix_image": "sha256:92560502b0b554907c9f142c4aa04425e2075f5e74cb29b0872eb108a9fb52d7"
+  },
+  "verified": [
+    "Selected model mode owns a persistent model dialog process and a separate per-utterance TTS process with no Hub model/tool ports",
+    "Source interruption during actual owned TTS process execution kills only that TTS helper; the same model process answers the next chat and retains execution state",
+    "Global authority loss kills both model and TTS; the closed owner rejects both future answer and speech calls before spawning",
+    "Every temporary TTS helper is closed after PCM output or failure; no obsolete utterance is restarted",
+    "Baseline installed assigned source-control matrix passed all four pre/mid-audible avatar/speech cases with real SQL Task/tool/model HTTP/browser/media/slot cleanup",
+    "Final immutable packaged image verifies current source hashes and standalone private CPU media execution",
+    "Final-image normal SQL Task/installed model/tool HTTP/browser path pauses a real blocked TTS helper, then delivers all three source-bound replies with six successful tool/model Runs and normal live Worker slot release"
+  ],
+  "remaining": [
+    "Assigned avatar-mid-speech synchronization failure: one retired utterance and one publication failure observed; sanitized coded final-image diagnostic rerun active",
+    "Production provider/GPU/lipsync/rollout"
+  ],
+  "architecture_review": "Distinct per-utterance TTS ownership protects SRP and prevents optional source retirement from mutating persistent dialog state. The existing combined typed model/TTS facade remains a compatibility/interface debt; separate public model-dialog and speech-preparation ports would be the cleaner eventual split (SRP/ISP). Legacy unselected execution retains its original shared-process behavior. No Task scheduling, additional Worker orchestration or evidence issuance is introduced."
+}

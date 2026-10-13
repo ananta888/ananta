@@ -1,0 +1,36 @@
+{
+  "schema": "ananta.meet-companion-assigned-dialog.v1",
+  "status": "assigned_dialog_composition_verified_installed_task_negotiation_pending",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "runtime_migrated": false,
+  "checks": {
+    "regression_passed": 53,
+    "regression_seconds": 9.02,
+    "packaged_unique_source_files": 52,
+    "worker_image": "sha256:2039767eedbe49e5c639f915e945a99c69b8d16eb5e5595a169c2cf415b715de",
+    "ruff": "passed",
+    "worker_boundaries": "passed_172_files",
+    "diff_check": "passed",
+    "packaged_passed": 1,
+    "packaged_seconds": 4.36
+  },
+  "verified": [
+    "Persistent assigned dialog composes scoped toolbox, persona/router and per-provider-request Hub run adapter without legacy assist",
+    "Execution ports are bound to one answer, reject reentrant binding, and unbind in finally; receipts and model completion reset before each answer",
+    "Actual model subprocess answers a repository question using its assigned tool/helper/Hub HTTP result, real model backend/provider HTTP path and exact Hub model-run source binding",
+    "Deterministic explanation of the previous answer performs no new model/provider call and clears prior model completion/receipts instead of reusing old evidence identity"
+  ],
+  "remaining": [
+    "Select the assigned dialog in the installed normal Task runtime under explicit Hub-owned negotiation; no environment-only legacy fallback",
+    "Combined normal Task/browser/model-tool acceptance and Hub reserved-run cancellation/failure cleanup",
+    "Production provider/GPU/lipsync/rollout"
+  ],
+  "architecture_review": "Per-instance dialog composition and a narrow answer-scoped execution-port binder protect SRP/DIP and avoid legacy process-global dialog state. Provider selection still reads supported environment configuration; an injected provider factory is the cleaner future seam. Existing trace only interprets repository path snippets, while Registry pins are retained separately in receipts/completion; the trace must not invent file citations or release evidence.",
+  "scope_boundaries": [
+    "Real model subprocess/backend/helper/provider/Hub HTTP/SQL paths use synthetic provider/MCP/Task/source fixtures",
+    "Installed companion execution entry and normal Task negotiation do not yet choose this factory",
+    "Deterministic explanation is not a new model run; no productive inference, browser acceptance, GPU or release claim is established"
+  ]
+}

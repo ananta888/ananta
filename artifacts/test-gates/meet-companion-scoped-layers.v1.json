@@ -1,0 +1,32 @@
+{
+  "schema": "ananta.meet-companion-scoped-layers.v1",
+  "status": "all_eight_scoped_tool_handlers_verified_model_runtime_integration_pending",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "runtime_migrated": false,
+  "worker_packaging_changed": false,
+  "checks": {
+    "regression_passed": 138,
+    "regression_seconds": 6.52,
+    "actual_layer_http_mcp_cases_passed": 7
+  },
+  "verified": [
+    "Only explicitly authorized completed Hub pointer indices resolve layer profiles; global profile enumeration is not used",
+    "Heads bind repository/workspace; projections exclude arbitrary metadata and history",
+    "Read-only plans resolve immutable stored snapshots and require matching inline manifests or closed references",
+    "Snapshot changes are filtered with segment-bounded allowed paths before planning; private and sibling paths are excluded",
+    "Frozen head reads and final generation check reject concurrent publication instead of returning mixed results",
+    "All eight known scoped read-only handlers are eligible; unknown handlers remain denied; legacy context-free APIs retain compatibility"
+  ],
+  "remaining": [
+    "Wire the Task tool adapter into the owned model process without legacy credentials or environment fallback",
+    "Reserve a separate Hub model run over admitted sources before execution and accept only its exact bound result",
+    "Combined normal Task/executor/browser/model-tool acceptance and production provider/GPU/lipsync/rollout"
+  ],
+  "architecture_review": "Scoped read-only query composition and small frozen-head/snapshot adapters protect SRP and ISP. The Hub retains pointer, policy, source and Registry ownership. Existing global service/repository locators preserve DIP coupling debt; an injected scoped-query factory is the cleaner future seam. No Worker orchestration or container-boundary changes.",
+  "scope_boundaries": [
+    "Actual LayerArtifactStore, HeadRegistry, SnapshotManifestStore, MCP handlers, HTTP and SQL Registry execute with explicit synthetic Task/index/policy fixtures",
+    "Local observations do not establish productive source-origin migration or model-answer grounding"
+  ]
+}

@@ -10,10 +10,11 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def render(tmp_path, *, guarded, policy=True):
+def render(tmp_path, *, guarded, policy=True, options=None):
     env = {"PATH": os.environ["PATH"], "MEET_MEDIA_STATE_DIR": str(tmp_path / "synthetic-state")}
     if policy:
         env["MEET_EGRESS_POLICY_FILE"] = str(tmp_path / "synthetic-policy.json")
+    env.update(options or {})
     args = ["docker", "compose", "--env-file", "/dev/null", "-p", "meet-egress-render-only"]
     args += ["-f", str(ROOT / "docker-compose.meet-media.yml")]
     if guarded:
@@ -21,6 +22,17 @@ def render(tmp_path, *, guarded, policy=True):
     return subprocess.run(
         args + ["config", "--format", "json"], env=env, cwd=tmp_path, capture_output=True, text=True, timeout=10
     )
+
+
+def test_provider_transport_configuration_is_worker_owned_and_never_hub_approval(tmp_path):
+    options = {"MEET_LLM_OPENAI_BASE_URL": "http://synthetic-provider:8081/v1",
+               "MEET_LLM_OPENAI_API_KEY": "synthetic-provider-key"}
+    result = render(tmp_path, guarded=False, options=options)
+    assert result.returncode == 0, "synthetic provider Compose render failed"
+    environment = json.loads(result.stdout)["services"]["meet-media-worker"]["environment"]
+    assert {key: environment[key] for key in options} == options
+    assert "ANANTA_MEET_COMPANION_MODEL_PROFILE" not in environment
+    assert "ANANTA_MEET_COMPANION_MODEL_RUNS_ENABLED" not in environment
 
 
 def test_additive_profile_preserves_worker_limits_and_gates_namespace_start(tmp_path):

@@ -16,6 +16,9 @@ FLAGS = (
     "ANANTA_MEET_DIALOG_RECONNECT",
     "ANANTA_MEET_MEDIA_TIMING",
     "ANANTA_MEET_SPEAKER_FLOOR",
+    "ANANTA_MEET_COMPANION_TASK_GRANTS_ENABLED",
+    "ANANTA_MEET_COMPANION_TASK_TOOLS_ENABLED",
+    "ANANTA_MEET_COMPANION_MODEL_RUNS_ENABLED",
 )
 BASE = """services:
   ai-agent-hub:
@@ -70,6 +73,8 @@ def test_hub_overlay_defaults_leave_new_policy_and_features_disabled(tmp_path):
     assert environment["ANANTA_MEET_DIALOG_CAPACITY_POOL"] == "local-meet-dialog"
     # Null Compose forwarding must not synthesize the opt-in publisher selector.
     assert environment.get("ANANTA_MEET_DIALOG_WORKER_URLS") is None
+    assert environment.get("ANANTA_MEET_COMPANION_LEGACY_ENABLED") is None
+    assert environment["ANANTA_MEET_COMPANION_MODEL_PROFILE"] == ""
     assert environment["BASE_SENTINEL"] == "preserved"
     assert environment["ANANTA_MEET_ENABLED"] == environment["ANANTA_MEET_DIALOG_ENABLED"] == "0"
     assert set(service["networks"]) == {"existing-hub", "meet-compute"}
@@ -79,6 +84,19 @@ def test_hub_overlay_defaults_leave_new_policy_and_features_disabled(tmp_path):
     assert all(
         row["read_only"] and row["source"].startswith(str(tmp_path / "synthetic-state")) for row in mounts.values()
     )
+    assert not service.get("ports") and not service.get("privileged")
+    assert not (tmp_path / "synthetic-state").exists()
+
+
+def test_assigned_profile_and_legacy_policy_forward_only_explicit_operator_values(tmp_path):
+    profile = json.dumps({"backend": "openai", "model": "synthetic-model", "environment_digest": "e" * 64,
+                          "auto_execute": False})
+    options = {name: "1" for name in FLAGS if name.startswith("ANANTA_MEET_COMPANION_")}
+    options.update(ANANTA_MEET_COMPANION_MODEL_PROFILE=profile, ANANTA_MEET_COMPANION_LEGACY_ENABLED="0")
+    service = render(tmp_path, options)["services"]["ai-agent-hub"]
+    for key, value in options.items():
+        assert service["environment"][key] == value
+    assert "MEET_LLM_OPENAI_API_KEY" not in service["environment"]
     assert not service.get("ports") and not service.get("privileged")
     assert not (tmp_path / "synthetic-state").exists()
 

@@ -1,0 +1,32 @@
+{
+  "schema": "ananta.meet-companion-hub-grant-contract.v1",
+  "status": "passed_actual_hub_http_and_signing_contract",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "checks": {
+    "passed": 5,
+    "seconds": 2.56,
+    "real_hmac_authenticated_hub_route": "passed",
+    "real_ed25519_first_grant_and_renewal": "passed",
+    "same_binding_and_new_jti": "passed",
+    "withdrawn_scope_denial": "passed",
+    "worker_role_denial": "passed",
+    "forged_signature_denial": "passed",
+    "missing_issuer_denial": "passed",
+    "full_companion_browser_loop": "not_verified"
+  },
+  "policy_fixture": "Explicit synthetic project binding and scope; actual Hub route, service and issuer unchanged. No execution/task port supplied, so accidental delegation invocation fails instead of succeeding through a permissive mock.",
+  "source_digests": {
+    "agent/routes/meet.py": "d44ceeb4b239cb469b3b306394e4c591a96199b1fdca5a97f3ab5c52b76c9e0c",
+    "agent/services/meet_turn_service.py": "1ab79f732343233541f50421d35b14cd979cf85d1a56687f4402862b49b34465",
+    "agent/services/meet_machine_grant.py": "cbecc80216494a057e76ff2f3a415596b81526b187b2c9217962a64636da5ab7",
+    "tests/meet/test_meet_companion_grant_contract.py": "9833e6f536d4d9220a9715abde3ea2f252f31e30dac44a9aedc978ea6c05819a"
+  },
+  "solid_review": "Tests exercise existing HTTP/auth/service/signing boundaries with a small policy double (DIP/ISP). No productive coupling, new policy or Worker orchestration introduced. Existing legacy companion grants do not use dialog task dispatch; migration to that lifecycle remains separate rather than being invented by this test.",
+  "remaining": [
+    "Actual full legacy Companion.run with pinned browser, real Hub endpoint, long inference/media backlog and bounded shutdown",
+    "Current client block second recheck final result",
+    "Configured live providers/GPU/deployment and Hub Registry release evidence"
+  ]
+}

@@ -1,0 +1,78 @@
+{
+  "schema": "ananta.meet-companion-packaged-review.v1",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "status": "built_and_private_container_verified",
+  "deployment": false,
+  "image": {
+    "tested_immutable_id": "sha256:53a98fd6088fb02ca5ff61433dce6f3411a9294525bb00c365abb10f061b3712",
+    "temporary_tag_removed": true,
+    "dockerfile": "docker/meet-media/Dockerfile",
+    "dockerfile_sha256": "4c2ca1d79ba72e6b93a7be0d9ee40497f373f1d71ffcfbf28ead584ab805089e",
+    "requirements_lock_sha256": "417b1ec46e7bf6c9b05122252cfaef1b95204f6272afd9fed7370114e98a0bf8",
+    "source_module_digests": {
+      "companion.py": "f46bd89f4af2b92d4a5ef88d60bf4b9e47a24f77e371db1ebac48d872c551a6e",
+      "companion_media.py": "f56fed1b76f8c6618f0480e3c8cc7368fb2dc438c1f1e4d1762e2121a13f9aec",
+      "companion_chat_inbox.py": "048af56a561fee11ff1ead69c9f851b61e1cb81855a36294196f8157aace4cd8",
+      "companion_chat_pump.py": "ee64f444d8daa580bbf1ee0ac820fdee5ea8cf377bb17064e82e07d66a6c0c46",
+      "companion_execution_process.py": "0876b303187dddcd688cce93a36d685b9696b7ba13071c5189d1d27307dd87cc",
+      "companion_execution_runtime.py": "4524f270d8919d794019e3d3888a0725988d85f5a3b42e7c3165cdf9e056f27e",
+      "companion_process_transport.py": "6a6443caa607f3602fe9d7c0ef98f5e0bb167f578f53f7b88f3a5ccc1cdcb2d0",
+      "companion_media_preparation.py": "38ba9a5472b25a7e9f3eb3588931f934b3ec6bb23201302a4e7b159ee2224951",
+      "companion_media_process.py": "35c9219329cfc137e85a5a84a5e6fca9f4865f7e446fca222e15ea16f612669f",
+      "companion_media_runtime.py": "a887ad44257add658d9a47f901b012bfd32ee080a982b10ed842594d1ee2aa92"
+    }
+  },
+  "checks": {
+    "production_dockerfile_build": "passed with normal package-network access; no Dockerfile changes",
+    "offline_build": "failed: missing cached apt layer could not install ffmpeg/libgomp1 without package access; retried after terminal failure with normal build network",
+    "packaged_companion_probe": {
+      "passed": 1,
+      "seconds": 4.27
+    },
+    "packaged_worker_health": {
+      "passed": 1,
+      "seconds": 17.4
+    },
+    "tested_image_for_both_gates": "sha256:53a98fd6088fb02ca5ff61433dce6f3411a9294525bb00c365abb10f061b3712",
+    "runtime_lock": "passed",
+    "exact_source_modules": 10,
+    "hub_package_absent": true,
+    "effective_probe_isolation": {
+      "uid": 11111,
+      "capabilities": 0,
+      "no_new_privileges": true,
+      "root_filesystem": "read-only",
+      "network_interfaces": [
+        "lo"
+      ],
+      "writable_mounts": [
+        "/tmp tmpfs",
+        "/state tmpfs"
+      ],
+      "gpu_devices": 0,
+      "repository_bind_mounts": 0
+    },
+    "default_model_entry": "original packaged entry rejects unknown operation with exit 2 and no result before model invocation",
+    "persistent_model_pipe": "passed with explicit synthetic executable double; no live LLM/TTS call",
+    "real_media_entry": "idle plus speaking clips produced through original packaged procedural renderer/CPU FFmpeg",
+    "media_process_cancellation": "passed; owned helper terminated on synthetic control loss",
+    "worker_health_lifecycle": "healthy -> unhealthy during listener STOP -> healthy after CONT; no restart, no tasks",
+    "ruff": "passed",
+    "worker_boundary": "passed",
+    "worker_boundary_files": 156,
+    "todo_consistency": "passed",
+    "diff_check": "passed",
+    "private_container_cleanup": "passed"
+  },
+  "architecture_review": {
+    "protected": "SRP/ISP: packaged probe exercises existing narrow execution/media ports; Hub package and task ownership do not move into Worker.",
+    "preserved_debt": "Existing broad companion module/global execution factories remain SRP/DIP debt; no new production coupling introduced."
+  },
+  "remaining": [
+    "Actual paired Browser/server media renewal, source revocation and cleanup matrix",
+    "Actual configured GPU/Lipsync portrait/face/NVENC and live model/TTS acceptance",
+    "Coordinated client/Worker deployment/live acceptance",
+    "Production Hub Evidence Registry admission/release evidence"
+  ]
+}

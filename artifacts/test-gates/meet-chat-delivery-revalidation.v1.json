@@ -1,0 +1,43 @@
+{
+  "schema": "ananta.meet-chat-delivery-revalidation-review.v1",
+  "status": "implemented_composed_and_locally_verified",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "problem": "Three queued 50-second model rounds exceeded the 120-second window after first delivery; baseline 1 passed, 1 failed.",
+  "implementation": [
+    "Additive browser chat.redeliver(messageIds) validates <=32 unique exact IDs already delivered, live and unanswered; current queue/lease and source rights checked before atomic refresh.",
+    "No new input/content, ACK, send rights or lease extension; expired/unknown/answered input cannot be revived; initial admission freshness remains 30 seconds.",
+    "Companion reconfirms pending unanswered IDs at most once per 10 seconds while cooperating; invalid or unavailable receipts abort session and clear inbox.",
+    "Browser operation and Python Worker are composed through real bundled TypeScript endpoint/queue with Node; model, Browser transport and Hub grants are synthetic ports."
+  ],
+  "checks": {
+    "companion_regression_passed": 364,
+    "companion_regression_skipped": 0,
+    "duration_seconds": 11.74,
+    "real_endpoint_composition_cases": 3,
+    "real_endpoint_message_counts": [
+      2,
+      3,
+      32
+    ],
+    "model_seconds_per_answer": 50,
+    "client_endpoint_vitest_passed": 47,
+    "client_queue_node_passed": 28,
+    "client_app_types": "passed",
+    "ruff": "passed",
+    "worker_boundary_files": 152,
+    "worker_boundary": "passed"
+  },
+  "architecture_review": {
+    "protected": "SRP/ISP/DIP: browser owns current delivery authorization, pump composes injected bounded ports, inbox retains bounded execution data, Hub renews leases.",
+    "preserved_debt": "Companion module remains broad (SRP) and helper imports its model/TTS composition; future extraction to injected execution adapters remains open."
+  },
+  "remaining": [
+    "Actual Browser/server source-revocation and recovery matrix for exact paired versions",
+    "Blocking renderer/Lipsync and real GPU/FFmpeg/media acceptance",
+    "Coordinated client/Worker deployment: older clients without chat.redeliver stop this path on pending input",
+    "Full client block verification before push; no slice push or deployment performed",
+    "Production Hub Evidence Registry admission/release gates"
+  ]
+}

@@ -8,6 +8,7 @@ from urllib.parse import urlsplit
 
 from ananta_contracts.meet_audio_policy import audio_mode_permitted
 from ananta_contracts.meet_audio_profile import parse_audio_profile
+from ananta_contracts.meet_companion_profile import validate_companion_profile
 from ananta_contracts.meet_initial_persona import validate_initial_persona
 from ananta_contracts.meet_source_profile import CAPABILITIES as CAPABILITIES
 
@@ -102,6 +103,7 @@ def validate_assignment(value, now):
             "speaker_floor",
             "reconnect",
             "media_timing",
+            "companion_execution",
         }
         != fields
         or value["schema"] != "ananta.meet-dialog-assignment.v1"
@@ -149,6 +151,7 @@ def validate_assignment(value, now):
         if value["audio_mode"] == "off":
             raise ValueError("meet_dialog_audio_policy_invalid")
     validate_meeting(value["meeting"])
+    validate_companion_profile(value)
     return value
 
 
@@ -183,6 +186,7 @@ def validate_callback(value, now):
     action = value.get("action")
     if not isinstance(action, str) or action not in {
         "exchange",
+        "observe",
         "chat",
         "finish",
         "audio",

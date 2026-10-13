@@ -106,6 +106,8 @@ class HubDialogClient:
                 raise ValueError("meet_dialog_redirect_denied")
 
         budget = min(25 if action in {"chat", "transcript"} else 6, self.deadline - time.monotonic())
+        if action == "observe":
+            budget = min(budget, 2.5)
         # Terminal cleanup cannot create authority and remains possible after expiry.
         if action in {"finish", "browser_finish"}:
             budget = 3
@@ -144,6 +146,7 @@ class HubDialogClient:
             value = (parse_visual_control if visual_control else parse)(raw)
             schema = {
                 "exchange": "ananta.meet-dialog-state.v1",
+                "observe": "ananta.meet-dialog-observed.v1",
                 "chat": "ananta.meet-dialog-answer.v1",
                 "finish": "ananta.meet-dialog-finished.v1",
                 "audio": "ananta.meet-audio-assignment.v1",
@@ -155,6 +158,7 @@ class HubDialogClient:
             }[action]
             fields = {
                 "exchange": {"authorization", "renewal", "audio_job", "controls"},
+                "observe": set(),
                 "chat": {"code", "reply"},
                 "finish": set(),
                 "audio": {"job"},

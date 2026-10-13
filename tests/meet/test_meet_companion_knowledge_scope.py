@@ -109,6 +109,17 @@ def test_passage_lines_ignore_the_index_header_of_whole_file_records(tmp_path):
     assert records["agent/y.py"]["passage"]["text"].startswith("# not/the/path")
 
 
+@pytest.mark.parametrize("offset", [True, -1, "2", 1, 3, None])
+def test_passage_rejects_malformed_explicit_header_coordinates(offset):
+    from agent.services.knowledge_index_result_projection import KnowledgeIndexResultProjector
+
+    record = {
+        "path": "agent/x.py", "content": "# agent/x.py\n# Themen: demo\ndef target():\n    pass",
+        "start_line": 1, "end_line": 2, "content_line_offset": offset,
+    }
+    assert KnowledgeIndexResultProjector.passage(record, "target", 500) is None
+
+
 def test_index_ids_filter_every_index_including_legacy_ones(service):
     page = service.search_records_page("supervise", limit=5, index_ids={"idx-project"})
     assert page["total"] == 2

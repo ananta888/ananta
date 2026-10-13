@@ -1,0 +1,68 @@
+{
+  "schema": "ananta.meet-companion-diagnostics-packaging.v1",
+  "status": "passed_current_standalone_image",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "image": "sha256:138f73ee05a8b8649a785237320b2b9464a1d3286c2e15a4baaa82b2bc538a64",
+  "checks": {
+    "packaged_gate_passed": 1,
+    "seconds": 2.16,
+    "exact_source_modules": 12,
+    "runtime_lock": "passed",
+    "hub_package": "absent",
+    "persistent_model_pipe": "passed",
+    "default_model_entry_denial": "passed",
+    "real_cpu_media_entry": "passed",
+    "media_cancellation": "passed"
+  },
+  "containment": {
+    "nonroot": true,
+    "read_only_root": true,
+    "capabilities": "none",
+    "no_new_privileges": true,
+    "network": "none",
+    "gpu": "none",
+    "writable_paths": [
+      "/tmp",
+      "/state"
+    ]
+  },
+  "source_digests": {
+    "worker/meet_media/companion.py": "f9410d4b6faa5f61b6244ebc2b7f527561125265a2b1a51ab242d742e4db87af",
+    "worker/meet_media/companion_media.py": "f56fed1b76f8c6618f0480e3c8cc7368fb2dc438c1f1e4d1762e2121a13f9aec",
+    "worker/meet_media/companion_chat_inbox.py": "048af56a561fee11ff1ead69c9f851b61e1cb81855a36294196f8157aace4cd8",
+    "worker/meet_media/companion_chat_pump.py": "ee64f444d8daa580bbf1ee0ac820fdee5ea8cf377bb17064e82e07d66a6c0c46",
+    "worker/meet_media/companion_chat_diagnostics.py": "eaa76fae545acb18c3df479b1199890d102f2149e761b2ae06911eb2175a05d3",
+    "worker/meet_media/companion_chat_inbox_processing.py": "1e9c21e25053c6b323a0028cbde91051d871400c99f0889c1ebb212ac281bd00",
+    "worker/meet_media/companion_execution_process.py": "0876b303187dddcd688cce93a36d685b9696b7ba13071c5189d1d27307dd87cc",
+    "worker/meet_media/companion_execution_runtime.py": "4524f270d8919d794019e3d3888a0725988d85f5a3b42e7c3165cdf9e056f27e",
+    "worker/meet_media/companion_process_transport.py": "6a6443caa607f3602fe9d7c0ef98f5e0bb167f578f53f7b88f3a5ccc1cdcb2d0",
+    "worker/meet_media/companion_media_preparation.py": "38ba9a5472b25a7e9f3eb3588931f934b3ec6bb23201302a4e7b159ee2224951",
+    "worker/meet_media/companion_media_process.py": "35c9219329cfc137e85a5a84a5e6fca9f4865f7e446fca222e15ea16f612669f",
+    "worker/meet_media/companion_media_runtime.py": "a887ad44257add658d9a47f901b012bfd32ee080a982b10ed842594d1ee2aa92"
+  },
+  "cleanup": {
+    "probe_container": "removed_by_test_owned_teardown",
+    "own_local_image": "retained_for_pending_full_Companion_browser_acceptance",
+    "production_resources_modified": false
+  },
+  "remaining": [
+    "Full legacy Companion.run with actual pinned browser and long model/media backlog",
+    "Client full block check second recheck still running",
+    "Configured real providers/GPU and deployment/Registry evidence"
+  ],
+  "pinned_browser_setup": {
+    "status": "passed",
+    "tests_passed": 1,
+    "seconds": 2.05,
+    "actual_pinned_chromium": true,
+    "chromium_sandbox": true,
+    "page_and_context": "passed",
+    "profile": "docker/meet-media/chromium-seccomp.json",
+    "profile_sha256": "6d0e8473f69528682292c61289b3fe404e1dc0ec4da728c76e3422aa7d4c3a43",
+    "default_docker_profile_observation": "launch_failed_TargetClosedError; production uses existing Chromium profile and passes",
+    "full_companion_run_verified": false,
+    "production_release_evidence": false
+  }
+}

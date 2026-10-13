@@ -1,0 +1,40 @@
+{
+  "schema": "ananta.meet-companion-assigned-provider.v1",
+  "status": "per_request_provider_hub_run_binding_verified_assigned_dialog_pending",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "runtime_migrated": false,
+  "checks": {
+    "regression_passed": 61,
+    "regression_seconds": 9.62,
+    "actual_model_child_provider_http_cases_passed": 3,
+    "packaged_passed": 1,
+    "packaged_seconds": 4.37,
+    "packaged_unique_source_files": 44,
+    "worker_image": "sha256:51a1e8fd3009aabc4de5438d4596b700cecedf88d2c346a7b89fd42775549fc3",
+    "ruff": "passed",
+    "worker_boundaries": "passed_170_files",
+    "diff_check": "passed"
+  },
+  "verified": [
+    "Assigned provider composition reserves a separate Hub model RUN before every provider chat request and finishes its exact result before returning it",
+    "Actual model subprocess invokes owned model HTTP helper ports and actual OpenAiHttp against a synthetic provider protocol endpoint; SQL Registry confirms reservation before each of two requests and exact separate completions",
+    "Missing Hub automatic authorization prevents any provider HTTP request",
+    "Withdrawal during provider HTTP prevents reply and second inference and fails the original reserved run",
+    "Model process receives no Hub key; only its owner-authorized local model port performs model lifecycle HTTP",
+    "Standalone isolated nonroot read-only no-network no-Hub Worker image matches 44 unique current files"
+  ],
+  "remaining": [
+    "Assigned dialog/toolbox integration and larger bounded local model request frames for actual tool histories",
+    "Installed normal Task runtime negotiation and combined Task/browser/model-tool acceptance",
+    "Hub lifecycle cleanup for provider failures and cancelled outstanding reserved runs; production provider/GPU/lipsync/rollout"
+  ],
+  "architecture_review": "Provider protocol and composition keep inference transport separate from Hub lifecycle authorization (SRP/DIP), with unchanged backend chat/models ports. Existing backend environment configuration coupling remains. Provider exceptions leave a reserved run until Hub-owned lifecycle cleanup; the adapter does not self-assign or silently finish evidence. Tool results must be supplied by the scoped dialog and verified at the Hub, not inferred from arbitrary model text.",
+  "scope_boundaries": [
+    "Model/provider and Hub HTTP are actual subprocess/network paths; provider responses and Task/MCP/source fixtures are explicitly synthetic",
+    "No productive model, GPU or grounded tool-based answer is verified; these cases have no tool histories",
+    "The installed assigned dialog does not yet select this provider wrapper",
+    "The standalone gate proves packaging; the host integration proves provider/Hub HTTP behavior"
+  ]
+}

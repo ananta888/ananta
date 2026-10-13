@@ -1,0 +1,27 @@
+{
+  "schema": "ananta.meet-chat-diagnostics-review.v1",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "deployment_performed": false,
+  "status": "chat_diagnostics_and_closed_port_retry_hardened",
+  "checks": {
+    "passed": 85,
+    "duration_seconds": 3.26,
+    "worker_boundary_files": 147,
+    "worker_boundary_gate": "passed",
+    "ruff": "passed"
+  },
+  "scope": [
+    "Chat ledger send/answer/ack exception logs",
+    "Companion chat open/poll error logs",
+    "RECV/REPLY/STATE chat diagnostics",
+    "Exact known browser port errors authorize cached reply resend",
+    "Full message-ID matching"
+  ],
+  "remaining": [
+    "Live browser renewal gate after deployment",
+    "Polling pause during long model/TTS execution",
+    "All other non-chat diagnostic surfaces"
+  ],
+  "solid_review": "Closed diagnostic projection is isolated (SRP/ISP); existing companion composition and synchronous model/TTS loop remain SRP debt. No Hub orchestration ownership or Worker task delegation changed."
+}

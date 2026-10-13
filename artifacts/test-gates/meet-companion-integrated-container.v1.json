@@ -1,0 +1,46 @@
+{
+  "schema": "ananta.meet-companion-integrated-container.v1",
+  "status": "combined_sql_worker_executor_browser_observation_terminal_verified_feature_parity_pending",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "runtime_migrated": false,
+  "worker_image": "sha256:76123b60834ff56c9999e37f3e9d95557ebbdfc065a60352973ce4ee3af00f57",
+  "checks": {
+    "related_regression_passed": 38,
+    "related_seconds": 17.05,
+    "packaged_cases_passed": 1,
+    "packaged_seconds": 4.25,
+    "exact_packaged_source_files": 31,
+    "worker_boundaries": "passed",
+    "ruff": "passed",
+    "diff_check": "passed",
+    "regular_completion": "passed",
+    "integrated_cases_passed": 3,
+    "integrated_seconds": 188.01
+  },
+  "verified": [
+    "Actual Hub SQL Task admission and Hub-owned control CAS dispatch the closed Companion profile",
+    "Actual signed private Worker HTTP dispatch invokes the installed normal DialogExecutor and Companion entrypoint",
+    "Actual sandboxed browser joins the private Meet room; signed current Task grants and real TLS Meet observation persist membership/publications in Hub SQL",
+    "Three unique replies survive a 50-second synthetic model call; actual receiver decodes avatar video and nonzero synthetic speech audio",
+    "Hub cancellation during the model call produces no replies, removes camera/membership, stops the owned model and releases the actual executor slot",
+    "No legacy Companion grant endpoint is called; Hub cancellation remains authoritative after the signed terminal callback",
+    "Actual 90-second Task ends completed at its unchanged original deadline; parent releases slot and signed terminal callback persists completed in SQL"
+  ],
+  "implemented_corrections": [
+    "Do not attempt a strict Meet lease extension when the local lease already reaches the original assigned Task deadline; current signed Hub reads remain required",
+    "Treat designated control/membership loss at the original monotonic execution deadline as planned completion, while propagating earlier authority loss and preserving Hub cancellation"
+  ],
+  "scope_boundaries": [
+    "Ephemeral synthetic project/principal/room binding and explicit headless policy fixtures",
+    "Only model/TTS responses and ephemeral browser certificate trust are substituted; server, executor, assignment transport, browser, CPU media and Hub observation/terminal paths are actual",
+    "No provider/GPU/lipsync, production rollout or Hub Registry release evidence claim"
+  ],
+  "remaining": [
+    "Assigned synchronized speaking clips",
+    "Assignment-bound CodeCompass/tool policy parity",
+    "Live provider/GPU/lipsync and production rollout acceptance"
+  ],
+  "architecture_review": "Hub owns SQL task admission, routing, control policy, trusted Meet observation and terminal CAS. Worker runs exactly one bounded delegated session. Narrow deadline loop and browser renewal adapter preserve SRP/ISP; no new scheduler or worker-to-worker path. Broad legacy Companion composition and inherited global SQL/singleton coupling remain SRP/DIP debt."
+}

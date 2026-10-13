@@ -1,0 +1,38 @@
+{
+  "schema": "ananta.meet-companion-assigned-integrated.v1",
+  "status": "assigned_answers_and_normal_deadline_verified_mid_speech_regression_recheck_pending",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "runtime_migrated": false,
+  "deployment": false,
+  "checks": {
+    "assigned_model_cancel_passed": 1,
+    "assigned_model_cancel_seconds": 22.35,
+    "current_browser_build": "/tmp/ananta-meet-assigned-integrated-browser/browser",
+    "worker_image": "sha256:1c08202e9d6ebda052e72e17c6ae0c70a12c86b5649882405c565ec829d2107c",
+    "ruff": "passed",
+    "diff_check": "passed",
+    "todo_consistency": "passed",
+    "combined_run_passed": 8,
+    "combined_run_failed": 1,
+    "combined_run_seconds": 795.2,
+    "assigned_answers_cancel_passed": 1,
+    "assigned_normal_deadline_passed": 1
+  },
+  "verified": [
+    "Actual normal SQL Task admission and installed Worker executor/browser use signed Hub model selection rather than the conflicting Worker environment default",
+    "Actual installed companion_execution_runtime/dialog executes assigned Tool HTTP, model reserve HTTP and synthetic provider HTTP",
+    "Provider fixture verifies one prior reserved model Run with two Hub source pins and actual untrusted tool message before provider inference",
+    "Cancellation during provider inference accepts no reply and leaves exactly one successful tool Run and one cancelled model Run",
+    "Task cancellation, browser departure, camera retirement, owned process cleanup and Worker slot release are asserted",
+    "Combined normal SQL Task/admission/installed executor/browser path delivers three distinct source-bound answers with exactly three successful tool Runs and three successful model Runs",
+    "Assigned normal completion follows the original 90-second Task deadline and releases the actual live Worker executor slot",
+    "Assigned answer and normal-deadline cases use a conflicting Worker backend default, with signed Hub profile selecting the actual provider/backend"
+  ],
+  "remaining": [
+    "Speech-mid-speech legacy regression timed out waiting for audible publication under a 10-second test window; fresh-PCM/owned-preparation-budget correction is under targeted recheck",
+    "Production provider/GPU/lipsync/rollout"
+  ],
+  "architecture_review": "Provider/MCP fixture composition and SQL Run assertions are separated from the browser/Task scenario, preserving SRP and the installed production process/HTTP interfaces. The existing large integration scenario remains a readability/SRP debt; focused fixtures and lifecycle assertions are the cleaner next structure. Model/provider data and CPU TTS are synthetic, never production evidence.",
+  "mixed_run_note": "The combined run failed only speech-mid-speech; both new assigned answer/normal-deadline cases passed. Runtime migration stays false pending the source-control regression recheck. Actual model cancellation and Worker-crash recovery are recorded in separate positive gates."
+}

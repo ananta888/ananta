@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "classification": "local_headless_technical_observation",
+  "production_release_evidence": false,
+  "deployment_performed": false,
+  "implementation": [
+    "preserve leading source whitespace during whole-file indexing",
+    "preserve multiline private-key redaction line count",
+    "record original source range and explicit header offset",
+    "validate header offset before passage projection",
+    "retain passage blank lines to preserve coordinates"
+  ],
+  "checks": {
+    "passed": 106,
+    "scope": [
+      "tests/test_setup_codecompass_file_type_index.py",
+      "tests/meet/test_meet_companion_knowledge_scope.py",
+      "tests/knowledge/test_knowledge_index_retrieval_service.py",
+      "tests/codecompass/test_codecompass_file_type_security_regression.py",
+      "tests/codecompass/test_codecompass_layer_search.py",
+      "tests/meet/test_meet_companion_dialog.py",
+      "tests/meet/test_meet_assist_retrieve_route.py"
+    ],
+    "ruff": "passed"
+  },
+  "remaining": [
+    "existing live index not reindexed",
+    "serving HTTP and live Meet acceptance not verified"
+  ]
+}

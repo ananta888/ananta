@@ -1,0 +1,80 @@
+{
+  "schema": "ananta.meet-chat-browser-redelivery-review.v1",
+  "status": "real_browser_client_matrix_verified",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "scope": "Current built Angular client and real private HTTPS/signaling/WebRTC server, synthetic cryptographically verified Hub/human identities, synthetic sources; no actual Python Worker/browser coupling in these cases.",
+  "policy_contract": {
+    "authoritative_history": "webrtc-minimize-server add3f5f57f42724d9c6b503e757746d54b866c9c: verified Hub receive capabilities replace separate per-peer operator consent grants",
+    "production_policy_changed": false,
+    "correction": "Initial failures were obsolete consent/deadline expectations in Session/Gate/browser tests, not grounds to reintroduce a separate approval gate.",
+    "current_boundaries": "Hub read/send capabilities separate; current lease, scope and server membership required; legacy consent changes do not revoke Hub capability."
+  },
+  "checks": {
+    "angular_production_build": {
+      "status": "passed",
+      "seconds": 9.881
+    },
+    "typescript_app": "passed",
+    "vitest_session_endpoint_receive_gate": {
+      "passed": 62
+    },
+    "node_queue": {
+      "passed": 28
+    },
+    "browser_matrix": {
+      "passed": 4,
+      "skipped": 0,
+      "seconds": 32.01977,
+      "dialog_chromium_human_chromium_machine_seconds": 15.25996,
+      "dialog_firefox_human_chromium_machine_seconds": 16.252902,
+      "read_only_chromium_human_chromium_machine_seconds": 4.170905,
+      "read_only_firefox_human_firefox_machine_seconds": 4.830064
+    },
+    "verified_behaviors": [
+      "Nine live human DataChannel inputs paginated 8+1 without ACK, retained/reconfirmed through three real lease renewals, then each replied once",
+      "Answered IDs denied for redelivery; read-only current input redelivery never grants sending",
+      "Read-only retained delivered identity reconfirmed after current renewal; consumed content never replays as new inputs",
+      "Actual private-server socket/membership loss denies reopening/redelivery and closes active audio collection",
+      "16000 synthetic PCM samples with more than 1000 nonzero samples, active SFrame with no transform errors, actual decoded moving screen pixels",
+      "Synthetic capture remains owned by automated fixture; no human/host capture or manual approval",
+      "Departed human publisher cannot be reconfirmed while machine remains joined with a live Hub lease; Chromium and Firefox"
+    ],
+    "node_version": "24.21.0",
+    "playwright_version": "1.62.1",
+    "todo_validator": "passed; 47 documents",
+    "diff_check": "passed",
+    "publisher_membership_loss_recheck": {
+      "passed": 2,
+      "skipped": 0,
+      "seconds": 9.085714071,
+      "chromium_seconds": 3.769220162,
+      "firefox_seconds": 4.817842923,
+      "overlaps_browser_matrix_cases": 2,
+      "scope": "Human publisher leaves while machine remains joined with live Hub lease; redelivery denied. Then independent machine membership loss denies reopen/redelivery."
+    }
+  },
+  "current_client_source_digests": {
+    "frontend/src/app/features/machine/machine-chat-session.service.ts": "c0f1195f85dbc38e3311f554adbc1381c64e2edeacfbbdac6662e9ed1c13efd1",
+    "frontend/src/app/webrtc/machine-receive-gate.ts": "5a8fa3b6d49b21ec355733716c29d9d37b2c8836475ea6378ad57883bf5f4bc4",
+    "frontend/src/app/features/machine/machine-chat-endpoint.ts": "04044cadb6132d3337619f4b58d7cc7e6a73020aae619a5479d7a168c067d9f6",
+    "frontend/src/app/features/machine/machine-page.component.ts": "b232a00bbb0361f36f0a505b5f545da859fb56419e022038e008dfa36da218a1",
+    "src/machine-chat-queue.js": "1d89b53b47a2caf328cc966ad3a79e5120866e5f5bc2149a6f74d70792c0ae03"
+  },
+  "architecture_review": {
+    "protected": "Hub remains owner of signed receive authority; tests align with existing capability contract instead of changing production policy. Fixture teardown affects only owned server sockets.",
+    "preserved_debt": "Legacy receive consent UI/parser state still coexists with capability-based authorization and can be mistaken for current authority; UI wording/deprecation alignment remains open (SRP/security observability)."
+  },
+  "remaining": [
+    "Actual pinned Python Worker/browser control loop with current client under long model/media work and source-generation loss",
+    "Actual configured GPU/Lipsync and live LLM/TTS acceptance",
+    "Legacy receive-consent UI alignment with actual Hub-capability policy",
+    "Full client block verification before push and coordinated client/Worker deployment",
+    "Production Hub Evidence Registry admission/release evidence"
+  ],
+  "browser_test_source_digests": {
+    "test/machine-read-only-chat.browser.test.js": "463ab1b291147f4794fa4177e6d80e77f6fa62d5e8c4a34996a7947d1d8a9732",
+    "test/machine-dialog.browser.e2e.test.js": "ee7b4c9dc0bbf4404491437706ed9639026e320e7d117de07cf3966b7bb23d7e"
+  }
+}

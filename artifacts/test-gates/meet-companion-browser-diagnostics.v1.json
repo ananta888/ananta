@@ -1,0 +1,57 @@
+{
+  "schema": "ananta.meet-companion-browser-diagnostics.v1",
+  "status": "implemented_and_locally_verified",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "changes": [
+    "Renewal callbacks observe HTTP status only; no response body or raw exception is read/persisted.",
+    "Console callbacks persist fixed severity/event markers only; arbitrary browser text/authority values are omitted.",
+    "Observation failures produce fixed markers without stopping execution."
+  ],
+  "checks": {
+    "callback_privacy_tests_passed": 9,
+    "combined_regression_passed": 47,
+    "combined_seconds": 0.41,
+    "skipped": 6,
+    "skip_reason": "Real TypeScript endpoint composition requires explicit Node and bundled endpoint paths; fixture composition passed.",
+    "worker_boundaries": "passed_156_files",
+    "ruff": "passed",
+    "diff_check": "passed",
+    "todo_json": "valid_legacy_document_not_track_schema"
+  },
+  "source_digests": {
+    "worker/meet_media/companion.py": "f9410d4b6faa5f61b6244ebc2b7f527561125265a2b1a51ab242d742e4db87af",
+    "worker/meet_media/companion_chat_diagnostics.py": "eaa76fae545acb18c3df479b1199890d102f2149e761b2ae06911eb2175a05d3",
+    "tests/meet/test_meet_companion_browser_diagnostics.py": "6bfd8a76ff8a4bde196528137eef1749763ce2793a6da43b9fb788d8f17ea849",
+    "tests/meet/test_meet_companion_public_room.py": "a109cf864bd5a78f758244d7191508ba9a58f30516f4098bcdcac5c372353f45"
+  },
+  "solid_review": {
+    "protected": "Formatting/projection stays in dedicated diagnostic module (SRP); browser callback ports remain small (ISP), with no orchestration or policy authority added.",
+    "preserved_debt": "Companion run still mixes browser composition and loop lifecycle; broader SRP extraction remains separate. Existing log object is module-global infrastructure coupling (DIP debt)."
+  },
+  "remaining": [
+    "Real pinned Worker/browser full legacy Companion.run backlog acceptance",
+    "Full client second block check still running",
+    "Configured live providers/GPU/deployment and Hub Registry evidence"
+  ],
+  "room_and_join_followup": {
+    "status": "implemented_and_locally_verified",
+    "changes": [
+      "Joined status projects counts/encryption only, no full peer/chat snapshot",
+      "Room/grant/public-room/mismatch/move logs use fixed markers; invite remains in intended room.json output",
+      "Public room errors retain validated HTTP status and closed known codes, never arbitrary error strings or exceptions"
+    ],
+    "tests_passed": 62,
+    "tests_skipped": 6,
+    "seconds": 0.59,
+    "ruff": "passed",
+    "production_release_evidence": false
+  },
+  "current_packaging_recheck": {
+    "status": "passed",
+    "report": "artifacts/test-gates/meet-companion-diagnostics-packaging.v1.json",
+    "exact_source_modules": 12,
+    "production_release_evidence": false
+  }
+}

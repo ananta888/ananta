@@ -1,0 +1,39 @@
+{
+  "schema": "ananta.meet-companion-model-process.v1",
+  "status": "cooperative_owned_model_http_verified_provider_and_dialog_pending",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "runtime_migrated": false,
+  "checks": {
+    "regression_passed": 57,
+    "regression_seconds": 7.86,
+    "owned_model_http_cases_passed": 3,
+    "packaged_passed": 1,
+    "packaged_seconds": 4.41,
+    "packaged_unique_source_files": 43,
+    "worker_image": "sha256:694a838aca7fad08337a38d7c6a05e65ded5238a387ac207fbf0013e305372d5",
+    "ruff": "passed",
+    "worker_boundaries": "passed_169_files",
+    "diff_check": "passed"
+  },
+  "verified": [
+    "Owner supplies the fixed assignment, endpoint and key to one short-lived model lifecycle HTTP helper; model arguments cannot replace authority",
+    "Actual owned helper performs signed model reserve/finish against real loopback Hub HTTP and SQL Registry under cooperative owner checks",
+    "Task cancellation during pending HTTP kills the owned helper and discards its output; no background HTTP thread or retry is introduced",
+    "Original assignment deadline and a maximum 20-second helper budget remain fixed",
+    "Standalone isolated read-only nonroot no-network no-Hub Worker image verifies 43 unique current files and constructs the owned model HTTP adapter"
+  ],
+  "remaining": [
+    "Actual provider transport wrapper: reserve before each inference request and finish its exact result before accepting it",
+    "Assigned dialog/toolbox and installed Task runtime negotiation with larger bounded model request frames; combined normal Task/browser/model-tool acceptance",
+    "Hub lifecycle cancellation cleanup of outstanding reserved runs; production provider/GPU/lipsync/rollout"
+  ],
+  "architecture_review": "Typed model lifecycle adapter and single-request runtime separate cooperative process ownership from signed HTTP and Hub policies (SRP/DIP). Shared helper limits avoid runtime dependency on a concrete adapter. Repeated Tool/model helper scaffolding is preserved duplication debt; a focused injected private-request transport could consolidate process setup without widening authority or introducing a generic task executor.",
+  "scope_boundaries": [
+    "Actual Hub HTTP, SQL Registry and subprocesses use explicit synthetic Task/model-result/MCP fixtures",
+    "No actual model provider request or installed dialog path is executed by this helper gate",
+    "The container probe constructs the helper without networking; host integration proves its real signed HTTP subprocess",
+    "Local/test observations do not satisfy production release gates or establish grounded model answers"
+  ]
+}

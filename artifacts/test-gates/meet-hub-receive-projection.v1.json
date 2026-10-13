@@ -1,0 +1,103 @@
+{
+  "schema": "ananta.meet-hub-receive-projection-review.v1",
+  "status": "implemented_and_coupled_worker_verified",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "image": "sha256:50552704f01cbff0e437b2785e90b2e1699870333916d69f1334b0a0913ce4e8",
+  "scope": "Current Angular/HTTPS/Signaling server, real Hub SQL/task routing, two isolated standalone packaged Workers with pinned Playwright 1.58.0; synthetic signed identities, avatar pins and inference/tone results only.",
+  "policy_basis": "Existing explicit user-authored capability-based chat/media receive policy from client add3f5f; no new permission class or policy bypass.",
+  "implementation": [
+    "Pure Signaling compatibility projection maps verified receive capabilities to only current authenticated human membership/publications, with current lease expiry and revision floor one matching Browser",
+    "Registered lease observation callback receives closed current lease; caller cannot supply or replace it; pre/post liveness and exact binding retained",
+    "Legacy consent state no longer decides Worker read authority; send/publish-only capabilities never authorize reading; no source content or new identities generated",
+    "Existing Hub task cancellation is the authoritative selective stop; unsupported negative legacy consent command remains bounded, not an implementation prerequisite for task cancellation"
+  ],
+  "checks": {
+    "fresh_worker_build": "passed unmodified production Dockerfile",
+    "current_client_build_seconds": 8.915,
+    "packaged_exact_source_dependency_gate": {
+      "passed": 1,
+      "seconds": 4.34
+    },
+    "node_projection_http_lease_trust_regression": {
+      "passed": 39,
+      "seconds": 3.320665798
+    },
+    "hub_multi_role_terminal_regression": {
+      "passed": 18,
+      "seconds": 5.96
+    },
+    "coupled_screen_only": {
+      "passed": 1,
+      "seconds": 31.79,
+      "scope": "Before backchannel change; current UI/image; independent Hub cancellation and survivor screen"
+    },
+    "coupled_persona_speech": {
+      "initial_failed": 1,
+      "initial_seconds": 45.62,
+      "failure": "Legacy server projection receiveRevision=0/grants=[] kept Worker chat closed despite current Hub capability",
+      "after_projection_fix_passed": 1,
+      "after_projection_fix_seconds": 67.63,
+      "verified": "Current real server/Hub/two pinned Workers; 2 exact Hub-owned reply tasks, simultaneous real browser tone audio, red/blue image avatars, independent image revocation, survivor moving screen/persona after selective Hub task cancellation, final cancellation of remaining task; isolated cleanup"
+    },
+    "full_client_block": {
+      "status": "failed",
+      "command": "npm run check",
+      "exit_code": 1,
+      "stage": "check:prepare -> test:frontend",
+      "frontend": {
+        "files_passed": 187,
+        "files_failed": 4,
+        "tests_passed": 1694,
+        "tests_failed": 19,
+        "unhandled_errors": 1,
+        "seconds": 12.82
+      },
+      "failed_files": [
+        "frontend/src/app/webrtc/peer-mesh-key-ack.spec.ts",
+        "frontend/src/app/webrtc/peer-mesh-overlay-lifecycle.spec.ts",
+        "frontend/src/app/features/machine/machine-avatar-source.spec.ts",
+        "frontend/src/app/features/machine/machine-source-clock.spec.ts"
+      ],
+      "diagnosis": "Missing overlay.hasPeerKey/state Map test doubles; avatar setup tests time out, authority-reason shape assertions mismatch and local activation clock expectation fails. These require specific investigation; no blanket classification as obsolete tests or safe failures.",
+      "completed_prior_stages": [
+        "Todo validator",
+        "Workflow validator",
+        "Production deployment validator",
+        "Broadcast release validator",
+        "License validator",
+        "Broadcast TypeScript check"
+      ],
+      "not_reached": [
+        "Full build/security leakage/Go gate",
+        "Full Node/browser test suite",
+        "Live infrastructure gate"
+      ],
+      "classification": "local_headless_synthetic_technical_observation",
+      "production_release_evidence": false
+    }
+  },
+  "source_digests": {
+    "src/machine-receive-authorization.js": "57c06dbbd88ded6feb8a12f3e526eaf460a618f8d1d577085e2a1e3f82cd54fe",
+    "src/machine-session-leases.js": "0c2c43b229414a898e7d5cefe08b40a440823b3a06e4841ad5a23e8f6946968f",
+    "src/server.js": "f890069d2f9a5129f4e39359da19394c05120c3982770ca4bb7d9c26845ef5fc",
+    "test/machine-receive-authorization.test.js": "ce86a21a4f445b496f0f3cf8dc7f5767c26787d6289d6cdfdb27c1971e87e69e"
+  },
+  "solid_review": {
+    "protected": "SRP: source projection in dedicated pure module; lease store owns current liveness and closed lease projection; server composition delegates. Existing small authorization ports stay compatible with zero-argument callbacks. Workers execute and Hub owns cancellation/TaskQueue.",
+    "preserved_debt": "Large signaling server composition and legacy consent protocol/integration-v1 metadata remain migration debt; no worker-to-worker orchestration introduced."
+  },
+  "remaining": [
+    "Repair four frontend failing files identified by full block check, then rerun required block",
+    "Legacy Companion.run real pinned Worker/browser loop under long model/media backlog remains unverified by these dialog-runtime scenarios",
+    "Versioned legacy consent transport/integration-v1 cleanup",
+    "Live configured LLM/TTS/GPU/Lipsync acceptance and coordinated production deployment",
+    "Production Hub Registry source/run admission and release evidence"
+  ],
+  "cleanup": {
+    "test_containers_networks": "removed by test-owned teardown",
+    "own_random_image_tag": "removed; build cache retained",
+    "production_resources_modified": false
+  }
+}

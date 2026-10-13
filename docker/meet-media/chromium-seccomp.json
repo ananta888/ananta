@@ -827,6 +827,20 @@
 				]
 			},
 			"excludes": {}
+		},
+		{
+			"names": [
+				"pidfd_open"
+			],
+			"action": "SCMP_ACT_ALLOW",
+			"args": [
+				{
+					"index": 1,
+					"value": 0,
+					"op": "SCMP_CMP_EQ"
+				}
+			],
+			"comment": "Read-only parent process handle for owned helper lifetime; no pidfd signalling or nonzero flags."
 		}
 	]
 }

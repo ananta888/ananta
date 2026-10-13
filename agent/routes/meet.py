@@ -9,6 +9,9 @@ import re
 from flask import Blueprint, current_app, jsonify, request
 
 from agent.auth import check_user_auth, get_authenticated_source_control_principal
+from agent.routes.meet_companion_task_grants import register_routes as register_companion_task_grant_routes
+from agent.routes.meet_companion_task_models import register_routes as register_companion_task_model_routes
+from agent.routes.meet_companion_task_tools import register_routes as register_companion_task_tool_routes
 from agent.routes.meet_companion_tools import register_routes as register_companion_tool_routes
 from agent.routes.meet_dialog_avatar_video import register_routes as register_avatar_video_routes
 from agent.routes.meet_dialog_diagnostics import register_routes as register_diagnostic_routes
@@ -21,6 +24,9 @@ meet_bp = Blueprint("meet", __name__, url_prefix="/api/meet/v1")
 register_diagnostic_routes(meet_bp)
 register_avatar_video_routes(meet_bp)
 register_companion_tool_routes(meet_bp)
+register_companion_task_grant_routes(meet_bp)
+register_companion_task_tool_routes(meet_bp)
+register_companion_task_model_routes(meet_bp)
 
 
 @meet_bp.before_request
@@ -29,6 +35,9 @@ def validate_auth_header_shape():
     header = request.headers.get("Authorization")
     if header is not None and (len(header) > 8192 or not re.fullmatch(r"Bearer [A-Za-z0-9._~-]+", header)):
         raise MeetError("meet_auth_header_invalid", 401)
+    from agent.services.meet_companion_legacy_policy import require_legacy_companion
+
+    require_legacy_companion(current_app, request.path)
 
 
 @meet_bp.after_request

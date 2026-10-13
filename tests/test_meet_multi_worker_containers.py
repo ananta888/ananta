@@ -131,6 +131,10 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
     worker_key.write_bytes(hmac_key)
     worker_key.chmod(0o600)
     principal = HubSourcePrincipal("owner", "synthetic", "synthetic", frozenset({"user"}))
+    from tests.meet_authorization_transport_observation import observe_authorization_transport
+
+    transport_observation = []
+    observe_authorization_transport(monkeypatch, transport_observation)
     media = multi_worker_media(media_mode)
     browser = MultiWorkerBrowserScenario(media_mode == "browser")
     control_recovery = MultiWorkerControlRecovery(media_mode == "control-recovery")
@@ -179,6 +183,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
                     "hub_timing": room_recovery.timing.report(),
                     "relay_errors": guarded_turn.errors(containers),
                     "exchange_failures": exchange_failures,
+                    "authorization_transport": transport_observation,
                     "reply_count": len(media.worker.calls) if media is not None else 0,
                     "speaker_floor": getattr(media, "floor_diagnostic", lambda: None)(),
                 }
@@ -392,6 +397,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
                         "task_statuses": statuses,
                         "workers": worker_diagnostics(),
                         "exchange_failures": exchange_failures,
+                    "authorization_transport": transport_observation,
                     }
                 )
             )
@@ -432,6 +438,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
                 "task_statuses": statuses,
                 "workers": worker_diagnostics(),
                 "exchange_failures": exchange_failures,
+                    "authorization_transport": transport_observation,
             }
         )
         both = guarded_turn.screen_observation(command("screens"), 2)
@@ -444,6 +451,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
                 "task_statuses": statuses,
                 "workers": worker_diagnostics(),
                 "exchange_failures": exchange_failures,
+                    "authorization_transport": transport_observation,
             }
         )
         if media is not None and not room_recovery.enabled:

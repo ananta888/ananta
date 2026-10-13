@@ -1,0 +1,38 @@
+{
+  "schema": "ananta.meet-companion-cancellable-execution-review.v1",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "status": "cancellable_local_execution_port_implemented_production_composition_pending",
+  "checks": {
+    "passed": 103,
+    "duration_seconds": 4.79,
+    "ruff": "passed",
+    "worker_boundary_files": 151,
+    "worker_boundary_gate": "passed",
+    "memory_channel_gate": "passed"
+  },
+  "scope": "Real local process protocol and cancellation; synthetic model/PCM test producers",
+  "limits": {
+    "maximum_operation_seconds": 120,
+    "maximum_input_bytes": 8192,
+    "maximum_result_bytes": 2600000,
+    "maximum_pcm_bytes": 1940400,
+    "maximum_answer_characters": 450
+  },
+  "invariants": [
+    "One parent-owned helper retains dialog state",
+    "Only answer and speech operations",
+    "Caller remains available for cooperative Browser polling",
+    "Timeout and control loss close process group including descendants",
+    "No automatic restart/resend after unknown outcome",
+    "Closed result protocol and bounded output",
+    "PCM validated before Browser delivery"
+  ],
+  "remaining": [
+    "Browser polling and Hub grant-renewal composition",
+    "Exact scope continuity and generation rebind",
+    "Production Inbox/ACK integration",
+    "Real browser/model/TTS acceptance"
+  ],
+  "solid_review": "Small local execution port and separate execution runtime (SRP/ISP); Hub ownership unchanged, no Worker task delegation or independent task queue. Runtime reuses legacy companion module; module-level configuration and log-file import side effects remain existing DIP/SRP debt."
+}

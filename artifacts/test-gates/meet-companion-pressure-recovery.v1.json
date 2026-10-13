@@ -1,0 +1,90 @@
+{
+  "schema": "ananta.meet-companion-pressure-recovery.v1",
+  "status": "implemented_and_actual_matrix_verified",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "image": "sha256:ab2776f0d79f3ef32200442b88df177e6594e651de78c18a47524a794728ed47",
+  "checks": {
+    "ledger_inbox_pump_composition_passed": 61,
+    "explicit_endpoint_cases_skipped": 6,
+    "worker_boundary_files": 156,
+    "ruff": "passed",
+    "packaged_source_modules": 15,
+    "current_endpoint_regression_passed": 67,
+    "current_endpoint_regression_seconds": 3.07,
+    "current_endpoint_regression_skipped": 0,
+    "container_matrix_passed": 5,
+    "container_matrix_seconds": 241.88,
+    "container_matrix_failed": 0
+  },
+  "root_cause": "Actual 32-input loop answered all inputs but logged 14 false chat gaps: ledger considered only model-admitted inputs delivered, ignoring already browser-validated inbox entries waiting behind the first 50-second model round. Reconciliation now excludes bounded queued IDs from gap detection without marking them handled or answered.",
+  "first_pressure_attempt": {
+    "failed": 1,
+    "seconds": 84.65,
+    "false_gap_count": 14
+  },
+  "revocation_verified_before_ledger_fix": {
+    "passed": 1,
+    "seconds": 19.82,
+    "hub_denied": true,
+    "replies_after_revocation": 0,
+    "camera_absent": true,
+    "owned_model_process_stopped": true,
+    "worker_exit": 0
+  },
+  "harness_corrections": [
+    "Wait for a test-only model-start marker before withdrawing actual Hub scope",
+    "Observe departure in Live view: participant counter hidden under Chat caused false timeouts; actual Worker/model already stopped with Hub 403",
+    "Recovery reads last bounded process-stop receipt because Docker logs span test-owned restarts"
+  ],
+  "architecture_review": "Ledger reconciles delivery facts only (SRP), not source admission or authority. Optional keyword preserves old callers. Inbox remains bounded at 32; model admission/reply/ACK contracts unchanged. Existing broad run composition and legacy grant path outside normal Hub Task queue are preserved migration debt.",
+  "verified_scenarios": {
+    "packaged_source_gate": {
+      "modules": 15
+    },
+    "backlog": {
+      "inputs": 3,
+      "unique_replies": 3,
+      "false_gaps": 0
+    },
+    "hub-revoke": {
+      "withdrawal_after_model_start": true,
+      "denied_hub_renewal": true,
+      "replies": 0,
+      "camera_absent": true,
+      "model_process_stopped": true,
+      "worker_exit": 0,
+      "bounded_withdrawal_seconds": 30
+    },
+    "pressure": {
+      "inputs": 32,
+      "unique_replies": 32,
+      "false_gaps": 0,
+      "reply_errors": 0,
+      "first_model_seconds": 50,
+      "decoded_avatar": true,
+      "received_non_silent_audio": true
+    },
+    "hub-recovery": {
+      "explicit_hub_policy_restoration": true,
+      "test_owned_worker_restart": true,
+      "retired_inputs_answered": 0,
+      "new_inputs": 3,
+      "new_unique_replies": 3,
+      "both_model_processes_stopped": true
+    }
+  },
+  "remaining": [
+    "Normal Hub Task admission/delegation migration of legacy companion grant",
+    "Configured LLM/TTS/GPU/Lipsync acceptance",
+    "Versioned legacy protocol cleanup",
+    "Coordinated deployment and Registry-backed release evidence"
+  ],
+  "source_withdrawal_review": {
+    "status": "actual_source_withdrawal_verified",
+    "report": "artifacts/test-gates/meet-companion-source-withdrawal.v1.json",
+    "passed": 1,
+    "seconds": 20.24
+  }
+}

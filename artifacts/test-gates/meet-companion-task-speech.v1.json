@@ -1,0 +1,62 @@
+{
+  "schema": "ananta.meet-companion-task-speech.v1",
+  "status": "assigned_synchronized_speech_and_independent_mid_stream_controls_verified_feature_parity_pending",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "runtime_migrated": false,
+  "worker_image": "sha256:cfd7f902991f7889d3dc5e8e98cb534b6e12bd000b57b2044be84398a2285b1d",
+  "checks": {
+    "related_regression_passed": 66,
+    "related_seconds": 21.88,
+    "packaged_cases_passed": 1,
+    "packaged_seconds": 4.56,
+    "exact_packaged_source_files": 32,
+    "worker_boundaries": "passed_162_files",
+    "ruff": "passed",
+    "diff_check": "passed",
+    "integrated_cases_passed": 7,
+    "integrated_run_scope": "Three original cases passed before the audio-observer failure in an initial matrix; the corrected pre-publication source-pause pair passed in139.97s; the mid-speech source-pause pair passed in151.29s. Seven scenarios across separate runs, not a single all-green matrix.",
+    "mid_stream_acceptance": "passed_two_cases",
+    "mid_stream_seconds": 151.29,
+    "adjacent_full_check": {
+      "status": "failed_native_fixture_compilation",
+      "node_passed": 1796,
+      "node_failed": 1,
+      "node_skipped": 5,
+      "node_seconds": 858.919,
+      "failure": "native-source-audio.browser.test.js balanced+speech-first: scene_fixture_native_compilation_failed",
+      "isolated_recheck": "passed_one_case_63.244s",
+      "failure_reproduced": false,
+      "cause": "unclassified_compilation_failure_no_product_mutation"
+    },
+    "adjacent_infrastructure": "command_completed_14_explicit_live_gate_skips_no_live_acceptance_claim"
+  },
+  "verified": [
+    "Assigned speech uses existing synchronized clip publisher with independent current Hub speech/avatar checkpoints",
+    "Disabled avatar skips clip rendering; paused/resumed avatar cannot republish old prepared clips; speech interruption stops further frames",
+    "Real browser/container receives three unique replies and synthetic speech with bounded sender publication drift; original deadline and Hub cancellation remain authoritative",
+    "Actual avatar-paused browser receives audio without camera; actual speech-paused browser retains camera without audio",
+    "Retired or unpublished clips cannot be reported as completed synchronization; still-current idle avatar returns after speech",
+    "Actual source pauses during audible four-second speech stop only the selected source: avatar pause keeps audio, speech pause stops further PCM frames while avatar remains"
+  ],
+  "implemented_corrections": [
+    "Anchor first PCM push after initial clip/status setup; later scheduling stalls remain bounded",
+    "Associate actual remote audio tracks with existing peer metadata without requiring camera"
+  ],
+  "scope_boundaries": [
+    "Synthetic model/TTS and explicit private policy fixtures; real Hub SQL, signed Worker dispatch, sandboxed browser, CPU media and TLS observation",
+    "Sender publication timing is not remote perceptual synchronization or GPU/lipsync acceptance",
+    "Supported execution-port filtering is not filesystem/network/credential isolation"
+  ],
+  "remaining": [
+    "Assignment-bound CodeCompass/tool policy and Hub Registry evidence parity",
+    "Live provider/GPU/lipsync and production rollout acceptance"
+  ],
+  "architecture_review": "Focused utterance controller protects SRP/ISP and composes existing publisher through an optional operation predicate (OCP, legacy compatibility). Hub owns controls; Worker executes one assignment. Existing broad legacy composition, loosely typed callable ports and global SQL/singleton coupling remain SRP/DIP debt.",
+  "remaining_detail": {
+    "assignment_bound_tools": "Existing legacy assist transport binds project/HMAC but not current Task/assignment/dispatch lease. Assigned child currently disables these supported ports. Replacement needs closed request/response transport, current assignment checks before/after, existing Hub operation policy and immutable Registry-admitted SRC/reserved RUN identities; no legacy fallback.",
+    "production": "Provider/GPU/lipsync acceptance and policy-controlled rollout remain separate. Local synthetic tests cannot promote production evidence."
+  },
+  "counting_correction": "The source digest map counts unique paths. companion_media.py occurred twice in the source tuple; the previous33claim counted that duplicate. Actual speech-only image verified32unique files."
+}

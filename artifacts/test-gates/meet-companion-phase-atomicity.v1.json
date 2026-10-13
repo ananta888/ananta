@@ -1,0 +1,30 @@
+{
+  "schema": "ananta.meet-companion-phase-atomicity.v1",
+  "status": "invalid_observation_partial_phase_write_removed_and_verified",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "runtime_migrated": false,
+  "problem": "An expired observation could persist joined membership before publication validation failed.",
+  "change": "Build and validate joined/publication transitions in memory, then persist the complete observation through one existing Task phase CAS.",
+  "checks": {
+    "related_regression_passed": 71,
+    "regression_seconds": 14.02,
+    "separate_mid_read_sql_cancellation_case_passed": 1,
+    "cancel_seconds": 4.71,
+    "expired_receipt_case_failed_before_fix": true,
+    "ruff": "passed",
+    "diff_check": "passed"
+  },
+  "verified": [
+    "Expired receipt cannot change connecting phase or admit membership",
+    "Valid verified-port observation still persists publishing metadata",
+    "Task cancellation during Meet read prevents any membership write; terminal Task state preserved",
+    "Existing phase restart and profile binding checks remain enforced"
+  ],
+  "remaining": [
+    "Combined persisted SQL Task / normal executor / actual browser / observation / terminal acceptance",
+    "Assigned synchronized speaking clips and live provider/GPU/rollout acceptance"
+  ],
+  "architecture_review": "Phase validation and atomic persistence stay within Hub coordinator (SRP). Existing compare-and-set repository port reused (DIP/OCP); no new writes or orchestration in Worker. Existing broad services remain debt; local SQL observations are synthetic, not release evidence."
+}

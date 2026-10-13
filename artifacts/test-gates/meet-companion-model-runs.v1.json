@@ -1,0 +1,38 @@
+{
+  "schema": "ananta.meet-companion-model-runs.v1",
+  "status": "hub_model_reservation_and_bound_result_service_verified_transport_and_runtime_pending",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "runtime_migrated": false,
+  "worker_packaging_changed": false,
+  "checks": {
+    "regression_passed": 95,
+    "regression_seconds": 5.27,
+    "model_run_cases_passed": 26,
+    "ruff": "passed",
+    "worker_boundaries": "passed_166_files",
+    "diff_check": "passed"
+  },
+  "verified": [
+    "Explicit Hub model profile requires exact backend/model, environment digest and automatic execution authorization; missing or denied profiles cannot reserve runs",
+    "A separate Hub RUN is persisted in reserved state over admitted exact model request and verified Tool output sources before any model execution",
+    "Actual tool-role messages must exactly equal the deterministic untrusted rendering of verified Hub results; absent, omitted or replaced results are denied",
+    "Assignment, lease, chat revision, current repository source scope, model profile and environment bindings are rechecked before projection and result acceptance",
+    "Result acceptance verifies the exact reserved projection and immutable input source, rechecks current Tool input admission, admits exact output bytes and completes only the original run",
+    "OpenAI-compatible and Ollama result protocols, usage/output budgets and bounded tool proposals are checked; invalid results fail the reserved run",
+    "Repeated nonces and duplicate completion cannot create another accepted execution; unrelated source revisions do not revoke current chat"
+  ],
+  "remaining": [
+    "Dedicated authenticated model-run route, opt-in bootstrap and owned cooperative Worker transport",
+    "Invoke reservation before every actual model provider request and finish exact result before accepting it; wire assigned dialog/toolbox",
+    "Combined normal Task/executor/browser/model-tool acceptance, Task cancellation cleanup of outstanding reserved model runs, and production provider/GPU/lipsync/rollout"
+  ],
+  "architecture_review": "Separate profile policy, exact tool-input admission, immutable content persistence, Registry issuance and model run lifecycle protect SRP/DIP. Shared deterministic tool framing and result validation avoid Hub imports in the Worker. The Hub profile environment digest is an operator-declared execution binding, not proof of a deployed image. Existing configuration/service locator coupling is preserved; inject policy and execution ports. The finish controller still mixes immutable intent resolution with lifecycle checks; a focused intent reader would reduce this preserved SRP readability debt. No Worker orchestration was introduced.",
+  "scope_boundaries": [
+    "Actual SQL Registry/content stores and current Task/source policy execute with explicit synthetic model-result and Task/MCP fixtures",
+    "No actual model provider request or installed runtime wiring is exercised by this service gate",
+    "A Task revoked before finish binding may leave its model run reserved; it cannot accept output, and Hub lifecycle cancellation cleanup remains required",
+    "Local/test evidence does not satisfy production release gates; no deployment or model-answer grounding claim"
+  ]
+}

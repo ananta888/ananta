@@ -2,7 +2,11 @@
 
 import time
 
-from ananta_contracts.meet_avatar_source import validate_avatar_snapshot
+from ananta_contracts.meet_avatar_source import (
+    AVATAR_ACTIVATION_MS,
+    AVATAR_SETUP_SECONDS,
+    validate_avatar_snapshot,
+)
 from worker.meet_media.avatar_browser import AvatarBrowserPort
 
 
@@ -20,6 +24,7 @@ class DialogAvatarPump:
         self.page = page
         self.browser = browser if browser is not None else AvatarBrowserPort(page, self.url)
         self.binding = None
+        self.source_binding = None
         self.active = self.failed = False
         self.fresh_until = self.started_at = self.expires_at = 0
 
@@ -62,7 +67,7 @@ class DialogAvatarPump:
             if not self.active:
                 self.active = True
                 self.started_at = self.monotonic()
-                self.expires_at = min(self.clock() * 1000 + 30000, binding[4])
+                self.expires_at = min(self.clock() * 1000 + AVATAR_ACTIVATION_MS, binding[4])
                 self.browser.start("avatar:" + self.assignment["session_id"])
             self.browser.pulse()  # Never called by tick or an autonomous browser timer.
             self.tick()
@@ -81,13 +86,19 @@ class DialogAvatarPump:
             state = validate_avatar_snapshot(
                 self.browser.status(), self.clock() * 1000, self.binding[4], profile=self.profile
             )
-            if state["phase"] == "pending" and self.monotonic() - self.started_at >= 10:
+            if state["phase"] == "pending" and self.monotonic() - self.started_at >= AVATAR_SETUP_SECONDS:
                 raise ValueError("meet_avatar_setup_timeout")
-            self.expires_at = state["source"]["expiresAt"]
+            observed = (state["generation"], state["source"]["expiresAt"])
+            if self.source_binding is None:
+                self.source_binding = observed
+            elif observed != self.source_binding:
+                raise ValueError("meet_avatar_source_binding_changed")
+            self.expires_at = observed[1]
         except Exception:
             self._fail()
 
     def _stop(self):
+        self.source_binding = None
         self.active = False
         self.expires_at = 0
         self.browser.close()

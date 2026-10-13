@@ -1,0 +1,37 @@
+{
+  "schema": "ananta.meet-companion-source-withdrawal.v1",
+  "status": "actual_source_withdrawal_verified",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "image": "sha256:ab2776f0d79f3ef32200442b88df177e6594e651de78c18a47524a794728ed47",
+  "scope": "An authenticated human source leaves actual server membership while the packaged legacy companion model is running; Hub project/capability policy remains enabled",
+  "checks": {
+    "passed": 1,
+    "seconds": 20.24,
+    "source_departed": true,
+    "machine_departed": true,
+    "hub_denials": 0,
+    "model_started_before_withdrawal": true,
+    "owned_model_process_stopped": true,
+    "recv_count": 1,
+    "reply_count": 0,
+    "worker_exit": 0,
+    "bounded_observation_seconds": 30,
+    "ruff": "passed",
+    "node_syntax": "passed"
+  },
+  "initial_harness_failure": {
+    "failed": 1,
+    "seconds": 20.39,
+    "cause": "Source/model/Worker stop succeeded; Docker cp could not read stopped-container tmpfs log. Private probe now exports only fixed receive/reply counters before process exit."
+  },
+  "remaining": [
+    "Normal Hub Task admission/delegation migration of legacy companion grant",
+    "Configured model/TTS/GPU/Lipsync acceptance",
+    "Versioned legacy protocol cleanup",
+    "Productive deployment and Registry-backed release evidence",
+    "Separate multiple-human isolation/continuity coverage beyond this single-source withdrawal case"
+  ],
+  "architecture_review": "Actual membership withdrawal fences browser source authorization; no obsolete consent fixture or forced Hub-policy denial substitutes it. Production code unchanged. Private bridge/probe export closed counts only and preserve nonroot sandbox/container boundaries. Existing broad legacy composition and non-task grant admission remain documented debt."
+}

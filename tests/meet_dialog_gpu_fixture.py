@@ -14,10 +14,9 @@ from uuid import uuid4
 
 from tests.meet_gpu_capacity import require_gpu_capacity
 from tests.meet_gpu_source_fixture import ROOT, docker, driver_bindings
+from tests.meet_ollama_model_spec import MODEL_DIGEST, OLLAMA_IMAGE
 from worker.meet_media.contract import signature
 
-OLLAMA_IMAGE = "sha256:0ab10b9b9dc5f50d30dc61aec25e3316822ca22cf0f27d4e98d74cc7dedd7c80"
-MODEL_DIGEST = "65ec06548149b04c096a120e4a6da9d4017ea809c91734ea5631e89f96ddc57b"
 MODEL_VOLUME = "ananta-meet-media_meet-models"
 NAME = re.compile(r"meet-test-inference-[a-f0-9-]{36}-(?:worker|ollama|network)")
 

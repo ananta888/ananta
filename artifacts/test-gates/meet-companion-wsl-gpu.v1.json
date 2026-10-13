@@ -1,0 +1,137 @@
+{
+  "schema": "ananta.meet-companion-wsl-gpu.v1",
+  "status": "closed_driver_store_and_prepared_fresh_gpu_media_verified_hub_readiness_pending",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "runtime_migrated": false,
+  "worker_image": "sha256:2f278c0c373c04bede75c392ec2fdb33f05ff93a6fe4f6b6f6303e19dd354a59",
+  "checks": {
+    "isolation_and_native_compatibility_passed": 44,
+    "isolation_and_native_compatibility_seconds": 2.9,
+    "companion_regression_passed": 584,
+    "companion_regression_skipped": 35,
+    "companion_regression_seconds": 56.19,
+    "current_isolation_and_native_compatibility_passed": 57,
+    "current_isolation_and_native_compatibility_seconds": 2.91,
+    "current_opt_in_gpu_skipped": 2
+  },
+  "actual_gpu": {
+    "host": "WSL",
+    "gpu": "NVIDIA GeForce RTX 5060 Ti",
+    "memory_mib": 16311,
+    "driver": "610.88",
+    "device": "/dev/dxg",
+    "speech": "timeout_exit_124",
+    "video": "timeout_exit_124_before_render_acceptance",
+    "cuda_initialization": "verified_by_actual_onnx_cuda_session",
+    "current_failure_code": "test_owned_timeout_45_seconds",
+    "actual_gate_failed": 2,
+    "actual_gate_seconds": 95.23,
+    "active_driver_store_selection": "explicit_closed_single_store",
+    "cpu_fallback": "not_used",
+    "historical_initial_failure_code": "meet_piper_cuda_fallback_forbidden",
+    "historical_provider_diagnostic": "CUDA failure 35: CUDA driver version is insufficient for CUDA runtime version"
+  },
+  "verified": [
+    "Exact packaged image; private owned containers removed on failure",
+    "No serving mounts, service state, keys, environment or source overrides passed to WSL probe",
+    "Network disabled, read-only nonroot container, dropped capabilities, bounded timeout",
+    "Native Linux fixture remains default and its regression checks pass",
+    "WSL driver and D3D12 library allowlist remains closed; CPU fallback forbidden",
+    "Explicit single active Driver Store preserves required CUDA loader, nvcubins.bin and PTX JIT library bindings without mixing revisions",
+    "Host CUDA initializes and enumerates one GPU",
+    "Actual isolated ONNX CUDA initialization succeeds after adding Driver Store requirements; both media probes still exceed unchanged 45-second budget",
+    "After explicit cold preparation, a new owned Piper CUDA process passes its original bounded speech framing/cancellation probe in 3.28 seconds",
+    "A separate new owned clip/NVENC process verifies actual moving video, decoded audio and 7460 us end skew in 3.69 seconds",
+    "Private CUDA cache belongs only to the owned test container and is removed with it; no productive state or limits changed"
+  ],
+  "remaining": [
+    "Actual assigned Task/browser with cold GPU TTS and Task-owned private cache",
+    "Actual provider and configured avatar/lipsync delivery",
+    "Productive rollout and release admission"
+  ],
+  "architecture_review": "The separate WSL driver-projection adapter protects SRP and keeps platform dependencies out of Worker execution. The probe composer retains separate device selection and a backward-compatible native default. No orchestration, production API or security fallback changes.",
+  "references": [
+    "https://github.com/NVIDIA/nvidia-container-toolkit/blob/main/pkg/nvcdi/driver-wsl.go",
+    "https://docs.nvidia.com/cuda/wsl-user-guide/index.html"
+  ],
+  "diagnostic": {
+    "status": "cold_warm_and_fresh_owned_media_processes_verified",
+    "outer_budget_seconds": 180,
+    "inner_budget_seconds": 160,
+    "cuda_cache": "private_container_tmpfs_128_mib",
+    "productive_runtime_budget_changed": false,
+    "actual_exit": 0,
+    "actual_phases": [
+      {
+        "phase": "cuda_session_ready",
+        "seconds": 1.3304119069944136
+      },
+      {
+        "phase": "actual_pcm",
+        "round": 0,
+        "samples": 23808,
+        "first_pcm_seconds": 43.968950379006856,
+        "seconds": 43.96904428300331,
+        "classification": "synthetic_local_technical_observation",
+        "production_release_evidence": false
+      },
+      {
+        "phase": "actual_pcm",
+        "round": 1,
+        "samples": 22272,
+        "first_pcm_seconds": 0.0677605599994422,
+        "seconds": 0.0678369519955595,
+        "classification": "synthetic_local_technical_observation",
+        "production_release_evidence": false
+      }
+    ],
+    "fresh_process_status": "passed_both_actual_modules",
+    "fresh_process_cold_setup_seconds": 1.2390432009997312,
+    "fresh_process_cold_first_pcm_seconds": 41.06537463799759,
+    "fresh_owned_media": [
+      {
+        "module": "speech_smoke",
+        "seconds": 3.277094338001916,
+        "report": {
+          "status": "passed",
+          "classification": "synthetic_local_technical_observation",
+          "engine": "piper-cuda",
+          "sample_rate": 22050,
+          "frames": 93,
+          "samples": 40704,
+          "audio_seconds": 1.846,
+          "first_frame_ms_including_model_load": 2153,
+          "local_checkpoint_cancel_ms": 29,
+          "elapsed_seconds": 3.0,
+          "human_capture_used": false,
+          "meet_delivery_verified": false,
+          "production_release_evidence": false
+        }
+      },
+      {
+        "module": "persona_visual_smoke",
+        "seconds": 3.6890500849985983,
+        "report": {
+          "profile": "ananta.local-avatar-av.v1",
+          "video_frames_decoded": 43,
+          "audio_frames_decoded": 77,
+          "audio_samples_decoded": 78848,
+          "audio_padding_samples": 256,
+          "end_skew_us": 7460,
+          "live_delivery_verified": false,
+          "status": "passed",
+          "classification": "synthetic_local_technical_observation",
+          "renderer": "persona-clip-h264_nvenc",
+          "speech_samples": 78592,
+          "moving_motif_decoded": true,
+          "human_capture_used": false,
+          "production_release_evidence": false,
+          "elapsed_seconds": 3.39
+        }
+      }
+    ]
+  },
+  "budget_correction": "Existing Companion TTS process budget is 120 seconds; the 20-second model HTTP helper budget does not apply to TTS. Cold preparation therefore does not require a separate Hub warmup Task."
+}

@@ -1,0 +1,39 @@
+{
+  "schema": "ananta.meet-companion-model-selection.v1",
+  "status": "hub_signed_model_selection_verified_worker_activation_pending",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "runtime_migrated": false,
+  "checks": {
+    "regression_passed": 89,
+    "regression_seconds": 7.77,
+    "model_selection_cases_passed": 9,
+    "packaged_unique_source_files": 52,
+    "worker_image": "sha256:463fc993f33580de8e9d9791d3e0b8835d81a0d01e90442104502be949c86452",
+    "ruff": "passed",
+    "worker_boundaries": "passed_172_files",
+    "diff_check": "passed",
+    "packaged_passed": 1,
+    "packaged_seconds": 4.31
+  },
+  "verified": [
+    "Enabled Hub model bootstrap attaches only its model projection policy to the existing Task grant issuer",
+    "Optional signed grant metadata exposes only exact authorized backend/model/environment digest; no endpoint, execution command or evidence identity is caller-selected",
+    "Current Hub automatic authorization/source scope are verified when projecting the model profile; policy withdrawal cannot downgrade to legacy selection",
+    "Profile or policy-port mutation during signing prevents publication of stale selection",
+    "Actual Worker signed HTTP grant client consumes the closed model metadata; invalid/broadened metadata is rejected",
+    "No model projection policy preserves the original grant response shape"
+  ],
+  "remaining": [
+    "Consume the signed selection in the installed Worker runtime and choose the assigned dialog using closed parent-owned negotiation",
+    "Combined normal Task/browser/model-tool acceptance and reserved-run cleanup",
+    "Production provider/GPU/lipsync/rollout"
+  ],
+  "architecture_review": "A narrow model projection port separates grant signing from model authorization (SRP/DIP/ISP). Hub bootstrap remains the composition root; only additive closed metadata changes the existing API. Model policy still uses the existing source resolver/service locator, preserved coupling debt best reduced by injecting a source-authority resolver. Signed metadata is a selection, not execution or release evidence.",
+  "scope_boundaries": [
+    "Actual grant signing and Worker HTTP use explicit synthetic Task/source/model-policy fixtures",
+    "Worker execution entry does not yet consume the new selection; no runtime migration or productive inference is claimed",
+    "Existing policy-disabled grants preserve compatibility, while withdrawal of an attached policy is a failure instead of downgrade"
+  ]
+}

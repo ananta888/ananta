@@ -1,0 +1,51 @@
+{
+  "schema": "ananta.meet-rag-helper-index-coverage.v1",
+  "classification": "read_only_current_index_technical_observation",
+  "production_release_evidence": false,
+  "deployment_performed": false,
+  "scope": "Fresh KnowledgeIndexRetrievalService process against the existing Hub index, not the serving HTTP process or a live Meet dialogue",
+  "database_writes": "denied_by_read_only_transaction_setting",
+  "source_content_in_report": false,
+  "queries": [
+    {
+      "query": "rag-helper",
+      "returned_count": 12,
+      "expected_paths": [
+        "agent/services/rag_helper_file_type_policy.py",
+        "agent/services/rag_helper_index_service.py",
+        "docs/rag-helper.md"
+      ]
+    },
+    {
+      "query": "rag_helper",
+      "returned_count": 12,
+      "expected_paths": [
+        "agent/services/rag_helper_file_type_policy.py",
+        "agent/services/rag_helper_index_service.py",
+        "agent/services/_rag_helper_profile_catalog.py",
+        "docs/rag-helper.md"
+      ]
+    },
+    {
+      "query": "rag helper",
+      "returned_count": 12,
+      "expected_paths": [
+        "agent/services/rag_helper_file_type_policy.py",
+        "agent/services/rag_helper_index_service.py",
+        "docs/rag-helper.md"
+      ]
+    }
+  ],
+  "expected_record_line_start": "unavailable",
+  "expected_record_symbol": "unavailable",
+  "citation_fallback": "Existing RepositorySource.location uses the exact path without a fabricated line; label includes a symbol only when supplied",
+  "citation_regression": {
+    "passed": 23,
+    "seconds": 2.85,
+    "test": "tests/meet/test_meet_companion_dialog.py"
+  },
+  "remaining": [
+    "Source-bound line/symbol metadata for the existing whole-file index",
+    "Serving Hub HTTP process and live Meet acceptance after an authorized rollout"
+  ]
+}

@@ -2,7 +2,21 @@
 
 import pytest
 
-from worker.meet_media.companion_supervisor import MOVED, RejoinBackoff, supervise
+from worker.meet_media.companion_supervisor import MOVED, CompanionLegacyRetired, RejoinBackoff, supervise
+
+
+def test_hub_retirement_stops_legacy_loop_without_sleep_or_retry():
+    calls, logs = [], []
+
+    def retired():
+        calls.append(True)
+        raise CompanionLegacyRetired("synthetic_private_reason")
+
+    def forbidden_sleep(_seconds):
+        pytest.fail("retired Companion must not retry")
+
+    supervise(retired, lambda: False, clock=lambda: 1, sleep=forbidden_sleep, log=logs.append)
+    assert calls == [True] and logs == ["session_retired reason=use_hub_tasks"]
 
 pytestmark = pytest.mark.timeout(30)
 

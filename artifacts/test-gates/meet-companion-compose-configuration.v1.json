@@ -1,0 +1,27 @@
+{
+  "schema": "ananta.meet-companion-compose-configuration.v1",
+  "status": "hub_operator_policy_and_worker_provider_transport_compose_wiring_verified",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "runtime_migrated": false,
+  "deployment": false,
+  "checks": {
+    "compose_profile_retirement_regression_passed": 30,
+    "seconds": 8.29,
+    "ruff": "passed",
+    "diff_check": "passed"
+  },
+  "verified": [
+    "Actual secret-free Compose rendering forwards the three assigned execution flags and bounded profile JSON into the Hub overlay",
+    "Absent legacy override stays absent, preserving the Hub mode-dependent default; explicit operator values are forwarded unchanged",
+    "Provider base URL/key are forwarded only into the media Worker; the Worker receives no Hub model approval profile or execution flag",
+    "Hub does not receive the Worker provider key through this overlay",
+    "Disabled defaults and existing networks, limits, secret mounts and fixed-endpoint egress overlay semantics remain preserved",
+    "No container deployment or productive configuration was performed; rendering used synthetic base/services and explicit /dev/null env file with isolated environment"
+  ],
+  "remaining": [
+    "Current-image five-case selected source-control and TTS preparation matrix is still running",
+    "Production provider/GPU/lipsync/rollout"
+  ],
+  "architecture_review": "Compose templates now reflect the existing Hub policy versus Worker execution boundary (SRP/DIP). The optional legacy variable uses absent-value forwarding to avoid hidden default overrides. Worker transport configuration is additive and does not authorize inference or bypass fixed-endpoint egress policy."
+}

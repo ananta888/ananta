@@ -1,0 +1,38 @@
+{
+  "schema": "ananta.meet-companion-model-frames.v1",
+  "status": "bounded_large_model_frames_verified_assigned_toolbox_and_dialog_pending",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "runtime_migrated": false,
+  "checks": {
+    "regression_passed": 32,
+    "regression_seconds": 9.19,
+    "packaged_passed": 1,
+    "packaged_seconds": 4.24,
+    "packaged_unique_source_files": 44,
+    "worker_image": "sha256:1ef8a86205274725a46ba83eb4858fcd96bd7f7a6782bda7cb7199c887746b67",
+    "ruff": "passed",
+    "worker_boundaries": "passed_170_files",
+    "diff_check": "passed"
+  },
+  "verified": [
+    "Only the explicitly owner-injected model port accepts request frames up to 128000 bytes; other request ports and all replies remain bounded to 32768 bytes",
+    "Child and owner apply the same fixed per-port request limits; callers cannot choose arbitrary encode limits",
+    "Actual owned process accepts a 40000-byte model history, rejects that size for a tool port, and rejects an oversized model frame before invoking owner callback",
+    "Actual model child and provider HTTP integration accepts a 40000-byte history through owned Hub model reserve/finish helpers with separate pre-reserved Registry runs",
+    "Default-off port authority, sequence/budget checks, speech exclusion, current cooperative controls and deadline/cancellation behavior retain their regression coverage",
+    "Standalone isolated read-only nonroot no-network no-Hub Worker gate matches 44 unique current files"
+  ],
+  "remaining": [
+    "Assigned toolbox and dialog composition with exact verified tool result renderings",
+    "Installed normal Task runtime negotiation and combined Task/browser/model-tool acceptance",
+    "Hub reserved-run failure/cancellation cleanup; production provider/GPU/lipsync/rollout"
+  ],
+  "architecture_review": "A fixed pure request-limit function separates frame size policy from process lifecycle (SRP), and only the explicitly injected model port receives the larger request allowance. Other authorities and interfaces stay closed. Existing selector exchange method retains lifecycle/readability debt; an injected exchange-state object remains the cleaner future seam.",
+  "scope_boundaries": [
+    "The large-history provider case uses actual subprocess/HTTP/SQL paths with synthetic provider replies and explicit synthetic Task/source fixtures",
+    "It exercises a large synthetic message history, not an installed tool-grounded dialog answer",
+    "Packaging probe verifies current sources and existing isolated behavior; no production inference or release evidence claim"
+  ]
+}

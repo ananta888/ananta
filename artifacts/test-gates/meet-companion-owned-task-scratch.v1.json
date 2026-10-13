@@ -1,0 +1,77 @@
+{
+  "schema": "ananta.meet-companion-owned-task-scratch.v1",
+  "status": "task_and_helper_death_cleanup_locally_and_in_container_verified",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "runtime_migrated": false,
+  "worker_image": "sha256:26e11efc61f77d36ee00dbde75252e18ae147ee2725fb71e336e159f5dd47d09",
+  "checks": {
+    "initial_scratch_and_execution_regression_passed": 56,
+    "initial_scratch_regression_skipped": 4,
+    "initial_scratch_regression_seconds": 9.38,
+    "parent_guard_executor_regression_passed": 49,
+    "parent_guard_executor_regression_seconds": 7.56,
+    "actual_parent_death_thread_lifetime_and_forced_cleanup_passed": 9,
+    "actual_lifecycle_seconds": 3.14,
+    "broad_regression_passed": 624,
+    "broad_regression_failed_before_fix": 2,
+    "broad_regression_skipped": 35,
+    "broad_regression_seconds": 54.46,
+    "optional_channel_environment_fix_recheck_passed": 31,
+    "optional_channel_recheck_seconds": 7.36,
+    "packaged_passed": 1,
+    "packaged_seconds": 4.49,
+    "packaged_unique_source_files": 57,
+    "narrow_seccomp_actual_container_passed": 1,
+    "narrow_seccomp_seconds": 2.98,
+    "installed_model_cancel_and_retired_speech_scratch_passed": 2,
+    "installed_seconds": 96.76,
+    "worker_boundaries": "passed_176_files",
+    "ruff": "passed",
+    "diff_check": "passed",
+    "current_image_actual_gpu_tts_passed": 1,
+    "current_image_actual_gpu_tts_seconds": 202.12
+  },
+  "verified": [
+    "Model/TTS and media helper TMPDIRs belong to a parent-owned Task scratch tree, preserving private 0700 permissions",
+    "Interrupted actual child processes can leave WAV/media files, but their owning Task removes them without following links into another directory",
+    "The existing Worker Executor owns the outer directory and removes it before releasing the slot, including when the Task runtime is forcibly killed",
+    "Owned helpers use a process pidfd guardian, not a thread-bound parent lifetime; actual spawning-thread exit preserves a live helper",
+    "Actual parent-process SIGKILL terminates its helper; guarded exec children also terminate when their guardian dies",
+    "The execution guardian supervises only OS helper lifetime; it neither creates/delegates Tasks nor changes Hub queue, routing or Registry authority",
+    "The container seccomp rule permits pidfd_open only with flags zero; nonzero flags and pidfd_send_signal remain denied under readonly/nonroot/cap-drop/no-new-privileges constraints",
+    "The real installed Task/browser/source-pause case creates an interrupted private WAV and asserts both the file and every Task scratch root are absent after Task completion",
+    "All existing progress-channel environment entries remain intact; optional alternative channels without explicit env preserve their previous behavior",
+    "Current 57-source image passed actual native GPU TTS through the installed Task/browser path, with three completed utterances and all parent-owned scratch removed after cancellation"
+  ],
+  "scope_boundaries": [
+    "Broader regression initially failed two channel substitutes that returned no env; the compatibility fix passed both plus related tests in the 31-case recheck",
+    "A successful local command and these synthetic Task fixtures are technical observations, not grounded production release evidence",
+    "Task scratch cleanup is not a full filesystem/network sandbox and does not cover operator-declared persistent logs or external provider stores",
+    "Current image actual GPU TTS is verified with the synthetic LLM/MCP; actual LLM and configured avatar/lipsync combination remains separate acceptance"
+  ],
+  "remaining": [
+    "Actual LLM provider and configured avatar/lipsync delivery through current selected runtime",
+    "GPU cache latency measurement and tuning",
+    "Productive rollout and release admission"
+  ],
+  "architecture_review": "Private scratch ownership, lifecycle wrapping and kernel process supervision are separate SRP responsibilities. Composition preserves the call/close ports and DIP; process-wide pidfd observation avoids a stronger thread-lifetime precondition (LSP). The Worker Executor remains a bounded execution owner, while the Hub alone owns Tasks and orchestration. The existing large runtime composition and combined model/TTS facade remain documented SRP/ISP debt; focused execution bundles/interfaces are their future extraction seams.",
+  "actual_gpu_tts": {
+    "utterances": 3,
+    "samples": [
+      42496,
+      46336,
+      41216
+    ],
+    "seconds": [
+      44.37008994999633,
+      34.01886570100032,
+      35.067723209002
+    ],
+    "shared_task_cache": true,
+    "task_cache_removed": true,
+    "provider": "synthetic assigned LLM and MCP; native Piper CUDA without CPU fallback",
+    "production_release_evidence": false
+  }
+}

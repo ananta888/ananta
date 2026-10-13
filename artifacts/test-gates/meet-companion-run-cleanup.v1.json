@@ -1,0 +1,38 @@
+{
+  "schema": "ananta.meet-companion-run-cleanup.v1",
+  "status": "hub_terminal_cleanup_verified_combined_acceptance_pending",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "runtime_migrated": false,
+  "deployment": false,
+  "checks": {
+    "cleanup_passed": 13,
+    "cleanup_seconds": 5.66,
+    "model_and_http_regression_passed": 49,
+    "model_and_http_regression_seconds": 4.65,
+    "task_media_browser_regression_passed": 57,
+    "task_media_browser_regression_seconds": 18.36,
+    "ruff": "passed",
+    "worker_boundaries": "passed_173_files",
+    "diff_check": "passed"
+  },
+  "verified": [
+    "Hub authoritative SQL terminal CAS invokes bounded model reservation cleanup under exact tenant/project/task/runtime/lease",
+    "Live Tasks and foreign runtime/lease cannot trigger cleanup",
+    "Registry validates immutable run/source identities; only model input sources matching reserved input digest qualify",
+    "Completed and concurrently completed results remain immutable; cancellation marks pending runs cancelled, completed/failed Tasks mark missing model results failed",
+    "A failed cleanup leaves Task cancellation authoritative; repeated finish callbacks retry and cleanup is idempotent"
+  ],
+  "scope_boundaries": [
+    "Synthetic provider/source fixtures; actual SQL Task CAS and separate SQL Evidence Registry",
+    "No new Worker endpoint, identity issuance, policy promotion, or Worker orchestration",
+    "No production deployment or production release evidence",
+    "Global Task finalization outside HubDialogTasks and crash-without-finish reconciliation are not covered by this callback gate"
+  ],
+  "remaining": [
+    "Combined normal SQL Task/browser/installed model-tool execution acceptance",
+    "Hub crash-without-finish reconciliation and terminal Tasks finalized outside dialog callbacks",
+    "Production provider/GPU/lipsync/rollout"
+  ],
+  "architecture_review": "A focused SQL cleanup adapter and small Hub terminal service preserve SRP/DIP/ISP without expanding the general Evidence repository interface. Existing HubDialogTasks retains mixed lifecycle and child cleanup responsibilities (preserved SRP debt); a future terminal-observer composition could isolate that seam. No hidden worker orchestration is added."
+}

@@ -193,6 +193,9 @@ def configure_meet_dialog(app, worker, issuer, *, capacity=None, speech_profile=
     from agent.services.meet_dialog_principal_receipts import MeetDialogPrincipalReceipts
 
     app.extensions["meet_dialog_principals"] = MeetDialogPrincipalReceipts(authority, tasks, issuer.issuer)
+    from agent.bootstrap.meet_companion import configure_companion_task_grants
+
+    configure_companion_task_grants(app, authority, issuer)
     if tasks.organization_principals:
         from agent.services.meet_dialog_lifecycle import MeetDialogLifecycle
         from agent.services.meet_organization_principal_preflight import MeetOrganizationPrincipalPreflight
@@ -285,6 +288,7 @@ def configure_meet_dialog(app, worker, issuer, *, capacity=None, speech_profile=
         speaker_floor=speaker_floor,
         recovery=recovery,
         media_timing=configured_media_timing(),
+        companion_execution="meet_companion_task_grants" in app.extensions,
     )
     from agent.repositories.meet_dialog_starts import SqlDialogStarts
     from agent.services.meet_dialog_starts import MeetDialogStarts

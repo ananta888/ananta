@@ -1,0 +1,47 @@
+{
+  "schema": "ananta.meet-companion-task-grant-http.v1",
+  "status": "task_bound_http_port_verified_dispatch_migration_in_progress",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "scope": "Opt-in Hub-only task-bound Companion grant callback with actual Flask/current task authority/Ed25519 and separated request/response HMAC",
+  "checks": {
+    "total_passed": 37,
+    "seconds": 2.88,
+    "task_grant_service_passed": 14,
+    "http_and_bootstrap_passed": 18,
+    "legacy_http_grant_passed": 5,
+    "ruff": "passed",
+    "worker_boundary_files": 156,
+    "diff_check": "passed",
+    "sql_task_integration_verified": false,
+    "worker_runtime_migrated": false
+  },
+  "configuration": {
+    "flag": "ANANTA_MEET_COMPANION_TASK_GRANTS_ENABLED",
+    "default": "0",
+    "requires_existing_dialog_hub_composition": true,
+    "endpoint": "POST /api/meet/v1/internal/companion/task-grant"
+  },
+  "verified": [
+    "Hub role, explicit service/key availability, bounded JSON-only no-query/no-bearer/no-transfer-encoding input",
+    "Domain-separated request HMAC; legacy/forged/missing signatures rejected",
+    "Closed RPC envelope, 32-hex nonce, signed sent_at freshness (10s past/3s future), duplicate-key and size rejection",
+    "Response HMAC binds direction, exact request including nonce, and response controls/body",
+    "Exact registered Task/dispatch/runtime/session/project/capability binding and cancellation revalidation",
+    "No legacy fallback on disabled/invalid/stale Task-bound path",
+    "Default-off bootstrap and unchanged legacy HTTP compatibility"
+  ],
+  "remaining": [
+    "Executable Worker client verifies signed response and current assignment/controls",
+    "Normal Hub admission/dispatch of Companion profile",
+    "Assignment-bound runtime with current Hub controls/freshness/cancellation/results",
+    "Actual persisted Task/SQL and packaged-container acceptance of migrated mode"
+  ],
+  "architecture_review": "Focused route handles HTTP/auth/bounds only (SRP); task policy stays in existing authority via narrow ports (DIP/ISP). Bootstrap composes service only when explicitly enabled; normal Task queue and Hub orchestration unchanged. Runtime is not yet migrated and legacy task bypass remains documented debt.",
+  "worker_client_review": {
+    "status": "worker_transport_verified",
+    "report": "artifacts/test-gates/meet-companion-task-grant-client.v1.json",
+    "runtime_migrated": false
+  }
+}

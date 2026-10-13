@@ -7,6 +7,19 @@ EXTENSION = "meet_dialog_deadline_reconciler"
 RUNNER = "meet_dialog_deadlines"
 
 
+def _reconcile_model_runs(app, stopped):
+    cleanup = app.extensions.get("meet_companion_run_reconciliation")
+    if cleanup is None:
+        return
+    try:
+        with app.app_context():
+            recovered = cleanup.run_once(limit=25, stopped=stopped)
+            if recovered["failed"]:
+                logging.warning("Meet model-run reconciliation failed for %d tasks", recovered["failed"])
+    except Exception as error:
+        logging.warning("Meet model-run reconciliation unavailable: %s", type(error).__name__)
+
+
 def start_meet_dialog_deadlines(app):
     if app.config.get("ROLE") != "hub" or getattr(app, "testing", False) or RUNNER not in app.extensions:
         return
@@ -25,6 +38,7 @@ def start_meet_dialog_deadlines(app):
                         logging.warning("Meet deadline reconciliation rejected %d malformed tasks", counts["invalid"])
             except Exception as error:
                 logging.warning("Meet deadline reconciliation unavailable: %s", type(error).__name__)
+            _reconcile_model_runs(app, stop.is_set)
             stop.wait(5)
 
     thread = threading.Thread(target=run, name="meet-dialog-deadlines", daemon=True)

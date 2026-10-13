@@ -1,0 +1,18 @@
+{
+  "schema": "ananta.meet-chat-poll-starvation-probe.v1",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "starvation_reproduced": true,
+  "timely_delivered": 1,
+  "delivered_after_50_seconds": 0,
+  "reason_code": "meet_chat_poll_starved",
+  "source_sha256": "6176eb3c88cab5c02ed37760643b3546ad5d08f69672931fa59706daee62aef9",
+  "status": "actual_client_queue_starvation_reproduced_fix_pending",
+  "desired_fix": "Nonblocking bounded companion execution with timely admission polling; preserve freshness/authority/ACK/replay limits",
+  "remaining": [
+    "Production companion composition",
+    "Renewal/revoke and queue-pressure matrix",
+    "Headless browser verification",
+    "Live deployment gate"
+  ]
+}

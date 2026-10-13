@@ -1,0 +1,70 @@
+{
+  "schema": "ananta.meet-companion-assigned-acceptance.v1",
+  "status": "real_browser_and_parent_process_boundaries_verified_integrated_sql_executor_acceptance_pending",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "runtime_migrated": false,
+  "image": "sha256:c90c6ceb6580b55f563a28c815bd751b5cdfcf27e4aa2d7a8ea3fbd9b0ae2cd0",
+  "checks": {
+    "actual_parent_and_watchdog_cases_passed": 11,
+    "parent_seconds": 11.74,
+    "actual_browser_container_cases_passed": 2,
+    "browser_seconds": 72.66,
+    "packaged_gate_passed": 1,
+    "packaged_seconds": 1.9,
+    "exact_source_files": 27,
+    "worker_boundary_files": 160,
+    "ruff": "passed",
+    "diff_check": "passed",
+    "full_assigned_browser_verified": true,
+    "combined_sql_executor_browser_verified": false
+  },
+  "scope_boundaries": {
+    "browser_cases": "Actual AssignedCompanionRuntime.run with real Meet TLS proxy, human browser, nonroot private Worker container, real CPU media and owned synthetic model/TTS. Hub Task store is a deterministic double; direct runtime invocation, not normal executor spawn.",
+    "parent_cases": "Actual DialogExecutor replay DB, child process, inherited progress, watchdog and signed HTTP callbacks. Test-owned run adapter replaces browser; terminal service is a deterministic double.",
+    "sql_admission": "Separate persisted SQL profile admission verified in meet-companion-profile-dispatch.v1.json; not combined with this browser run."
+  },
+  "verified": [
+    "Three unique chat replies despite 50-second first model operation, actual decoded avatar and nonzero decoded audio",
+    "No device capture, transform errors or proxy drops observed",
+    "Hub Task cancellation during long model produces zero replies and removes camera/membership within bounded observation",
+    "Owned synthetic model process stopped and Worker test process exits cleanly",
+    "No legacy Companion grant requests in either assigned browser scenario",
+    "Actual parent complete/cancel/stall paths release slot and refuse same lease replay",
+    "Stalled process group killed independently of child control/browser loop",
+    "Signed HTTP finish reports completed or failed for cooperative exits; forcibly killed child cannot manufacture finish",
+    "Read-only network-none standalone image matches 27 files including actual executor/progress/watchdog sources and constructs replay/slot adapter"
+  ],
+  "diagnostic_history": [
+    {
+      "status": "failed",
+      "log": "/tmp/ananta-meet-companion-assigned-live-first.log",
+      "reason": "Browser setup failed before grants; fixed private diagnostic added."
+    },
+    {
+      "status": "failed",
+      "log": "/tmp/ananta-meet-companion-assigned-live-stage.log",
+      "reason": "Missing private fixture CA for Playwright Node HTTP transport; restrictive browser routing failed closed."
+    },
+    {
+      "status": "passed",
+      "log": "/tmp/ananta-meet-companion-assigned-live-ca.log",
+      "cases": 1,
+      "seconds": 62.83
+    },
+    {
+      "status": "passed",
+      "log": "/tmp/ananta-meet-companion-assigned-live-final.log",
+      "cases": 2,
+      "seconds": 72.66
+    }
+  ],
+  "remaining": [
+    "One combined persisted SQL Hub task / signed normal executor / actual browser-container / terminal run",
+    "Joined/publishing phase observations for assigned mode",
+    "Assigned synchronized speaking avatar clips",
+    "Configured provider/GPU/lipsync and production rollout acceptance"
+  ],
+  "architecture_review": "Browser execution, current Hub control transport, owned model/media processes and parent resource watchdog remain separate (SRP/ISP/DIP). Real HTTP/process tests supplement deterministic adapter tests. Hub retains task authority; worker cannot reassign or restart. Existing broad legacy composition remains debt; no production security policy was relaxed. Synthetic fixture CA is explicitly trusted by existing test Node transport only."
+}

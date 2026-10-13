@@ -1,0 +1,57 @@
+{
+  "schema": "ananta.meet-companion-task-runtime-acceptance.v1",
+  "status": "implemented_and_locally_accepted_productive_media_open",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "runtime_migrated": false,
+  "local_runtime_migration_verified": true,
+  "worker_image": "sha256:2f278c0c373c04bede75c392ec2fdb33f05ff93a6fe4f6b6f6303e19dd354a59",
+  "checks": {
+    "selected_source_controls_passed": 5,
+    "selected_source_controls_seconds": 375.62,
+    "remaining_integrated_scenarios_passed": 11,
+    "remaining_integrated_scenarios_seconds": 767.29,
+    "integrated_total_passed": 16,
+    "integrated_batches": 2,
+    "companion_regression_passed": 584,
+    "companion_regression_skipped": 35,
+    "companion_regression_seconds": 56.19,
+    "packaged_source_files": 54,
+    "packaged_passed": 1
+  },
+  "scenarios": [
+    "answers-cancel",
+    "model-cancel",
+    "complete",
+    "avatar-paused",
+    "speech-paused",
+    "avatar-mid-speech",
+    "speech-mid-speech",
+    "assigned-answers-cancel",
+    "assigned-model-cancel",
+    "assigned-complete",
+    "assigned-worker-crash",
+    "assigned-avatar-paused",
+    "assigned-speech-paused",
+    "assigned-avatar-mid-speech",
+    "assigned-speech-mid-speech",
+    "assigned-speech-preparation-paused"
+  ],
+  "verified": [
+    "Normal SQL Hub Task admission, dispatch and installed DialogExecutor with exact signed assignment and lease",
+    "Installed selected model/dialog and all eight task tool definitions; actual scoped tool and reserved model HTTP in selected answer cases",
+    "Current Hub controls and original Task deadline; no Legacy supervisor orchestration in assigned runtime",
+    "Source-bound replies; optional avatar/speech withdrawal before and during publication plus blocked TTS preparation",
+    "Cancellation during actual provider HTTP stops owned processes, retires browser publication, accepts no reply and cancels reserved model Run",
+    "Normal original-deadline completion releases live Worker executor slot",
+    "Actual crashed Worker departs; Hub terminal reconciliation fails its reserved model Run without a finish callback",
+    "Immutable first-PCM playback origin passes strict synchronization checks; retired TTS cannot restart or destroy retained model dialog",
+    "Synthetic inputs, provider and CPU TTS are explicitly separated from production release evidence"
+  ],
+  "remaining": [
+    "Actual provider and bounded GPU speech/avatar/lipsync acceptance under the selected assigned runtime",
+    "Productive rollout and release admission; no serving deployment or productive data migration performed"
+  ],
+  "architecture_review": "Hub owns admission, routing, controls, Registry and terminal recovery; execution remains in an isolated Worker container. Narrow tool/model/cleanup ports protect DIP and ISP. The legacy supervisor and combined model/TTS facade remain explicit compatibility debt; the large integration scenario retains SRP/readability debt. Focused model, source-control and terminal fixtures are the cleaner extraction seams."
+}

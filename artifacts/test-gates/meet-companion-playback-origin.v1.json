@@ -1,0 +1,44 @@
+{
+  "schema": "ananta.meet-companion-playback-origin.v1",
+  "status": "current_packaged_all_sixteen_integrated_cases_verified",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "runtime_migrated": false,
+  "deployment": false,
+  "checks": {
+    "related_media_execution_regression_passed": 43,
+    "related_media_execution_regression_seconds": 8.5,
+    "final_original_origin_cases_passed": 2,
+    "final_original_origin_cases_seconds": 3.47,
+    "prior_avatar_mid_diagnostic_passed": 1,
+    "prior_avatar_mid_diagnostic_seconds": 87.9,
+    "current_packaged_passed": 1,
+    "current_packaged_seconds": 4.68,
+    "current_packaged_unique_source_files": 54,
+    "worker_image": "sha256:2f278c0c373c04bede75c392ec2fdb33f05ff93a6fe4f6b6f6303e19dd354a59",
+    "ruff": "passed",
+    "worker_boundaries": "passed_173_files",
+    "diff_check": "passed",
+    "selected_source_container_passed": 5,
+    "selected_source_container_seconds": 375.62,
+    "remaining_integrated_scenarios_passed": 11,
+    "remaining_integrated_scenarios_seconds": 767.29,
+    "integrated_total_passed": 16
+  },
+  "verified": [
+    "Deterministic pre-fix test reproduced meet_avatar_audio_schedule_invalid after a later audio-only scheduler correction rewrote the measured sample-zero origin",
+    "Publication records the immutable actual first-PCM playback origin separately from the mutable scheduling anchor",
+    "A later stall after avatar retirement no longer retroactively invalidates already observed paired publication; no measurements are invented for retired video",
+    "Actual later A/V timing violations with video still active continue to fail the original strict synchronization gate",
+    "Current immutable packaged image verifies current source hashes and private standalone CPU execution"
+  ],
+  "scope_boundaries": [
+    "The initial mixed-container publication failure did not record its exception, so this independently reproduced defect cannot conclusively be attributed as its cause",
+    "The prior final-image avatar-mid diagnostic rerun passed without reproducing the original failure",
+    "All sixteen integrated scenarios passed in two complementary batches against the same immutable image; provider/MCP data and CPU TTS remain synthetic."
+  ],
+  "remaining": [
+    "Actual provider/GPU/lipsync and productive rollout"
+  ],
+  "architecture_review": "Separating immutable measured playback origin from mutable scheduling state protects SRP and avoids hidden changes to existing observations. The shared publication method still combines scheduling and report assembly (preserved SRP debt); a dedicated observation accumulator would be a cleaner later extraction. No gate threshold or Hub/Worker ownership changes were introduced."
+}

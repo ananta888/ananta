@@ -77,6 +77,8 @@ class MeetDialogWorkerRouter:
             != (scope.audio_profile.projection() if getattr(scope, "audio_profile", None) is not None else None)
         ):
             raise MeetError("meet_dialog_publisher_binding_denied", 403)
+        if (assignment.get("companion_execution") is True) != getattr(scope, "companion_execution", False):
+            raise MeetError("meet_dialog_publisher_binding_denied", 403)
 
         def operation():
             return self._send_exact(scope, assignment, bound_origin, role, worker)

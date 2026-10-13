@@ -48,6 +48,17 @@ def log_text(companion):
     return open(companion.LOG.name, encoding="utf-8").read()
 
 
+def test_retired_hub_grant_is_terminal_for_legacy_companion(companion, monkeypatch):
+    from worker.meet_media.companion_supervisor import CompanionLegacyRetired
+
+    def retired(*_args, **_kwargs):
+        raise urllib.error.HTTPError("http://synthetic-hub.test", 410, "private synthetic reason", {}, None)
+
+    monkeypatch.setattr(companion.urllib.request, "urlopen", retired)
+    with pytest.raises(CompanionLegacyRetired, match="^meet_companion_legacy_retired_use_hub_tasks$"):
+        companion.fetch_grant()
+
+
 class Response(io.BytesIO):
     def __enter__(self):
         return self
@@ -93,7 +104,7 @@ def test_ensure_posts_a_signed_project_request_and_returns_the_room(companion, m
     assert request.full_url == companion.PUBLIC_ROOM_URL and request.get_method() == "POST"
     assert json.loads(request.data) == {"project_id": companion.PROJECT}
     assert request.headers["X-ananta-task-signature"] == signature(KEY, request.data)
-    assert "public_room room=%s reused=False revision=2" % ROOM_B in log_text(companion)
+    assert "public_room event=resolved" in log_text(companion)
 
 
 @pytest.mark.parametrize(
@@ -117,7 +128,18 @@ def test_hub_failure_is_logged_and_never_fatal(companion, monkeypatch):
     assert companion.ensure_public_room() is None
     text = log_text(companion)
     assert "public_room_err status=502 code=meet_public_room_token_unavailable" in text
-    assert "public_room_err OSError('reset')" in text
+    assert "public_room_err event=request_failed" in text
+
+
+def test_hub_failure_does_not_persist_arbitrary_error_codes_or_urls(companion, monkeypatch):
+    secret = "private-token-and-invite"
+    hub(monkeypatch, companion, [http_error(502, secret), OSError(secret)])
+    assert companion.ensure_public_room() is None
+    assert companion.ensure_public_room() is None
+    text = log_text(companion)
+    assert secret not in text
+    assert "public_room_err status=502 code=unavailable" in text
+    assert "public_room_err event=request_failed" in text
 
 
 def test_disabled_public_room_stops_further_requests(companion, monkeypatch):
@@ -131,14 +153,16 @@ def test_advertise_room_prefers_the_public_invite(companion):
     companion.advertise_room(ROOM_B, invite(ROOM_B) + "&extra=1")
     stored = json.loads(open(companion.ROOM_JSON, encoding="utf-8").read())
     assert stored == {"room_id": ROOM_B, "invite_url": invite(ROOM_B) + "&extra=1", "project": companion.PROJECT}
-    assert "ROOM %s %s&extra=1" % (ROOM_B, invite(ROOM_B)) in log_text(companion)
+    assert "ROOM event=advertised" in log_text(companion)
+    assert ROOM_B not in log_text(companion)
+    assert "extra=1" not in log_text(companion)
 
 
 def test_public_invite_only_for_the_joined_room(companion):
     assert companion.public_invite(None, ROOM_A) is None
     assert companion.public_invite({"room_id": ROOM_A, "invite_url": "x"}, ROOM_A) == "x"
     assert companion.public_invite({"room_id": ROOM_B, "invite_url": "x"}, ROOM_A) is None
-    assert "public_room_mismatch bound=%s public=%s" % (ROOM_A, ROOM_B) in log_text(companion)
+    assert "public_room_mismatch event=binding_changed" in log_text(companion)
 
 
 # --- run(): trigger at join and on a lost entry while joined ----------------
@@ -176,8 +200,14 @@ class FakePage:
             world.leaves += 1
         elif "anantaMachine.status" in script:
             return {"joined": True, "peers": 1, "e2ee": "active", "chat": []}
+        elif "chat.open" in script:
+            room = world.joins[-1]
+            return {"origin": "https://meet.invalid", "tenant_id": "tenant", "project_id": "project",
+                    "task_id": "task-1", "runtime_id": "runtime-1", "session_id": "session-" + room[-4:],
+                    "lease_id": "lease", "room_id": room, "own_peer_id": "machine", "generation": 1,
+                    "membership_epoch": 1, "policy_revision": 1, "deadline_ms": 3_000_000_000_000}
         elif "chat.poll" in script:
-            return {"events": []}
+            return {"schema": "ananta.meet-chat-batch.draft1", "events": []}
         return None
 
 
@@ -222,7 +252,7 @@ def test_join_self_heals_first_and_advertises_the_rebound_room(companion, monkey
     assert world.joins == [ROOM_B]
     stored = json.loads(open(companion.ROOM_JSON, encoding="utf-8").read())
     assert (stored["room_id"], stored["invite_url"]) == (ROOM_B, invite(ROOM_B))
-    assert "ROOM %s %s" % (ROOM_B, invite(ROOM_B)) in log_text(companion)
+    assert "ROOM event=advertised" in log_text(companion)
 
 
 def test_join_still_happens_when_the_hub_cannot_heal(companion, monkeypatch, world):
@@ -255,7 +285,7 @@ def test_lost_entry_while_joined_moves_the_companion_to_the_new_room(companion, 
     # The new room starts a fresh machine session, not a renewal of the old one.
     assert grants[-1] is None
     text = log_text(companion)
-    assert "ROOM_MOVED %s -> %s" % (ROOM_A, ROOM_B) in text and "rejoin after room move" in text
+    assert "ROOM_MOVED event=binding_changed" in text and "rejoin after room move" in text
     assert json.loads(open(companion.ROOM_JSON, encoding="utf-8").read())["room_id"] == ROOM_B
 
 

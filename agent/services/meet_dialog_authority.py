@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 from agent.models.meet_machine_principal import MeetMachinePrincipal, current_machine_principal
 from agent.services.meet_audio_profile import bound_audio_profile
+from agent.services.meet_companion_profile import bound_companion_profile
 from agent.services.meet_contract import MeetError
 from agent.services.meet_dialog_controls import DialogControls, parse_controls
 from agent.services.meet_media_timing_policy import validate_media_timing_negotiation
@@ -44,6 +45,7 @@ class DialogAuthority:
     speaker_floor: bool = False
     reconnect: bool = False
     media_timing: bool = False
+    companion_execution: bool = False
 
     @property
     def machine_subject(self):
@@ -106,10 +108,12 @@ class MeetDialogAuthority:
                 "speaker_floor",
                 "reconnect",
                 "media_timing",
+                "companion_execution",
             }
             != fields
         ):
             raise MeetError("meet_dialog_binding_invalid", 403)
+        bound_companion_profile(value)
         for field in fields - {"deadline", "capabilities", "binding_task_id", "audio_job", "audio_count", "controls"}:
             if not isinstance(value[field], str) or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,160}", value[field]):
                 raise MeetError("meet_dialog_binding_invalid", 403)
@@ -264,4 +268,5 @@ class MeetDialogAuthority:
             value.get("speaker_floor", False),
             value.get("reconnect", False),
             value.get("media_timing", False),
+            value.get("companion_execution", False),
         )

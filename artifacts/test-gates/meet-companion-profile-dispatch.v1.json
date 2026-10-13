@@ -1,0 +1,50 @@
+{
+  "schema": "ananta.meet-companion-profile-dispatch.v1",
+  "status": "normal_hub_admission_and_signed_executor_selection_implemented_full_runtime_acceptance_pending",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "runtime_migrated": false,
+  "image": "sha256:c90c6ceb6580b55f563a28c815bd751b5cdfcf27e4aa2d7a8ea3fbd9b0ae2cd0",
+  "checks": {
+    "related_regression_passed": 183,
+    "seconds": 23.77,
+    "packaged_gate_passed": 1,
+    "packaged_seconds": 2.09,
+    "exact_source_files": 22,
+    "worker_boundary_files": 160,
+    "ruff": "passed",
+    "diff_check": "passed",
+    "persisted_sql_task_profile_admission_verified": true,
+    "actual_executor_spawn_verified": false,
+    "full_assigned_browser_verified": false
+  },
+  "implemented": [
+    "Optional closed companion_execution:true in existing signed dialog assignment; absent field preserves old runtime",
+    "Hub opt-in grant composition enables admission; default disabled",
+    "Existing authenticated project/parent Task admission persists profile before grant and dispatch",
+    "Closed profile permits chat/synthetic avatar/speech only; unsupported receive/profile/reconnect features denied",
+    "Current authority and routing compare persisted profile with exact outgoing assignment",
+    "Hub phase binding includes optional profile without changing legacy absent-field digest",
+    "Task-grant port refuses normal dialog Task as Companion authority",
+    "Worker client refuses unnegotiated dialog assignment",
+    "Executor chooses fixed installed companion_task_runtime module under existing replay/slot/progress/watchdog mechanics",
+    "Existing status API exposes negotiated profile as optional field"
+  ],
+  "verified": [
+    "Real SQL Hub Task admission stores Companion profile and existing lease/runtime identities",
+    "Hub default-off/malformed/unsupported profile denial before worker/grant call",
+    "Router denies profile replacement/removal; no alternative worker retry",
+    "Executor Popen port verifies installed module choice and replay rejection",
+    "Existing normal admission, authority, transport, avatar negotiation and phase regression",
+    "Fresh standalone nonroot read-only network-none source/CPU gate with 22 exact files"
+  ],
+  "remaining": [
+    "Actual executor child spawn/progress/watchdog/container acceptance of assigned profile",
+    "Full signed SQL Task/control/Meet/browser runtime execution and terminal acceptance",
+    "Hub phase joined/publishing observations in assigned mode",
+    "Synchronized speaking clips and live provider/GPU acceptance",
+    "Explicit deployment/legacy rollout policy"
+  ],
+  "architecture_review": "Closed negotiation contract, Hub admission adapter, current authority, routing and fixed executor selection remain separate (SRP/ISP/DIP). New optional field and default-off composition preserve additive migration (OCP). No caller-selected command or Worker task orchestration introduced. Existing broad Dialog admission/authority services remain SRP debt near complexity budget; focused profile validation avoids adding their policy logic inline."
+}

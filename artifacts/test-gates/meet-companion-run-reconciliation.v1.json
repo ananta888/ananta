@@ -1,0 +1,31 @@
+{
+  "schema": "ananta.meet-companion-run-reconciliation.v1",
+  "status": "hub_sql_terminal_recovery_verified_crashed_container_acceptance_pending",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "runtime_migrated": false,
+  "deployment": false,
+  "checks": {
+    "related_regression_passed": 79,
+    "related_regression_seconds": 14.61,
+    "final_recovery_background_passed": 11,
+    "final_recovery_background_seconds": 5.86,
+    "ruff": "passed",
+    "worker_boundaries": "passed_173_files",
+    "diff_check": "passed"
+  },
+  "verified": [
+    "Existing Hub Meet deadline lifecycle invokes optional model-run recovery, with no additional execution thread or Worker orchestration",
+    "Actual SQL keyset scan selects terminal dialog Tasks with reserved runs under exact tenant/project/task binding; run cleanup still requires exact stored runtime/lease and Registry validation",
+    "Live Tasks remain reserved until an authoritative terminal status; missing Worker finish callbacks are unnecessary for terminal recovery",
+    "Completed, failed and cancelled SQL Tasks recover pending model Runs with correct terminal states",
+    "Persistence failures and malformed contexts produce bounded failed counts, advance the keyset cursor and retry on a later cycle",
+    "Shutdown makes no mutations; deadline reconciliation errors do not suppress model cleanup; logs expose error classes/counts without private payloads"
+  ],
+  "remaining": [
+    "Actual crashed-container/original-deadline combined recovery acceptance",
+    "Combined assigned model/tool answer and original deadline container scenarios are still running",
+    "Production provider/GPU/lipsync/rollout"
+  ],
+  "architecture_review": "A focused terminal-task paging port and recovery service preserve SRP/DIP/ISP. Recovery executes inside the existing Hub-owned lifecycle rather than creating a worker loop or second queue. The SQL cleanup adapter now owns both candidate queries and atomic run transitions within one cleanup persistence concern. Existing Task/browser integration test complexity remains preserved SRP debt."
+}

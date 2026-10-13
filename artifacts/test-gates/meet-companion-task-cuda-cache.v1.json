@@ -1,0 +1,76 @@
+{
+  "schema": "ananta.meet-companion-task-cuda-cache.v1",
+  "status": "actual_assigned_cold_gpu_tts_and_optional_source_retirement_verified",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "runtime_migrated": false,
+  "worker_image": "sha256:640c1441f2231adbd49e49120cf8481dc239182d20c1b358f46a980dc2f8a8d5",
+  "checks": {
+    "cache_execution_and_installed_provider_passed": 22,
+    "cache_execution_and_installed_provider_seconds": 6.64,
+    "cache_gpu_resource_and_driver_passed": 36,
+    "cache_gpu_resource_and_driver_seconds": 2.75,
+    "explicit_gpu_driver_skips": 2,
+    "packaged_passed": 1,
+    "packaged_seconds": 4.4,
+    "packaged_unique_source_files": 55,
+    "worker_boundaries": "passed_174_files",
+    "ruff": "passed",
+    "diff_check": "passed",
+    "actual_gpu_integrated_passed": 1,
+    "actual_gpu_integrated_seconds": 197.99,
+    "actual_gpu_property_warning": "pytest xunit2 record_property compatibility warning; properties were emitted and parsed",
+    "current_source_preparation_pause_passed": 1,
+    "current_source_preparation_pause_seconds": 76.89
+  },
+  "verified": [
+    "A private 0700 TemporaryDirectory belongs only to one Task execution and bounds its compiled-kernel cache to 32 MiB",
+    "Fresh TTS processes reuse that Task directory; optional speech retirement preserves it and the model dialog",
+    "Execution is stopped before cache cleanup; close is irreversible and constructor/cleanup failures remove owned scratch",
+    "No caller/provider cache directory is reused or removed; parent environment is unchanged",
+    "The installed Task selection wraps execution ownership without changing Hub queue, policy, Registry or model/tool ports",
+    "Code inspection establishes existing TTS process bound 120 seconds; model HTTP helper bound 20 seconds is a separate domain",
+    "Actual installed Hub Task/Worker/browser chain delivers three replies through scoped Tool/model HTTP and native Piper CUDA TTS without synthetic PCM or CPU fallback",
+    "Three actual TTS subprocesses share only this Task cache and produce positive samples within the unchanged 120-second execution bound",
+    "Current cache-image blocked-TTS source pause preserves the model conversation and retires optional speech",
+    "Task cancellation stops processes, releases live executor slot and removes every owned Task cache directory",
+    "Strict original A/V drift threshold remains unchanged; GPU receipt observation uses the existing 120-second TTS bound instead of the CPU-only 30-second fixture wait"
+  ],
+  "historical_failed_attempt": {
+    "gpu_integrated_failed": 1,
+    "seconds": 169.24,
+    "worker_memory_limit": "1g inherited CPU fixture configuration",
+    "observation": "Bridge answer timeout; original Task callbacks remained active",
+    "cause": "Not conclusively identified; resource mismatch corrected to the existing GPU fixture/production 4g limit"
+  },
+  "remaining": [
+    "Actual LLM provider and configured avatar/lipsync delivery through selected assigned runtime",
+    "GPU cold/warm latency tuning; observed Task TTS times remain 44.50, 33.65 and 34.87 seconds",
+    "Task-owned WAV/media scratch cleanup after forcibly killed helper processes",
+    "Productive rollout and release admission"
+  ],
+  "architecture_review": "A separate private-cache owner and execution-lifetime wrapper preserve SRP/DIP and composition. The existing combined model/TTS facade remains SRP/ISP compatibility debt; narrow model and speech interfaces are the later extraction seam. No new warmup task, Worker orchestration loop or Hub planning behavior was introduced. Existing WAV/media TemporaryDirectory cleanup relies on child finalizers and can leave scratch after forced process termination (preserved lifecycle/SRP/security debt). A parent-owned Task scratch directory passed through child TMPDIR is the cleaner follow-up.",
+  "actual_gpu_tts": {
+    "production_release_evidence": false,
+    "samples": [
+      45056,
+      46336,
+      45312
+    ],
+    "seconds": [
+      44.50016703099391,
+      33.64969521400053,
+      34.87008590299956
+    ],
+    "shared_task_cache": true,
+    "task_cache_removed": true,
+    "utterances": 3
+  },
+  "historical_corrected_4g_attempt": {
+    "failed": 1,
+    "seconds": 189.82,
+    "scope": "All three chat replies delivered; third GPU TTS had not completed inside CPU-oriented 30-second receipt observation",
+    "change": "GPU fixture receipt observation aligned with unchanged 120-second owned TTS bound; no synchronization, Task or execution limit raised"
+  }
+}

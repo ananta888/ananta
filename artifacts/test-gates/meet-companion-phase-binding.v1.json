@@ -1,0 +1,25 @@
+{
+  "schema": "ananta.meet-companion-phase-binding.v1",
+  "status": "regular_sql_admission_phase_binding_fixed_and_verified",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "runtime_migrated": false,
+  "problem": "Companion execution profile was persisted and included in phase digest but omitted from coordinator expected-scope digest, rejecting admitted transition in normal phase-enabled Hub composition.",
+  "change": "Reuse closed companion_execution_fields projection when reconstructing expected authority binding; no new phase authority or transitions.",
+  "checks": {
+    "regression_passed": 71,
+    "seconds": 14.4,
+    "new_sql_admission_restart_case_failed_before_fix": true,
+    "joined_and_publishing_restart_and_profile_removal_case": "passed",
+    "ruff": "passed",
+    "diff_check": "passed"
+  },
+  "scope": "Real isolated SQL Task admission and phase persistence; publication observation is deterministic, not real Meet in this test.",
+  "remaining": [
+    "Combined SQL Task / signed executor / actual browser / terminal acceptance",
+    "Assigned runtime automatic joined/publication observations",
+    "Assigned synchronized speaking clips and live provider/GPU/rollout acceptance"
+  ],
+  "architecture_review": "Fix remains inside Hub phase binding reconstruction and reuses focused profile projection (SRP/ISP/DIP). Existing broad admission/authority services remain documented debt. Worker cannot issue phases as authority; Hub coordinator performs current-scope checks."
+}

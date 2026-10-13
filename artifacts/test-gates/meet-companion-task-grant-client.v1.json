@@ -1,0 +1,41 @@
+{
+  "schema": "ananta.meet-companion-task-grant-client.v1",
+  "status": "worker_transport_verified_runtime_dispatch_migration_in_progress",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "image": "sha256:22ffe8af0d4929deb2abf61e19121ad3e80736cae1dbedc6b665718b3c47bbce",
+  "scope": "Assignment-bound Worker HTTP transport verifies current Task grant response signatures, nonce binding, closed response/controls and bounded freshness; no executable Companion dispatch yet",
+  "checks": {
+    "combined_contract_http_worker_tests_passed": 60,
+    "seconds": 3.12,
+    "worker_client_cases_passed": 23,
+    "real_loopback_http_proxy_redirect_cancel_case_passed": true,
+    "packaged_gate_passed": 1,
+    "packaged_gate_seconds": 1.9,
+    "exact_source_files": 17,
+    "packaged_client_import_and_construction_passed": true,
+    "worker_boundary_files": 157,
+    "ruff": "passed",
+    "diff_check": "passed",
+    "runtime_migrated": false,
+    "sql_task_integration_verified": false
+  },
+  "verified": [
+    "Closed assignment copied; no Worker-selected runtime/lease/session identity",
+    "Operator-fixed endpoint path; no embedded credentials/query/fragment or legacy endpoint",
+    "Environment proxies disabled and redirects denied; actual loopback HTTP verified",
+    "Fresh request nonce binds exact signed response, old response replay rejected",
+    "Even correctly HMAC-signed replacement Task/lease/runtime/session/project/room/caps/deadline/controls shape rejected",
+    "2.5-second bounded HTTP result freshness and fixed monotonic assignment deadline",
+    "No cached controls, legacy fallback or private error/body diagnostics on denial",
+    "Actual nonroot network-none read-only standalone image matches 17 current files, excludes Hub package and constructs client"
+  ],
+  "remaining": [
+    "Normal Hub Companion profile admission and Worker dispatch",
+    "Assignment-bound executable Companion runtime consuming current controls/freshness/cancellation/results",
+    "Persisted SQL/Task and actual-container acceptance of migrated mode",
+    "Explicit compatibility/rollout policy before changing legacy default"
+  ],
+  "architecture_review": "HTTP transport is separate from shared response validation and runtime control execution (SRP). Opener/clock injection gives test seams (DIP); reused read-bounds and pure contract avoid duplication (OCP). Worker cannot create tasks/delegate workers or assign evidence identities. Existing broad legacy composition/non-task admission remains explicit migration debt."
+}

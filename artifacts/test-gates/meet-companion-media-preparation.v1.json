@@ -1,0 +1,62 @@
+{
+  "schema": "ananta.meet-companion-media-preparation-review.v1",
+  "status": "production_companion_media_preparation_composed_and_locally_verified",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "scope": "Legacy Companion run() idle/speaking preparation outside browser owner thread; bounded local model/media execution ports; existing media timeline preserved.",
+  "implementation": [
+    "One reusable JSON-pipe transport owns process launch, bounded request/response, owner cooperation <=100 ms, <=120 s execution timeout and process-group termination.",
+    "Model/TTS and idle/speaking media adapters have separate closed protocols and execution helpers; no Hub imports, Worker delegation or new task queues.",
+    "Idle asset/procedural rendering, lip-sync HTTP, fallback and FFmpeg run in media helper; browser/policy/lease control remains in owner thread.",
+    "Media request <=2600000 bytes, response <=10100000 bytes, PCM <=1940400 bytes, <=5 synthetic clips, <=2000000 base64 chars per clip; hash/shape checks provide technical integrity only.",
+    "SpeechAvatarPublisher accepts injected preparation port, checks segment count before publication, and anchors shared playback only after clips are prepared.",
+    "Publication terminates with meet_avatar_publication_timeout after PCM duration plus 30 s stall budget; permanent speech backpressure cannot wait forever."
+  ],
+  "checks": {
+    "broad_regression": {
+      "passed": 418,
+      "skipped": 1,
+      "seconds": 21.75
+    },
+    "post_revoked_http_regression": {
+      "passed": 18,
+      "seconds": 5.38,
+      "overlap_with_broad_regression": 17
+    },
+    "unique_tests_passed": 419,
+    "skipped_gate": "Existing live AvatarService GPU/model integration gate requires RUN_INTEGRATION_TESTS=1 and the actual configured service; not claimed passed.",
+    "actual_python_run_composition_cases": 12,
+    "actual_typescript_endpoint_cases": 6,
+    "message_counts": [
+      2,
+      3,
+      32
+    ],
+    "synthetic_model_seconds": 50,
+    "synthetic_idle_and_speaking_preparation_seconds": 50,
+    "real_media_entry_cpu_ffmpeg": "passed; H.264, video-only, 256x256, 12 fps and frame counts verified with ffprobe",
+    "real_lipsync_http": "passed on synthetic loopback service: success, HTTP-500 procedural/CPU fallback, and in-flight revocation",
+    "media_library_versions": {
+      "Pillow": "11.3.0",
+      "numpy": "2.2.6"
+    },
+    "process_timeout_cancellation_output_bounds": "passed",
+    "speech_backpressure_timeout": "passed",
+    "ruff": "passed",
+    "worker_boundary": "passed",
+    "worker_boundary_files": 156,
+    "memory_channel_inventory": "passed"
+  },
+  "architecture_review": {
+    "protected": "SRP: common pipe lifecycle separated from typed model/media protocols and browser publication. ISP/DIP: publisher consumes an injected preparation callable; Hub remains authority/queue owner.",
+    "preserved_debt": "Legacy companion remains a broad module with environment/global configuration and model/media factories (SRP/DIP). Helpers still import its local execution composition; future extraction to explicit injected runtime factories remains open.",
+    "compatibility": "Existing synchronous preparation helpers remain additive compatibility paths; productive run() supplies the cancellable preparation port."
+  },
+  "remaining": [
+    "Actual browser/server source-generation, media renewal/revocation and cleanup matrix of paired versions",
+    "Actual configured GPU/Lipsync service, portrait/face validation and NVENC acceptance; CPU fallback test is not production GPU evidence",
+    "Standalone production Worker image and coordinated client/Worker rollout/live acceptance",
+    "Production Hub Evidence Registry admission/release evidence"
+  ]
+}

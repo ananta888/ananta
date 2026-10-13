@@ -1,0 +1,39 @@
+{
+  "schema": "ananta.meet-companion-model-profile.v1",
+  "status": "assigned_model_legacy_tool_authority_inheritance_removed_and_verified",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "runtime_migrated": false,
+  "image": "sha256:77432b9d5f84ae1e611ecd621a67038134c1dac4f7bf0ee46025a2e087b5a1ff",
+  "checks": {
+    "environment_runtime_execution_regression_passed": 14,
+    "seconds": 2.97,
+    "actual_model_child_dialog_configuration_verified": true,
+    "packaged_source_files": 31,
+    "worker_boundary_files": 161,
+    "ruff": "passed",
+    "diff_check": "passed"
+  },
+  "implemented": [
+    "Validate explicit current Companion assignment before building child configuration",
+    "Disable Legacy CodeCompass/tool/RAG-prefix flags regardless of parent defaults",
+    "Do not forward MEET_HUB_* endpoints or MEET_WORKER_KEY_FILE to model/TTS child",
+    "Bind Companion project config to assigned project",
+    "Preserve local model/provider and TTS settings without mutating parent environment",
+    "Apply dedicated environment at actual assigned model process construction"
+  ],
+  "verified": [
+    "Actual child constructs CompanionDialog with no toolbox, retriever or CodeCompass enabled even when all legacy flags are on",
+    "Forbidden Hub assist stubs not invoked during actual generated reply path",
+    "Unnegotiated assignment denied",
+    "Read-only nonroot standalone image matches 31 source files and checks configuration projection"
+  ],
+  "limits": [
+    "Environment filtering is not a filesystem/network sandbox or proof that a compromised process cannot discover mounted credentials",
+    "Legacy Companion behavior unchanged",
+    "Assignment-bound authorized CodeCompass/tool integration still required for feature parity",
+    "Current full SQL/executor/browser/observation/terminal acceptance remains open"
+  ],
+  "architecture_review": "Focused environment projection separates execution-profile policy from browser/model transport (SRP/ISP/DIP). Explicit environment injection provides real subprocess tests. Legacy global configuration and broad composition remain preserved debt; no implicit Tool authority is carried into new assigned mode."
+}

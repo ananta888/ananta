@@ -11,6 +11,7 @@ from agent.models.meet_dialog_phase import (
     transition,
     validate_record,
 )
+from agent.services.meet_companion_profile import companion_execution_fields
 from agent.services.meet_contract import MeetError
 
 
@@ -73,6 +74,7 @@ class MeetDialogPhases:
                 "audio_mode",
             )
         }
+        expected.update(companion_execution_fields(getattr(scope, "companion_execution", False)))
         if scope.avatar_selection is not None:
             expected["avatar_selection"] = scope.avatar_selection
         if scope.avatar_videos:
@@ -123,6 +125,24 @@ class MeetDialogPhases:
             raise MeetError("meet_dialog_phase_conflict", 409)
         if task.status == "in_progress":
             self._write(task, record, transition(record, "stopping", self._now()))
+
+    def observe(self, scope, state):
+        """Apply only a receipt verified by the Hub Meet observation port."""
+        resolved = self._scoped(scope)
+        if resolved is None:
+            return
+        task, record = resolved
+        observation = publication_observation(state, self._now(), scope.deadline)
+        membership = {"session_id": state["lease"]["sessionId"], "peer_id": state["peerId"]}
+        # Build and validate the whole observation before the single CAS write.
+        # A malformed/expired publication receipt must not leave a joined phase
+        # behind when the later publication transition is rejected.
+        joined = (transition(record, "joined", self._now(), membership=membership)
+                  if record["phase"] == "connecting" else record)
+        changed = transition(joined, "publishing" if observation["sources"] else "joined",
+                             self._now(), membership=membership, observation=observation)
+        self._write(task, record, changed)
+        self.authority.current(scope.task_id, scope.lease_id, scope.runtime_id)
 
     def inspect(self, principal, project, task_id, *, refresh=False):
         self.authority.binding.require_write_access(principal, project)

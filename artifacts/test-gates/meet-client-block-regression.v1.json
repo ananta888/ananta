@@ -1,0 +1,394 @@
+{
+  "schema": "ananta.meet-client-block-regression.v1",
+  "status": "local_client_block_completed",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "scope": "Avatar readiness/activation/clock and SFrame overlay block regressions",
+  "intent_source": {
+    "commit": "f430a0ad40a5280c4d981af42cd1a4385dc699f6",
+    "activation_ms": 120000,
+    "setup_ms": 110000
+  },
+  "changes": [
+    "Published generation expiry now matches authorized 120-second activation ceiling and initial Hub deadline.",
+    "Check current authority before observing readiness and again after readiness before first frame/receipt.",
+    "Controller heartbeat deadline starts after readiness receipt; pulses never extend activation expiry.",
+    "Remove raw authority and peer/key/publication metadata diagnostic output; retain cryptographic checks.",
+    "Repair bounded state-map test seam; align stale 30/10-second expectations with user-authored 120/110-second policy."
+  ],
+  "checks": {
+    "targeted_affected_files_unique_tests_passed": 80,
+    "full_frontend_files_passed": 191,
+    "full_frontend_tests_passed": 1719,
+    "full_frontend_unhandled_errors": 0,
+    "full_frontend_seconds": 12.68,
+    "build": "passed",
+    "leakage": "passed",
+    "go_modules_passed": 4,
+    "full_npm_check": "passed_with_explicit_live_skips",
+    "node_browser_suite": {
+      "total": 1800,
+      "passed": 1795,
+      "failed": 0,
+      "skipped": 5,
+      "seconds": 872.49968
+    },
+    "lease_observation_unit_tests_passed": 2
+  },
+  "source_digests": {
+    "frontend/src/app/features/machine/machine-avatar-source.ts": "02bd6e2966a3b23ff7d21ad17bf4f1b6e0c95ac24caef704b15c541a8cb7c88e",
+    "frontend/src/app/features/machine/machine-avatar-source.spec.ts": "4782490fb5b02f3b37c7c02cdcd1b311ea55e3a3d938ebf70e5f0816d1344168",
+    "frontend/src/app/features/machine/machine-source-clock.spec.ts": "42a3bbd2dc974edc5bff25a1c87e32cb214806e628bb0ad01d7dd8186eed3863",
+    "frontend/src/app/webrtc/peer-mesh.service.ts": "af047c0eb761d12e7e19a7ee2c591dd61694099e9e505fcb4fecb1fb1c4e2010",
+    "frontend/src/app/webrtc/peer-mesh-key-ack.spec.ts": "7c7649eb9916b1f64eb1a710e1e5bfaecad1d7ae01d9eb74fc74e1fa73676bdf",
+    "test/machine-multi-publisher.browser.test.js": "939b13ab3a3108bc6fd3d139c839c2983a0a5f1272c3d2f2b5f8782497f222f5",
+    "test/helpers/native-source-lease-observation.mjs": "7ba8b094c5550aeac8bcfec2b60569f9f0a2be9428a15c98a08711b580cbb950",
+    "test/native-source-lease-observation.test.js": "74cc7952257f375a67450c4df5458ad61b4f84e1cdd9cf28bb227d33b33ca20a",
+    "test/helpers/native-scene-live-fixture.mjs": "6290b7633cf1ef1adc5831098764a75d766e0f0dce57be4e791c9f4e5d5a7735",
+    "test/native-source-audio.browser.test.js": "becef58f440c6fd85d7452fde03f29ff71807f1b8a65fb8cd218ddee645c22d3"
+  },
+  "solid_review": {
+    "protected": "Avatar lifecycle owns timing/readiness and delegates authority through existing small port (SRP/ISP/DIP). No new authorization or worker orchestration.",
+    "preserved_debt": "Large PeerMeshService retains existing SRP debt; diagnostics removal adds no new coupling. A focused overlay subsystem extraction remains separate.",
+    "diagnostic_adapter": "Dedicated pure projection (SRP), opt-in fixture observation with no sends or policy side effects (ISP). Immutable bounded scalars only; no new productive ports/coupling."
+  },
+  "remaining": [
+    "Real pinned Worker/browser legacy Companion.run loop with model/media backlog",
+    "Versioned legacy protocol cleanup",
+    "Live providers/GPU and coordinated deployment with Hub Registry release evidence"
+  ],
+  "observed_failures": [
+    "firefox isolates two machine personas, simultaneous speech/screens and individual departure",
+    "rendered Angular audio controls actual native gain/mute without expanding consent"
+  ],
+  "multi_publisher_recheck": {
+    "tests_passed": 2,
+    "tests_failed": 0,
+    "skipped": 0,
+    "seconds": 9.109592,
+    "engines": [
+      "chromium",
+      "firefox"
+    ],
+    "change": "Explicit owner-controlled avatar generation retirement before reopen; no assumption that 2-second fixture wait proves a 2.5-second heartbeat expiry.",
+    "production_release_evidence": false
+  },
+  "native_audio_isolated_recheck": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "seconds": 54.340587,
+    "implementation_changes": false,
+    "interpretation": "Original full-run unmute failure remains unresolved: native source was stopped before mutation; isolated replay success is not proof that full-block failure is fixed."
+  },
+  "full_block_first_recheck": {
+    "exit_code": 1,
+    "infrastructure_stage": "not_reached",
+    "failures": {
+      "multi_publisher": "waitFixtureValue retirement deadline at line 61; corrected in later targeted run",
+      "native_audio": "uncheck locator timed out after actual source removal; current diagnosis still incomplete"
+    },
+    "explicit_skips": [
+      "container image canary scan: BROADCAST_IMAGE_ARCHIVE not configured",
+      "compositor long-run: RUN_COMPOSITOR_SOAK not enabled; physical A/V/CPU separate gates"
+    ],
+    "production_release_evidence": false,
+    "node_test_skips": [
+      {
+        "test": "private TURN UDP payload",
+        "reason": "RUN_PRIVATE_TURN_PROBE not enabled"
+      },
+      {
+        "test": "private TURN TCP payload",
+        "reason": "RUN_PRIVATE_TURN_PROBE not enabled"
+      },
+      {
+        "test": "machine trust container init",
+        "reason": "RUN_MACHINE_TRUST_CONTAINER_TEST and immutable MACHINE_TRUST_CONTAINER_IMAGE not supplied"
+      },
+      {
+        "test": "machine v1 speech/avatar/chat E2E",
+        "reason": "synthetic local GPU video MACHINE_E2E_VIDEO not supplied"
+      },
+      {
+        "test": "Windows installer real PowerShell parse",
+        "reason": "Windows/WSL PowerShell engine and RUN_WINDOWS_INSTALLER_PARSE not enabled"
+      }
+    ]
+  },
+  "native_audio_lease_diagnostic_recheck": {
+    "passed": 1,
+    "failed": 0,
+    "seconds": 65.805903,
+    "audio_output": {
+      "initial": {
+        "channels": [
+          0.1760106366142608,
+          0.17601063522212979
+        ],
+        "time": 17.788,
+        "frames": 271
+      },
+      "muted": {
+        "channels": [
+          0,
+          0
+        ],
+        "time": 24.878776,
+        "frames": 378
+      },
+      "scaled": {
+        "channels": [
+          0.08959187215111579,
+          0.04413272900356594
+        ],
+        "time": 31.777333,
+        "frames": 481
+      },
+      "revoked": {
+        "channels": [
+          0,
+          0
+        ],
+        "time": 1.149333,
+        "frames": 22
+      }
+    },
+    "source_leases": [
+      {
+        "outcome": "lease",
+        "revision": 1,
+        "remainingMs": 3978,
+        "consentRemainingMs": 53562
+      },
+      {
+        "outcome": "lease",
+        "revision": 2,
+        "remainingMs": 3997,
+        "consentRemainingMs": 52179
+      },
+      {
+        "outcome": "lease",
+        "revision": 3,
+        "remainingMs": 3997,
+        "consentRemainingMs": 51179
+      },
+      {
+        "outcome": "lease",
+        "revision": 4,
+        "remainingMs": 3998,
+        "consentRemainingMs": 49680
+      },
+      {
+        "outcome": "lease",
+        "revision": 5,
+        "remainingMs": 3997,
+        "consentRemainingMs": 48679
+      },
+      {
+        "outcome": "lease",
+        "revision": 6,
+        "remainingMs": 3997,
+        "consentRemainingMs": 47679
+      },
+      {
+        "outcome": "lease",
+        "revision": 7,
+        "remainingMs": 3998,
+        "consentRemainingMs": 46680
+      },
+      {
+        "outcome": "lease",
+        "revision": 8,
+        "remainingMs": 3997,
+        "consentRemainingMs": 45679
+      },
+      {
+        "outcome": "lease",
+        "revision": 9,
+        "remainingMs": 3997,
+        "consentRemainingMs": 44676
+      },
+      {
+        "outcome": "lease",
+        "revision": 10,
+        "remainingMs": 3997,
+        "consentRemainingMs": 43676
+      },
+      {
+        "outcome": "lease",
+        "revision": 11,
+        "remainingMs": 3998,
+        "consentRemainingMs": 42676
+      },
+      {
+        "outcome": "lease",
+        "revision": 12,
+        "remainingMs": 3998,
+        "consentRemainingMs": 41675
+      },
+      {
+        "outcome": "lease",
+        "revision": 13,
+        "remainingMs": 3998,
+        "consentRemainingMs": 40675
+      },
+      {
+        "outcome": "lease",
+        "revision": 14,
+        "remainingMs": 3998,
+        "consentRemainingMs": 39675
+      },
+      {
+        "outcome": "lease",
+        "revision": 15,
+        "remainingMs": 3998,
+        "consentRemainingMs": 38675
+      },
+      {
+        "outcome": "lease",
+        "revision": 16,
+        "remainingMs": 3998,
+        "consentRemainingMs": 37675
+      },
+      {
+        "outcome": "lease",
+        "revision": 17,
+        "remainingMs": 3997,
+        "consentRemainingMs": 36674
+      },
+      {
+        "outcome": "lease",
+        "revision": 18,
+        "remainingMs": 3997,
+        "consentRemainingMs": 35674
+      },
+      {
+        "outcome": "lease",
+        "revision": 19,
+        "remainingMs": 3997,
+        "consentRemainingMs": 34673
+      },
+      {
+        "outcome": "lease",
+        "revision": 20,
+        "remainingMs": 3998,
+        "consentRemainingMs": 33674
+      },
+      {
+        "outcome": "lease",
+        "revision": 21,
+        "remainingMs": 3997,
+        "consentRemainingMs": 32673
+      },
+      {
+        "outcome": "lease",
+        "revision": 22,
+        "remainingMs": 3998,
+        "consentRemainingMs": 31673
+      },
+      {
+        "outcome": "lease",
+        "revision": 23,
+        "remainingMs": 3997,
+        "consentRemainingMs": 30672
+      },
+      {
+        "outcome": "lease",
+        "revision": 24,
+        "remainingMs": 3997,
+        "consentRemainingMs": 29671
+      },
+      {
+        "outcome": "lease",
+        "revision": 25,
+        "remainingMs": 3997,
+        "consentRemainingMs": 28671
+      },
+      {
+        "outcome": "lease",
+        "revision": 26,
+        "remainingMs": 3998,
+        "consentRemainingMs": 27671
+      },
+      {
+        "outcome": "lease",
+        "revision": 27,
+        "remainingMs": 3997,
+        "consentRemainingMs": 26670
+      },
+      {
+        "outcome": "lease",
+        "revision": 28,
+        "remainingMs": 3997,
+        "consentRemainingMs": 25670
+      },
+      {
+        "outcome": "lease",
+        "revision": 29,
+        "remainingMs": 3997,
+        "consentRemainingMs": 24669
+      },
+      {
+        "outcome": "lease",
+        "revision": 30,
+        "remainingMs": 3998,
+        "consentRemainingMs": 23670
+      },
+      {
+        "outcome": "lease",
+        "revision": 31,
+        "remainingMs": 3998,
+        "consentRemainingMs": 22670
+      },
+      {
+        "outcome": "stop",
+        "revision": 31,
+        "remainingMs": 3808,
+        "code": "SOURCE_AUTHORITY_LOST"
+      }
+    ],
+    "production_release_evidence": false,
+    "interpretation": "Read-only diagnosis integrated and real renewals observed; original full-run source-loss cause still unresolved."
+  },
+  "full_block_second_recheck": {
+    "status": "passed_with_explicit_live_skips",
+    "command": "npm run check",
+    "exit_code": 0,
+    "frontend": {
+      "files_passed": 191,
+      "tests_passed": 1719,
+      "failed": 0
+    },
+    "node_browser": {
+      "total": 1800,
+      "passed": 1795,
+      "failed": 0,
+      "skipped": 5,
+      "seconds": 872.49968
+    },
+    "build": "passed",
+    "leakage": "passed",
+    "go_modules_passed": 4,
+    "infrastructure_stage": "completed_with_explicit_skips",
+    "infrastructure_skips": [
+      "SKIP live Keycloak/TURN gate: set RUN_LIVE_INFRASTRUCTURE=1 with explicit test credentials",
+      "SKIP live native-packager onboarding gate: set RUN_LIVE_NATIVE_PACKAGER_ONBOARDING=1 with explicit test credentials",
+      "SKIP real Linux user-service lifecycle: set RUN_LINUX_PACKAGER_LIFECYCLE=1 with an active systemd user manager and FFmpeg",
+      "SKIP real macOS user-service lifecycle: set RUN_MACOS_PACKAGER_LIFECYCLE=1 in a macOS GUI login",
+      "SKIP Windows native-packager config/output gate: set RUN_WINDOWS_NATIVE_PACKAGER=1 on WSL with Docker and powershell.exe",
+      "SKIP real Windows installer lifecycle: set RUN_WINDOWS_PACKAGER_INSTALLER=1 on WSL with powershell.exe and FFmpeg",
+      "SKIP real Windows updater lifecycle: set RUN_WINDOWS_PACKAGER_UPDATER=1 on WSL with powershell.exe and FFmpeg",
+      "SKIP production broadcast gate: provide an isolated test identity and packager",
+      "SKIP live pinned MediaMTX adapter gate: set RUN_LIVE_MEDIAMTX_ADAPTER=1",
+      "SKIP secure MediaMTX authorization gate: set RUN_LIVE_MEDIAMTX_SECURE_AUTH=1 with Docker",
+      "SKIP live MediaMTX WHIP gate: set RUN_LIVE_WHIP_MEDIAMTX=1 with a pinned test endpoint",
+      "SKIP live native packager gate: set RUN_LIVE_NATIVE_PACKAGER=1 with FFmpeg 6+",
+      "SKIP live MediaMTX LL-HLS gate: set RUN_LIVE_MEDIAMTX_LLHLS=1 with Docker and FFmpeg 6+",
+      "SKIP MediaMTX origin load gate: set RUN_LIVE_MEDIAMTX_ORIGIN_LOAD=1 with Docker and FFmpeg 6+"
+    ],
+    "classification": "local_headless_synthetic_technical_observation",
+    "production_release_evidence": false
+  }
+}

@@ -1,5 +1,8 @@
 """Closed avatar source observations, never authorization by themselves."""
 
+AVATAR_ACTIVATION_MS = 120_000
+AVATAR_FRAME_LIMIT = 600
+AVATAR_SETUP_SECONDS = 110
 
 def validate_avatar_snapshot(value, now_ms, deadline_ms, *, profile="neutral-ai-v1"):
     if profile not in ("neutral-ai-v1", "persona-image-v1", "persona-video-v1"):
@@ -17,9 +20,9 @@ def validate_avatar_snapshot(value, now_ms, deadline_ms, *, profile="neutral-ai-
         or type(source["generation"]) is not int
         or source["generation"] != generation
         or type(source["frames"]) is not int
-        or not 0 <= source["frames"] <= 150
+        or not 0 <= source["frames"] <= AVATAR_FRAME_LIMIT
         or type(source["expiresAt"]) is not int
-        or not now_ms < source["expiresAt"] <= min(now_ms + 30000, deadline_ms)
+        or not now_ms < source["expiresAt"] <= min(now_ms + AVATAR_ACTIVATION_MS, deadline_ms)
     ):
         raise ValueError("meet_avatar_snapshot_invalid")
     receipt = value["receipt"]

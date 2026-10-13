@@ -1,0 +1,40 @@
+{
+  "schema": "ananta.meet-companion-legacy-retirement.v1",
+  "status": "hub_retirement_and_terminal_worker_exit_verified_assigned_source_control_matrix_pending",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "runtime_migrated": false,
+  "deployment": false,
+  "checks": {
+    "hub_regression_passed": 91,
+    "hub_regression_seconds": 5.78,
+    "worker_regression_passed": 24,
+    "worker_regression_seconds": 3.03,
+    "packaged_passed": 1,
+    "packaged_seconds": 4.65,
+    "packaged_unique_source_files": 54,
+    "worker_image": "sha256:949f9d44a9b05a4d71795a705142623294363fbab51534bcab24a08b6e708b49",
+    "current_image_assigned_model_cancel_passed": 1,
+    "current_image_assigned_model_cancel_seconds": 22.35,
+    "speech_mid_speech_recheck_passed": 1,
+    "speech_mid_speech_seconds": 73.76,
+    "avatar_mid_speech_recheck_passed": 1,
+    "avatar_mid_speech_seconds": 84.01,
+    "ruff": "passed",
+    "worker_boundaries": "passed_173_files",
+    "diff_check": "passed"
+  },
+  "verified": [
+    "Hub Task grant mode retires legacy grant/retrieve/tool endpoints by default with bounded machine-readable 410 before legacy service execution",
+    "An explicit Hub legacy compatibility policy can override retirement during gradual rollout; legacy-only deployments preserve prior compatibility unless explicitly disabled",
+    "Assigned Task endpoints are unaffected and invalid operator policy fails bounded",
+    "A legacy Worker receiving Hub 410 exits its supervisor without sleeping/retrying or logging private failure content",
+    "Current packaged Worker source hashes include the supervisor and actual installed assigned cancellation still passes",
+    "Fresh-PCM mid-speech pause rechecks pass for speech and avatar; original mixed-run failures remain historical negative observations"
+  ],
+  "remaining": [
+    "Assigned model/tool mode source-control pause matrix including pre-audible and mid-audible speech/avatar changes",
+    "Production provider/GPU/lipsync/rollout"
+  ],
+  "architecture_review": "A focused Hub retirement policy separates compatibility decisions from route handlers (SRP). A typed terminal exception preserves clear Worker lifecycle behavior and prevents retired self-rejoin. Legacy supervisor functionality remains explicit compatibility debt and is not used by assigned Tasks; the Hub owns all assigned Task orchestration. Production rollout remains opt-in and additive."
+}

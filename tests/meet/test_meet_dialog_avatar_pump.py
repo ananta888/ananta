@@ -14,6 +14,25 @@ from worker.meet_media.dialog_avatar_pump import DialogAvatarPump
 NOW = 1788000000
 
 
+def test_current_120_second_client_activation_is_accepted_with_current_hub_deadline():
+    f = fixture()
+    f.authority["lease"]["expiresAt"] = (NOW + 180) * 1000
+    f.snapshot["source"]["expiresAt"] = f.snapshot["receipt"]["expiresAt"] = (NOW + 120) * 1000
+    f.snapshot["source"]["frames"] = 600
+    f.pump.update(f.authority, f.controls)
+    assert f.pump.active and not f.pump.failed
+    assert f.pump.expires_at == (NOW + 120) * 1000
+
+
+@pytest.mark.parametrize("frames,expiry", [(601, 120), (600, 121), (1, 181)])
+def test_current_avatar_limits_do_not_allow_extra_frames_or_extended_deadlines(frames, expiry):
+    f = fixture()
+    f.snapshot["source"]["frames"] = frames
+    f.snapshot["source"]["expiresAt"] = f.snapshot["receipt"]["expiresAt"] = (NOW + expiry) * 1000
+    with pytest.raises(ValueError):
+        validate_avatar_snapshot(f.snapshot, NOW * 1000, (NOW + 180) * 1000)
+
+
 def fixture():
     assigned = assignment() | {"deadline": NOW + 600, "capabilities": ["avatar.publish"]}
     elapsed = [100.0]
@@ -145,15 +164,18 @@ def test_late_hub_response_discards_the_old_controller_generation():
     assert f.browser.start.call_count == 2 and f.pump.active
 
 
-def test_pending_setup_keeps_main_loop_free_but_has_a_ten_second_limit():
+def test_pending_setup_keeps_main_loop_free_but_has_a_110_second_limit():
     f = fixture()
     f.snapshot.update(phase="pending", receipt=None)
     f.snapshot["source"].update(state="opening", frames=0)
+    f.authority["lease"]["expiresAt"] = (NOW + 180) * 1000
+    f.snapshot["source"]["expiresAt"] = (NOW + 120) * 1000
     f.pump.update(f.authority, f.controls)
-    for _ in range(4):
+    starts = f.browser.start.call_count
+    for _ in range(54):
         f.elapsed[0] += 2
         f.pump.update(f.authority, f.controls)
-    assert f.pump.active and f.browser.start.call_count == 1
+    assert f.pump.active and f.browser.start.call_count == starts
     f.elapsed[0] += 2
     f.pump.update(f.authority, f.controls)
     assert not f.pump.active and f.pump.failed
@@ -196,3 +218,20 @@ def test_browser_bridge_has_no_blocking_setup_or_automatic_pulse_and_pins_naviga
     calls = page.evaluate.call_count
     port.close()
     assert page.evaluate.call_count == calls
+
+
+@pytest.mark.parametrize("change", ["expiry", "generation"])
+def test_browser_observation_cannot_extend_or_replace_a_live_activation(change):
+    f = fixture()
+    f.pump.update(f.authority, f.controls)
+    f.elapsed[0] += 2
+    if change == "expiry":
+        f.snapshot["source"]["expiresAt"] += 2000
+        f.snapshot["receipt"]["expiresAt"] += 2000
+    else:
+        f.snapshot["generation"] += 1
+        f.snapshot["source"]["generation"] += 1
+        f.snapshot["receipt"]["generation"] += 1
+    f.pump.update(f.authority, f.controls)
+    assert f.pump.failed and not f.pump.active
+    f.browser.start.assert_called_once()

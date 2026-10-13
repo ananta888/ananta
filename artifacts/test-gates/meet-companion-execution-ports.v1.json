@@ -1,0 +1,33 @@
+{
+  "schema": "ananta.meet-companion-execution-ports.v1",
+  "status": "owned_model_pipe_and_cancellable_task_tool_http_verified_dialog_and_model_run_pending",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "runtime_migrated": false,
+  "checks": {
+    "regression_passed": 62,
+    "regression_seconds": 7.17,
+    "packaged_passed": 1,
+    "packaged_seconds": 4.48,
+    "packaged_unique_source_files": 38,
+    "worker_image": "sha256:033f41625b1905de5ac903ea74cbb39d62d0b98f2e7e8cad735da5e1493f14af",
+    "ruff": "passed",
+    "worker_boundaries": "passed_166_files"
+  },
+  "verified": [
+    "Closed sequenced local model port frames dispatch only explicitly injected owner callbacks, with size and 32-call bounds; duplicate and nonfinite JSON is rejected",
+    "Ports are disabled by default and unavailable for speech operations",
+    "Owner supplies fixed assignment, endpoint and key to a separate short-lived HTTP helper; model arguments cannot replace those bindings",
+    "Actual model child calls the actual signed Hub HTTP/SQL Registry tool through the owned HTTP helper without receiving Hub credentials",
+    "Pending HTTP remains cooperative; synthetic Task cancellation kills both model and HTTP children before publishing a result",
+    "Original deadlines apply across port callbacks; oversized results and protocol failures close the process without retry",
+    "Standalone read-only nonroot no-network no-Hub container verifies 38 unique source files and the actual local port exchange"
+  ],
+  "remaining": [
+    "Wire assigned tool definitions and dialog into the installed owned model runtime",
+    "Hub must reserve a separate model run over immutable admitted actual request and tool sources before each model execution; accept only exact bound results",
+    "Combined normal Task/executor/browser/model-tool acceptance and production provider/GPU/lipsync/rollout"
+  ],
+  "architecture_review": "Separate closed frame codec, typed assigned HTTP adapter and single-request HTTP runtime protect SRP/DIP. The parent remains the owner of cooperative control checks and process lifetimes; the child invokes execution ports only. Existing selector transport retains a long lifecycle method (SRP readability debt); a focused exchange-state object would reduce this without moving Task decisions into execution helpers. Legacy dialog global state and legacy Hub credential paths remain excluded from the assigned environment. The new ports are not yet productively negotiated."
+}

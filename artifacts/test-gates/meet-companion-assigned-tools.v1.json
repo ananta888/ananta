@@ -1,0 +1,40 @@
+{
+  "schema": "ananta.meet-companion-assigned-tools.v1",
+  "status": "assigned_eight_tool_box_and_model_source_binding_verified_dialog_pending",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "runtime_migrated": false,
+  "checks": {
+    "regression_passed": 52,
+    "regression_seconds": 8.57,
+    "assigned_toolbox_cases_passed": 3,
+    "packaged_passed": 1,
+    "packaged_seconds": 4.18,
+    "packaged_unique_source_files": 46,
+    "worker_image": "sha256:4d50fd5c5122eec695b596fec9140e497267cd8cda4b8bd0dac1c2e9bee464c1",
+    "ruff": "passed",
+    "worker_boundaries": "passed_171_files",
+    "diff_check": "passed"
+  },
+  "verified": [
+    "Assigned toolbox exposes the eight read-only tool definitions and invokes only the explicitly injected owner tool port, never legacy assist",
+    "Exact Hub tool responses are copied into bounded per-answer receipts and deterministic untrusted tool-message rendering; reset removes previous answer receipts",
+    "Assigned model environment fixes rendered tool result size to 6000 characters so legacy truncation configuration cannot alter registered model inputs",
+    "Actual model child obtains a signed Hub Task tool result through its owned helper, includes its exact source-bound tool message, and reserves a separate model RUN over both actual request and Tool output SRC before provider HTTP",
+    "Missing required tool arguments fail bounded before owner execution; no legacy fallback",
+    "Standalone isolated read-only nonroot no-network no-Hub image verifies 46 unique current files, including assigned toolbox and consumed legacy public definition module"
+  ],
+  "remaining": [
+    "Compose the assigned dialog with toolbox/provider and negotiate it in the installed normal Task runtime",
+    "Combined normal Task/browser/model-tool acceptance and Hub reserved-run cancellation/failure cleanup",
+    "Production provider/GPU/lipsync/rollout"
+  ],
+  "architecture_review": "Separate assigned read tool, receipt state and toolbox composition protect SRP/DIP while reusing public tool definitions and the bounded existing ToolBox. Existing argument conversion semantics are preserved; the small conversion loop is duplication debt that a pure exported spec-normalization function could reduce. The assigned environment closes legacy authority and fixes the shared rendering budget. Invalid/refused tool input terminates bounded execution rather than introducing unregistered tool-role material.",
+  "scope_boundaries": [
+    "Actual model/helper/provider/Hub HTTP and SQL Registry paths use synthetic MCP/provider and Task/source fixtures",
+    "All eight definitions are offered; this gate exercises the actual retrieve round, while separate scoped graph/layer gates cover their Hub handlers",
+    "The installed dialog is not yet wired; no productive tool-grounded answer, GPU or release claim is established",
+    "The package gate checks sources and isolated behavior; the host integration checks actual source-bound tool/model HTTP"
+  ]
+}

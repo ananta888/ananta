@@ -1,0 +1,510 @@
+{
+  "schema": "ananta.meet-companion-native-sequence-foundation.v1",
+  "status": "native_sequence_local_block_verified_productive_acceptance_pending",
+  "classification": "local_unit_and_installed_synthetic_scope_technical_observation",
+  "production_release_evidence": false,
+  "runtime_migrated": false,
+  "deployment": false,
+  "checks": {
+    "targeted_vitest_passed": 125,
+    "targeted_vitest_milliseconds": 895,
+    "sequence_clock_cases": 27,
+    "sequence_preparation_cases": 9,
+    "speech_source_cases": 28,
+    "speech_graph_cases": 8,
+    "video_loader_cases": 25,
+    "strict_isolated_typescript": "passed",
+    "adjacent_todo_gate_documents": 49,
+    "sequence_decoder_cases": 9,
+    "sequence_artwork_cases": 6,
+    "existing_video_decoder_cases": 13,
+    "endpoint_source_lifecycle_targeted_tests_passed": 129,
+    "endpoint_source_lifecycle_milliseconds": 999,
+    "sequence_controller_cases": 11,
+    "angular_application_typescript": "passed",
+    "worker_targeted_passed": 65,
+    "worker_targeted_seconds": 8.38,
+    "native_quality_frontend_passed": 61,
+    "native_quality_frontend_milliseconds": 602,
+    "packaged_sources": 60,
+    "package_gate_passed": 1,
+    "package_gate_seconds": 4.26,
+    "worker_boundary_files": 179,
+    "packaged_image": "sha256:8ade8937d76005fb1b49c173cf0cf3e20d9dbbf3d6d6ba0d92dd97978490ca04",
+    "empty_cleanup_lifecycle_regression_passed": 28,
+    "empty_cleanup_lifecycle_regression_milliseconds": 723,
+    "full_frontend_passed": 1782,
+    "full_frontend_files": 196,
+    "full_frontend_seconds": 14.41,
+    "companion_worker_regression_passed": 694,
+    "companion_worker_optional_skips": 38,
+    "companion_worker_regression_seconds": 61.14,
+    "repository_pinned_test_dependencies": "playwright1.58.0/hypothesis6.167.1 installed in isolated test venv",
+    "gpu_withdrawal_fixture_tests_passed": 21,
+    "gpu_withdrawal_fixture_tests_seconds": 3.68
+  },
+  "verified": [
+    "Closed bounded clip/sample content; no guessed activation generation",
+    "Sample-based clip/frame mapping and permanent retirement on malformed/replaced/regressing native progress",
+    "Exact completion can hold only the final frame of an already opened native generation",
+    "Digest before decoder, serial resource acquisition, one atlas and20s bounded preparation",
+    "Late decoder/frame cleanup without indefinite waits; permit remains occupied until unknown late resources settle",
+    "Owner cancellation after preparation and best-effort complete resource cleanup",
+    "Existing speech constants remain compatible exports from a focused shared format module",
+    "Owned paused/muted blob HTML decoder with exact metadata/URL checks, sequential frame seeking and bounded-shape ImageBitmap copying; no playback or capture API",
+    "Late bitmap work remains owned until disposal and cannot overlap a replacement decoder",
+    "Sample-clock artwork fences authority before/after pixels and after observation; invalid binding and generation changes release transferred atlas ownership",
+    "Pollable preparation/status/cancel API preserves existing methods and keeps long decoding outside a blocking Worker wait",
+    "Exact native authority and absolute/monotonic bounds prevent stale prepared-asset promotion",
+    "Activation validates an actual native speech generation/progress snapshot before transferring atlas ownership",
+    "Additive persona-sequence-v1 uses40fps source pacing while existing5fps/deadline/heartbeat behavior remains unchanged",
+    "Page leave and destroy cancel unpublished preparation; stale local resource handles cannot cancel current generation",
+    "Explicit default-off Worker adapter preserves assigned Hub checkpoints and strict native source/lease fences without host-timed clip swaps",
+    "Native quality receipt validates actual per-segment played-sample observations and unchanged41667us bound",
+    "One-frame final tails are balanced without exceeding120 frames per clip",
+    "Empty unscoped sequence cleanup confirms resource absence; unknown targeted handles remain false, preserving page admission and stale-handle isolation"
+  ],
+  "remaining": [
+    "Block-wide repository verification and browser support declaration",
+    "Configured external lipsync acceptance and productive release admission"
+  ],
+  "architecture_review": "SRP separates shape validation, progress quality and preparation ownership. DIP uses small injected decoder/frame ports. Neither component issues identity or authority, captures humans, schedules Hub Tasks or changes the Hub/Signaling control planes. The old host-timed publisher and large runtime remain documented SRP/DIP debt; this foundation is not a green substitute for failed actual delivery.",
+  "scope_boundaries": [
+    "Deterministic decoder tests use injected event/video/bitmap ports; installed CPU gate additionally exercises actual Chromium H264 decoding for its short synthetic tone clips.",
+    "Installed assigned Worker/native Chromium delivery passes for short synthetic model/CPU-tone inputs; long actual GPU and wider withdrawal acceptance remain open.",
+    "Existing native speech/avatar authority and Hub Task/Registry ownership are unchanged",
+    "Initial all-Meet-directory collection lacked pinned Playwright/Hypothesis in the test venv. Dependencies were installed; relevant Companion/owned-child/WSL/avatar regression passes694 with38 optional skips. This is not an all5890Meet-test run.",
+    "Additional actual long GPU speech-withdrawal gate has a separate explicit test opt-in. Its receipt rejects short substitutes, resumed second utterances and untyped/mismatched retirement boundaries; existing normal acceptance still requires all three utterances.",
+    "Final unchanged-limit full npm run check exits0. Earlier native incoming-clock failures remain unexplained historical observations; no production clock fix is claimed. Optional live infrastructure stays explicitly skipped, and productive lipsync/release admission is not established."
+  ],
+  "installed_native_cpu_attempt": {
+    "passed": false,
+    "seconds": 61.01,
+    "phase": "join",
+    "observation": "bounded receiver join timeout; no native decoder or synchronization acceptance established",
+    "cause": "empty unscoped sequence cleanup returned false and quarantined initial page admission"
+  },
+  "diagnostic_native_cpu_attempt": {
+    "passed": false,
+    "seconds": 61.21,
+    "phase": "join",
+    "code": "machine_cleanup_failed",
+    "model_requests": 0,
+    "production_release_evidence": false
+  },
+  "installed_native_cpu_success": {
+    "passed": true,
+    "seconds": 83.13,
+    "completed_publications": 3,
+    "failed_publications": 0,
+    "max_drift_us": 0,
+    "hub_test_runs_succeeded": 6,
+    "legacy_calls": 0,
+    "captures": 0,
+    "production_release_evidence": false,
+    "scope": "actual installed SQL Hub Worker and native browser decoder/publication; synthetic model/tool inputs and CPU tone"
+  },
+  "installed_native_gpu_success": {
+    "passed": true,
+    "seconds": 236.0,
+    "scope": "actual GPU LLM and GPU TTS; assigned SQL Hub Worker and actual Chromium native sequence; synthetic project/repository/tool data and local renderer",
+    "production_release_evidence": false,
+    "model": {
+      "model_digest": "65ec06548149b04c096a120e4a6da9d4017ea809c91734ea5631e89f96ddc57b",
+      "production_release_evidence": false,
+      "provider_requests": 3,
+      "size_vram": 1105419304,
+      "tool_requests": 3
+    },
+    "tts": {
+      "cache_bytes": [
+        28715127,
+        28715127,
+        28715127
+      ],
+      "production_release_evidence": false,
+      "samples": [
+        241664,
+        124672,
+        394240
+      ],
+      "seconds": [
+        44.40457081799832,
+        34.19301542700123,
+        35.54584954899474
+      ],
+      "shared_task_cache": true,
+      "task_cache_removed": true,
+      "utterances": 3
+    },
+    "cleanup": {
+      "callbacks": {
+        "finish": 1,
+        "grant": 207,
+        "legacy": 0,
+        "observe": 199,
+        "observe_denied": 1,
+        "provider": 3,
+        "tool": 3
+      },
+      "drift": [
+        [],
+        [],
+        []
+      ],
+      "hub_run_states": {
+        "succeeded": 6
+      },
+      "production_release_evidence": false,
+      "renewal": {
+        "deferred_attempts": 0,
+        "due_attempts": 3,
+        "satisfied_attempts": 3,
+        "unchanged_success_clock_during_deferral": true
+      },
+      "session": {},
+      "synchronization": {
+        "completed": 3,
+        "failed": 0,
+        "max_drift_us": 20000,
+        "retired": 0
+      },
+      "tts": [
+        {
+          "cache_bytes": 28715127,
+          "finished": true,
+          "samples": 241664,
+          "seconds": 44.40457081799832,
+          "started": true
+        },
+        {
+          "cache_bytes": 28715127,
+          "finished": true,
+          "samples": 124672,
+          "seconds": 34.19301542700123,
+          "started": true
+        },
+        {
+          "cache_bytes": 28715127,
+          "finished": true,
+          "samples": 394240,
+          "seconds": 35.54584954899474,
+          "started": true
+        }
+      ]
+    },
+    "max_drift_us": 20000,
+    "drift_limit_us": 41667,
+    "completed_publications": 3,
+    "multisegment_publications": 2,
+    "legacy_calls": 0
+  },
+  "external_lipsync_recheck": {
+    "endpoint": "http://172.18.112.1:8189/health",
+    "reachable": false,
+    "error_type": "URLError",
+    "timeout_seconds": 3,
+    "production_release_evidence": false
+  },
+  "native_source_withdrawal": {
+    "passed": 9,
+    "seconds": 695.18,
+    "cases": [
+      {
+        "case": "avatar-paused",
+        "seconds": 80.137,
+        "legacy_calls": 0,
+        "synchronization": {
+          "completed": 0,
+          "failed": 0,
+          "max_drift_us": 0,
+          "retired": 3
+        },
+        "hub_test_run_states": {}
+      },
+      {
+        "case": "speech-paused",
+        "seconds": 67.198,
+        "legacy_calls": 0,
+        "synchronization": {},
+        "hub_test_run_states": {}
+      },
+      {
+        "case": "avatar-mid-speech",
+        "seconds": 79.514,
+        "legacy_calls": 0,
+        "synchronization": {
+          "completed": 0,
+          "failed": 0,
+          "max_drift_us": 0,
+          "retired": 3
+        },
+        "hub_test_run_states": {}
+      },
+      {
+        "case": "speech-mid-speech",
+        "seconds": 69.098,
+        "legacy_calls": 0,
+        "synchronization": {},
+        "hub_test_run_states": {}
+      },
+      {
+        "case": "assigned-avatar-paused",
+        "seconds": 77.474,
+        "legacy_calls": 0,
+        "synchronization": {
+          "completed": 0,
+          "failed": 0,
+          "max_drift_us": 0,
+          "retired": 3
+        },
+        "hub_test_run_states": {
+          "succeeded": 6
+        }
+      },
+      {
+        "case": "assigned-speech-paused",
+        "seconds": 74.036,
+        "legacy_calls": 0,
+        "synchronization": {},
+        "hub_test_run_states": {
+          "succeeded": 6
+        }
+      },
+      {
+        "case": "assigned-avatar-mid-speech",
+        "seconds": 89.298,
+        "legacy_calls": 0,
+        "synchronization": {
+          "completed": 0,
+          "failed": 0,
+          "max_drift_us": 0,
+          "retired": 3
+        },
+        "hub_test_run_states": {
+          "succeeded": 6
+        }
+      },
+      {
+        "case": "assigned-speech-mid-speech",
+        "seconds": 78.84,
+        "legacy_calls": 0,
+        "synchronization": {},
+        "hub_test_run_states": {
+          "succeeded": 6
+        }
+      },
+      {
+        "case": "assigned-speech-preparation-paused",
+        "seconds": 78.811,
+        "legacy_calls": 0,
+        "synchronization": {},
+        "hub_test_run_states": {
+          "succeeded": 6
+        }
+      }
+    ],
+    "production_release_evidence": false,
+    "scope": "actual installed assigned SQL Hub Worker Chromium; synthetic models and CPU tones including four-second mid-speech; no actual GPU withdrawal claim"
+  },
+  "native_lifecycle_batch": {
+    "passed": 5,
+    "failed": 1,
+    "seconds": 427.4,
+    "passed_cases": [
+      "answers-cancel",
+      "model-cancel",
+      "complete",
+      "assigned-model-cancel",
+      "assigned-complete"
+    ],
+    "failure": "intentional Worker crash recovery assertions passed but new cleanup diagnostics attempted exec inside stopped container; corrected and isolated rerun pending",
+    "production_release_evidence": false
+  },
+  "native_gpu_withdrawal_first_attempt": {
+    "passed": false,
+    "seconds": 197.73,
+    "failure": "actual model request timed out before TTS; one failed model run and one successful tool run; no GPU speech or withdrawal acceptance established",
+    "scope": "ran while broad native repository tests were active; contention cause is unproven",
+    "production_release_evidence": false
+  },
+  "browser_repository_check": {
+    "passed": false,
+    "prepare": "passed including1782frontend/build/static/leakage/Go unit-vet",
+    "node_passed": 1796,
+    "node_failed": 1,
+    "node_skipped": 5,
+    "node_seconds": 877.81566524,
+    "failure": "test/native-source-audio.browser.test.js screen-first+unprocessed, revoke-screen-audio, output-ready wait aborted after15seconds",
+    "infrastructure": "not reached after Node failure",
+    "production_release_evidence": false,
+    "isolated_failing_case": {
+      "passed": true,
+      "seconds": 62.77869607,
+      "source_policy_and_15s_output_ready_bound_unchanged": true,
+      "cause_of_prior_failure": "unproven",
+      "production_release_evidence": false
+    },
+    "isolated_full_check": "running without external acceptance overlap",
+    "second_full_check": {
+      "passed": false,
+      "prepare": "passed",
+      "node_passed": 1796,
+      "node_failed": 1,
+      "node_skipped": 5,
+      "node_seconds": 859.68784236,
+      "failure": "separate native single-source gain/mute loses source authority before unmute; prior two-source cases pass",
+      "infrastructure": "not reached"
+    },
+    "passive_authority_diagnostic_unit_tests_passed": 3,
+    "isolated_gain_mute_with_diagnostics_passed": true,
+    "isolated_gain_mute_seconds": 57.795456737,
+    "paired_audio_encoding_observed": {
+      "passed": 5,
+      "seconds": 211.093873852,
+      "concurrency": 2,
+      "thresholds_changed": false,
+      "authority_policy_changed": false,
+      "production_release_evidence": false
+    },
+    "full_observed_run": "terminal failed, native clock expiry subtype investigation",
+    "third_full_check": {
+      "passed": false,
+      "prepare": "passed",
+      "node_passed": 1800,
+      "node_failed": 1,
+      "node_skipped": 5,
+      "node_seconds": 849.756463034,
+      "failure": "balanced+speech-first retained microphone; authority stable; native microphone clock expiry3; valid native output becomes silent",
+      "infrastructure": "not reached"
+    },
+    "clock_expiry_diagnostic_unit_tests": 9,
+    "preclose_clock_diagnostic": {
+      "version": 2,
+      "unit_passed": 9,
+      "unit_milliseconds": 82.69821,
+      "paired_actual_cases_passed": 5,
+      "paired_actual_seconds": 210.745874884,
+      "expiry_subtype": "not observed in this successful paired run",
+      "release_sources_modified": false,
+      "policy_changed": false,
+      "production_release_evidence": false
+    },
+    "clock_expiry_diagnostic_validation": {
+      "node_passed": 10,
+      "node_milliseconds": 92.707428,
+      "synthetic_go_expiry_subcases": 2,
+      "synthetic_go_package_seconds": 0.007,
+      "actual_focused_matrix_passed": 8,
+      "actual_focused_matrix_seconds": 267.782900809,
+      "expiry_subtype_observed": false,
+      "production_release_evidence": false
+    },
+    "full_node_v2_expiry_diagnostic": "terminal passed",
+    "node_v2_diagnostic_success": {
+      "passed": true,
+      "node_passed": 1803,
+      "node_failed": 0,
+      "node_skipped": 5,
+      "node_seconds": 852.437535566,
+      "prior_clock_failure_cause": "unproven, no production fix claimed",
+      "production_release_evidence": false
+    },
+    "latest_infrastructure": {
+      "entrypoint_exit_code": 0,
+      "live_gates_skipped": 14,
+      "actual_live_infrastructure_verified": false,
+      "production_release_evidence": false
+    },
+    "final_single_command_check": {
+      "exit_code": 0,
+      "frontend_passed": 1782,
+      "node_passed": 1803,
+      "node_failed": 0,
+      "node_skipped": 5,
+      "node_seconds": 847.964580574,
+      "live_infrastructure_skipped": 14,
+      "build_static_security_go_vet": "passed",
+      "actual_live_infrastructure_verified": false,
+      "production_release_evidence": false
+    }
+  },
+  "native_gpu_withdrawal_success": {
+    "passed": true,
+    "seconds": 123.98,
+    "model": {
+      "model_digest": "65ec06548149b04c096a120e4a6da9d4017ea809c91734ea5631e89f96ddc57b",
+      "production_release_evidence": false,
+      "provider_requests": 3,
+      "size_vram": 1105419304,
+      "tool_requests": 3
+    },
+    "tts": {
+      "cache_bytes": [
+        28715127
+      ],
+      "production_release_evidence": false,
+      "samples": [
+        260608
+      ],
+      "seconds": [
+        44.5386655310067
+      ],
+      "shared_task_cache": true,
+      "task_cache_removed": true,
+      "utterances": 1
+    },
+    "cleanup": {
+      "browser_observation_available": true,
+      "callbacks": {
+        "finish": 1,
+        "grant": 97,
+        "legacy": 0,
+        "observe": 93,
+        "observe_denied": 0,
+        "provider": 3,
+        "tool": 3
+      },
+      "container_running": true,
+      "drift": [],
+      "hub_run_states": {
+        "succeeded": 6
+      },
+      "production_release_evidence": false,
+      "renewal": {
+        "deferred_attempts": 0,
+        "due_attempts": 2,
+        "satisfied_attempts": 2,
+        "unchanged_success_clock_during_deferral": true
+      },
+      "session": {},
+      "synchronization": {},
+      "tts": [
+        {
+          "cache_bytes": 28715127,
+          "finished": true,
+          "samples": 260608,
+          "seconds": 44.5386655310067,
+          "started": true
+        }
+      ]
+    },
+    "early_before_half_pcm_verified": true,
+    "later_utterance_forbidden_verified": true,
+    "production_release_evidence": false,
+    "scope": "actual GPU model and native GPU speech greater than10seconds; early current Hub speech withdrawal, no resumed speech, actual assigned Chromium, synthetic repository/tool/project"
+  },
+  "native_crash_recovery_success": {
+    "passed": true,
+    "seconds": 106.49,
+    "original_task_deadline_preserved": true,
+    "hub_test_runs": {
+      "failed": 1,
+      "succeeded": 1
+    },
+    "stopped_container_diagnostics_corrected": true,
+    "production_release_evidence": false
+  },
+  "current_native_image_lifecycle_cases_verified": 16,
+  "local_native_sequence_migration_verified": true
+}

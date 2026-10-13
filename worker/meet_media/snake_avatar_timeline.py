@@ -128,15 +128,12 @@ class SpeechMediaTimeline:
         first = 0
         while first < self.frames:
             count = min(max_frames, self.frames - first)
+            if self.frames - first - count == 1:
+                if count <= 2:
+                    raise ValueError("meet_avatar_segment_invalid")
+                count -= 1  # Leave two frames for the tail without exceeding the clip bound.
             if count < 2:
-                # The contract needs at least two frames; fold the tail into
-                # the previous segment instead of publishing a 1-frame clip.
-                if result:
-                    last = result.pop()
-                    count += last.frames
-                    first = last.first_frame
-                else:
-                    count = 2
+                count = 2  # Only a sub-frame utterance needs a held final frame.
             start, _ = self.frame_window(first)
             end = min(self.total_samples, (first + count) * self.rate // self.fps)
             result.append(ClipSegment(len(result), start, end, first, count))

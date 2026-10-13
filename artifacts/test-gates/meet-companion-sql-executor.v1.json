@@ -1,0 +1,42 @@
+{
+  "schema": "ananta.meet-companion-sql-executor.v1",
+  "status": "sql_task_executor_signed_grants_terminal_integration_verified_browser_transport_pending",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "runtime_migrated": false,
+  "checks": {
+    "combined_sql_executor_cases_passed": 4,
+    "related_regression_passed": 19,
+    "seconds": 15.72,
+    "ruff": "passed",
+    "diff_check": "passed",
+    "phase_observation_recheck": {
+      "passed": 4,
+      "seconds": 10.1,
+      "ruff": "passed"
+    }
+  },
+  "verified": [
+    "Normal Hub SQL Task admission invokes local executor port with current closed Companion assignment",
+    "Actual executor child inherits bounded assignment and current signed HTTP Task grants",
+    "Actual signed Hub terminal callback completes the persisted SQL Task",
+    "Current SQL Hub cancellation stops child and later failed finish cannot overwrite cancelled Task",
+    "Parent releases slot; exact admitted dispatch lease cannot replay or launch another child",
+    "Signed child observation callback persists Hub-validated membership and empty chat-only publication projection in SQL under the admitted Task and exact dispatch lease, for completion and cancellation"
+  ],
+  "scope_boundaries": [
+    "Real isolated SQL Task repository, real Hub admission/grant signing/terminal service, real executor/child/progress/watchdog and actual loopback HTTP",
+    "Local test adapter replaces Worker dispatch HTTP transport",
+    "Explicit synthetic run adapter replaces browser; this is not actual browser/container acceptance",
+    "Physical Meet observation is an explicit synthetic trusted-port fixture; no actual browser publication evidence is claimed"
+  ],
+  "remaining": [
+    "Combined SQL Task / signed Worker HTTP / normal executor / actual browser / observation / terminal run",
+    "Assigned synchronized speaking clips",
+    "Assignment-bound CodeCompass/tool policy parity rather than legacy environment defaults",
+    "Live provider/GPU/lipsync and production rollout acceptance"
+  ],
+  "architecture_review": "SQL task authority and terminal policy stay in Hub; narrow local test dispatch port implements existing start_dialog interface (SRP/ISP/DIP). Replay DB and slot/watchdog remain Worker resource controls, not task ownership. Existing legacy broad composition/tool environment remains debt; no production release evidence claimed.",
+  "superseded_integration_gap_by": "artifacts/test-gates/meet-companion-integrated-container.v1.json"
+}

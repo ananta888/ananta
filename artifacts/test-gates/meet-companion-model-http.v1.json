@@ -1,0 +1,41 @@
+{
+  "schema": "ananta.meet-companion-model-http.v1",
+  "status": "signed_model_http_and_opt_in_bootstrap_verified_owned_runtime_pending",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "runtime_migrated": false,
+  "checks": {
+    "regression_passed": 108,
+    "regression_seconds": 6.61,
+    "model_http_cases_passed": 13,
+    "packaged_passed": 1,
+    "packaged_seconds": 4.44,
+    "packaged_unique_source_files": 41,
+    "worker_image": "sha256:b30f7e49a2c593e023262e38c3614812fc06b9f7eabf00910b03dc3dfedeff22",
+    "ruff": "passed",
+    "worker_boundaries": "passed_167_files",
+    "diff_check": "passed"
+  },
+  "verified": [
+    "Dedicated Hub-only task-model route bounds and validates closed reserve/finish payloads; query, bearer auth, transfer encoding and invalid signatures are refused",
+    "Dedicated model HMAC domains bind response to the exact request; legacy tool/grant signatures are not model authority",
+    "Worker consumes only the endpoint/key/opener/original deadline of its validated Task grant; no redirect/proxy/legacy fallback",
+    "Actual loopback Worker HTTP client reserves a SQL Registry model run and finishes the exact synthetic result; cancellation prevents result acceptance",
+    "Worker rejects unsigned responses and correctly signed responses with foreign result digest or invalid closed run",
+    "Model bootstrap is separately default-off and requires the current Hub Task-tool service; model profile authorization remains mandatory",
+    "Standalone isolated read-only nonroot no-network no-Hub Worker gate verifies 41 unique current files including the model client and shared contracts"
+  ],
+  "remaining": [
+    "Owned cooperative model HTTP helper and actual model provider wrapper; reserve before every request and finish before accepting its exact result",
+    "Assigned dialog/toolbox and installed Task runtime integration; combined normal Task/browser/model-tool acceptance",
+    "Hub lifecycle cancellation cleanup of outstanding reserved model runs; production provider/GPU/lipsync/rollout"
+  ],
+  "architecture_review": "Shared closed contracts separate transport validation from Hub model lifecycle (SRP/DIP). The Worker inherits an already validated transport instead of selecting new authority. Existing repeated bounded signed HTTP client/route plumbing is preserved duplication debt; a focused injected signed-channel adapter is the cleaner future structure without broad interface inheritance. No Worker orchestration or Hub package imports.",
+  "scope_boundaries": [
+    "Actual HTTP/SQL lifecycle uses explicit synthetic model result and Task/MCP/source fixtures; no actual provider execution is tested",
+    "The current model HTTP client is synchronous and is not yet negotiated by the installed owned model runtime; cooperative helper remains required",
+    "Container probe constructs the client without network; host loopback tests prove actual signed HTTP",
+    "Local/test observations and declared Hub environment bindings are not production release or grounded model-answer evidence"
+  ]
+}

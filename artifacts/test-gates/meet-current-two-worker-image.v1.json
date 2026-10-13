@@ -1,0 +1,42 @@
+{
+  "schema": "ananta.meet-current-two-worker-image.v1",
+  "status": "implemented_and_current_image_verified",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "image": "sha256:85c14fa60f4543c3cecab4f49c1daccdd51a07ca8a7536bc1ff9a4c8c62bd384",
+  "checks": {
+    "selected": "persona-speech",
+    "passed": 1,
+    "failed": 0,
+    "seconds": 68.68,
+    "packaged_source_modules": 14,
+    "packaged_gate_passed": 1,
+    "packaged_gate_seconds": 1.73,
+    "avatar_pump_tests_passed": 27,
+    "worker_boundary_files": 156,
+    "avatar_and_hub_regression_passed": 107,
+    "avatar_and_hub_regression_seconds": 48.27
+  },
+  "interpretation": "Current client 120-second / 600-frame receipts rejected by legacy Worker 30-second / 150-frame validator. Shared Worker contract and setup now match authorized client 120/110 bounds; Hub deadline and 2.5-second freshness watchdog preserved. Actual Hub/two packaged Workers persona-speech acceptance passed.",
+  "remaining": [
+    "Full legacy Companion.run backlog acceptance",
+    "Live providers/GPU/deployment and Registry evidence"
+  ],
+  "failed_initial_recheck": {
+    "image": "sha256:138f73ee05a8b8649a785237320b2b9464a1d3286c2e15a4baaa82b2bc538a64",
+    "checks": {
+      "selected": "persona-speech",
+      "passed": 0,
+      "failed": 1,
+      "seconds": 43.25,
+      "phase": "media-avatars",
+      "fixture_error": "test_multi_bridge_failed",
+      "fixture_timeout": false,
+      "proxy_connection_drops": 0,
+      "chat_reply_count_at_failure": 0
+    },
+    "interpretation": "Fresh-current-image coupled result does not supersede earlier success as current acceptance; failure occurred at avatar observation before two chat replies. Do not attribute to inference or deployment without diagnosis."
+  },
+  "verification_note": "Initial broad regression invocation incorrectly excluded root fixtures via confcutdir; corrected invocation with ordinary root fixtures passed all 107 cases."
+}

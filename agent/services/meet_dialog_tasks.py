@@ -10,6 +10,7 @@ class HubDialogTasks:
         role_assignments=None,
         organization_principals=False,
         publishers=None,
+        run_cleanup=None,
     ):
         if type(organization_principals) is not bool:
             raise ValueError("meet_organization_principals_config_invalid")
@@ -17,6 +18,7 @@ class HubDialogTasks:
         self.publisher_url, self.role_assignments = publisher_url, role_assignments
         self.organization_principals = organization_principals
         self.publishers = publishers
+        self.run_cleanup = run_cleanup
 
     def list_page(self, tenant, project, offset):
         from agent.services.repository_registry import get_repository_registry
@@ -262,6 +264,12 @@ class HubDialogTasks:
                 from agent.services.meet_browser_tasks import HubBrowserTasks
 
                 HubBrowserTasks(self).finish(scope, browser, "cancelled")
+        if self.run_cleanup is not None:
+            terminal = self.get_by_id(task_id)
+            if terminal is not None:
+                # Repeated callbacks retry cleanup after a prior bounded failure.
+                # Cancellation is already authoritative and must not be undone.
+                self.run_cleanup.terminal(terminal, lease_id=lease_id, runtime_id=runtime_id)
         return finished
 
     def get_by_id(self, task_id):

@@ -16,7 +16,7 @@ bytes are accepted. This is a synthetic indicator, not a human camera or
 generative talking-head model. A missing approved persona must not silently
 select the neutral profile.
 
-Each activation lasts at most 30 seconds, including a bounded 10-second setup.
+Each activation lasts at most 120 seconds, including a bounded 110-second setup.
 A 100-ms authority watchdog fences changed membership, lease, capability,
 expiry and backwards clocks. Only the concrete protected camera track may
 become ready; required-SFrame must retain its existing no-plaintext policy.
@@ -26,7 +26,7 @@ renewal loop or Hub policy authority is introduced in Meet.
 An additional generation-bound controller pulse expires after 2500 ms. Only a
 fresh authenticated Hub update causes the Worker to pulse the browser; normal
 ticks and pending setup never generate their own renewal. A stalled Hub call
-therefore cannot leave a self-animating source alive for the full 30 seconds.
+therefore cannot leave a self-animating source alive for the full 120 seconds.
 Pulses do not extend the activation or Meet lease, grant capabilities or count
 as cryptographic Hub receipts themselves. A brief same-authority rekey pauses
 frame requests for at most two seconds; changed membership/lease still closes.
@@ -144,3 +144,24 @@ Five classification tests ensure GPU mode preserves its provisioned Worker and
 20-second profile and cannot silently substitute the synthetic tone (9.97 s).
 Synthetic admission policy remains explicitly separate from actual GPU/audio
 execution, and `production_release_evidence` remains false.
+
+## Immutable observed activation binding
+
+The Worker pins the first valid browser source generation and expiry for each
+activation. Later observations may advance frames or move from pending setup to
+ready, but cannot replace that generation or extend its expiry. A mismatch
+closes the owned source and requires a changed Hub binding/control before retry.
+Expiry, fresh authenticated updates and explicit Hub scope changes retain their
+existing lifecycle semantics. This is observation fencing, not Worker policy
+issuance: the Hub still owns authorization and the task.
+
+Two deterministic negative cases reproduced acceptance of changed expiry and
+generation before the fix. Both now fail closed; 53 pump and image/video
+presentation tests pass. Existing renderer/browser ports remain separate (SRP,
+DIP), with no new global state or orchestration loop. Actual fresh-image coupling
+is reported separately in the test gate artifact.
+
+The fresh-image packaged source gate passed. Actual Hub/two-Worker coupling
+then passed on the same-image recheck (68.12 seconds). The first attempt reached
+both avatars and two replies but stopped on stale Hub control during concurrent
+speech; that failure remains recorded, with no relaxation of freshness policy.

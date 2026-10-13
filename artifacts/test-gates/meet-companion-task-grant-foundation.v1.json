@@ -1,0 +1,43 @@
+{
+  "schema": "ananta.meet-companion-task-grant-foundation.v1",
+  "status": "grant_port_verified_runtime_migration_in_progress",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "deployment": false,
+  "scope": "Assignment-bound Hub grant service using current MeetDialogAuthority and real Ed25519 issuer; no new task, runtime, session or lease identities from Worker",
+  "checks": {
+    "new_task_bound_port_passed": 14,
+    "legacy_actual_http_grant_contract_passed": 5,
+    "new_http_route_exposed": "registered; disabled unless opt-in Hub service composed",
+    "bootstrap_composed": "conditionally on default-off flag",
+    "runtime_migrated": false,
+    "sql_task_integration_verified": false
+  },
+  "verified": [
+    "Exact current Task/dispatch-lease/runtime/project/session/capability binding",
+    "Cancellation denies subsequent grants",
+    "Signer rereads authority through a bound adapter; rebinding before signing denied",
+    "Post-signing controls/authority changes reject response",
+    "Caller request and initial authority snapshot copied before port calls",
+    "No legacy self-issued identity fallback or Registry evidence issuance"
+  ],
+  "remaining": [
+    "Compose normal Hub task admission and dispatch for the Companion profile",
+    "Closed Worker assignment transport and executable runtime handler",
+    "Continuously current Hub controls, freshness, cancel, result and terminal tracking",
+    "Real persisted Task/SQL and actual-container acceptance of migrated execution",
+    "Explicit legacy compatibility/rollout policy"
+  ],
+  "architecture_review": "Grant projection has one responsibility (SRP); it depends on narrow task-authority and signer ports (ISP/DIP) and reuses existing authority checks (OCP). No Worker orchestration or policy ownership introduced. Existing legacy path remains unchanged and its migration is incomplete; this unused foundation port is not a claim of normal task admission.",
+  "http_composition_review": {
+    "status": "task_bound_http_port_verified",
+    "report": "artifacts/test-gates/meet-companion-task-grant-http.v1.json",
+    "tests_passed": 37,
+    "runtime_migrated": false
+  },
+  "worker_client_review": {
+    "status": "worker_transport_verified",
+    "report": "artifacts/test-gates/meet-companion-task-grant-client.v1.json",
+    "runtime_migrated": false
+  }
+}

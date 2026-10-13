@@ -10,6 +10,7 @@ import time
 
 from ananta_contracts.meet_dialog import validate_assignment
 from worker.meet_media.assignment_input import dialog_assignment_input
+from worker.meet_media.companion_task_scratch import TaskExecutionScratch
 from worker.meet_media.contract import encode
 from worker.meet_media.dialog_progress_budget import DialogProgressBudget
 from worker.meet_media.dialog_progress_channel import DialogProgressChannel
@@ -32,6 +33,7 @@ class DialogExecutor:
             raise ValueError("meet_dialog_worker_busy")
         process = None
         progress = None
+        scratch = None
         try:
             with sqlite3.connect(self.replay_path) as db:
                 db.execute("DELETE FROM dialog_leases WHERE deadline < ?", (int(time.time()) - 120,))
@@ -45,17 +47,27 @@ class DialogExecutor:
                 now = time.monotonic()
                 budget = DialogProgressBudget(now + max(0, min(7200, assignment["deadline"] - time.time())) + 5, now)
                 progress = DialogProgressChannel()
+                scratch = TaskExecutionScratch()
+                child_options = progress.child_options()
+                environment = child_options.get("env")
+                if environment is None:
+                    environment = os.environ
+                child_options["env"] = environment | {
+                    "ANANTA_MEET_TASK_SCRATCH_DIR": scratch.environment["TMPDIR"],
+                    "TMPDIR": scratch.environment["TMPDIR"]}
                 process = subprocess.Popen(
-                    [sys.executable, "-m", "worker.meet_media.dialog_runtime"],
+                    [sys.executable, "-m", (
+                        "worker.meet_media.companion_task_runtime" if assignment.get("companion_execution") is True
+                        else "worker.meet_media.dialog_runtime")],
                     stdin=source,
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                     start_new_session=True,
-                    **progress.child_options(),
+                    **child_options,
                 )
                 progress.spawned()
-            threading.Thread(target=self._watch, args=(process, progress, budget), daemon=True).start()
-        except Exception:
+            threading.Thread(target=self._watch, args=(process, progress, budget, scratch), daemon=True).start()
+        except BaseException:
             try:
                 if process is not None:
                     self._stop(process)
@@ -64,7 +76,11 @@ class DialogExecutor:
                     if progress is not None:
                         progress.close()
                 finally:
-                    self.slots.release()
+                    try:
+                        if scratch is not None:
+                            scratch.close()
+                    finally:
+                        self.slots.release()
             raise
         return {
             "schema": "ananta.meet-dialog-accepted.v1",
@@ -74,14 +90,18 @@ class DialogExecutor:
             "status": "accepted",
         }
 
-    def _watch(self, process, progress, budget):
+    def _watch(self, process, progress, budget, scratch=None):
         try:
             watch_dialog_progress(process, progress, budget, self._stop)
         finally:
             try:
                 progress.close()
             finally:
-                self.slots.release()
+                try:
+                    if scratch is not None:
+                        scratch.close()
+                finally:
+                    self.slots.release()
 
     @staticmethod
     def _stop(process):

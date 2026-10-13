@@ -1,0 +1,43 @@
+{
+  "schema": "ananta.meet-companion-task-tools.v1",
+  "status": "hub_policy_sql_registry_and_worker_http_verified_runtime_and_full_tool_parity_pending",
+  "classification": "local_headless_synthetic_technical_observation",
+  "production_release_evidence": false,
+  "runtime_migrated": false,
+  "deployment": false,
+  "worker_image": "sha256:f4cf3e2bef1142e97fcc9105136794f0b608a889783a76211cc0c09a3d92195c",
+  "checks": {
+    "related_regression_passed": 145,
+    "related_seconds": 9.36,
+    "packaged_passed": 1,
+    "packaged_seconds": 4.41,
+    "unique_packaged_source_files": 35,
+    "worker_boundaries": "passed_163_files",
+    "ruff": "passed",
+    "diff_check": "passed"
+  },
+  "verified": [
+    "Dedicated default-off Hub Task-tool HTTP route authenticates direction and exact request; ordinary project/lease/runtime/session/capability binding is re-read before and after execution",
+    "Current chat control, operator read-only policy and sealed source scope are checked again when queued work actually starts",
+    "Immutable input/output bytes are admitted in tenant/project-scoped Hub SQL before Registry source issuance; actual Hub Registry reserves each tool run before MCP execution",
+    "Replay admission and a240-attempt assignment budget are durable in SQL; actual concurrent SQLite test admits only its configured three calls",
+    "Worker client inherits the validated grant endpoint/key/original deadline, verifies request-bound replies and closed Registry projections, and never calls legacy assist",
+    "Actual loopback HTTP plus actual SQL Registry prove cancellation, policy/source withdrawal, invalid authority, replay, mandatory approval refusal, response forgery and failed run persistence",
+    "Legacy tool route remains compatible through shared validators and bounded projection"
+  ],
+  "remaining": [
+    "Wire the Task tool adapter into the owned model process and existing toolbox without enabling legacy environment access",
+    "Reserve a separate Hub model run over admitted tool source inputs before model execution; accept its exact bound result and preserve current control checkpoints",
+    "Implement scoped architecture_intelligence/layers_heads/layers_plan handlers; current global handlers are explicitly denied by the new route",
+    "Combined normal Task/executor/browser/model-tool acceptance and production provider/GPU/lipsync/rollout"
+  ],
+  "scope_boundaries": [
+    "Task storage and MCP payloads are explicit synthetic fixtures; HTTP, SQL admission, operation policy, sealed capability transport and Registry persistence are actual",
+    "Initial five-handler transport fixture acceptance did not prove graph index isolation. The later scoped-graph report verifies actual graph selection/path filtering and enables intelligence; two layer handlers remain pending.",
+    "Tool-run evidence does not by itself ground a later model answer or satisfy production release gates",
+    "Shared Hub executor may continue already-running read-only work after timeout; current checks fence queued work and prevent returned stale output. No thread cancellation or backend resource isolation claim",
+    "Environment digest binds the declared Hub MCP adapter version; no hardware or provider environment attestation claim"
+  ],
+  "architecture_review": "Focused Task-tool controller composes separate current-authority, policy, execution, attempt-admission, source-admission and Registry ports (SRP/ISP/DIP). Hub alone issues identities and owns policy; Worker consumes one assigned operation. Shared closed vocabulary/result projection removes route SRP duplication and preserves compatibility re-exports. Existing MCP global handlers, shared executor/global service locators and loosely typed legacy payloads remain documented coupling and containment debt.",
+  "superseded_graph_scope_report": "artifacts/test-gates/meet-companion-scoped-graph.v1.json"
+}
