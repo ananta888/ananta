@@ -20,10 +20,12 @@ def _service():
         raise RuntimeError("memory_audit_read_unavailable")
     from agent.database import engine
     from agent.repositories.memory_audit import SQLMemoryAuditRepository
+    from agent.repositories.memory_quarantine_read import SQLMemoryQuarantineReadRepository
     from agent.repositories.memory_snapshot import SQLMemorySnapshotRepository
 
     return MemoryAuditReadService(access=access, repository=SQLMemoryAuditRepository(engine),
-                                  snapshots=SQLMemorySnapshotRepository(engine))
+                                  snapshots=SQLMemorySnapshotRepository(engine),
+                                  quarantine=SQLMemoryQuarantineReadRepository())
 
 
 @memory_audit_bp.get("/api/projects/<project_id>/memory-audit/events")
@@ -48,6 +50,34 @@ def memory_audit_events(project_id, diffs=False):
         method = service.diffs if diffs else service.page
         result = method(principal=get_authenticated_source_control_principal(),
                         project_id=project_id, query=MemoryAuditQuery(**values))
+        return api_response(data=result)
+    except ProjectAccessError as exc:
+        return api_response(status="error", message=exc.reason_code, code=exc.public_status)
+    except PermissionError:
+        return api_response(status="error", message="memory_audit_project_denied", code=403)
+    except (ValueError, TypeError):
+        return api_response(status="error", message="memory_audit_query_or_data_invalid", code=422)
+    except Exception:
+        return api_response(status="error", message="memory_audit_read_unavailable", code=503)
+
+
+@memory_audit_bp.get("/api/projects/<project_id>/memory-audit/quarantine")
+@check_auth
+def memory_audit_quarantine(project_id):
+    if current_app.config.get("ROLE") != "hub":
+        return api_response(status="error", message="memory_audit_hub_required", code=403)
+    try:
+        if set(request.args) - {"limit"} or any(len(request.args.getlist(key)) != 1 for key in request.args):
+            raise ValueError("memory_audit_query_invalid")
+        limit = 200
+        if "limit" in request.args:
+            raw = request.args["limit"]
+            if not raw.isascii() or not raw.isdigit() or len(raw) > 4:
+                raise ValueError("memory_audit_query_invalid")
+            limit = int(raw)
+        service = _service()
+        result = service.quarantine_state(principal=get_authenticated_source_control_principal(),
+                                          project_id=project_id, limit=limit)
         return api_response(data=result)
     except ProjectAccessError as exc:
         return api_response(status="error", message=exc.reason_code, code=exc.public_status)

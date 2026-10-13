@@ -46,11 +46,16 @@ class MemorySnapshotProjectReadPort(Protocol):
     def read_run(self, *, tenant_id: str, project_id: str, query: MemoryAuditQuery) -> list[dict]: ...
 
 
+class MemoryQuarantineProjectReadPort(Protocol):
+    def project_quarantine(self, *, tenant_id: str, project_id: str, limit: int = 200) -> list[dict]: ...
+
+
 class MemoryAuditReadService:
     def __init__(self, *, access: ProjectAccessPort, repository: MemoryAuditProjectReadPort,
-                 snapshots: MemorySnapshotProjectReadPort | None = None):
+                 snapshots: MemorySnapshotProjectReadPort | None = None,
+                 quarantine: MemoryQuarantineProjectReadPort | None = None):
         self._access, self._repository = access, repository
-        self._snapshots = snapshots
+        self._snapshots, self._quarantine = snapshots, quarantine
 
     def page(self, *, principal: HubSourcePrincipal, project_id: str, query: MemoryAuditQuery) -> dict:
         query.assert_valid()
@@ -89,6 +94,19 @@ class MemoryAuditReadService:
         return {'schema': 'ananta.memory-diff-page.v1', 'project_id': scope.project_id,
                 'run_id': query.run_id, 'items': items, 'integrity': 'snapshot_and_audit_links_verified',
                 'production_release_evidence': False}
+
+    def quarantine_state(self, *, principal: HubSourcePrincipal, project_id: str, limit: int = 200) -> dict:
+        """Content-free inventory of currently blocked result-memory entries and tree chunks."""
+        if not isinstance(principal, HubSourcePrincipal):
+            raise PermissionError("memory_audit_principal_scope_required")
+        if self._quarantine is None:
+            raise RuntimeError("memory_quarantine_read_unavailable")
+        scope = self._authorize_scope(principal, project_id)
+        items = self._quarantine.project_quarantine(
+            tenant_id=scope.tenant_id, project_id=scope.project_id, limit=limit)
+        return {"schema": "ananta.memory-quarantine-page.v1", "project_id": scope.project_id,
+                "items": items, "integrity": "quarantine_state_projection",
+                "production_release_evidence": False}
 
     def _authorize_scope(self, principal, project_id):
         if not principal.tenant_id or not principal.subject_id:
