@@ -44,6 +44,25 @@ class HarnessSearchStore:
                 raise ValueError("harness_search_state_mutated")
             return {"revision": row.revision, "state": payload}
 
+    def list(self, *, tenant_id: str, project_id: str, limit: int = 100) -> list[dict]:
+        if type(limit) is not int or not 1 <= limit <= 100:
+            raise ValueError("harness_search_list_limit_invalid")
+        with Session(self._engine()) as session:
+            ids = session.exec(
+                select(HarnessSearchRevisionDB.session_id)
+                .where(
+                    HarnessSearchRevisionDB.tenant_id == tenant_id,
+                    HarnessSearchRevisionDB.project_id == project_id,
+                )
+                .distinct()
+                .order_by(HarnessSearchRevisionDB.session_id)
+                .limit(limit)
+            ).all()
+        return [
+            {"session_id": session_id, **self.get(tenant_id=tenant_id, project_id=project_id, session_id=session_id)}
+            for session_id in ids
+        ]
+
     def append(self, *, tenant_id: str, project_id: str, session_id: str, state: dict, expected_revision: int) -> dict:
         if (
             any(

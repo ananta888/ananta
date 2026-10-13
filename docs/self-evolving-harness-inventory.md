@@ -180,3 +180,25 @@ mutierte Evidenz ab. Alle Schritte sind headless und bounded.
 **SOLID:** Vorschläge, Suchpolicy, Zustandsübergänge, Persistence und Task-Transport
 liegen in eigenen Modulen. Der Controller hängt an kleinen Ports (SRP/ISP/DIP);
 er besitzt weder Docker-Implementierung noch Worker-Tools oder Release-Autorität.
+
+## Operator-Read-API (SEH-019, Teilimplementierung)
+
+Der reguläre Hub-Bootstrap registriert drei neue, adminpflichtige GET-Endpunkte:
+
+- `/api/harness/searches?tenant_id=...&project_id=...&limit=...`
+- `/api/harness/searches/<session_id>?tenant_id=...&project_id=...`
+- `/api/harness/searches/<session_id>/lineage?tenant_id=...&project_id=...`
+
+Die Projektion zeigt begrenzte Suchlimits, Budgetverbrauch, Phase, Baseline/Varianten,
+Modellzuordnung, erlaubte Qualitäts-/Ressourcenmetriken, Parent/Child-Kanten und
+Pareto-Status. Registry-Referenzen bleiben als solche erkennbar; `synthetic` und Scope
+werden angezeigt. Es gibt keinen impliziten Start-/Advance-/Promotion-Effekt beim Lesen.
+
+Eine explizite Allowlist schützt die Standardansicht: keine Genom-Secret-Referenzen,
+Prompt-Inhalte, Roh-Observations, freien Event-Payloads oder unbekannten Metrikfelder.
+Tenant und Project sind zwingend; falscher Scope findet keine fremde Session.
+Readonly-Routes rufen nur den Service auf, nicht die Repository-Schicht (SRP/DIP).
+Der Store hat ein separates, kleines Lese-Port-Interface (ISP).
+
+**Offen:** Angular-Vergleichsansicht und policygebundene Operator-Mutationsaktionen.
+Die API kann bereits von CLI/API-Clients für strukturierte Vergleiche verwendet werden.

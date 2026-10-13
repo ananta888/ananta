@@ -57,6 +57,7 @@ from agent.routes.freecad_client_surface import freecad_client_surface_bp
 from agent.routes.game_dragon import game_dragon_bp
 from agent.routes.geomaps import geomaps_bp
 from agent.routes.goal_artifacts import goal_artifacts_bp
+from agent.routes.harness import harness_bp
 from agent.routes.hrm_experiments import hrm_experiments_bp
 from agent.routes.hub_benchmark import hub_benchmark_bp
 from agent.routes.hub_direct_diagnostics import hub_direct_diagnostics_bp
@@ -159,6 +160,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(dendritic_memory_bp)
     app.register_blueprint(memory_audit_bp)
     app.register_blueprint(dspy_optimization_bp)
+    app.register_blueprint(harness_bp)
     configure_project_lifecycle(app)
     configure_persona_media(app)
     configure_meet(app)

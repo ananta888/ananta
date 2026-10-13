@@ -523,16 +523,17 @@
     {
       "id": "SEH-019",
       "title": "Operator API/UI für Genome, Runs, Pareto-Front und Lineage bereitstellen",
-      "status": "todo",
+      "status": "partial",
       "priority": "P2",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 60,
       "details": "Übersicht über Baselines, Varianten, Kosten, Qualitätsmetriken, Gates, Mutationen, Lineage, Modellzuordnung und Promotionstatus. Vergleichsansicht für zwei oder mehr Harnesses.",
       "acceptance_criteria": [
         "Operator kann Parent/Child-Lineage visuell oder strukturiert nachvollziehen",
         "Pareto-Front und dominierte Kandidaten unterscheidbar",
         "Keine Secrets oder rohe sensitive Observations in UI-Standardansicht"
-      ]
+      ],
+      "implementation_note": "Regulär registrierte, adminpflichtige Hub-Read-API /api/harness/searches mit mandatory Tenant/Project-Scope, begrenzter Liste, Sessionvergleich (Baseline/Varianten/Modell/Metriken/Pareto) und Parent/Child-Lineage. Explizite Allowlist schließt Secret-Refs, Raw-Observations, Prompt-/Event-Payloads und unbekannte Metriken aus. 11 headless Auth/Scope/Redaction/No-side-effect-Tests. Offen: Angular-Vergleichsansicht und policygebundene Mutationsaktionen."
     },
     {
       "id": "SEH-020",
@@ -933,9 +934,9 @@
   "tasks_status_summary": {
     "total": 44,
     "by_status": {
-      "todo": 26,
+      "todo": 25,
       "in_progress": 0,
-      "partial": 6,
+      "partial": 7,
       "blocked": 0,
       "done": 12
     },
@@ -968,9 +969,9 @@
   },
   "progress_summary": {
     "state": "partial",
-    "todo_remaining": 26,
+    "todo_remaining": 25,
     "in_progress": 0,
-    "partial": 6,
+    "partial": 7,
     "blocked": 0,
     "done": 12,
     "milestones_done": 1,
@@ -1161,15 +1162,15 @@
       "unknown": {
         "total": 44,
         "done": 12,
-        "partial": 6,
+        "partial": 7,
         "blocked": 0,
-        "todo": 26,
+        "todo": 25,
         "in_progress": 0,
-        "progress_percent": 36.6,
+        "progress_percent": 38.0,
         "by_status": {
-          "todo": 26,
+          "todo": 25,
           "in_progress": 0,
-          "partial": 6,
+          "partial": 7,
           "blocked": 0,
           "done": 12
         }
