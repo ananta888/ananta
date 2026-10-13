@@ -139,3 +139,53 @@ The original Evolver kind and source field remain available as bounded
 
 See `docs/evolution-rollout.md` for the phased rollout from disabled to
 analyze-only, controlled review and future apply staging.
+
+## Pinned runtime contract (SEH-037, partial)
+
+The dedicated bridge image fetches the immutable v1.94.0 commit
+[`b34ccbcd9a07dc252b080b80e0c587734554f004`](https://github.com/EvoMap/evolver/tree/b34ccbcd9a07dc252b080b80e0c587734554f004)
+instead of cloning `main`. `services/evolver_bridge/runtime-contract.json` binds
+version, declared SPDX license, exact LICENSE bytes, dependency lock and protocol.
+Both bridge and upstream dependencies use `npm ci --ignore-scripts`; the image
+runs as the non-root `node` user. Standard CA certificates are installed for
+verified HTTPS fetches; no TLS verification bypass is used.
+
+Build and `/health` validate the binding and refuse mismatched or missing code.
+The health response exposes public runtime identity metadata; the Python adapter
+preserves only its scalar allowlisted fields. Upgrades require a reviewed contract
+change and compatibility testing. Pinning the current v2 entrypoint would silently
+break the old CLI invocation: its index module exports the CLI package instead.
+The upstream v1 license is package-declared `GPL-3.0-or-later`; this is recorded
+metadata, not a separate release or legal-admission grant.
+
+The deterministic dependency inventory in
+`artifacts/domain/evolver-runtime.dependencies.v1.json` covers locked production
+npm dependencies. It intentionally identifies optional packages and unknown
+license metadata. OS/base-image dependencies and full image SBOM/notice export
+remain outstanding; the inventory is not a complete container SBOM.
+
+The analyze subprocess uses a closed environment, an isolated HOME/workspace,
+explicit single `run` invocation and a bounded timeout. Credentials and external
+EvoMap Hub settings are not inherited. Temporary workspace cleanup runs in
+`finally`. Stdout results are explicitly labelled degraded compatibility output.
+This preserves the old proposal-only HTTP contract while structured GEP and
+project snapshot admission remain separate work (SEH-038/039).
+
+Runtime-identity smoke, fully offline and headless:
+
+```sh
+ANANTA_EVOLVER_PINNED_IMAGE=<locally-built-image> python -m pytest \
+  tests/evolver_bridge/test_runtime_container.py --timeout=45
+```
+
+The smoke checks real non-root/read-only runtime identity and adapter metadata.
+It does not certify the full analyze/structured-GEP path or a production release.
+Local build/test observations have no pre-reserved production Registry run and
+remain technical observations. Full compatibility, rollback to a previously
+admitted image digest and signed image/SBOM provenance remain open.
+
+Runtime identity checks live in their own module (SRP); transport metadata is
+projected through a narrow allowlist. The existing persistent sidecar subprocess
+path still needs stronger per-run containment and enforced egress isolation;
+clearing environment URLs is not a network sandbox. These preserved infrastructure
+boundaries must be fixed before productive self-modification is enabled.

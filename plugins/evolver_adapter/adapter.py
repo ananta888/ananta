@@ -7,8 +7,13 @@ from dataclasses import dataclass
 from typing import Any, Callable, Protocol
 from urllib import error, request
 
-from agent.metrics import EVOLUTION_PROVIDER_FAILURES_TOTAL, EVOLUTION_PROVIDER_HEALTH_TOTAL, EVOLUTION_PROVIDER_RETRIES_TOTAL
+from agent.metrics import (
+    EVOLUTION_PROVIDER_FAILURES_TOTAL,
+    EVOLUTION_PROVIDER_HEALTH_TOTAL,
+    EVOLUTION_PROVIDER_RETRIES_TOTAL,
+)
 from agent.services.evolution import (
+    ApplyResult,
     EvolutionCapability,
     EvolutionContext,
     EvolutionEngine,
@@ -16,7 +21,6 @@ from agent.services.evolution import (
     EvolutionProviderDescriptor,
     EvolutionResult,
     UnsupportedEvolutionOperation,
-    ApplyResult,
     ValidationResult,
 )
 
@@ -355,6 +359,14 @@ class EvolverAdapter(EvolutionEngine):
                 health = health_fn()
                 status = str(health.get("status") or status)
                 metadata["health_checked"] = bool(health.get("checked", True))
+                runtime = health.get("runtime")
+                if isinstance(runtime, dict):
+                    metadata["runtime"] = {
+                        key: runtime[key] for key in (
+                            "version", "commit", "license", "license_sha256", "package_lock_sha256",
+                            "contract_sha256", "protocol_version", "analyze_only",
+                        ) if key in runtime and isinstance(runtime[key], (str, bool))
+                    }
                 if health.get("fallback"):
                     metadata["health_fallback"] = health.get("fallback")
             except EvolverTransportError as exc:

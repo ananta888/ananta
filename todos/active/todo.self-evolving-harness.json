@@ -212,7 +212,7 @@
         "SEH-043",
         "SEH-044"
       ],
-      "status": "todo"
+      "status": "partial"
     }
   ],
   "critical_path_tasks": [
@@ -805,10 +805,10 @@
     {
       "id": "SEH-037",
       "title": "EvoMap/Evolver Runtime reproduzierbar auf Release/Commit pinnen",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 70,
       "details": "Den bisherigen unversionierten `git clone https://github.com/EvoMap/evolver.git`-Build durch eine explizit versionierte und digest-/commitgebundene Lieferkette ersetzen. Version, Commit, Lizenzstatus, npm-Abhängigkeiten, SBOM und Image-Digest werden als Provenance gebunden. Wegen der angekündigten künftigen Source-Available-Umstellung dürfen nur konkret geprüfte, rechtlich zulässige Releases automatisiert eingebunden werden.",
       "acceptance_criteria": [
         "EvoMap/evolver wird nicht mehr unversioniert von main gebaut",
@@ -816,7 +816,8 @@
         "SBOM und Lizenz-/Notice-Daten werden erzeugt und versioniert",
         "Upgrade auf neue EvoMap-Version erfordert expliziten Compatibility-/License-Gate",
         "Rollback auf vorherigen bekannten Evolver-Digest ist dokumentiert und getestet"
-      ]
+      ],
+      "implementation_note": "Dedicated bridge pins v1.94.0 at b34ccbcd9a07dc252b080b80e0c587734554f004, Node base digest, exact license/dependency-lock hashes; npm ci --ignore-scripts and non-root runtime. Build and live offline/read-only health check verify identity, dirty code/version/license/lock mismatch fails closed. Public runtime metadata preserved by adapter. Deterministic locked-npm dependency inventory versioned. 7 Node identity tests and 17 Python adapter/live container tests passed; local image built. Open: full image/OS SBOM and notice export, complete structured-GEP compatibility gate, prior admitted-digest rollback and Registry-bound release provenance. Source/license/network/containment limitations documented; no production promotion."
     },
     {
       "id": "SEH-038",
@@ -935,9 +936,9 @@
   "tasks_status_summary": {
     "total": 44,
     "by_status": {
-      "todo": 24,
+      "todo": 23,
       "in_progress": 0,
-      "partial": 8,
+      "partial": 9,
       "blocked": 0,
       "done": 12
     },
@@ -961,18 +962,18 @@
     },
     "milestones": {
       "total": 9,
-      "todo": 3,
+      "todo": 2,
       "in_progress": 0,
-      "partial": 5,
+      "partial": 6,
       "blocked": 0,
       "done": 1
     }
   },
   "progress_summary": {
     "state": "partial",
-    "todo_remaining": 24,
+    "todo_remaining": 23,
     "in_progress": 0,
-    "partial": 8,
+    "partial": 9,
     "blocked": 0,
     "done": 12,
     "milestones_done": 1,
@@ -1163,15 +1164,15 @@
       "unknown": {
         "total": 44,
         "done": 12,
-        "partial": 8,
+        "partial": 9,
         "blocked": 0,
-        "todo": 24,
+        "todo": 23,
         "in_progress": 0,
-        "progress_percent": 39.8,
+        "progress_percent": 41.4,
         "by_status": {
-          "todo": 24,
+          "todo": 23,
           "in_progress": 0,
-          "partial": 8,
+          "partial": 9,
           "blocked": 0,
           "done": 12
         }

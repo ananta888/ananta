@@ -1,19 +1,29 @@
 FROM node:24.18.0-bookworm-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends git curl wget \
+    && apt-get install -y --no-install-recommends ca-certificates git curl wget \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /opt/evolver-bridge
 
-COPY services/evolver_bridge/package.json /opt/evolver-bridge/package.json
-COPY services/evolver_bridge/server.js /opt/evolver-bridge/server.js
+COPY services/evolver_bridge/ /opt/evolver-bridge/
 
-RUN npm install
+RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund
 
-RUN git clone https://github.com/EvoMap/evolver.git /opt/evolver-src \
+ARG EVOLVER_COMMIT=b34ccbcd9a07dc252b080b80e0c587734554f004
+RUN git init /opt/evolver-src \
     && cd /opt/evolver-src \
-    && npm install
+    && git fetch --depth 1 https://github.com/EvoMap/evolver.git "${EVOLVER_COMMIT}" \
+    && git -c core.hooksPath=/dev/null checkout --detach FETCH_HEAD \
+    && npm ci --omit=dev --ignore-scripts --no-audit --no-fund \
+    && cd /opt/evolver-bridge \
+    && node --input-type=module -e 'import fs from "node:fs"; import {validateRuntime} from "./runtime.js"; validateRuntime("/opt/evolver-src", JSON.parse(fs.readFileSync("runtime-contract.json", "utf8")));'
+
+LABEL org.opencontainers.image.version="1.94.0" \
+      ai.ananta.evolver.commit="b34ccbcd9a07dc252b080b80e0c587734554f004" \
+      ai.ananta.evolver.license="GPL-3.0-or-later"
+
+USER node
 
 EXPOSE 8080
 

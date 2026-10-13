@@ -14,11 +14,11 @@ from plugins.evolver_adapter import init_app
 from plugins.evolver_adapter.adapter import (
     EvolverAdapter,
     EvolverHttpError,
+    EvolverHttpLimits,
     EvolverInvalidResponseError,
     EvolverPayloadLimitError,
-    EvolverTimeoutError,
-    EvolverHttpLimits,
     EvolverRetryPolicy,
+    EvolverTimeoutError,
     HttpEvolverTransport,
 )
 from plugins.evolver_adapter.mapper import EvolverResponseSchemaError, map_evolver_result
@@ -135,6 +135,18 @@ def test_evolver_adapter_reports_real_transport_health():
     assert down.provider_metadata["last_error"]["code"] == "http_error"
 
 
+def test_evolver_adapter_keeps_only_public_scalar_runtime_metadata():
+    class RuntimeTransport(FakeEvolverTransport):
+        def health(self):
+            return {"status": "available", "runtime": {
+                "version": "synthetic", "commit": "1" * 40, "analyze_only": True,
+                "headers": {"Authorization": "sensitive-marker"}, "license": {"secret": "nested-marker"},
+            }}
+
+    metadata = EvolverAdapter(transport=RuntimeTransport()).describe().provider_metadata["runtime"]
+    assert metadata == {"version": "synthetic", "commit": "1" * 40, "analyze_only": True}
+
+
 def test_evolver_adapter_exposes_only_truthful_current_capabilities():
     adapter = EvolverAdapter(transport=FakeEvolverTransport())
 
@@ -214,7 +226,9 @@ def test_http_evolver_transport_maps_http_timeout_and_invalid_json(monkeypatch):
             self.sent = True
             return b"{not-json"
 
-    monkeypatch.setattr("plugins.evolver_adapter.adapter.request.urlopen", lambda *_args, **_kwargs: InvalidJsonResponse())
+    monkeypatch.setattr(
+        "plugins.evolver_adapter.adapter.request.urlopen", lambda *_args, **_kwargs: InvalidJsonResponse()
+    )
     with pytest.raises(EvolverInvalidResponseError):
         transport.analyze({"context": {}})
 

@@ -1,0 +1,13 @@
+{
+  "schema": "ananta.evolver-runtime.v1",
+  "repository": "https://github.com/EvoMap/evolver.git",
+  "ref": "v1.94.0",
+  "commit": "b34ccbcd9a07dc252b080b80e0c587734554f004",
+  "version": "1.94.0",
+  "license": "GPL-3.0-or-later",
+  "license_sha256": "cbd2e9829707c32f626ab827b551db817433556355e730a7b51ecd19abf65fe1",
+  "package_lock_sha256": "f85145b3f1f6ae99a79e7150837d2bd1f5365c38f5c7f49a1d2d9e6193d02302",
+  "entrypoint": "index.js",
+  "protocol_version": "ananta.evolver-proposal-http.v1",
+  "analyze_only": true
+}

@@ -4,6 +4,7 @@ import os from "os";
 import path from "path";
 import { execFile } from "child_process";
 import { promisify } from "util";
+import { validateRuntime } from "./runtime.js";
 
 const execFileAsync = promisify(execFile);
 const app = express();
@@ -11,21 +12,30 @@ const app = express();
 app.use(express.json({ limit: "1mb" }));
 
 const PORT = Number(process.env.PORT || 8080);
-const EVOLVER_TIMEOUT_MS = Number(process.env.EVOLVER_TIMEOUT_MS || 120000);
+const timeout = Number(process.env.EVOLVER_TIMEOUT_MS || 120000);
+if (!Number.isInteger(timeout) || timeout < 100 || timeout > 120000) {
+  throw new Error("evolver_timeout_policy_invalid");
+}
+const EVOLVER_TIMEOUT_MS = timeout;
 const EVOLVER_SRC = "/opt/evolver-src";
+const RUNTIME_CONTRACT = JSON.parse(fs.readFileSync(new URL("./runtime-contract.json", import.meta.url), "utf8"));
 
 app.get("/health", async (_req, res) => {
   try {
-    if (!fs.existsSync(path.join(EVOLVER_SRC, "index.js"))) {
-      return res.status(503).json({ status: "unavailable", reason: "evolver_missing" });
-    }
-    return res.json({ status: "available", checked: true });
+    const runtime = validateRuntime(EVOLVER_SRC, RUNTIME_CONTRACT);
+    return res.json({ status: "available", checked: true, runtime });
   } catch (err) {
-    return res.status(500).json({ status: "error", error: String(err) });
+    return res.status(503).json({ status: "unavailable", checked: true, reason: err.message });
   }
 });
 
 app.post("/evolution/analyze", async (req, res) => {
+  let runtime;
+  try {
+    runtime = validateRuntime(EVOLVER_SRC, RUNTIME_CONTRACT);
+  } catch (err) {
+    return res.status(503).json({ status: "failed", proposals: [], reason: err.message });
+  }
   const context = req.body?.context || {};
   const objective = String(context.objective || "Analyze and improve current task").trim();
 
@@ -52,12 +62,21 @@ app.post("/evolution/analyze", async (req, res) => {
   try {
     const { stdout, stderr } = await execFileAsync(
       "node",
-      [path.join(EVOLVER_SRC, "index.js")],
+      [path.join(EVOLVER_SRC, "index.js"), "run"],
       {
         cwd: workdir,
         timeout: EVOLVER_TIMEOUT_MS,
         env: {
-          ...process.env,
+          PATH: "/usr/local/bin:/usr/bin:/bin",
+          LANG: "C.UTF-8",
+          HOME: workdir,
+          GIT_CONFIG_NOSYSTEM: "1",
+          GIT_CONFIG_GLOBAL: "/dev/null",
+          OPENCLAW_WORKSPACE: workdir,
+          EVOLVER_LOGS_DIR: path.join(workdir, "logs"),
+          // Credentials and external Hub configuration are never inherited.
+          A2A_HUB_URL: "http://127.0.0.1:9",
+          EVOMAP_HUB_URL: "http://127.0.0.1:9",
           MEMORY_DIR: memoryDir
         },
         maxBuffer: 1024 * 1024 * 4
@@ -70,6 +89,7 @@ app.post("/evolution/analyze", async (req, res) => {
       id: `evolver-${Date.now()}`,
       status: "completed",
       summary: "Evolver analysis completed",
+      provider_metadata: { runtime, output_mode: "degraded_stdout_compatibility" },
       proposals: [
         {
           id: `prompt-${Date.now()}`,
@@ -87,8 +107,10 @@ app.post("/evolution/analyze", async (req, res) => {
       summary: "Evolver execution failed",
       proposals: [],
       validation_results: [],
-      error: String(err)
+      reason: "evolver_execution_failed"
     });
+  } finally {
+    fs.rmSync(workdir, { recursive: true, force: true });
   }
 });
 
