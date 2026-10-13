@@ -1525,11 +1525,12 @@
     "implemented": [
       "Scoped hub-result-memory quarantine/release/revoke with content-free audit events",
       "Derived Memory-Tree leaves blocked by provenance_ref so a quarantined result cannot return through a summary",
-      "Result-memory reads (get_by_namespace, get_by_task, get_by_goal) exclude quarantined/revoked entries"
+      "Result-memory reads (get_by_namespace, get_by_task, get_by_goal) exclude quarantined/revoked entries",
+      "Read-only hub operator projection of currently blocked result entries and tree chunks (GET /api/projects/<id>/memory-audit/quarantine), project-scoped and content-free"
     ],
     "remaining": [
       "Already delivered caches/indexes/exports and final prompt revalidation",
-      "Operator API for quarantine events and affected derivation inspection",
+      "Affected-derivation inspection beyond the current state inventory",
       "Productive acceptance"
     ]
   }
