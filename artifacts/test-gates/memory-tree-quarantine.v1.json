@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "classification": "local_headless_technical_observation",
+  "production_release_evidence": false,
+  "deployment_performed": false,
+  "checks": {
+    "passed": 128,
+    "duration_seconds": 38.24,
+    "scope": [
+      "tests/security/test_memory_quarantine.py",
+      "tests/test_memory_tree_store_service.py",
+      "tests/security/test_memory_tree_derivation.py",
+      "tests/test_memory_tree_context_policy.py",
+      "tests/test_zero_trust_result_memory.py",
+      "tests/security/test_memory_prompt_data.py"
+    ],
+    "ruff": "passed; inherited E501 excluded in existing store/derivation test",
+    "diff_check": "passed"
+  },
+  "properties": [
+    "scope-bound update authorization for quarantine/revoke/release",
+    "atomic content-free lifecycle event and state mutation",
+    "repeated identical state transition does not duplicate lifecycle event",
+    "generic lifecycle update cannot release blocked state",
+    "revocation cannot be reversed through quarantine release",
+    "fresh chunk and summary reads exclude unavailable parents",
+    "new derivations reject unavailable parents",
+    "caller admission cannot supply release records",
+    "policy revocation before commit rolls back event and state"
+  ],
+  "persistence": "additive SQLModel table registered in existing init_db/create_all; isolated SQLite tested",
+  "solid": {
+    "protected": "Small command port separates domain commands, lifecycle admission and SQL persistence; parent status projection reads no child content",
+    "preserved_debt": "Existing broad MemoryTreeStoreService owns CRUD and lifecycle transactions; caches/exports/final prompt revalidation not integrated"
+  },
+  "remaining": [
+    "Result-memory channel",
+    "Already delivered caches/indexes/exports",
+    "Final prompt revalidation",
+    "Operator API and affected derivation inspection",
+    "Productive acceptance"
+  ]
+}

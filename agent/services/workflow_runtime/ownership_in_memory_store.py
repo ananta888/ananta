@@ -36,6 +36,15 @@ from ananta_contracts.hub_task_gateway import RETRY_CATEGORIES
 
 
 class InMemoryExecutionOwnershipStore:
+    def claim_fenced(self, *, lease, **values):
+        from agent.services.workflow_runtime.lease_fencing import ownership_lease_recipient
+
+        return lease.store.mutate_fenced(
+            lease=lease,
+            recipient=ownership_lease_recipient(values, lease),
+            mutation=lambda: self.claim(**values),
+        )
+
     def acknowledge_result_fenced(self, *, lease, **values):
         from agent.services.workflow_runtime.lease_fencing import ownership_lease_recipient
 

@@ -4,7 +4,7 @@ from agent.services.result_memory_service import ResultMemoryService, normalize_
 from agent.services.verification_service import get_verification_service
 
 
-def test_complete_task_persists_result_memory_entry(client, admin_auth_header):
+def test_unscoped_legacy_completion_does_not_persist_memory(client, admin_auth_header):
     task_repo.save(
         TaskDB(
             id="memory-task-1",
@@ -42,23 +42,11 @@ def test_complete_task_persists_result_memory_entry(client, admin_auth_header):
     assert res.status_code == 200
     payload = res.get_json()["data"]
     memory_entry_id = payload["verification_status"]["memory_entry_id"]
-    entry = memory_entry_repo.get_by_id(memory_entry_id)
-    assert entry is not None
-    assert entry.task_id == "memory-task-1"
-    assert entry.goal_id == "goal-memory-1"
-    assert entry.trace_id == "trace-memory-1"
-    assert entry.worker_job_id == "job-memory-1"
-    assert entry.summary.startswith("Detailed result output")
-    assert "completed" in entry.retrieval_tags
-    assert entry.artifact_refs[0]["kind"] == "task_output"
-    assert (entry.memory_metadata or {}).get("compacted_summary") is not None
-    assert (entry.memory_metadata or {}).get("memory_format") == "worker_result_compact_v3"
-    assert isinstance(((entry.memory_metadata or {}).get("structured_summary") or {}).get("focus_terms"), list)
-    assert isinstance((entry.memory_metadata or {}).get("retrieval_document"), str)
-    assert isinstance((entry.memory_metadata or {}).get("bullet_points"), list)
+    assert memory_entry_id is None
+    assert memory_entry_repo.get_by_task("memory-task-1") == []
 
 
-def test_goal_detail_exposes_memory_entries(client, admin_auth_header):
+def test_unclassified_legacy_goal_detail_excludes_memory_entries(client, admin_auth_header):
     goal = goal_repo.save(
         GoalDB(
             goal="Deliver release",
@@ -96,10 +84,9 @@ def test_goal_detail_exposes_memory_entries(client, admin_auth_header):
     detail_res = client.get(f"/goals/{goal.id}/detail", headers=admin_auth_header)
     assert detail_res.status_code == 200
     payload = detail_res.get_json()["data"]
-    assert payload["artifacts"]["result_summary"]["memory_entries"] >= 1
-    assert payload["artifacts"]["memory_entries"]
-    assert payload["memory"]
-    assert payload["memory"][0]["summary"].startswith("Release notes ready")
+    assert payload["artifacts"]["result_summary"]["memory_entries"] == 0
+    assert payload["artifacts"]["memory_entries"] == []
+    assert payload["memory"] == []
 
 
 def test_result_memory_policy_clamps_invalid_values_and_can_disable_followup_artifact():
@@ -131,14 +118,7 @@ def test_result_memory_handles_missing_optional_fields_without_silent_inconsiste
         policy={"create_followup_artifact": False},
     )
 
-    saved = memory_entry_repo.get_by_id(entry.id)
-    assert saved is not None
-    assert saved.task_id is None
-    assert saved.summary is None
-    assert saved.artifact_refs == []
-    assert saved.retrieval_tags == []
-    assert (saved.memory_metadata or {}).get("followup_artifact") is None
-    assert (saved.memory_metadata or {}).get("memory_format") == "worker_result_compact_v3"
+    assert entry is None
 
 
 def test_verification_missing_task_returns_none_and_duplicate_failures_update_single_record():

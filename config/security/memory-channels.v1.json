@@ -1,0 +1,2151 @@
+{
+  "schema_version": "ananta.memory-channels.v1",
+  "coverage": "Static Python source inventory in agent, worker, client_surfaces and ananta_contracts. Dynamic I/O, external CLI state, volumes and transitive library stores still require runtime admission and audit.",
+  "channels": [
+    {
+      "id": "client-state",
+      "owner": "Client surface owner",
+      "scope": "Client/user/game or renderer scope; no server authorization inferred",
+      "persistence": "Configured files/process state as identified by explicit storage signals",
+      "readers": "Client surface readers",
+      "writers": "Client save/cache/render paths",
+      "deletion": "Client reset and configured file lifecycle",
+      "trust": "Untrusted content. Inventory inclusion does not authorize access or prove source/run evidence.",
+      "review_status": "observed_source_inventory; runtime isolation and full indirect-path audit remain open",
+      "files": {
+        "client_surfaces/operator_tui/ai_snake_learning.py": [
+          "filesystem_write"
+        ],
+        "client_surfaces/operator_tui/ai_snake_training_import_export.py": [
+          "filesystem_write"
+        ],
+        "client_surfaces/operator_tui/ai_snake_training_migration.py": [
+          "filesystem_write"
+        ],
+        "client_surfaces/operator_tui/ai_snake_training_store.py": [
+          "filesystem_write"
+        ],
+        "client_surfaces/operator_tui/app.py": [
+          "filesystem_write"
+        ],
+        "client_surfaces/operator_tui/audit_cleanup.py": [
+          "filesystem_write"
+        ],
+        "client_surfaces/operator_tui/config/user_config_manager.py": [
+          "filesystem_write"
+        ],
+        "client_surfaces/operator_tui/device_keys.py": [
+          "filesystem_write"
+        ],
+        "client_surfaces/operator_tui/keybindings_config.py": [
+          "process_cache"
+        ],
+        "client_surfaces/operator_tui/logo_inline.py": [
+          "process_cache"
+        ],
+        "client_surfaces/operator_tui/proposal_review.py": [
+          "filesystem_write"
+        ],
+        "client_surfaces/operator_tui/share_menu.py": [
+          "filesystem_write"
+        ],
+        "client_surfaces/operator_tui/snake_heuristic_mixin.py": [
+          "filesystem_write"
+        ],
+        "client_surfaces/operator_tui/snake_ops_mixin.py": [
+          "filesystem_write"
+        ],
+        "client_surfaces/operator_tui/snake_persistence.py": [
+          "filesystem_write"
+        ],
+        "client_surfaces/operator_tui/tui_snapshot.py": [
+          "filesystem_write"
+        ],
+        "client_surfaces/operator_tui/visual/browser/browser_security_policy.py": [
+          "filesystem_write"
+        ],
+        "client_surfaces/operator_tui/visual/markdown/mermaid_renderer.py": [
+          "filesystem_write"
+        ]
+      }
+    },
+    {
+      "id": "dendritic-model-memory",
+      "owner": "Hub lifecycle; delegated training/runtime Worker",
+      "scope": "Tenant/owner, job and model lifecycle contracts",
+      "persistence": "SQL registry/state and admitted model artifacts; runtime-loaded model state",
+      "readers": "Experiment evaluations and approved runtime loaders",
+      "writers": "Hub artifact/registry services; delegated Worker execution",
+      "deletion": "Registry lifecycle, storage cleanup and runtime unload; gate revocation required",
+      "trust": "Untrusted content. Inventory inclusion does not authorize access or prove source/run evidence.",
+      "review_status": "observed_source_inventory; runtime isolation and full indirect-path audit remain open",
+      "files": {
+        "agent/bootstrap/dendritic_memory.py": [
+          "named_state_component"
+        ],
+        "agent/routes/dendritic_memory.py": [
+          "named_state_component"
+        ],
+        "agent/services/dendritic_memory_artifact_service.py": [
+          "filesystem_write",
+          "named_state_component"
+        ],
+        "agent/services/dendritic_memory_capability_service.py": [
+          "named_state_component"
+        ],
+        "agent/services/dendritic_memory_evaluation_attestation.py": [
+          "named_state_component"
+        ],
+        "agent/services/dendritic_memory_evaluation_service.py": [
+          "named_state_component"
+        ],
+        "agent/services/dendritic_memory_job_service.py": [
+          "named_state_component"
+        ],
+        "agent/services/dendritic_memory_lifecycle_service.py": [
+          "named_state_component"
+        ],
+        "agent/services/dendritic_memory_migration.py": [
+          "named_state_component",
+          "storage_import:sqlite3"
+        ],
+        "agent/services/dendritic_memory_policy.py": [
+          "named_state_component"
+        ],
+        "agent/services/dendritic_memory_ports.py": [
+          "named_state_component"
+        ],
+        "agent/services/dendritic_memory_registry_service.py": [
+          "named_state_component",
+          "storage_import:sqlite3"
+        ],
+        "agent/services/dendritic_memory_release_gate.py": [
+          "named_state_component"
+        ],
+        "agent/services/dendritic_memory_runtime_gate.py": [
+          "named_state_component"
+        ],
+        "agent/services/dendritic_memory_state_store.py": [
+          "named_state_component",
+          "storage_import:sqlite3"
+        ],
+        "agent/services/dendritic_memory_worker_port.py": [
+          "named_state_component"
+        ],
+        "ananta_contracts/dendritic_memory.py": [
+          "named_state_component"
+        ],
+        "ananta_contracts/dendritic_memory_worker.py": [
+          "named_state_component"
+        ],
+        "worker/runtime/dendritic_memory_app.py": [
+          "named_state_component"
+        ],
+        "worker/runtime/dendritic_memory_loader.py": [
+          "named_state_component"
+        ]
+      }
+    },
+    {
+      "id": "hub-context-cache",
+      "owner": "Hub context/runtime services",
+      "scope": "Cache-specific hash/input keys; no universal run namespace",
+      "persistence": "Process TTL caches and JSON/disk caches according to listed storage signals",
+      "readers": "Context packages, inference, source and runtime-capability readers",
+      "writers": "Cache put/save/wrapper paths",
+      "deletion": "TTL/eviction/clear where present; source/model/policy invalidation is backend-specific",
+      "trust": "Untrusted content. Inventory inclusion does not authorize access or prove source/run evidence.",
+      "review_status": "observed_source_inventory; runtime isolation and full indirect-path audit remain open",
+      "files": {
+        "agent/routes/tasks/goal_cache.py": [
+          "named_state_component"
+        ],
+        "agent/services/_task_scoped_recovery_outcome_cache.py": [
+          "named_state_component"
+        ],
+        "agent/services/codecompass_domain_supplement_domain_cache.py": [
+          "named_state_component"
+        ],
+        "agent/services/codecompass_graph_store_cache.py": [
+          "named_state_component"
+        ],
+        "agent/services/local_runtime_capability_cache.py": [
+          "filesystem_write",
+          "named_state_component"
+        ],
+        "agent/services/pre_model_context_cache.py": [
+          "named_state_component"
+        ],
+        "agent/services/restricted_inference_cache.py": [
+          "named_state_component"
+        ],
+        "agent/sgpt/cache.py": [
+          "named_state_component"
+        ],
+        "agent/sources/source_cache.py": [
+          "filesystem_write",
+          "named_state_component"
+        ],
+        "agent/adapters/namespace_memory_cache.py": [
+          "dynamic_file_mode",
+          "named_state_component"
+        ],
+        "agent/adapters/memory_namespace_files.py": [
+          "dynamic_file_mode",
+          "filesystem_write",
+          "named_state_component"
+        ]
+      }
+    },
+    {
+      "id": "hub-control-state",
+      "owner": "Hub domain control-plane subsystem named by file",
+      "scope": "Domain-specific persisted scope; review required before agent memory reuse",
+      "persistence": "SQL/Redis/file or process state as identified by explicit storage signals",
+      "readers": "Hub domain APIs and internal services",
+      "writers": "Hub-owned state transitions and domain repositories",
+      "deletion": "Existing domain retention/rollback; not a memory promotion authorization",
+      "trust": "Untrusted content. Inventory inclusion does not authorize access or prove source/run evidence.",
+      "review_status": "observed_source_inventory; runtime isolation and full indirect-path audit remain open",
+      "files": {
+        "agent/adapters/buzz_collaboration.py": [
+          "storage_import:sqlite3"
+        ],
+        "agent/adapters/sfu_member_digest_key_contract_memory.py": [
+          "named_state_component"
+        ],
+        "agent/artifacts/goal_artifact_repository.py": [
+          "filesystem_write"
+        ],
+        "agent/auth_token_files.py": [
+          "dynamic_file_mode"
+        ],
+        "agent/cli/commands/config.py": [
+          "filesystem_write"
+        ],
+        "agent/cli/commands/heuristic.py": [
+          "filesystem_write"
+        ],
+        "agent/cli/deployment_profile_writer.py": [
+          "filesystem_write"
+        ],
+        "agent/cli/init_wizard.py": [
+          "filesystem_write"
+        ],
+        "agent/cli/status_snapshot.py": [
+          "process_cache"
+        ],
+        "agent/cli_backends/architecture_scan.py": [
+          "filesystem_write"
+        ],
+        "agent/cli_backends/opencode.py": [
+          "filesystem_write"
+        ],
+        "agent/cli_backends/sgpt.py": [
+          "filesystem_write"
+        ],
+        "agent/cli_backends/tool_loop.py": [
+          "filesystem_write"
+        ],
+        "agent/cli_backends/workspace_mutation/handlers.py": [
+          "filesystem_write"
+        ],
+        "agent/cli_backends/workspace_mutation/session.py": [
+          "filesystem_write"
+        ],
+        "agent/cli_goals_repair.py": [
+          "filesystem_write"
+        ],
+        "agent/codecompass/x86/malware/memory_model.py": [
+          "named_state_component"
+        ],
+        "agent/codecompass/x86/malware/pipeline.py": [
+          "filesystem_write"
+        ],
+        "agent/common/utils/json_utils.py": [
+          "dynamic_file_mode"
+        ],
+        "agent/config_bootstrap.py": [
+          "filesystem_write"
+        ],
+        "agent/config_token_persistence.py": [
+          "dynamic_file_mode",
+          "filesystem_write"
+        ],
+        "agent/database.py": [
+          "filesystem_write"
+        ],
+        "agent/db_models/access_roles.py": [
+          "sql_table:access_policy_revisions",
+          "sql_table:access_role_bindings",
+          "sql_table:access_roles"
+        ],
+        "agent/db_models/agents.py": [
+          "sql_table:agents"
+        ],
+        "agent/db_models/auth.py": [
+          "sql_table:banned_ips",
+          "sql_table:instruction_overlays",
+          "sql_table:login_attempts",
+          "sql_table:oidc_identity_links",
+          "sql_table:password_history",
+          "sql_table:refresh_tokens",
+          "sql_table:user_instruction_profiles",
+          "sql_table:users"
+        ],
+        "agent/db_models/blueprints.py": [
+          "sql_table:artifact_versions",
+          "sql_table:artifacts",
+          "sql_table:blueprint_artifacts",
+          "sql_table:blueprint_roles",
+          "sql_table:blueprint_workflow_steps",
+          "sql_table:context_access_policies",
+          "sql_table:context_bundles",
+          "sql_table:extracted_documents",
+          "sql_table:retrieval_runs",
+          "sql_table:terminal_events",
+          "sql_table:terminal_sessions"
+        ],
+        "agent/db_models/business_controlling.py": [
+          "sql_table:business_controlling_mappings",
+          "sql_table:business_controlling_profiles"
+        ],
+        "agent/db_models/caseflow.py": [
+          "sql_table:case_agent_runs",
+          "sql_table:case_blueprint_bindings",
+          "sql_table:caseflow_actions",
+          "sql_table:caseflow_artifacts",
+          "sql_table:caseflow_cases",
+          "sql_table:caseflow_events",
+          "sql_table:discovery_profiles",
+          "sql_table:discovery_results",
+          "sql_table:discovery_runs"
+        ],
+        "agent/db_models/context_policy_lifecycle.py": [
+          "sql_table:source_control_context_policy_audit",
+          "sql_table:source_control_context_policy_mutations",
+          "sql_table:source_control_context_policy_versions"
+        ],
+        "agent/db_models/evidence_identity.py": [
+          "sql_table:hub_run_evidence_identities",
+          "sql_table:hub_source_evidence_identities"
+        ],
+        "agent/db_models/governance.py": [
+          "sql_table:action_packs",
+          "sql_table:agent_sessions",
+          "sql_table:approval_requests",
+          "sql_table:audit_logs",
+          "sql_table:decision_traces",
+          "sql_table:pair_group_members",
+          "sql_table:pair_groups",
+          "sql_table:policy_decisions",
+          "sql_table:policy_snapshots",
+          "sql_table:repair_execution_records",
+          "sql_table:repair_outcome_memory",
+          "sql_table:share_participants",
+          "sql_table:share_sessions",
+          "sql_table:stats_history",
+          "sql_table:tool_calls",
+          "sql_table:verification_records",
+          "sql_table:webrtc_key_confirmations",
+          "sql_table:webrtc_replay_states",
+          "sql_table:webrtc_security_epochs"
+        ],
+        "agent/db_models/hrm_experiment_idempotency.py": [
+          "sql_table:hrm_idempotency_receipts"
+        ],
+        "agent/db_models/hrm_experiments.py": [
+          "sql_table:hrm_checkpoints",
+          "sql_table:hrm_datasets",
+          "sql_table:hrm_evaluation_reports",
+          "sql_table:hrm_run_events",
+          "sql_table:hrm_runs",
+          "sql_table:hrm_worker_capabilities"
+        ],
+        "agent/db_models/hub_git_authorization.py": [
+          "sql_table:hub_git_remote_registration_audits",
+          "sql_table:hub_git_remote_registration_revisions",
+          "sql_table:hub_git_remote_registrations"
+        ],
+        "agent/db_models/kanban_projection.py": [
+          "sql_table:kanban_board_sequences",
+          "sql_table:kanban_event_outbox"
+        ],
+        "agent/db_models/knowledge.py": [
+          "sql_table:knowledge_collections",
+          "sql_table:knowledge_index_runs",
+          "sql_table:knowledge_indices",
+          "sql_table:knowledge_links"
+        ],
+        "agent/db_models/knowledge_hygiene.py": [
+          "sql_table:knowledge_hygiene_audit_events",
+          "sql_table:knowledge_hygiene_claims",
+          "sql_table:knowledge_hygiene_conflicts",
+          "sql_table:knowledge_hygiene_corrections",
+          "sql_table:knowledge_hygiene_decisions",
+          "sql_table:knowledge_hygiene_health_snapshots",
+          "sql_table:knowledge_hygiene_runs",
+          "sql_table:knowledge_hygiene_wiki_pages"
+        ],
+        "agent/db_models/knowledge_index_execution.py": [
+          "sql_table:knowledge_index_execution_bindings"
+        ],
+        "agent/db_models/knowledge_index_worker_dispatch.py": [
+          "sql_table:knowledge_index_worker_dispatch_receipts"
+        ],
+        "agent/db_models/ml_intern_training.py": [
+          "sql_table:ml_intern_datasets",
+          "sql_table:ml_intern_speech_adapter_legacy_imports",
+          "sql_table:ml_intern_speech_adapters",
+          "sql_table:ml_intern_training_attempts",
+          "sql_table:ml_intern_training_capacity_leases",
+          "sql_table:ml_intern_training_events",
+          "sql_table:ml_intern_training_execution_leases",
+          "sql_table:ml_intern_training_jobs"
+        ],
+        "agent/db_models/native_dispatch.py": [
+          "sql_table:native_dispatch_journal"
+        ],
+        "agent/db_models/organization_access.py": [
+          "sql_table:organization_admin_grants",
+          "sql_table:organization_admission_exceptions",
+          "sql_table:organization_topology_patch_grants"
+        ],
+        "agent/db_models/organization_definitions.py": [
+          "sql_table:organization_blueprint_revisions",
+          "sql_table:organization_handoff_definition_revisions",
+          "sql_table:organization_limit_profile_revisions",
+          "sql_table:organization_policy_revisions",
+          "sql_table:role_template_revisions",
+          "sql_table:team_blueprint_revisions",
+          "sql_table:workflow_definition_revisions"
+        ],
+        "agent/db_models/organization_operations.py": [
+          "sql_table:cross_team_task_dependencies",
+          "sql_table:organization_audit_outbox",
+          "sql_table:organization_operations"
+        ],
+        "agent/db_models/organization_projections.py": [
+          "sql_table:organization_layout_preferences",
+          "sql_table:organization_topology_snapshots"
+        ],
+        "agent/db_models/organization_runtime.py": [
+          "sql_table:organization_budget_reservations",
+          "sql_table:organization_budget_usage",
+          "sql_table:organization_runtime_events",
+          "sql_table:organization_team_handoffs",
+          "sql_table:organization_workflow_loop_states"
+        ],
+        "agent/db_models/organization_topology.py": [
+          "sql_table:organization_instances",
+          "sql_table:organization_memberships",
+          "sql_table:organization_relations",
+          "sql_table:organization_role_assignments",
+          "sql_table:organization_role_slots",
+          "sql_table:organization_team_links",
+          "sql_table:organization_units"
+        ],
+        "agent/db_models/planning.py": [
+          "sql_table:goals",
+          "sql_table:plan_nodes",
+          "sql_table:planning_evaluations",
+          "sql_table:planning_model_profiles",
+          "sql_table:planning_pattern_clusters",
+          "sql_table:planning_prompt_versions",
+          "sql_table:planning_review_items",
+          "sql_table:planning_runs",
+          "sql_table:planning_template_candidates",
+          "sql_table:plans",
+          "sql_table:playbooks",
+          "sql_table:scheduled_tasks",
+          "sql_table:templates"
+        ],
+        "agent/db_models/planning_artifacts.py": [
+          "sql_table:planning_amendment_inputs",
+          "sql_table:planning_artifact_revisions",
+          "sql_table:planning_lineage",
+          "sql_table:planning_operation_receipts",
+          "sql_table:planning_task_dispatches",
+          "sql_table:planning_task_mappings",
+          "sql_table:worker_task_proposals"
+        ],
+        "agent/db_models/projects.py": [
+          "sql_table:project_memberships",
+          "sql_table:projects"
+        ],
+        "agent/db_models/scientific_skill_provenance.py": [
+          "sql_table:scientific_skill_provenance_receipts"
+        ],
+        "agent/db_models/semantic_media.py": [
+          "sql_table:semantic_capability_advertisements",
+          "sql_table:semantic_compute_candidate_keys",
+          "sql_table:semantic_compute_contracts",
+          "sql_table:semantic_compute_lease_mutations",
+          "sql_table:semantic_compute_leases",
+          "sql_table:semantic_compute_schedule_receipts",
+          "sql_table:semantic_contract_mutations",
+          "sql_table:semantic_lease_fences",
+          "sql_table:semantic_media_audit_events",
+          "sql_table:semantic_media_audit_outbox",
+          "sql_table:semantic_media_capability_grants",
+          "sql_table:semantic_session_memberships",
+          "sql_table:semantic_sfu_admission_receipts",
+          "sql_table:semantic_sfu_room_states"
+        ],
+        "agent/db_models/semantic_relay.py": [
+          "sql_table:semantic_relay_cursors",
+          "sql_table:semantic_relay_envelopes"
+        ],
+        "agent/db_models/sfu_broadcast.py": [
+          "sql_table:sfu_broadcast_audiences",
+          "sql_table:sfu_fanout_routes",
+          "sql_table:sfu_receiver_groups"
+        ],
+        "agent/db_models/sfu_broadcast_admission_operations.py": [
+          "sql_table:sfu_broadcast_admission_operations"
+        ],
+        "agent/db_models/sfu_broadcast_background_jobs.py": [
+          "sql_table:sfu_broadcast_background_jobs"
+        ],
+        "agent/db_models/sfu_broadcast_feature_flags.py": [
+          "sql_table:sfu_broadcast_feature_flag_mutations",
+          "sql_table:sfu_broadcast_feature_flags"
+        ],
+        "agent/db_models/sfu_broadcast_flag_projections.py": [
+          "sql_table:sfu_broadcast_flag_projections",
+          "sql_table:sfu_broadcast_runtime_projection_states"
+        ],
+        "agent/db_models/sfu_broadcast_group_keys.py": [
+          "sql_table:sfu_broadcast_group_key_authorizations",
+          "sql_table:sfu_broadcast_group_key_packages",
+          "sql_table:sfu_broadcast_group_key_receipts"
+        ],
+        "agent/db_models/sfu_broadcast_retention.py": [
+          "sql_table:sfu_audience_retention_fences",
+          "sql_table:sfu_audience_snapshot_tombstones"
+        ],
+        "agent/db_models/sfu_broadcast_user_intents.py": [
+          "sql_table:sfu_broadcast_command_audits",
+          "sql_table:sfu_broadcast_user_intents"
+        ],
+        "agent/db_models/sfu_broadcast_vendor_identities.py": [
+          "sql_table:sfu_broadcast_destination_handles",
+          "sql_table:sfu_broadcast_vendor_identities"
+        ],
+        "agent/db_models/sfu_browser_capabilities.py": [
+          "sql_table:sfu_browser_capabilities"
+        ],
+        "agent/db_models/sfu_capacity_reservations.py": [
+          "sql_table:sfu_capacity_ledgers",
+          "sql_table:sfu_capacity_reservation_mutations",
+          "sql_table:sfu_capacity_reservations"
+        ],
+        "agent/db_models/sfu_hub_control.py": [
+          "sql_table:sfu_command_idempotency_ledger",
+          "sql_table:sfu_fanout_reconciliation_controls",
+          "sql_table:sfu_fanout_reconciliation_outcomes",
+          "sql_table:sfu_operations_snapshot_records",
+          "sql_table:sfu_operations_snapshots",
+          "sql_table:sfu_scope_epoch_authorities",
+          "sql_table:sfu_scope_epoch_grants"
+        ],
+        "agent/db_models/sfu_layer_projections.py": [
+          "sql_table:sfu_layer_projection_receipts",
+          "sql_table:sfu_layer_projections"
+        ],
+        "agent/db_models/sfu_node_observation_cursors.py": [
+          "sql_table:sfu_node_observation_cursors",
+          "sql_table:sfu_node_observation_replays"
+        ],
+        "agent/db_models/sfu_nodes.py": [
+          "sql_table:sfu_node_mutations",
+          "sql_table:sfu_nodes"
+        ],
+        "agent/db_models/sfu_runtime_identities.py": [
+          "sql_table:sfu_runtime_credentials",
+          "sql_table:sfu_runtime_enrollment_rate_limits",
+          "sql_table:sfu_runtime_identities",
+          "sql_table:sfu_runtime_identity_mutations"
+        ],
+        "agent/db_models/source_access_enforcement.py": [
+          "sql_table:source_access_grant_consumption",
+          "sql_table:source_access_grant_execution_policy"
+        ],
+        "agent/db_models/source_admission_receipt.py": [
+          "sql_table:source_admission_receipts"
+        ],
+        "agent/db_models/source_control.py": [
+          "sql_table:active_knowledge_index_events",
+          "sql_table:active_knowledge_indexes",
+          "sql_table:knowledge_index_run_source_bindings",
+          "sql_table:knowledge_index_source_bindings",
+          "sql_table:remote_source_payload_bindings",
+          "sql_table:remote_source_payloads",
+          "sql_table:source_access_grant_audit",
+          "sql_table:source_access_grants",
+          "sql_table:source_connection_selectors",
+          "sql_table:source_connections",
+          "sql_table:source_control_artifact_deletions",
+          "sql_table:source_control_bulk_target_checkpoints",
+          "sql_table:source_control_contents",
+          "sql_table:source_control_index_references",
+          "sql_table:source_control_job_event_outbox",
+          "sql_table:source_control_operations",
+          "sql_table:source_control_purge_approvals",
+          "sql_table:source_revisions"
+        ],
+        "agent/db_models/source_control_migration.py": [
+          "sql_table:source_control_legacy_mappings",
+          "sql_table:source_control_migration_runs",
+          "sql_table:source_ref_mappings"
+        ],
+        "agent/db_models/source_control_public_remote.py": [
+          "sql_table:source_control_public_remote_audits",
+          "sql_table:source_control_public_remote_validations",
+          "sql_table:source_control_public_remotes"
+        ],
+        "agent/db_models/source_control_workspace_registration.py": [
+          "sql_table:source_control_workspace_registration_audits",
+          "sql_table:source_control_workspace_registrations",
+          "sql_table:source_control_workspace_validations"
+        ],
+        "agent/db_models/speech_adaptation.py": [
+          "sql_table:speech_adaptation_artifacts",
+          "sql_table:speech_adaptation_capacity_leases",
+          "sql_table:speech_adaptation_jobs"
+        ],
+        "agent/db_models/speech_evidence.py": [
+          "sql_table:speech_curation_tasks",
+          "sql_table:speech_dataset_manifests",
+          "sql_table:speech_evidence",
+          "sql_table:speech_evidence_admissions",
+          "sql_table:speech_evidence_cleanups",
+          "sql_table:speech_evidence_consents",
+          "sql_table:speech_evidence_keys",
+          "sql_table:speech_evidence_revocations",
+          "sql_table:speech_lineage_edges",
+          "sql_table:speech_lineage_nodes",
+          "sql_table:speech_lineage_outbox",
+          "sql_table:speech_peer_curation_artifacts",
+          "sql_table:speech_peer_evidence_curations",
+          "sql_table:speech_privacy_lifecycles"
+        ],
+        "agent/db_models/speech_evidence_sync.py": [
+          "sql_table:speech_evidence_offers",
+          "sql_table:speech_evidence_peer_keys",
+          "sql_table:speech_evidence_replay_states",
+          "sql_table:speech_evidence_transfer_chunks",
+          "sql_table:speech_evidence_transfers"
+        ],
+        "agent/db_models/speech_reconciliation.py": [
+          "sql_table:speech_reconciliation_artifacts",
+          "sql_table:speech_reconciliation_attempts",
+          "sql_table:speech_reconciliation_budget_ledgers",
+          "sql_table:speech_reconciliation_checkpoints",
+          "sql_table:speech_reconciliation_jobs",
+          "sql_table:speech_reconciliation_mutations"
+        ],
+        "agent/db_models/spreadsheet_studio.py": [
+          "sql_table:spreadsheet_consent_revocation_impacts",
+          "sql_table:spreadsheet_datasets",
+          "sql_table:spreadsheet_document_versions",
+          "sql_table:spreadsheet_documents",
+          "sql_table:spreadsheet_execution_jobs",
+          "sql_table:spreadsheet_feedback_events",
+          "sql_table:spreadsheet_proposal_results",
+          "sql_table:spreadsheet_training_admissions",
+          "sql_table:spreadsheet_training_baselines",
+          "sql_table:spreadsheet_training_consents",
+          "sql_table:spreadsheet_training_lineage",
+          "sql_table:spreadsheet_validation_references"
+        ],
+        "agent/db_models/tasks.py": [
+          "sql_table:archived_tasks",
+          "sql_table:config",
+          "sql_table:tasks"
+        ],
+        "agent/db_models/teams.py": [
+          "sql_table:roles",
+          "sql_table:team_blueprints",
+          "sql_table:team_members",
+          "sql_table:team_type_role_links",
+          "sql_table:team_types",
+          "sql_table:teams"
+        ],
+        "agent/db_models/temporal_runtime.py": [
+          "sql_table:temporal_history_projections",
+          "sql_table:temporal_projected_events"
+        ],
+        "agent/db_models/text_quality.py": [
+          "sql_table:text_quality_criteria_sets",
+          "sql_table:text_quality_evaluations"
+        ],
+        "agent/db_models/turn_accounting.py": [
+          "sql_table:turn_accounting_ledger",
+          "sql_table:turn_accounting_source_cursors"
+        ],
+        "agent/db_models/turn_observations.py": [
+          "sql_table:turn_observation_cursors",
+          "sql_table:turn_observation_replays"
+        ],
+        "agent/db_models/turn_observer_identities.py": [
+          "sql_table:turn_observer_credentials",
+          "sql_table:turn_observer_enrollment_rate_limits",
+          "sql_table:turn_observer_identities",
+          "sql_table:turn_observer_identity_mutations"
+        ],
+        "agent/db_models/turn_pool_nodes.py": [
+          "sql_table:turn_pool_node_mutations",
+          "sql_table:turn_pool_nodes"
+        ],
+        "agent/db_models/visual_process.py": [
+          "sql_table:visual_process_graphs"
+        ],
+        "agent/db_models/visual_process_assistant.py": [
+          "sql_table:visual_process_assistant_contexts",
+          "sql_table:visual_process_assistant_conversations",
+          "sql_table:visual_process_assistant_rate_limits",
+          "sql_table:visual_process_assistant_requests",
+          "sql_table:visual_process_patch_audits"
+        ],
+        "agent/db_models/voice_configuration.py": [
+          "sql_table:voice_configuration_deltas"
+        ],
+        "agent/db_models/voice_governance.py": [
+          "sql_table:voice_consents",
+          "sql_table:voice_deletion_tombstones",
+          "sql_table:voice_feedback",
+          "sql_table:voice_governance_idempotency",
+          "sql_table:voice_personalization_profiles",
+          "sql_table:voice_result_artifacts",
+          "sql_table:voice_reviews",
+          "sql_table:voice_runtime_cleanups"
+        ],
+        "agent/db_models/voice_live_runs.py": [
+          "sql_table:voice_live_run_segments",
+          "sql_table:voice_live_runs"
+        ],
+        "agent/db_models/workers.py": [
+          "sql_table:evolution_proposals",
+          "sql_table:evolution_runs",
+          "sql_table:heuristic_decision_leases",
+          "sql_table:worker_jobs",
+          "sql_table:worker_results",
+          "sql_table:worker_slot_leases"
+        ],
+        "agent/db_models/workflow_runtime.py": [
+          "sql_table:workflow_authorization_grants",
+          "sql_table:workflow_command_nonces",
+          "sql_table:workflow_runtime_capacity_lock",
+          "sql_table:workflow_runtime_capacity_reservations",
+          "sql_table:workflow_runtime_read_models",
+          "sql_table:workflow_runtime_rollout_audit",
+          "sql_table:workflow_runtime_rollout_policies"
+        ],
+        "agent/db_models/workflow_runtime_control.py": [
+          "sql_table:workflow_control_bindings",
+          "sql_table:workflow_control_command_receipts",
+          "sql_table:workflow_control_dispatch_intents",
+          "sql_table:workflow_runtime_outbox",
+          "sql_table:workflow_transition_effects",
+          "sql_table:workflow_transition_outbox"
+        ],
+        "agent/db_models/workflow_runtime_execution.py": [
+          "sql_table:workflow_execution_attempt_history",
+          "sql_table:workflow_execution_ownership",
+          "sql_table:workflow_provider_budget_reservations",
+          "sql_table:workflow_provider_budgets",
+          "sql_table:workflow_retry_budgets",
+          "sql_table:workflow_retry_consumptions",
+          "sql_table:workflow_worker_assignments"
+        ],
+        "agent/db_models/workflow_runtime_state.py": [
+          "sql_table:workflow_runtime_checkpoints",
+          "sql_table:workflow_runtime_events",
+          "sql_table:workflow_side_effect_ledger"
+        ],
+        "agent/db_models/workflow_runtime_transition_reservations.py": [
+          "sql_table:workflow_transition_checkpoint_bindings",
+          "sql_table:workflow_transition_ownership_reservations",
+          "sql_table:workflow_transition_queue_reservations",
+          "sql_table:workflow_transition_side_effect_authorizations"
+        ],
+        "agent/hub_benchmark.py": [
+          "filesystem_write"
+        ],
+        "agent/hybrid_context_support.py": [
+          "filesystem_write"
+        ],
+        "agent/llm_benchmarks.py": [
+          "filesystem_write"
+        ],
+        "agent/ollama_benchmark.py": [
+          "filesystem_write"
+        ],
+        "agent/redis.py": [
+          "storage_import:redis"
+        ],
+        "agent/repositories/local_model_runtime_decision.py": [
+          "storage_import:sqlite3"
+        ],
+        "agent/repositories/local_tool_training.py": [
+          "storage_import:sqlite3"
+        ],
+        "agent/repositories/model_analysis_job_repository.py": [
+          "storage_import:sqlite3"
+        ],
+        "agent/repositories/sfu_broadcast_group_key_memory_repository.py": [
+          "named_state_component"
+        ],
+        "agent/repositories/sfu_broadcast_memory_repository.py": [
+          "named_state_component"
+        ],
+        "agent/research_backend.py": [
+          "filesystem_write"
+        ],
+        "agent/routes/ai_snake_config.py": [
+          "filesystem_write"
+        ],
+        "agent/routes/artifacts.py": [
+          "dynamic_file_mode"
+        ],
+        "agent/routes/langgraph_checkpoint_internal.py": [
+          "named_state_component"
+        ],
+        "agent/routes/snakes_rag_tool_loop_session.py": [
+          "filesystem_write"
+        ],
+        "agent/services/_deterministic_repair_outcome_memory.py": [
+          "named_state_component"
+        ],
+        "agent/services/_worker_workspace_context_writer.py": [
+          "filesystem_write"
+        ],
+        "agent/services/agent_safety_runtime_adapters.py": [
+          "filesystem_write"
+        ],
+        "agent/services/agent_safety_state_store.py": [
+          "storage_import:sqlite3"
+        ],
+        "agent/services/alias_catalog.py": [
+          "process_cache"
+        ],
+        "agent/services/approval_request_service.py": [
+          "filesystem_write"
+        ],
+        "agent/services/artifact_store.py": [
+          "dynamic_file_mode",
+          "filesystem_write"
+        ],
+        "agent/services/blueprint_migration_service.py": [
+          "filesystem_write"
+        ],
+        "agent/services/codecompass_domain_supplement.py": [
+          "storage_import:sqlite3"
+        ],
+        "agent/services/codecompass_domain_supplement_chunk_codec.py": [
+          "storage_import:sqlite3"
+        ],
+        "agent/services/codecompass_domain_supplement_domain_stream.py": [
+          "storage_import:sqlite3"
+        ],
+        "agent/services/codecompass_domain_supplement_sqlite_schema.py": [
+          "storage_import:sqlite3"
+        ],
+        "agent/services/codecompass_domain_supplement_sqlite_session.py": [
+          "storage_import:sqlite3"
+        ],
+        "agent/services/codecompass_layer_hub_store.py": [
+          "filesystem_write"
+        ],
+        "agent/services/codecompass_layer_search_index.py": [
+          "storage_import:sqlite3"
+        ],
+        "agent/services/codecompass_retrieval_flag_service.py": [
+          "storage_import:sqlite3"
+        ],
+        "agent/services/codecompass_sira_rollout_service.py": [
+          "storage_import:sqlite3"
+        ],
+        "agent/services/codecompass_worker_artifacts.py": [
+          "filesystem_write"
+        ],
+        "agent/services/collaboration_buzz_management_service.py": [
+          "storage_import:sqlite3"
+        ],
+        "agent/services/collaboration_key_custody.py": [
+          "storage_import:sqlite3"
+        ],
+        "agent/services/collaboration_resource_control_store.py": [
+          "storage_import:sqlite3"
+        ],
+        "agent/services/collaboration_store_infrastructure.py": [
+          "storage_import:sqlite3"
+        ],
+        "agent/services/collaboration_workspace_catalog_store.py": [
+          "storage_import:sqlite3"
+        ],
+        "agent/services/config_graph_persistence_service.py": [
+          "filesystem_write"
+        ],
+        "agent/services/context_access_policy_service.py": [
+          "filesystem_write"
+        ],
+        "agent/services/context_compression/ccr_store.py": [
+          "filesystem_write"
+        ],
+        "agent/services/custom_tool_validation_service.py": [
+          "filesystem_write"
+        ],
+        "agent/services/dspy_optimization_state_store.py": [
+          "storage_import:sqlite3"
+        ],
+        "agent/services/dspy_program_artifact_store.py": [
+          "filesystem_write",
+          "storage_import:sqlite3"
+        ],
+        "agent/services/dspy_promotion_service.py": [
+          "storage_import:sqlite3"
+        ],
+        "agent/services/file_type_support_service.py": [
+          "process_cache"
+        ],
+        "agent/services/generated_source_line_policy_service.py": [
+          "filesystem_write"
+        ],
+        "agent/services/helpcenter_contract_service.py": [
+          "filesystem_write"
+        ],
+        "agent/services/helpcenter_report_writer_service.py": [
+          "filesystem_write"
+        ],
+        "agent/services/heuristic_runtime/activation_gate.py": [
+          "filesystem_write"
+        ],
+        "agent/services/heuristic_runtime/auto_activator.py": [
+          "filesystem_write"
+        ],
+        "agent/services/heuristic_runtime/candidate_migration.py": [
+          "filesystem_write"
+        ],
+        "agent/services/heuristic_runtime/heuristic_normalizer.py": [
+          "filesystem_write"
+        ],
+        "agent/services/heuristic_runtime/heuristic_proposal_store.py": [
+          "filesystem_write"
+        ],
+        "agent/services/heuristic_runtime/proposal_service.py": [
+          "filesystem_write"
+        ],
+        "agent/services/heuristic_runtime/yaml_importer.py": [
+          "filesystem_write"
+        ],
+        "agent/services/hub_git_credential_resolver.py": [
+          "filesystem_write"
+        ],
+        "agent/services/hub_git_remote_service.py": [
+          "filesystem_write"
+        ],
+        "agent/services/hub_git_transport.py": [
+          "dynamic_file_mode"
+        ],
+        "agent/services/imap_account_service.py": [
+          "filesystem_write"
+        ],
+        "agent/services/imap_attachment_service.py": [
+          "filesystem_write"
+        ],
+        "agent/services/imap_export_service.py": [
+          "filesystem_write"
+        ],
+        "agent/services/imap_mail_artifact_service.py": [
+          "filesystem_write"
+        ],
+        "agent/services/imap_metadata_store_service.py": [
+          "filesystem_write"
+        ],
+        "agent/services/imap_secret_store_service.py": [
+          "filesystem_write"
+        ],
+        "agent/services/knowledge_expert_rollout_controller.py": [
+          "storage_import:sqlite3"
+        ],
+        "agent/services/knowledge_hygiene/projection.py": [
+          "filesystem_write"
+        ],
+        "agent/services/knowledge_hygiene/writeback.py": [
+          "filesystem_write"
+        ],
+        "agent/services/langgraph_checkpoint_gateway_runtime.py": [
+          "named_state_component"
+        ],
+        "agent/services/langgraph_checkpoint_gateway_service.py": [
+          "named_state_component"
+        ],
+        "agent/services/live_terminal_session_service.py": [
+          "filesystem_write"
+        ],
+        "agent/services/local_adapter_lifecycle_coordinator.py": [
+          "storage_import:sqlite3"
+        ],
+        "agent/services/local_adapter_rollout_service.py": [
+          "storage_import:sqlite3"
+        ],
+        "agent/services/local_adapter_serving_activation.py": [
+          "filesystem_write"
+        ],
+        "agent/services/local_tool_training_snapshot_service.py": [
+          "filesystem_write"
+        ],
+        "agent/services/mail_account_service.py": [
+          "filesystem_write"
+        ],
+        "agent/services/mail_artifact_service.py": [
+          "filesystem_write"
+        ],
+        "agent/services/mail_export_service.py": [
+          "filesystem_write"
+        ],
+        "agent/services/mail_metadata_store_service.py": [
+          "filesystem_write"
+        ],
+        "agent/services/mail_migration_journal.py": [
+          "dynamic_file_mode",
+          "filesystem_write"
+        ],
+        "agent/services/mail_migration_service.py": [
+          "filesystem_write"
+        ],
+        "agent/services/mail_operation_intent_service.py": [
+          "filesystem_write"
+        ],
+        "agent/services/mail_polling_scheduler.py": [
+          "filesystem_write"
+        ],
+        "agent/services/mail_runtime_policy.py": [
+          "filesystem_write"
+        ],
+        "agent/services/mail_runtime_state_adapters.py": [
+          "filesystem_write"
+        ],
+        "agent/services/mail_sync_state_store.py": [
+          "dynamic_file_mode",
+          "filesystem_write"
+        ],
+        "agent/services/meet_machine_key_files.py": [
+          "dynamic_file_mode"
+        ],
+        "agent/services/meet_preauthorization_input.py": [
+          "dynamic_file_mode"
+        ],
+        "agent/services/meet_signing_key.py": [
+          "dynamic_file_mode"
+        ],
+        "agent/services/memory_channel_registry.py": [
+          "named_state_component"
+        ],
+        "agent/services/memory_policy_gateway.py": [
+          "named_state_component"
+        ],
+        "agent/services/ml_intern_adapter_export_service.py": [
+          "filesystem_write"
+        ],
+        "agent/services/ml_intern_adapter_registry_service.py": [
+          "filesystem_write"
+        ],
+        "agent/services/ml_intern_artifact_security_service.py": [
+          "dynamic_file_mode",
+          "filesystem_write"
+        ],
+        "agent/services/ml_intern_dataset_catalog_service.py": [
+          "filesystem_write"
+        ],
+        "agent/services/ml_intern_dataset_validation_service.py": [
+          "filesystem_write"
+        ],
+        "agent/services/ml_intern_lora_dataset_build_service.py": [
+          "filesystem_write"
+        ],
+        "agent/services/ml_intern_lora_eval_service.py": [
+          "filesystem_write"
+        ],
+        "agent/services/ml_intern_lora_inference_service.py": [
+          "dynamic_file_mode"
+        ],
+        "agent/services/ml_intern_training_job_service.py": [
+          "filesystem_write"
+        ],
+        "agent/services/ml_intern_training_worker_port.py": [
+          "dynamic_file_mode"
+        ],
+        "agent/services/model_intelligence_retention_adapter.py": [
+          "storage_import:sqlite3"
+        ],
+        "agent/services/native_graph_checkpoint_service.py": [
+          "named_state_component"
+        ],
+        "agent/services/notation_renderer.py": [
+          "filesystem_write"
+        ],
+        "agent/services/organization_planning_composition.py": [
+          "process_cache"
+        ],
+        "agent/services/patch_sandbox_service.py": [
+          "filesystem_write"
+        ],
+        "agent/services/pattern_artifact_service.py": [
+          "filesystem_write"
+        ],
+        "agent/services/pattern_registry.py": [
+          "filesystem_write"
+        ],
+        "agent/services/pattern_service.py": [
+          "filesystem_write",
+          "process_cache"
+        ],
+        "agent/services/pattern_template_renderer.py": [
+          "filesystem_write"
+        ],
+        "agent/services/peer_overlay_state_store.py": [
+          "storage_import:sqlite3"
+        ],
+        "agent/services/performance_baseline_service.py": [
+          "filesystem_write"
+        ],
+        "agent/services/persona_file_erasure_store.py": [
+          "dynamic_file_mode"
+        ],
+        "agent/services/planning_summary_doctor_service.py": [
+          "filesystem_write"
+        ],
+        "agent/services/prompt_trace_service.py": [
+          "filesystem_write"
+        ],
+        "agent/services/rag_helper_file_type_run_support.py": [
+          "filesystem_write"
+        ],
+        "agent/services/rag_helper_index_service.py": [
+          "filesystem_write"
+        ],
+        "agent/services/rag_index_chunker.py": [
+          "filesystem_write"
+        ],
+        "agent/services/recovery_research_workspace_artifact_service.py": [
+          "dynamic_file_mode"
+        ],
+        "agent/services/recovery_workspace_file_reader.py": [
+          "dynamic_file_mode"
+        ],
+        "agent/services/referenced_context_hint_store.py": [
+          "filesystem_write"
+        ],
+        "agent/services/research_training_artifact_service.py": [
+          "filesystem_write"
+        ],
+        "agent/services/research_training_assignment_store.py": [
+          "storage_import:sqlite3"
+        ],
+        "agent/services/research_training_lineage_service.py": [
+          "storage_import:sqlite3"
+        ],
+        "agent/services/research_training_quota_service.py": [
+          "storage_import:sqlite3"
+        ],
+        "agent/services/research_training_state_store.py": [
+          "storage_import:sqlite3"
+        ],
+        "agent/services/research_training_sweep_service.py": [
+          "storage_import:sqlite3"
+        ],
+        "agent/services/restricted_inference_model_manifest.py": [
+          "dynamic_file_mode"
+        ],
+        "agent/services/restricted_inference_snapshot_store.py": [
+          "dynamic_file_mode"
+        ],
+        "agent/services/scrum_state_store.py": [
+          "storage_import:sqlite3"
+        ],
+        "agent/services/semantic_media_program_evidence.py": [
+          "filesystem_write"
+        ],
+        "agent/services/sfu_projection_signing.py": [
+          "dynamic_file_mode"
+        ],
+        "agent/services/source_control_artifact_download.py": [
+          "dynamic_file_mode"
+        ],
+        "agent/services/source_control_index_production_wiring.py": [
+          "dynamic_file_mode"
+        ],
+        "agent/services/source_control_workspace_catalog.py": [
+          "dynamic_file_mode"
+        ],
+        "agent/services/source_control_workspace_snapshot_filesystem.py": [
+          "dynamic_file_mode"
+        ],
+        "agent/services/source_filesystem_scanner.py": [
+          "dynamic_file_mode"
+        ],
+        "agent/services/specialist_prediction_storage.py": [
+          "dynamic_file_mode"
+        ],
+        "agent/services/speech_adaptation_in_memory_adapters.py": [
+          "named_state_component"
+        ],
+        "agent/services/spreadsheet_artifact_store.py": [
+          "filesystem_write"
+        ],
+        "agent/services/spreadsheet_learning_service.py": [
+          "filesystem_write"
+        ],
+        "agent/services/spreadsheet_learning_store.py": [
+          "storage_import:sqlite3"
+        ],
+        "agent/services/spreadsheet_store.py": [
+          "storage_import:sqlite3"
+        ],
+        "agent/services/spreadsheet_validation_reference_store.py": [
+          "storage_import:sqlite3"
+        ],
+        "agent/services/task_artifact_materializer.py": [
+          "filesystem_write"
+        ],
+        "agent/services/tools/workspace_mutation_tools.py": [
+          "filesystem_write"
+        ],
+        "agent/services/unsloth_model_catalog_service.py": [
+          "storage_import:sqlite3"
+        ],
+        "agent/services/unsloth_mutation_command_service.py": [
+          "storage_import:sqlite3"
+        ],
+        "agent/services/unsloth_runtime_endpoint_registry_service.py": [
+          "storage_import:sqlite3"
+        ],
+        "agent/services/unsloth_storage_catalog_cleanup_mixin.py": [
+          "storage_import:sqlite3"
+        ],
+        "agent/services/unsloth_storage_governance_service.py": [
+          "storage_import:sqlite3"
+        ],
+        "agent/services/wiki_article_graph_service.py": [
+          "storage_import:sqlite3"
+        ],
+        "agent/services/wiki_import_checkpoint_service.py": [
+          "filesystem_write",
+          "named_state_component"
+        ],
+        "agent/services/wiki_import_job_service.py": [
+          "filesystem_write"
+        ],
+        "agent/services/wiki_record_writer.py": [
+          "filesystem_write"
+        ],
+        "agent/services/wiki_xml_import_run.py": [
+          "filesystem_write"
+        ],
+        "agent/services/worker_handoff_service.py": [
+          "filesystem_write"
+        ],
+        "agent/services/worker_workspace_service.py": [
+          "filesystem_write"
+        ],
+        "agent/services/workflow_control_dispatch_persistence_memory.py": [
+          "named_state_component"
+        ],
+        "agent/services/workflow_runtime/checkpoint_bindings.py": [
+          "named_state_component"
+        ],
+        "agent/services/workflow_runtime/event_memory_store.py": [
+          "named_state_component"
+        ],
+        "agent/services/workflow_runtime/lease_fencing.py": [
+          "storage_import:sqlite3"
+        ],
+        "agent/services/workflow_runtime/operations_drills.py": [
+          "storage_import:sqlite3"
+        ],
+        "agent/services/workflow_runtime/ownership_in_memory_store.py": [
+          "named_state_component"
+        ],
+        "agent/services/workflow_runtime/ownership_sqlite_schema.py": [
+          "storage_import:sqlite3"
+        ],
+        "agent/services/workflow_runtime/ownership_sqlite_store.py": [
+          "storage_import:sqlite3"
+        ],
+        "agent/services/workflow_runtime/persistence.py": [
+          "storage_import:sqlite3"
+        ],
+        "agent/services/workflow_runtime/side_effect_sqlite_ledger.py": [
+          "storage_import:sqlite3"
+        ],
+        "agent/services/workflow_runtime/sqlalchemy_checkpoint_bindings.py": [
+          "named_state_component"
+        ],
+        "agent/services/workflow_shadow_comparison_service.py": [
+          "dynamic_file_mode",
+          "filesystem_write"
+        ],
+        "agent/services/workflow_transition_checkpoint_binding.py": [
+          "named_state_component"
+        ],
+        "agent/services/workflow_transition_persistence_memory.py": [
+          "named_state_component"
+        ],
+        "agent/services/workspace_git_service.py": [
+          "filesystem_write"
+        ],
+        "agent/sgpt/config.py": [
+          "filesystem_write"
+        ],
+        "agent/sgpt/role.py": [
+          "filesystem_write"
+        ],
+        "agent/sgpt/utils.py": [
+          "filesystem_write"
+        ],
+        "agent/sources/open_notebook_import_state.py": [
+          "filesystem_write"
+        ],
+        "agent/sources/open_notebook_importer.py": [
+          "filesystem_write"
+        ],
+        "agent/sources/registered_workspace_connector.py": [
+          "dynamic_file_mode"
+        ],
+        "agent/sources/source_pack_service.py": [
+          "filesystem_write"
+        ],
+        "agent/sources/source_registry.py": [
+          "dynamic_file_mode",
+          "filesystem_write"
+        ],
+        "agent/sources/source_snapshot_store.py": [
+          "filesystem_write"
+        ],
+        "agent/sources/wikimedia_downloader.py": [
+          "filesystem_write"
+        ],
+        "agent/tools_file.py": [
+          "filesystem_write"
+        ],
+        "agent/ws_terminal.py": [
+          "filesystem_write"
+        ]
+      }
+    },
+    {
+      "id": "hub-memory-audit",
+      "owner": "Hub memory policy decision audit",
+      "scope": "Tenant-headed chain; authenticated Hub project MANAGE authorization before SQL tenant/project/task/run/trace/channel/scope filters and bounded pagination",
+      "persistence": "SQL memory_audit_heads/memory_audit_events; retention independent of memory content",
+      "readers": "Hub SQLMemoryAuditRepository list/verify and project_events; read-only Hub project audit API consumed by Angular Control Center and TUI :memory-audit",
+      "writers": "Gateway decision audit via MemoryAuditService; transactional head/event append",
+      "deletion": "No delete/update API; retention_until alone does not prune; signed checkpoints and safe retention pruning remain open",
+      "trust": "Policy facts only, no memory contents. Local chain integrity does not provide production release evidence.",
+      "review_status": "SQL append/tamper/concurrency/rollback and project operator readmodel tested locally. Individual event digests verified; full-chain proof, safe pruning and production PostgreSQL acceptance remain separate.",
+      "files": {
+        "agent/db_models/memory_audit.py": [
+          "named_state_component",
+          "sql_table:memory_audit_events",
+          "sql_table:memory_audit_heads"
+        ],
+        "agent/repositories/memory_audit.py": [
+          "named_state_component"
+        ],
+        "agent/services/memory_audit_service.py": [
+          "named_state_component"
+        ],
+        "agent/routes/memory_audit.py": [
+          "named_state_component"
+        ],
+        "agent/services/memory_audit_read_service.py": [
+          "named_state_component"
+        ],
+        "client_surfaces/operator_tui/commands_memory_audit.py": [
+          "named_state_component"
+        ]
+      }
+    },
+    {
+      "id": "hub-memory-tree",
+      "owner": "Hub Memory Tree services",
+      "scope": "Source/topic/global; no hard task/tenant namespace yet",
+      "persistence": "SQL chunks/nodes/jobs; admitted/buffered/sealed/dropped lifecycle",
+      "readers": "MemoryTree retrieval, summaries and vault export",
+      "writers": "Tree store, ingestion, summary and result-memory auto-ingest",
+      "deletion": "Chunk lifecycle drop; summaries and derived exports require cascading invalidation",
+      "trust": "Untrusted content. Inventory inclusion does not authorize access or prove source/run evidence.",
+      "review_status": "observed_source_inventory; runtime isolation and full indirect-path audit remain open",
+      "files": {
+        "agent/services/memory_tree_ingestion_service.py": [
+          "named_state_component"
+        ],
+        "agent/services/memory_tree_retrieval_service.py": [
+          "named_state_component"
+        ],
+        "agent/services/memory_tree_store_service.py": [
+          "named_state_component"
+        ],
+        "agent/services/memory_tree_summary_service.py": [
+          "named_state_component"
+        ]
+      }
+    },
+    {
+      "id": "hub-memory-vault",
+      "owner": "Hub memory-vault exporter",
+      "scope": "Configured local output directory and source references",
+      "persistence": "Markdown files, retained until external deletion",
+      "readers": "Operator and downstream workspace readers",
+      "writers": "MemoryVaultExportService",
+      "deletion": "No integrated export revocation/retention cleanup",
+      "trust": "Untrusted content. Inventory inclusion does not authorize access or prove source/run evidence.",
+      "review_status": "observed_source_inventory; runtime isolation and full indirect-path audit remain open",
+      "files": {
+        "agent/services/memory_vault_export_service.py": [
+          "named_state_component"
+        ]
+      }
+    },
+    {
+      "id": "hub-result-memory",
+      "owner": "Hub result-memory service",
+      "scope": "Explicit Hub-authorized tenant/project/task/goal namespace; legacy unclassified rows are not reachable through the strict reader.",
+      "persistence": "SQL memory_entries; TTL optional",
+      "readers": "Goal/service result-context readers",
+      "writers": "ResultMemoryService under current Hub memory policy; protected namespace/security/provenance fields derived from the actual authorization decision.",
+      "deletion": "Expiry filters reads; physical deletion not implemented here",
+      "trust": "Untrusted memory data. New access-origin metadata records actual Hub actor/run/policy and issuer audit reference, without granting source verification or release evidence.",
+      "review_status": "observed_source_inventory; runtime isolation and full indirect-path audit remain open",
+      "files": {
+        "agent/db_models/memory.py": [
+          "named_state_component",
+          "sql_table:memory_entries",
+          "sql_table:memory_tree_chunks",
+          "sql_table:memory_tree_jobs",
+          "sql_table:memory_tree_nodes"
+        ],
+        "agent/db_models/memory_migration.py": [
+          "named_state_component",
+          "sql_table:memory_migration_backups"
+        ],
+        "agent/repositories/memory.py": [
+          "named_state_component"
+        ],
+        "agent/repositories/memory_migration.py": [
+          "named_state_component"
+        ],
+        "agent/services/result_memory_access.py": [
+          "named_state_component"
+        ],
+        "agent/services/result_memory_service.py": [
+          "named_state_component"
+        ],
+        "agent/services/legacy_memory_access.py": [
+          "named_state_component"
+        ],
+        "agent/services/memory_provenance_service.py": [
+          "named_state_component"
+        ]
+      }
+    },
+    {
+      "id": "run-scratchpad",
+      "owner": "Hub scratchpad service; delegated execution accesses require current Hub capability",
+      "scope": "Exact Hub-owned tenant/workspace/task/goal/run namespace",
+      "persistence": "RAM only; TTL capped at run deadline; no serialization or persistence backend",
+      "readers": "EphemeralScratchpadService read after gateway authorization",
+      "writers": "EphemeralScratchpadService append/update/delete after gateway authorization",
+      "deletion": "Hub discard_run lifecycle hook, reap_expired TTL cleanup; process restart drops all RAM state",
+      "trust": "Untrusted text only. No automatic promotion; no evidence identity issuance.",
+      "review_status": "local headless implementation; productive task lifecycle composition remains open",
+      "files": {
+        "agent/adapters/ephemeral_scratchpad_store.py": [
+          "named_state_component"
+        ],
+        "agent/services/ephemeral_scratchpad_service.py": [
+          "named_state_component"
+        ]
+      }
+    },
+    {
+      "id": "shared-contract-state",
+      "owner": "Shared contract package maintainers",
+      "scope": "DTO/type validation; implementation-specific if stateful",
+      "persistence": "Named memory components or statically observed storage primitive",
+      "readers": "Hub and Worker contract consumers",
+      "writers": "Contract helpers; any observed storage primitive requires review",
+      "deletion": "No runtime memory authority is granted by a contract",
+      "trust": "Untrusted content. Inventory inclusion does not authorize access or prove source/run evidence.",
+      "review_status": "observed_source_inventory; runtime isolation and full indirect-path audit remain open",
+      "files": {
+        "ananta_contracts/file_credentials.py": [
+          "dynamic_file_mode"
+        ],
+        "ananta_contracts/langgraph_checkpoint.py": [
+          "named_state_component"
+        ],
+        "ananta_contracts/memory_access.py": [
+          "named_state_component"
+        ]
+      }
+    },
+    {
+      "id": "tui-chat-memory",
+      "owner": "Operator TUI conversation owner",
+      "scope": "Game/chat/channel objects, not a Hub-issued run capability",
+      "persistence": "Conversation/game memory; host save lifecycle may serialize it",
+      "readers": "Chat prompt/context assembly and routing",
+      "writers": "Chat summary and routing update functions",
+      "deletion": "Reset game/chat state; no centralized Hub retention yet",
+      "trust": "Untrusted content. Inventory inclusion does not authorize access or prove source/run evidence.",
+      "review_status": "observed_source_inventory; runtime isolation and full indirect-path audit remain open",
+      "files": {
+        "client_surfaces/operator_tui/chat_memory.py": [
+          "named_state_component"
+        ],
+        "client_surfaces/operator_tui/snake_chat_routing_memory.py": [
+          "named_state_component"
+        ]
+      }
+    },
+    {
+      "id": "tui-render-cache",
+      "owner": "Operator TUI render runtime",
+      "scope": "UI instance, renderer inputs and frame identifiers",
+      "persistence": "Process caches or configured render-cache files",
+      "readers": "Frame/animation/markdown renderers",
+      "writers": "Renderer cache insertions",
+      "deletion": "Instance reset/eviction and configured cache-file removal",
+      "trust": "Untrusted content. Inventory inclusion does not authorize access or prove source/run evidence.",
+      "review_status": "observed_source_inventory; runtime isolation and full indirect-path audit remain open",
+      "files": {
+        "client_surfaces/operator_tui/ai_snake_prediction_cache.py": [
+          "named_state_component"
+        ],
+        "client_surfaces/operator_tui/animation3d/cache.py": [
+          "named_state_component"
+        ],
+        "client_surfaces/operator_tui/logo_renderer/frame_cache.py": [
+          "named_state_component"
+        ],
+        "client_surfaces/operator_tui/visual/markdown/mermaid_cache.py": [
+          "named_state_component"
+        ],
+        "client_surfaces/operator_tui/visual/runtime/frame_cache.py": [
+          "named_state_component"
+        ]
+      }
+    },
+    {
+      "id": "vector-retrieval",
+      "owner": "Hub retrieval/index policy; delegated retrieval Worker",
+      "scope": "Configured tenant/project/index bindings; backend-specific namespaces",
+      "persistence": "Qdrant, DuckDB, JSON indexes plus process caches and policy projections",
+      "readers": "Scoped retrieval services and delegated vector query/index tasks",
+      "writers": "Hub-index commands delegated to Worker stores",
+      "deletion": "Backend delete/migration, index versions and cache invalidation",
+      "trust": "Untrusted content. Inventory inclusion does not authorize access or prove source/run evidence.",
+      "review_status": "observed_source_inventory; runtime isolation and full indirect-path audit remain open",
+      "files": {
+        "agent/adapters/vector_store_metrics_adapter.py": [
+          "named_state_component"
+        ],
+        "agent/routes/tasks/vector_admin_boundary.py": [
+          "named_state_component"
+        ],
+        "agent/routes/tasks/vector_index_dispatch_admission.py": [
+          "named_state_component"
+        ],
+        "agent/routes/vector_store_control.py": [
+          "named_state_component"
+        ],
+        "agent/routes/worker_vector_index_readiness.py": [
+          "named_state_component"
+        ],
+        "agent/services/_task_scoped_vector_step_policy.py": [
+          "named_state_component"
+        ],
+        "agent/services/_vector_index_result_forwarding.py": [
+          "named_state_component"
+        ],
+        "agent/services/codecompass_vector_retrieval_service.py": [
+          "named_state_component"
+        ],
+        "agent/services/codecompass_vector_runtime_service.py": [
+          "named_state_component"
+        ],
+        "agent/services/kanban_vector_task_boundary.py": [
+          "named_state_component"
+        ],
+        "agent/services/retrieval_vector_runtime_scope_service.py": [
+          "named_state_component"
+        ],
+        "agent/services/retrieval_vector_scope_binding_service.py": [
+          "named_state_component"
+        ],
+        "agent/services/retrieval_vector_scope_ingress_policy.py": [
+          "named_state_component"
+        ],
+        "agent/services/task_vector_admin_mixin.py": [
+          "named_state_component"
+        ],
+        "agent/services/vector_index_input_artifact_service.py": [
+          "dynamic_file_mode",
+          "named_state_component"
+        ],
+        "agent/services/vector_index_preparation_policy.py": [
+          "named_state_component"
+        ],
+        "agent/services/vector_index_task_attestation_service.py": [
+          "named_state_component"
+        ],
+        "agent/services/vector_index_task_command_service.py": [
+          "named_state_component"
+        ],
+        "agent/services/vector_index_task_contracts.py": [
+          "named_state_component"
+        ],
+        "agent/services/vector_index_task_dispatch_service.py": [
+          "named_state_component"
+        ],
+        "agent/services/vector_index_task_ingress_policy.py": [
+          "named_state_component"
+        ],
+        "agent/services/vector_index_task_lifecycle_service.py": [
+          "named_state_component"
+        ],
+        "agent/services/vector_index_task_lifecycle_support.py": [
+          "named_state_component"
+        ],
+        "agent/services/vector_index_task_query_service.py": [
+          "named_state_component"
+        ],
+        "agent/services/vector_index_task_service.py": [
+          "named_state_component"
+        ],
+        "agent/services/vector_index_worker_identity_service.py": [
+          "named_state_component"
+        ],
+        "agent/services/vector_index_worker_result_boundary.py": [
+          "named_state_component"
+        ],
+        "agent/services/vector_store_authorization_policy.py": [
+          "named_state_component"
+        ],
+        "agent/services/vector_store_rollout_service.py": [
+          "filesystem_write",
+          "named_state_component"
+        ],
+        "agent/services/vector_task_admin_guard_service.py": [
+          "named_state_component"
+        ],
+        "agent/services/wiki_vector_index_mutation_service.py": [
+          "named_state_component"
+        ],
+        "agent/services/wiki_vector_runtime_service.py": [
+          "named_state_component"
+        ],
+        "agent/tui/vector_encoding_status_view.py": [
+          "named_state_component"
+        ],
+        "ananta_contracts/vector_index_dispatch.py": [
+          "named_state_component"
+        ],
+        "ananta_contracts/vector_index_task_attestation.py": [
+          "named_state_component"
+        ],
+        "worker/retrieval/codecompass_cache_state.py": [
+          "named_state_component"
+        ],
+        "worker/retrieval/codecompass_fts_store.py": [
+          "storage_import:sqlite3"
+        ],
+        "worker/retrieval/codecompass_sqlite_graph_store.py": [
+          "storage_import:sqlite3"
+        ],
+        "worker/retrieval/codecompass_vector_engine.py": [
+          "named_state_component"
+        ],
+        "worker/retrieval/codecompass_vector_store.py": [
+          "named_state_component"
+        ],
+        "worker/retrieval/duckdb_vector_store.py": [
+          "named_state_component"
+        ],
+        "worker/retrieval/duckdb_vector_store_config.py": [
+          "named_state_component"
+        ],
+        "worker/retrieval/json_vector_search.py": [
+          "named_state_component"
+        ],
+        "worker/retrieval/json_vector_store.py": [
+          "dynamic_file_mode",
+          "named_state_component"
+        ],
+        "worker/retrieval/qdrant_vector_store.py": [
+          "named_state_component"
+        ],
+        "worker/retrieval/sira/enriched_fts_store.py": [
+          "storage_import:sqlite3"
+        ],
+        "worker/retrieval/vector_encoding.py": [
+          "named_state_component"
+        ],
+        "worker/retrieval/vector_index_artifact_locator.py": [
+          "named_state_component"
+        ],
+        "worker/retrieval/vector_index_dispatch_admission.py": [
+          "named_state_component"
+        ],
+        "worker/retrieval/vector_index_embedding_egress_policy.py": [
+          "named_state_component"
+        ],
+        "worker/retrieval/vector_index_execution.py": [
+          "named_state_component"
+        ],
+        "worker/retrieval/vector_index_input_loader.py": [
+          "named_state_component"
+        ],
+        "worker/retrieval/vector_index_job_handler.py": [
+          "named_state_component"
+        ],
+        "worker/retrieval/vector_index_preparation.py": [
+          "named_state_component"
+        ],
+        "worker/retrieval/vector_index_replay_guard.py": [
+          "dynamic_file_mode",
+          "named_state_component",
+          "storage_import:sqlite3"
+        ],
+        "worker/retrieval/vector_index_task_attestation.py": [
+          "named_state_component"
+        ],
+        "worker/retrieval/vector_index_task_verification.py": [
+          "named_state_component"
+        ],
+        "worker/retrieval/vector_index_worker_readiness.py": [
+          "named_state_component"
+        ],
+        "worker/retrieval/vector_store_config.py": [
+          "named_state_component"
+        ],
+        "worker/retrieval/vector_store_contract.py": [
+          "named_state_component"
+        ],
+        "worker/retrieval/vector_store_endpoint_policy.py": [
+          "named_state_component"
+        ],
+        "worker/retrieval/vector_store_factory.py": [
+          "named_state_component"
+        ],
+        "worker/retrieval/vector_store_fallback.py": [
+          "named_state_component"
+        ],
+        "worker/retrieval/vector_store_migration.py": [
+          "named_state_component"
+        ],
+        "worker/retrieval/vector_store_observer.py": [
+          "named_state_component"
+        ],
+        "worker/retrieval/wiki_vector_store.py": [
+          "named_state_component"
+        ]
+      }
+    },
+    {
+      "id": "worker-context-cache",
+      "owner": "Delegated Worker retrieval/optimization",
+      "scope": "Cache-specific bindings; DSPy uses tenant/input/policy bindings",
+      "persistence": "Process cache; file writes are listed explicitly when observed",
+      "readers": "Retrieval/optimization consumers",
+      "writers": "Worker cache put and update paths",
+      "deletion": "TTL/clear/reset according to implementation; no universal terminal-run cleanup",
+      "trust": "Untrusted content. Inventory inclusion does not authorize access or prove source/run evidence.",
+      "review_status": "observed_source_inventory; runtime isolation and full indirect-path audit remain open",
+      "files": {
+        "worker/optimization/dspy/cache.py": [
+          "named_state_component"
+        ],
+        "worker/retrieval/cache.py": [
+          "named_state_component"
+        ]
+      }
+    },
+    {
+      "id": "worker-execution-state",
+      "owner": "Delegated Worker subsystem named by file",
+      "scope": "Assignment/task or backend-specific scope; verify at each execution port",
+      "persistence": "File/SQL/process state as identified by explicit storage signals",
+      "readers": "Worker tools and Hub artifact/result consumers",
+      "writers": "Delegated execution and adapter state writers",
+      "deletion": "Existing artifact cleanup/replay retention; not a memory reuse grant",
+      "trust": "Untrusted content. Inventory inclusion does not authorize access or prove source/run evidence.",
+      "review_status": "observed_source_inventory; runtime isolation and full indirect-path audit remain open",
+      "files": {
+        "worker/adapters/langgraph_checkpoint_adapter.py": [
+          "named_state_component"
+        ],
+        "worker/cli/standalone_worker_cli.py": [
+          "filesystem_write"
+        ],
+        "worker/core/artifact_manifest.py": [
+          "filesystem_write"
+        ],
+        "worker/core/worker_handoff_bundle.py": [
+          "filesystem_write"
+        ],
+        "worker/incremental_index/head_registry.py": [
+          "filesystem_write"
+        ],
+        "worker/incremental_index/layer_store.py": [
+          "filesystem_write"
+        ],
+        "worker/mail_sync_transaction_adapter.py": [
+          "storage_import:sqlite3"
+        ],
+        "worker/meet_egress/configuration.py": [
+          "dynamic_file_mode"
+        ],
+        "worker/meet_egress/health.py": [
+          "dynamic_file_mode"
+        ],
+        "worker/meet_egress/service.py": [
+          "filesystem_write"
+        ],
+        "worker/meet_media/avatar_service.py": [
+          "filesystem_write"
+        ],
+        "worker/meet_media/companion.py": [
+          "filesystem_write"
+        ],
+        "worker/meet_media/dialog_executor.py": [
+          "storage_import:sqlite3"
+        ],
+        "worker/meet_media/persona_generation_executor.py": [
+          "storage_import:sqlite3"
+        ],
+        "worker/meet_media/persona_inspection_executor.py": [
+          "storage_import:sqlite3"
+        ],
+        "worker/meet_media/persona_video_smoke.py": [
+          "filesystem_write"
+        ],
+        "worker/meet_media/piper_assets.py": [
+          "dynamic_file_mode"
+        ],
+        "worker/meet_media/publisher_diagnostics.py": [
+          "filesystem_write"
+        ],
+        "worker/meet_media/render_avatar_png.py": [
+          "filesystem_write"
+        ],
+        "worker/meet_media/server.py": [
+          "storage_import:sqlite3"
+        ],
+        "worker/meet_media/speech.py": [
+          "filesystem_write"
+        ],
+        "worker/meet_media/speech_publication.py": [
+          "dynamic_file_mode"
+        ],
+        "worker/meet_media/tool_decision_shadow.py": [
+          "filesystem_write"
+        ],
+        "worker/model_intelligence/common.py": [
+          "dynamic_file_mode"
+        ],
+        "worker/optimization/dspy/attempt_context.py": [
+          "filesystem_write"
+        ],
+        "worker/planning/checkpoint_store.py": [
+          "filesystem_write",
+          "named_state_component"
+        ],
+        "worker/retrieval/codecompass_crg_adapter.py": [
+          "storage_import:sqlite3"
+        ],
+        "worker/retrieval/codecompass_domain_supplement.py": [
+          "storage_import:sqlite3"
+        ],
+        "worker/retrieval/codecompass_domain_supplement_content_reader.py": [
+          "storage_import:sqlite3"
+        ],
+        "worker/retrieval/codecompass_domain_supplement_primitives.py": [
+          "storage_import:sqlite3"
+        ],
+        "worker/retrieval/codecompass_domain_supplement_source_writer.py": [
+          "storage_import:sqlite3"
+        ],
+        "worker/retrieval/codecompass_rig_importer.py": [
+          "filesystem_write"
+        ],
+        "worker/retrieval/duckdb_connection_factory.py": [
+          "storage_import:duckdb"
+        ],
+        "worker/retrieval/index_store.py": [
+          "filesystem_write"
+        ],
+        "worker/retrieval/repository_codecompass_bridge.py": [
+          "filesystem_write"
+        ],
+        "worker/retrieval/sira/incremental_enrichment.py": [
+          "filesystem_write"
+        ],
+        "worker/runtime/native_graph/artifact_reader.py": [
+          "dynamic_file_mode"
+        ],
+        "worker/runtime/native_graph/artifact_workspace.py": [
+          "dynamic_file_mode",
+          "filesystem_write"
+        ],
+        "worker/runtime/native_graph/result_store.py": [
+          "dynamic_file_mode",
+          "storage_import:sqlite3"
+        ],
+        "worker/shell/filesystem_isolation.py": [
+          "dynamic_file_mode"
+        ],
+        "worker/shell/landlock_kernel.py": [
+          "dynamic_file_mode"
+        ],
+        "worker/runtime/restricted_inference_admission.py": [
+          "dynamic_file_mode"
+        ],
+        "worker/runtime/spreadsheet_queue_worker.py": [
+          "filesystem_write"
+        ],
+        "worker/speech_reconciliation/audio_staging.py": [
+          "filesystem_write"
+        ],
+        "worker/speech_reconciliation/checkpointing.py": [
+          "dynamic_file_mode",
+          "filesystem_write",
+          "named_state_component"
+        ],
+        "worker/speech_training/backends/mock.py": [
+          "filesystem_write"
+        ],
+        "worker/speech_training/checkpointing.py": [
+          "named_state_component"
+        ],
+        "worker/spreadsheet/libreoffice_executor.py": [
+          "filesystem_write"
+        ],
+        "worker/training/backend_artifact_normalizer.py": [
+          "filesystem_write"
+        ],
+        "worker/training/backend_checkpoint_adapter.py": [
+          "named_state_component"
+        ],
+        "worker/training/backend_config_compiler.py": [
+          "filesystem_write"
+        ],
+        "worker/training/backends/external.py": [
+          "filesystem_write"
+        ],
+        "worker/training/backends/mock.py": [
+          "filesystem_write"
+        ],
+        "worker/training/backends/needle.py": [
+          "filesystem_write"
+        ],
+        "worker/training/backends/peft_trl.py": [
+          "filesystem_write"
+        ],
+        "worker/training/backends/unsloth_checkpoint.py": [
+          "dynamic_file_mode",
+          "filesystem_write",
+          "named_state_component"
+        ],
+        "worker/training/evaluation.py": [
+          "filesystem_write"
+        ],
+        "worker/training/exports.py": [
+          "filesystem_write"
+        ],
+        "worker/training/job_process.py": [
+          "filesystem_write"
+        ],
+        "worker/training/research/checkpoint.py": [
+          "filesystem_write",
+          "named_state_component"
+        ],
+        "worker/training/research/job_runner.py": [
+          "filesystem_write"
+        ],
+        "worker/training/runtime.py": [
+          "filesystem_write"
+        ],
+        "worker/training/runtime_artifact_service.py": [
+          "filesystem_write"
+        ],
+        "worker/training/storage_cleanup.py": [
+          "filesystem_write"
+        ],
+        "worker/training/subprocess_executor.py": [
+          "filesystem_write"
+        ],
+        "worker/training/trainer_checkpoint_observer.py": [
+          "named_state_component"
+        ],
+        "worker/verification/job_runner.py": [
+          "filesystem_write"
+        ]
+      }
+    },
+    {
+      "id": "worker-memory",
+      "owner": "Delegated Worker execution",
+      "scope": "Store instance and caller task ID; no immutable run namespace yet",
+      "persistence": "Process memory; project label does not create durable storage",
+      "readers": "Worker memory read/search/proposal consumers",
+      "writers": "WorkerMemoryStores capability boolean and direct MemoryStore writes",
+      "deletion": "discard_session; project and proposal stores need explicit cleanup",
+      "trust": "Untrusted content. Inventory inclusion does not authorize access or prove source/run evidence.",
+      "review_status": "observed_source_inventory; runtime isolation and full indirect-path audit remain open",
+      "files": {
+        "worker/core/memory_stores.py": [
+          "named_state_component"
+        ]
+      }
+    },
+    {
+      "id": "hub-memory-policy",
+      "owner": "Hub control plane",
+      "scope": "Authenticated actor and exact task, project, run and dispatch lease",
+      "persistence": "Hub SQL policy reservations; Hub-local context bindings",
+      "readers": "Hub memory gateway and closed execution adapters",
+      "writers": "Hub composition and authenticated admission only",
+      "deletion": "Explicit revocation and bounded expiry; no worker policy writes",
+      "trust": "Authoritative Hub authorization metadata. No source/run release evidence is issued.",
+      "review_status": "Typed SQL admission, live ACL/lease recheck and default denial tested locally",
+      "files": {
+        "agent/db_models/memory_policy.py": [
+          "named_state_component",
+          "sql_table:memory_run_policies"
+        ],
+        "agent/repositories/memory_policy.py": [
+          "named_state_component"
+        ],
+        "agent/services/memory_policy_codec.py": [
+          "named_state_component"
+        ],
+        "agent/services/memory_runtime.py": [
+          "named_state_component"
+        ],
+        "agent/services/memory_access_context.py": [
+          "named_state_component"
+        ],
+        "agent/services/memory_storage_boundary.py": [
+          "named_state_component"
+        ],
+        "worker/core/memory_authorization.py": [
+          "named_state_component"
+        ]
+      }
+    },
+    {
+      "id": "pi-dispatch-evidence-projection",
+      "owner": "Hub Pi dispatch preparation and transaction repositories",
+      "scope": "Exact tenant/project/Task and durable send claim; closed Hub-reserved RUN assignment projection",
+      "persistence": "Hub SQL pi_dispatch_evidence table",
+      "readers": "Authenticated Hub Pi reservation/context readers and result/recovery completion services",
+      "writers": "Hub caller-owned Task/Registry/dispatch transaction; Workers cannot issue or replace identities",
+      "deletion": "Retain with dispatch/result evidence lifecycle; no task-input memory reuse or automatic retirement",
+      "trust": "Correlations are technical metadata. Only actual Hub Registry verification validates SRC/RUN identity; this inventory grants no release evidence.",
+      "files": {
+        "agent/db_models/pi_dispatch_evidence.py": [
+          "sql_table:pi_dispatch_evidence"
+        ]
+      }
+    },
+    {
+      "id": "meet-task-cuda-cache-lifetime",
+      "owner": "Assigned Meet execution owner",
+      "scope": "One assigned Task lifetime; utterance processes share only its private compiled-kernel scratch",
+      "persistence": "Task-owned TemporaryDirectory and process wrapper; no cross-Task cache reuse",
+      "readers": "Owned utterance processes through explicit CUDA_CACHE_PATH and TMPDIR projection",
+      "writers": "Assigned execution resource runtime; wrapper does not create work or select models",
+      "deletion": "CachedCompanionExecution.close always closes TaskExecutionScratch in finally after execution.close",
+      "trust": "Untrusted execution scratch; not source evidence, prompt authority or transferable memory",
+      "files": {
+        "worker/meet_media/companion_task_cuda_cache.py": [
+          "named_state_component"
+        ]
+      }
+    },
+    {
+      "id": "hub-memory-snapshots",
+      "owner": "Hub diagnostic observation of admitted result-memory write sessions",
+      "scope": "Exact immutable Hub memory policy tenant/project/task/run; currently hub-result-memory task scope only. No operator/caller scope broadening. Sensitivity is constrained by the admitted write grants before hydration.",
+      "persistence": "SQL memory_snapshots immutable before/after boundaries; only entry/content/metadata digests and security metadata, no raw content.",
+      "readers": "Hub observer; authenticated project MANAGE operator readmodel shared by Angular/TUI. Snapshot and referenced audit-event digests are validated.",
+      "writers": "HubMemoryRuntime worker_result lifecycle; before and after snapshots, including failed scope exit. Snapshot/audit link commit atomically.",
+      "deletion": "No arbitrary delete/update API. Safe snapshot/audit retention pruning remains open; a missing audit link invalidates the snapshot.",
+      "trust": "Scope observation is not proof of sole causation or grounded release evidence. Unknown/unsupported channels fail closed. Before-only snapshots are incomplete.",
+      "review_status": "Bounded SQL hydration: at most1000 classified entries and4MiB input characters; real SQL transaction, isolation, idempotency and rollback tests.",
+      "files": {
+        "agent/db_models/memory_snapshot.py": [
+          "named_state_component",
+          "sql_table:memory_snapshots"
+        ],
+        "agent/repositories/memory_snapshot.py": [
+          "named_state_component"
+        ],
+        "agent/services/memory_snapshot_service.py": [
+          "named_state_component"
+        ],
+        "agent/services/memory_diff_service.py": [
+          "named_state_component"
+        ],
+        "agent/repositories/result_memory_snapshot_source.py": [
+          "named_state_component"
+        ]
+      }
+    },
+    {
+      "id": "hub-native-result-maintenance-cadence",
+      "owner": "Hub control plane; explicit default-off preauthorization and mandatory runtime release admission",
+      "scope": "tenant/project/schedule; immutable owner/control-task/policy-bound current Run reservation",
+      "persistence": "SQL native_maintenance_cadence; bounded current schedule configuration and pending-read batches; no Worker result content",
+      "readers": "Hub finite housekeeping tick and Native orchestration reconciliation only; not a Worker execution port",
+      "writers": "Hub SQL reservation/terminal receipt under SQLite write transaction or PostgreSQL row locks",
+      "deletion": "No automatic receipt/history deletion; current reservation cleared only after confirmed terminal Native outcome or fenced before-start cancellation",
+      "trust": "Hub-authorized operation metadata; ordinary domain references, not Evidence Registry source/run identities or production release evidence",
+      "files": {
+        "agent/db_models/native_maintenance.py": [
+          "sql_table:native_maintenance_cadence"
+        ],
+        "agent/repositories/native_maintenance_cadence.py": [],
+        "agent/services/native_result_maintenance_cadence.py": [],
+        "agent/services/native_result_maintenance_policy.py": [],
+        "agent/services/native_result_maintenance_runtime.py": []
+      }
+    },
+    {
+      "id": "hub-native-result-retirement",
+      "owner": "Hub control plane; current cadence preauthorization, registered assignment and grant plus accepted terminal receipts",
+      "scope": "tenant/project/Worker/store; immutable maintenance manifest and exact private-result bindings",
+      "persistence": "SQL native_result_retirement_manifests, native_result_retirement_markers and native_result_retirement_cursors; no Worker result payloads",
+      "readers": "Hub issuer and finite cadence acknowledgement reconciliation; Worker receives only the signed closed manifest",
+      "writers": "Hub current-authority transaction and accepted Native receipt reconciliation under SQLite write lock or PostgreSQL row/advisory locks",
+      "deletion": "No automatic manifest/confirmed-marker deletion; cursors advance in bounded scope; invalid acknowledgements become blocked",
+      "trust": "Ordinary operation/domain references and synthetic technical observations; no Evidence Registry identifiers minted or production promotion",
+      "files": {
+        "agent/db_models/native_result_retirement.py": [
+          "sql_table:native_result_retirement_cursors",
+          "sql_table:native_result_retirement_manifests",
+          "sql_table:native_result_retirement_markers"
+        ],
+        "agent/repositories/native_result_retirement.py": [],
+        "agent/services/native_result_retirement_service.py": [],
+        "agent/services/native_result_retirement_runtime.py": [],
+        "agent/services/native_result_retirement_admission.py": []
+      }
+    }
+  ]
+}

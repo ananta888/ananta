@@ -120,19 +120,27 @@ class TestContextAccessPolicyRegression(unittest.TestCase):
             defaults={"read_allowed": True, "write_allowed": False, "send_allowed": False},
         )
 
-        result = self.memory_service.record_worker_result_memory(
-            task_id="t1",
-            goal_id="g1",
-            trace_id="tr1",
-            worker_job_id="w1",
-            title="Safe Memory",
-            output="some info",
-            policy={"sensitivity": "project_internal", "enabled": True},
-            context_access_policy=allow_internal_policy,
-            approved=True
-        )
-        # It should pass CAP and reach the mock
+        from ananta_contracts.memory_access import MemoryScope
+        from tests.security.memory_fixtures import synthetic_memory_access
+
+        service = ResultMemoryService(memory_entry_repository=self.memory_repo_mock)
+        with synthetic_memory_access(
+            task_id="t1", goal_id="g1", channels=("hub-result-memory",), scopes=(MemoryScope.task,),
+        ):
+            result = service.record_worker_result_memory(
+                task_id="t1",
+                goal_id="g1",
+                trace_id="tr1",
+                worker_job_id="w1",
+                title="Safe Memory",
+                output="some info",
+                policy={"sensitivity": "project_internal", "enabled": True},
+                context_access_policy=allow_internal_policy,
+                approved=True,
+            )
+        # Legacy context approval also requires explicit current Hub grants.
         self.assertIsNotNone(result)
+        self.memory_repo_mock.save.assert_called_once()
 
 if __name__ == "__main__":
     unittest.main()

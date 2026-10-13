@@ -1,0 +1,39 @@
+{
+  "schema": "ananta.memory-access-origin-and-derivation-gate.v1",
+  "classification": "actual_sql_and_hub_lifecycle_synthetic_fixture_technical_observation",
+  "status": "protected_hub_access_origin_and_local_derivation_implemented",
+  "production_release_evidence": false,
+  "deployment_performed": false,
+  "focused_passed": 190,
+  "focused_seconds": 25.4,
+  "verified": [
+    "Actual Hub write session persists exact SQL audit actor/run/namespace/policy linkage",
+    "Caller-provided provenance cannot replace authoritative origin",
+    "Malformed issuer receipts block authorization",
+    "Receiptless fixture adapters remain explicitly unverified",
+    "Redacted-input and actual persisted-summary/content hashes match",
+    "Synthetic secret and pre-redaction digest are absent from origin",
+    "Audit reference cannot impersonate an Evidence Registry identifier",
+    "Shared policy/snapshot/operator regressions pass"
+  ],
+  "checks": {
+    "ruff": "passed",
+    "memory_channels": "passed",
+    "memory_legacy_access": "passed",
+    "cli_backend_shim_imports": "passed"
+  },
+  "remaining": [
+    "Registry-bound source and complete producer-version lineage",
+    "Parent-memory chains and cycle rejection",
+    "Other channels and export/import preservation",
+    "Atomic entry mutation receipt"
+  ],
+  "solid": {
+    "protected": "Pure origin and derivation projections separated from storage; small audit receipt port.",
+    "preserved_debt": "Existing ResultMemoryService mixes compaction and persistence; existing global repository composition remains."
+  },
+  "later_memory_and_security_regression": {
+    "passed": 822,
+    "seconds": 80.99
+  }
+}

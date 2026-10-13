@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Optional
 
 from agent.services.memory_tree_store_service import (
     MemoryTreeChunkDB,
@@ -151,7 +151,7 @@ class MemoryTreeRetrievalService:
         max_n = limit or self._max_chunks
 
         raw_chunks = self._store.get_chunks_by_source(
-            source_id, lifecycle=lifecycle, limit=max_n * 4
+            source_id, lifecycle=lifecycle, limit=max_n * 4, sensitivity_ceiling=ceiling
         )
 
         result = MemoryRetrievalResult(query=query, scope="source")
@@ -206,7 +206,7 @@ class MemoryTreeRetrievalService:
         # Expand child chunk IDs into actual chunk objects via source lookup
         source_ids = list(node.provenance_refs or [])
         for sid in source_ids:
-            raw_chunks = self._store.get_chunks_by_source(sid, limit=100)
+            raw_chunks = self._store.get_chunks_by_source(sid, limit=100, sensitivity_ceiling=ceiling)
             for chunk in raw_chunks:
                 if not _policy_allows(chunk.sensitivity, ceiling):
                     result.filtered_by_policy += 1
@@ -252,7 +252,7 @@ class MemoryTreeRetrievalService:
 
         source_ids = list(node.provenance_refs or [])
         for sid in source_ids:
-            raw_chunks = self._store.get_chunks_by_source(sid, limit=50)
+            raw_chunks = self._store.get_chunks_by_source(sid, limit=50, sensitivity_ceiling=ceiling)
             for chunk in raw_chunks:
                 if not _policy_allows(chunk.sensitivity, ceiling):
                     result.filtered_by_policy += 1

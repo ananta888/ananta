@@ -2,7 +2,7 @@
   "$schema": "../todo.schema.json",
   "version": "1.0",
   "created": "2026-09-23",
-  "updated": "2026-09-24",
+  "updated": "2026-10-13",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "7c72bce52..working-tree",
@@ -106,11 +106,15 @@
         },
         {
           "id": "MCK-006",
-          "status": "open",
+          "status": "partial",
           "title": "Index-Abdeckung pruefen: rag_helper-Dateien und line_start im Wissensindex",
           "acceptance": "KnowledgeIndexRetrievalService.search_records('rag-helper') liefert rag_helper_index_service.py, rag_helper_file_type_policy.py, _rag_helper_profile_catalog.py bzw. docs/rag-helper.md; Records tragen line_start, sonst wird nur Datei + Symbol zitiert.",
           "depends_on": [
             "MCK-003"
+          ],
+          "implementation_notes": [
+            "2026-10-13: Read-only im bestehenden Hub-Container mit frischem Retrieval-Prozess geprueft: rag-helper/rag_helper/rag helper liefern die erwarteten Module und docs/rag-helper.md; rag_helper trifft alle vier geforderten Pfade. Keine line_start-/Symbol-Metadaten in diesen Whole-file-Treffern. Bestehender Zitierpfad erfindet keine Zeile/Symbole (23 Dialogtests bestanden). Quellgebundene Koordinaten und Nachweis des dienenden HTTP-/Meet-Prozesses bleiben offen. Bericht: artifacts/test-gates/meet-rag-helper-index-coverage.v1.json. Kein Deploy, keine Produktions-Release-Evidence.",
+            "2026-10-13: Whole-file-Indexer bewahrt fuehrende Leerzeilen und die Zeilenanzahl bei mehrzeiliger Private-Key-Schwaerzung. Originaldatei-Range und expliziter Index-Header-Offset werden aufgenommen; Passage-Projektion validiert den Offset und bewahrt Leerzeilen. 106 gezielte Index-/Retrieval-/Meet-Tests bestanden, inklusive Scan -> Normalisierung -> Retrieval mit exakter Quellzeile. Bestehender Live-Index nicht veraendert: Re-Index und dienender Meet-/HTTP-Prozess bleiben ungeprueft. Bericht: artifacts/test-gates/meet-source-line-coordinates.v1.json."
           ]
         },
         {
@@ -198,15 +202,16 @@
     "total_items": 10,
     "by_status": {
       "completed": 8,
-      "partial": 0,
-      "open": 2
+      "partial": 1,
+      "open": 1
     },
     "notes": [
       "Flags unveraendert: MEET_COMPANION_TOOLS=1 aktiviert auch den Router-Zwang; mit MEET_COMPANION_TOOLS=0 und RAG-Prefix aus bleibt das Modell ungegroundet wie bisher.",
       "Live-Nachweis MCK-005 offen: verbesserte rag-helper-Antwort (erzwungener Lookup + Quelle) im Meet pruefen.",
       "Update 2026-09-23: MCK-007 (Laengen-Clamp gegen meet_chat_reply_denied) ergaenzt nach Live-Regression.",
       "Update 2026-09-24: MCK-008 (pfadlose Index-Treffer, Blob-Ranking) und MCK-009 (letzte Tool-Runde erzwingt Text, geleakte Tool-Calls) nach Live-Befund 'wofuer ist der rag-helper gut' ergaenzt und abgeschlossen.",
-      "Update 2026-09-24: MCK-010 nach Live-Befund (sources=['ci-artifacts/client-surface-release-gate.json']): Hub-Prozess seit 2026-09-23 08:31Z ohne MCK-008-Code; Varianten rag_helper/rag helper und Test-Abwertung ergaenzt. Wirksam erst nach Hub-Neustart (nicht deployt)."
+      "Update 2026-09-24: MCK-010 nach Live-Befund (sources=['ci-artifacts/client-surface-release-gate.json']): Hub-Prozess seit 2026-09-23 08:31Z ohne MCK-008-Code; Varianten rag_helper/rag helper und Test-Abwertung ergaenzt. Wirksam erst nach Hub-Neustart (nicht deployt).",
+      "2026-10-10: 320 lokale Meet-/Retrieval-Tests und Worker-Grenzcheck bestanden. MCK-005/006 bleiben offen: Docker-Zugriff verweigert; kein lokaler fertiger Wissensindex fuer den Live-Abdeckungsnachweis. Keine Deployment-/Produktions-Evidence behauptet."
     ],
     "recommended_order": [
       "MCK-001",
@@ -219,5 +224,32 @@
       "MCK-009",
       "MCK-010"
     ]
+  },
+  "local_headless_review_2026_10_10": {
+    "date": "2026-10-10",
+    "classification": "local_headless_technical_observation",
+    "production_release_evidence": false,
+    "deployment_performed": false,
+    "checks": [
+      {
+        "scope": "Meet companion knowledge/scope/chat ledger/public-room plus KnowledgeIndexRetrievalService",
+        "passed": 101,
+        "duration_seconds": 5.31
+      },
+      {
+        "scope": "Meet LLM tools/Hub tools/routes and public-room services/internal endpoints",
+        "passed": 219,
+        "duration_seconds": 6.77
+      },
+      {
+        "scope": "python3 scripts/check_meet_worker_boundaries.py",
+        "result": "meet-worker-boundaries-ok: 146 files"
+      }
+    ],
+    "external_blockers": [
+      "docker info --format: permission denied connecting to unix:///var/run/docker.sock; no deployment, room-server restart or live Meet verification performed",
+      "No completed knowledge-index outputs found in local data directory; live rag-helper index coverage and source lines remain unverified"
+    ],
+    "test_environment": "Isolated /tmp/ananta-todo-venv; missing NumPy supplied offline from cached wheel, production dependencies unchanged"
   }
 }

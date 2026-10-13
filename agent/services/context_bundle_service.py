@@ -6,9 +6,14 @@ import hashlib
 import time
 from typing import Any
 
-from worker.core.propose_orchestrator import ProposeContext
+from agent.services.memory_prompt_data import (
+    MEMORY_DATA_RULE,
+    is_memory_chunk,
+    render_memory_data,
+    render_retrieval_context,
+)
 from agent.services.retrieval_policy_filter_service import get_retrieval_policy_filter_service
-
+from worker.core.propose_orchestrator import ProposeContext
 
 _CONTEXT_BUNDLE_DEFAULTS: dict = {
     "mode": "standard",
@@ -126,15 +131,24 @@ Output ONLY valid JSON matching schema."""
         from agent.context_window import estimate_tokens, record_truncation
 
         def text_of(chunk) -> str:
+            if isinstance(chunk, dict) and is_memory_chunk(chunk):
+                return render_memory_data(chunk, max_chars=12000)
             return str(chunk.get("content") or chunk.get("text") or "") if isinstance(chunk, dict) else str(chunk)
 
         kept, used = [], 0
+        has_memory = False
         for chunk in chunks:
             tokens = estimate_tokens(text_of(chunk))
+            memory = isinstance(chunk, dict) and is_memory_chunk(chunk)
+            if memory and not has_memory:
+                tokens += estimate_tokens(MEMORY_DATA_RULE)
+            if memory and used + tokens > budget_tokens:
+                break
             if kept and used + tokens > budget_tokens:
                 break
             kept.append(chunk)
             used += tokens
+            has_memory = has_memory or memory
         dropped = len(chunks) - len(kept)
         if dropped:
             record_truncation("context_bundle", "drop_items",
@@ -207,6 +221,10 @@ Output ONLY valid JSON matching schema."""
                             "source_origin": "task_memory",
                             "sensitivity": str(getattr(mc, "sensitivity", "") or ""),
                             "chunk_id": str(getattr(mc, "chunk_id", "") or ""),
+                            "label": str(getattr(mc, "label", "") or ""),
+                            "scope": str(getattr(mc, "scope", "") or ""),
+                            "provenance_ref": str(getattr(mc, "provenance_ref", "") or ""),
+                            "trust": "untrusted",
                         },
                     }
                 )
@@ -229,6 +247,9 @@ Output ONLY valid JSON matching schema."""
                     "content": str(entry.get("content") or ""),
                     "sensitivity": str(meta.get("sensitivity") or ""),
                     "score": float(entry.get("score") or 0.0),
+                    "trust": "untrusted",
+                    "scope": str(meta.get("scope") or ""),
+                    "provenance_ref": str(meta.get("provenance_ref") or ""),
                 })
             summary_node = getattr(memory_tree_retrieval_result, "summary_node", None)
             memory_tree_view = {
@@ -245,6 +266,8 @@ Output ONLY valid JSON matching schema."""
                     "label": summary_node.label,
                     "summary": summary_node.summary,
                     "leaf_count": summary_node.leaf_count,
+                    "trust": "untrusted",
+                    "provenance_refs": list(summary_node.provenance_refs),
                 } if summary_node else None,
             }
 
@@ -300,6 +323,15 @@ Output ONLY valid JSON matching schema."""
         explainability_level = "minimal" if policy_mode == "compact" else ("detailed" if policy_mode == "full" else "balanced")
         chunk_text_style = "compressed_snippets" if policy_mode == "compact" else ("detailed_context" if policy_mode == "full" else "balanced_snippets")
         engines = sorted({str(chunk.get("engine") or "unknown") for chunk in filtered})
+        text_context = (context_payload or {}).get("context_text")
+        text_tokens = int((context_payload or {}).get("token_estimate") or 0)
+        # An upstream text aggregate may contain denied/dropped memory. Rebuild
+        # it from the final admitted selection, never from caller text.
+        if any(is_memory_chunk(chunk) for chunk in chunks):
+            from agent.context_window import estimate_tokens
+
+            text_context = render_retrieval_context(filtered)
+            text_tokens = estimate_tokens(text_context)
 
         bundle: dict = {
             "schema": "worker_context_bundle.v1",
@@ -311,8 +343,8 @@ Output ONLY valid JSON matching schema."""
             "llm_scope": llm_scope,
             "chunk_count": len(filtered),
             "chunks": filtered,
-            "context_text": (context_payload or {}).get("context_text") if include_context_text is not False else None,
-            "token_estimate": int((context_payload or {}).get("token_estimate") or 0),
+            "context_text": text_context if include_context_text is not False else None,
+            "token_estimate": text_tokens,
             "context_policy": {
                 "mode": policy_mode,
                 "include_context_text": include_context_text is not False,
@@ -455,7 +487,13 @@ pip install fastapi
                 profile_header += ")"
 
             context_lines: list[str] = []
+            has_memory = False
             for idx, chunk in enumerate(valid_chunks[:12], start=1):
+                if is_memory_chunk(chunk):
+                    has_memory = True
+                    context_lines.append(render_memory_data(chunk))
+                    context_lines.append("")
+                    continue
                 metadata = dict(chunk.get("metadata") or {})
                 source = str(chunk.get("source") or metadata.get("file") or "").strip()
                 source_type = str(metadata.get("source_type") or chunk.get("engine") or "").strip()
@@ -475,10 +513,18 @@ pip install fastapi
                 context_lines.append("")
 
             rule = ""
+            if has_memory:
+                rule = f"\n{MEMORY_DATA_RULE}"
             if intent == "implemented_code_explanation":
-                rule = "\nRegel: Antworte nur auf Basis der aufgeführten Code-Quellen. Nenne konkrete Dateien und Funktionen."
+                rule += (
+                    "\nRegel: Antworte nur auf Basis der aufgeführten Code-Quellen. "
+                    "Nenne konkrete Dateien und Funktionen."
+                )
             elif intent == "architecture_overview":
-                rule = "\nRegel: Erkläre die Architektur auf Basis der aufgeführten Quellen. Nenne konkrete Komponenten."
+                rule += (
+                    "\nRegel: Erkläre die Architektur auf Basis der aufgeführten Quellen. "
+                    "Nenne konkrete Komponenten."
+                )
 
             context_block = "\n".join(context_lines).strip()
             return f"Frage:\n{prompt}\n\nKontext{profile_header}:\n{context_block}{rule}"

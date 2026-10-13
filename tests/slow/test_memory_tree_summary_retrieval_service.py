@@ -25,7 +25,12 @@ def store(tmp_path, monkeypatch):
     monkeypatch.setattr(store_module._db_module, "engine", engine)
 
     svc = MemoryTreeStoreService()
-    yield svc
+    from tests.security.memory_fixtures import synthetic_memory_access
+    from ananta_contracts.memory_access import MemoryScope
+
+    with synthetic_memory_access(channels=("hub-memory-tree", "hub-memory-vault"),
+                                 scopes=tuple(MemoryScope)):
+        yield svc
 
 
 @pytest.fixture
@@ -238,7 +243,8 @@ def test_retrieve_source_sensitivity_filter(retrieval_svc, store):
         "sec-src", lifecycle=None, sensitivity_ceiling="internal"
     )
     assert result.total_chunks == 1
-    assert result.filtered_by_policy == 1
+    # The SQL boundary excludes the secret before hydration, so no post-read count leaks it.
+    assert result.filtered_by_policy == 0
     assert result.chunks[0].label == "PublicClass"
 
 

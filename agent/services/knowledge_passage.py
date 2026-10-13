@@ -44,7 +44,9 @@ def best_passage(content: str, query: str, *, max_chars: int, base_line: int = 1
         end += 1
     if end == start:  # a single line longer than the budget
         end = start + 1
-    text = "\n".join(lines[start:end])[:max_chars].strip("\n")
+    # Leading blank lines belong to the reported source window. Removing
+    # them without changing its coordinates shifts every cited line.
+    text = "\n".join(lines[start:end])[:max_chars]
     first = max(1, int(base_line or 1))
     return Passage(text=text, line_start=first + start, line_end=first + end - 1)
 

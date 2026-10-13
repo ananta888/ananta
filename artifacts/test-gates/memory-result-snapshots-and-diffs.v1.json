@@ -1,0 +1,66 @@
+{
+  "schema": "ananta.memory-result-snapshots-and-diffs-gate.v1",
+  "classification": "actual_sql_and_hub_lifecycle_synthetic_fixture_technical_observation",
+  "status": "automatic_task_result_memory_snapshots_and_shared_diff_views_implemented",
+  "report": "artifacts/test-gates/memory-result-snapshots-and-diffs.v1.json",
+  "api": "GET /api/projects/<project_id>/memory-audit/diffs?run_id=<memory-session-id>",
+  "production_release_evidence": false,
+  "deployment_performed": false,
+  "python_broad_passed": 1852,
+  "python_broad_seconds": 97.6,
+  "python_broad_skipped": 1,
+  "python_broad_deselected": 1,
+  "final_focused_passed": 120,
+  "final_focused_seconds": 11.22,
+  "final_source_cases": 20,
+  "angular_targeted_passed": 10,
+  "angular_control_center_passed": 33,
+  "angular_control_center_skipped": 1,
+  "angular_development_build": "passed",
+  "angular_typecheck": "passed",
+  "scope": "Actual Hub write-session composition and actual SQL before/after observations with atomic audit links. Namespace/sensitivity SQL filters, quotas, concurrency, failure and tamper cases; shared project MANAGE readmodel in Angular and TUI. Synthetic fixture policy/authentication; no productive release evidence.",
+  "remaining": [
+    "Other persistent memory channels and broader scope adapters",
+    "Explicit verified promotion and derivation provenance",
+    "Safe snapshot/audit retention pruning",
+    "Independent full-process PostgreSQL and productive acceptance"
+  ],
+  "checks": {
+    "ruff": "passed",
+    "memory_channels": "passed",
+    "memory_legacy_access": "passed",
+    "cli_backend_shim_imports": "passed"
+  },
+  "verified": [
+    "Automatic snapshots around actual Hub-authorized ResultMemoryService writes",
+    "Failed scope exit retains an after observation and still revokes the run grant",
+    "Snapshot and audit reference roll back together",
+    "Concurrent/idempotent captures preserve the first immutable observation",
+    "Unchanged content is absent from changes; added/modified/deleted observations differ",
+    "Foreign namespace and higher-sensitivity entries are filtered before hydration",
+    "Unsafe source adapters cannot inject content or higher-sensitivity records",
+    "Missing/tampered audit or snapshot bindings refuse retrieval",
+    "Same project-authorized diff projection in authenticated HTTP, Angular and actual TUI renderer"
+  ],
+  "solid": {
+    "protected": "Bounded source adapter, immutable snapshot/audit store, pure diff comparator and thin API/client adapters use separate responsibilities and small ports.",
+    "preserved_debt": "Global engine lookup remains limited to existing application/HTTP composition."
+  },
+  "limits": {
+    "maximum_source_entries": 1000,
+    "maximum_source_input_characters": 4194304,
+    "maximum_run_snapshot_records": 64
+  },
+  "semantics": {
+    "attribution": "observed_scope_change",
+    "deletion": "absent_from_observed_scope",
+    "scope_outcome": "memory_session_only",
+    "before_only": "incomplete",
+    "grounded_release_evidence": false
+  },
+  "regression_limits": {
+    "python_skip": "Existing opt-in live browser/TUI Kanban Hub scenario",
+    "python_warnings": "Four existing startup Pydantic deprecations",
+    "angular_warning": "Existing unused RouterLink in KnowledgeHygienePageComponent"
+  }
+}

@@ -37,18 +37,23 @@ class _TaskRepo:
 def test_result_memory_creates_compact_followup_artifact_metadata(monkeypatch):
     repo = _MemoryRepo()
     monkeypatch.setattr("agent.services.result_memory_service.memory_entry_repo", repo)
-    service = ResultMemoryService()
+    service = ResultMemoryService(memory_entry_repository=repo)
 
-    entry = service.record_worker_result_memory(
-        task_id="T-1",
-        goal_id="G-1",
-        trace_id="TRACE-1",
-        worker_job_id="W-1",
-        title="Implement routing",
-        output="Changed agent/services/foo.py\nTests passed\nNext step: review docs",
-        retrieval_tags=["coding", "completed"],
-        policy={"retrieval_document_max_chars": 600, "archive_raw_output": True},
-    )
+    from tests.security.memory_fixtures import synthetic_memory_access
+    from ananta_contracts.memory_access import MemoryScope
+
+    with synthetic_memory_access(task_id="T-1", goal_id="G-1", channels=("hub-result-memory",),
+                                 scopes=(MemoryScope.task,)):
+        entry = service.record_worker_result_memory(
+            task_id="T-1",
+            goal_id="G-1",
+            trace_id="TRACE-1",
+            worker_job_id="W-1",
+            title="Implement routing",
+            output="Changed agent/services/foo.py\nTests passed\nNext step: review docs",
+            retrieval_tags=["coding", "completed"],
+            policy={"retrieval_document_max_chars": 600, "archive_raw_output": True},
+        )
 
     metadata = entry.memory_metadata
     assert metadata["memory_format"] == "worker_result_compact_v3"
@@ -91,7 +96,7 @@ def test_task_neighborhood_uses_goal_dependency_and_file_overlap():
     assert "T-3" in neighborhood["neighbor_task_ids"]
     t2 = next(item for item in neighborhood["neighbors"] if item["task_id"] == "T-2")
     assert "same_goal" in t2["reasons"]
-    assert "file_symbol_overlap" in t2["reasons"]
+    assert "file_symbol_overlap" not in t2["reasons"]  # Unscoped legacy memory is not readable authority.
 
 
 def test_remote_federation_policy_blocks_artifacts_by_default_and_adds_provenance_headers():

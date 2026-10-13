@@ -1,0 +1,48 @@
+{
+  "schema": "ananta.memory-audit-operator-access-gate.v1",
+  "classification": "synthetic_authenticated_sql_and_client_technical_observation",
+  "status": "project_audit_readmodel_and_angular_tui_access_implemented",
+  "report": "artifacts/test-gates/memory-audit-operator-access.v1.json",
+  "api": "GET /api/projects/<project_id>/memory-audit/events",
+  "python_regression_passed": 1833,
+  "python_skipped": 1,
+  "python_seconds": 94.99,
+  "final_focused_passed": 52,
+  "final_focused_seconds": 6.09,
+  "angular_targeted_passed": 9,
+  "angular_control_center_passed": 29,
+  "angular_control_center_skipped": 1,
+  "angular_typecheck": "passed",
+  "angular_development_build": "passed",
+  "production_release_evidence": false,
+  "deployment_performed": false,
+  "scope": "Real SQL audit and project MANAGE authorization; bounded SQL filters before pagination. Shared readmodel in Angular and actual TUI renderer. Synthetic authentication/policy fixtures; no production release claim.",
+  "remaining": [
+    "Automatic content snapshots and before/after diffs",
+    "Derived entry provenance",
+    "Full audit-chain proof and safe audit retention pruning",
+    "Tenant-level operator view for events with no provable project target"
+  ],
+  "solid": {
+    "protected": "SQL repository, authorization/projection service, thin HTTP adapter and separate client handler (SRP/ISP/DIP).",
+    "preserved_debt": "Global engine locator in route composition; large pre-existing TUI dispatcher retained while new handler stays separate."
+  },
+  "initial_corrections": [
+    "Missing test-environment prompt_toolkit resolved using requirements.lock pins 3.0.52 and wcwidth0.6.0.",
+    "Existing Pi Worker package-level import replaced by exact CLI runtime import and reviewed exact module boundaries.",
+    "Final TUI command enters NORMAL mode and initializes the audit panel before actual renderer use."
+  ],
+  "checks": {
+    "ruff": "passed",
+    "memory_channels": "passed",
+    "memory_legacy_access": "passed",
+    "todo_consistency": "passed",
+    "diff_check": "passed",
+    "cli_backend_shim_imports": "passed"
+  },
+  "scope_limits": [
+    "Policy decisions are not successful mutation receipts.",
+    "Page event hashes checked; complete_chain_verified stays false.",
+    "Unscoped denied attempts are not exposed through a global project fallback."
+  ]
+}

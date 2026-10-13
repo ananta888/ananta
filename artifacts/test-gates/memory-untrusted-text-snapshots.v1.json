@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "classification": "local_headless_technical_observation",
+  "production_release_evidence": false,
+  "deployment_performed": false,
+  "checks": {
+    "passed": 616,
+    "deselected": 1,
+    "duration_seconds": 27.77,
+    "scope": [
+      "tests/security/test_memory_prompt_data.py",
+      "tests/prompt/test_prompt_snapshot_service.py",
+      "tests/context",
+      "tests/rag/test_rag_service.py",
+      "tests/retrieval",
+      "tests/test_memory_tree_context_policy.py",
+      "tests/test_zero_trust_result_memory.py"
+    ]
+  },
+  "properties": [
+    "retrieval text aggregate preserves redaction and untrusted JSON serialization",
+    "final policy/budget selection reconstructs aggregate without removed memory",
+    "serialized wrapper and memory rule included in Memory budget admission",
+    "snapshot records exact character positions and representation hashes without raw values",
+    "ordinary memory entry reference distinct from normalized chunk reference",
+    "descriptive source references remain identity_verified=false",
+    "legacy test repositories use explicit read-only synthetic Hub grants and namespace reads"
+  ],
+  "solid": {
+    "structure": "Pure memory representation helper; retrieval selects/redacts, bundler filters/budgets, snapshot service records final positions",
+    "preserved_debt": "Broad ContextBundler facade and unstructured Worker/Handoff prompt paths"
+  },
+  "lint": {
+    "new_helper_snapshot_and_new_tests": "passed",
+    "existing_context_and_retrieval_modules": "passed excluding inherited E501 long lines"
+  },
+  "remaining": [
+    "Worker plain ContextBlock and handoff consumers",
+    "Quarantine/cache enforcement",
+    "Productive verification"
+  ]
+}

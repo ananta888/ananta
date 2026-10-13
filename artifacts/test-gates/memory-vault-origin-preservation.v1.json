@@ -1,0 +1,34 @@
+{
+  "schema": "ananta.memory-vault-origin-preservation-gate.v1",
+  "status": "chunk_export_origin_preservation_implemented",
+  "classification": "actual_sql_and_namespace_file_export_synthetic_authorization_technical_observation",
+  "production_release_evidence": false,
+  "deployment_performed": false,
+  "focused_passed": 85,
+  "focused_seconds": 24.37,
+  "additional_final_sql_audit_and_tree_cases": 13,
+  "additional_final_seconds": 9.38,
+  "verified": [
+    "Stored source origin survives as JSON Markdown frontmatter",
+    "Current Hub vault export decision stored separately",
+    "Exported-content SHA-256 matches the written chunk body",
+    "Missing legacy origin remains null and unverified",
+    "Export never grants verified trust or production evidence",
+    "Optional small chunk reader can be injected independently of global composition"
+  ],
+  "checks": {
+    "ruff": "passed",
+    "memory_channels": "passed",
+    "memory_legacy_access": "passed",
+    "todo_consistency": "passed",
+    "git_diff_check": "passed"
+  },
+  "remaining": [
+    "Import and revalidation path",
+    "Full Registry-issued source and run identity validation"
+  ],
+  "solid": {
+    "protected": "Pure frontmatter origin projection; optional small chunk read port protects SRP/DIP/ISP.",
+    "preserved_debt": "Existing global store lookup remains the default composition fallback."
+  }
+}

@@ -1,22 +1,33 @@
 from __future__ import annotations
 
+import logging
 import re
 import time
 from dataclasses import dataclass, field
-from typing import Any, List, Optional, Dict
+from typing import Any, Optional
 
 from agent.db_models import MemoryEntryDB
-from agent.repository import memory_entry_repo
+from agent.repository import memory_entry_repo as memory_entry_repo
+from agent.services.memory_policy_gateway import MemoryAccessError
+from agent.services.memory_sensitivity_bridge import context_sensitivity
+from agent.services.result_memory_access import CurrentMemoryAuthorizationPort, ResultMemoryAccess
 from ananta_contracts.context_access_policy import (
     ContextAccessPolicy,
     ContextAccessPolicyEvaluator,
-    DestinationContext,
-    RequestedOperation,
     Decision,
+    DestinationContext,
     ModelScope,
-    Sensitivity,
-    SourceType
+    RequestedOperation,
+    SourceType,
 )
+from ananta_contracts.memory_access import (
+    MemoryActor,
+    MemoryScope,
+    MemorySensitivity,
+    normalize_legacy_memory_metadata,
+)
+
+logger = logging.getLogger(__name__)
 
 _POLICY_VERSION = "memory_policy_v2"
 
@@ -62,8 +73,12 @@ def normalize_result_memory_policy(value: dict | None) -> dict[str, object]:
     return {
         "enabled": bool(payload.get("enabled", True)),
         "create_followup_artifact": bool(payload.get("create_followup_artifact", True)),
-        "retrieval_document_max_chars": _positive_int(payload.get("retrieval_document_max_chars"), 2200, minimum=400, maximum=12000),
-        "raw_history_max_chars": _positive_int(payload.get("raw_history_max_chars"), 12000, minimum=1000, maximum=100000),
+        "retrieval_document_max_chars": _positive_int(
+            payload.get("retrieval_document_max_chars"), 2200, minimum=400, maximum=12000,
+        ),
+        "raw_history_max_chars": _positive_int(
+            payload.get("raw_history_max_chars"), 12000, minimum=1000, maximum=100000,
+        ),
         "archive_raw_output": bool(payload.get("archive_raw_output", False)),
         "neighbor_file_terms_enabled": bool(payload.get("neighbor_file_terms_enabled", True)),
         # T022: sensitivity + redaction
@@ -82,7 +97,10 @@ def normalize_result_memory_policy(value: dict | None) -> dict[str, object]:
 class ResultMemoryService:
     """Persists worker results as hub-owned memory entries for later retrieval."""
 
-    _FILE_PATH_RE = re.compile(r"(?<![A-Za-z0-9_./-])([A-Za-z0-9_./-]+\.(?:py|ts|tsx|js|jsx|java|go|rs|md|json|yaml|yml|xml))(?![A-Za-z0-9_./-])")
+    _FILE_PATH_RE = re.compile(
+        r"(?<![A-Za-z0-9_./-])([A-Za-z0-9_./-]+\.(?:py|ts|tsx|js|jsx|java|go|rs|md|json|yaml|yml|xml))"
+        r"(?![A-Za-z0-9_./-])"
+    )
 
     def __init__(
         self,
@@ -90,7 +108,15 @@ class ResultMemoryService:
         memory_entry_repository: Any = None,
         memory_tree_ingestion_service: Any = None,
         auto_ingest_tree: bool = False,
+        memory_gateway: CurrentMemoryAuthorizationPort | None = None,
     ) -> None:
+        self._explicit_memory_gateway = memory_gateway is not None
+        if memory_gateway is None:
+            from agent.services.memory_runtime import CurrentMemoryGateway
+
+            memory_gateway = CurrentMemoryGateway()
+        self._memory_access = ResultMemoryAccess(memory_gateway)
+        self._memory_gateway = memory_gateway
         # Capture the explicit override (or sentinel) so that test-DI works.
         # The default case (``None``) defers to ``_memory_entry_repo`` which
         # resolves ``agent.services.di.memory_entry_repo`` at call time.
@@ -124,7 +150,8 @@ class ResultMemoryService:
         bullets = []
         for line in lines:
             lowered = line.lower()
-            if any(marker in lowered for marker in ("fix", "added", "changed", "updated", "removed", "test", "verify", "result")):
+            markers = ("fix", "added", "changed", "updated", "removed", "test", "verify", "result")
+            if any(marker in lowered for marker in markers):
                 bullets.append(line[:180])
             if len(bullets) >= 5:
                 break
@@ -245,6 +272,8 @@ class ResultMemoryService:
         confidence: float = 1.0,
         approved: bool = False,
         context_access_policy: ContextAccessPolicy | None = None, # CAP-BE-T025
+        memory_actor: MemoryActor | None = None,
+        memory_run_id: str | None = None,
     ) -> MemoryEntryDB | None:
         """Persist worker result memory. Returns None if policy disables write. T022–T026."""
         memory_policy = normalize_result_memory_policy(policy)
@@ -255,7 +284,7 @@ class ResultMemoryService:
              block_metadata = {
                  "source_type": SourceType.memory,
                  "source_ref": title or "unknown_memory",
-                 "sensitivity": Sensitivity(memory_policy.get("sensitivity", "unknown"))
+                 "sensitivity": context_sensitivity(memory_policy.get("sensitivity", "unknown"))
              }
              dest = DestinationContext(
                  worker_id=generated_by or "hub",
@@ -280,6 +309,22 @@ class ResultMemoryService:
         if not bool(memory_policy["enabled"]):
             return None
 
+        authorization = None
+        if self._memory_access is not None:
+            try:
+                authorization = self._memory_access.authorize_write(
+                    actor=memory_actor, run_id=memory_run_id, task_id=task_id, goal_id=goal_id,
+                    scope=memory_scope, policy=memory_policy,
+                )
+            except MemoryAccessError as exc:
+                if (not self._explicit_memory_gateway and memory_actor is None and memory_run_id is None
+                        and exc.reason_code == "memory_run_context_required"):
+                    logger.info("Result memory blocked: %s", exc.reason_code)
+                    return None
+                raise
+        elif memory_actor is not None or memory_run_id is not None:
+            raise MemoryAccessError("memory_gateway_required")
+
         raw_output = str(output or "")
 
         # T022: redact secrets before any persistence
@@ -292,7 +337,9 @@ class ResultMemoryService:
             raw_output_for_storage = raw_output
 
         compact = self._compact_output(raw_output_for_storage)
-        summary = str(compact.get("summary") or "") or (raw_output_for_storage[:280] if raw_output_for_storage else None)
+        summary = str(compact.get("summary") or "") or (
+            raw_output_for_storage[:280] if raw_output_for_storage else None
+        )
         structured = self._structured_summary(
             output=raw_output_for_storage,
             compacted_summary=str(compact.get("compacted_summary") or ""),
@@ -318,6 +365,9 @@ class ResultMemoryService:
             expires_at = time.time() + float(default_ttl)
 
         base_metadata = dict(metadata or {})
+        for protected in ("memory_security", "memory_security_schema", "memory_namespace",
+                          "memory_policy_digest", "memory_policy_revision", "memory_provenance", "memory_quarantine"):
+            base_metadata.pop(protected, None)
         followup_artifact = {
             "kind": "task_result_summary",
             "task_id": task_id,
@@ -328,6 +378,20 @@ class ResultMemoryService:
             "retrieval_tags": list(retrieval_tags or []),
         } if bool(memory_policy["create_followup_artifact"]) else None
 
+        if authorization is not None:
+            self._memory_access.recheck(authorization)
+            base_metadata.update(self._memory_access.metadata(authorization))
+
+        stored_content = (retrieval_document or str(compact.get("compacted_summary") or "").strip()
+                          or raw_output_for_storage or None)
+        if authorization is not None:
+            from agent.services.memory_provenance_service import result_memory_derivation
+
+            base_metadata["memory_provenance"]["derivation"] = result_memory_derivation(
+                redacted_output=raw_output_for_storage, summary=summary,
+                content=stored_content, policy=memory_policy,
+            )
+
         entry = self._memory_entry_repo.save(
             MemoryEntryDB(
                 task_id=task_id,
@@ -337,10 +401,10 @@ class ResultMemoryService:
                 entry_type="worker_result",
                 title=title,
                 summary=summary,
-                content=(retrieval_document or str(compact.get("compacted_summary") or "").strip() or raw_output_for_storage or None),
+                content=stored_content,
                 artifact_refs=list(artifact_refs or []),
                 retrieval_tags=list(retrieval_tags or []),
-                memory_metadata={
+                memory_metadata=normalize_legacy_memory_metadata({
                     **base_metadata,
                     "followup_artifact": followup_artifact,
                     "compacted_summary": compact.get("compacted_summary"),
@@ -349,7 +413,10 @@ class ResultMemoryService:
                     "retrieval_document": retrieval_document or None,
                     "memory_format": "worker_result_compact_v3",
                     "compaction_policy": memory_policy,
-                    "raw_history": raw_output_for_storage[: int(memory_policy["raw_history_max_chars"])] if bool(memory_policy["archive_raw_output"]) else None,
+                    "raw_history": (
+                        raw_output_for_storage[: int(memory_policy["raw_history_max_chars"])]
+                        if bool(memory_policy["archive_raw_output"]) else None
+                    ),
                     "original_output_chars": len(raw_output),
                     # T022: policy tracking
                     "policy_version": memory_policy["policy_version"],
@@ -365,24 +432,44 @@ class ResultMemoryService:
                     # T026: TTL
                     "expires_at": expires_at,
                     "retention_class": memory_policy["retention_class"],
-                },
+                }),
             )
         )
 
         # OHA-012: optional MemoryTree ingest after successful persist
         if entry is not None and self._auto_ingest_tree and self._memory_tree_ingestion_svc is not None:
-            self._try_memory_tree_ingest(
-                entry=entry,
-                sensitivity=memory_policy["sensitivity"],
-                approved=bool(approved),
-                goal_id=goal_id,
-                task_id=task_id,
-                summary=summary,
-                retrieval_document=retrieval_document,
-                generated_by=generated_by,
-            )
+            from agent.services.memory_access_context import MemoryAccessContext, bind_memory_access
+
+            # Reuse the same Hub-issued policy; a separate Tree grant is still mandatory.
+            if self._explicit_memory_gateway:
+                context = MemoryAccessContext(authorization.actor, authorization.run_id, self._memory_gateway)
+                with bind_memory_access(context):
+                    self._try_memory_tree_ingest(entry=entry, sensitivity=memory_policy["sensitivity"],
+                                                 approved=False, goal_id=goal_id, task_id=task_id,
+                                                 summary=summary, retrieval_document=retrieval_document,
+                                                 generated_by=generated_by)
+            else:
+                self._try_memory_tree_ingest(entry=entry, sensitivity=memory_policy["sensitivity"],
+                                             approved=False, goal_id=goal_id, task_id=task_id,
+                                             summary=summary, retrieval_document=retrieval_document,
+                                             generated_by=generated_by)
 
         return entry
+
+    def read_result_memory(
+        self, *, memory_actor: MemoryActor, memory_run_id: str,
+        scope: MemoryScope = MemoryScope.task, sensitivity: MemorySensitivity = MemorySensitivity.internal,
+    ) -> list[MemoryEntryDB]:
+        if self._memory_access is None:
+            raise MemoryAccessError("memory_gateway_required")
+        decision = self._memory_access.authorize_read(
+            actor=memory_actor, run_id=memory_run_id, scope=scope, sensitivity=sensitivity,
+        )
+        rows = self._memory_entry_repo.get_by_namespace(
+            decision.target.namespace, scope, sensitivity_ceiling=sensitivity,
+        )
+        self._memory_access.recheck(decision)
+        return rows
 
     def _try_memory_tree_ingest(
         self,
@@ -402,8 +489,8 @@ class ResultMemoryService:
             content = retrieval_document or summary or ""
             if not content.strip():
                 return
-            # Trusted leaves come from approved results; untrusted from worker proposals
-            kind = "trusted_leaf" if approved else "untrusted_leaf"
+            # Historical approval flags never attest source identity or content trust.
+            kind = "untrusted_leaf"
             self._memory_tree_ingestion_svc._store.ingest_chunk(
                 source_id=source_id,
                 source_type="result_memory",
@@ -416,10 +503,8 @@ class ResultMemoryService:
                 created_by=generated_by or task_id or "",
             )
         except Exception as exc:
-            import logging
-            logging.getLogger(__name__).warning(
-                "ResultMemoryService: MemoryTree ingest failed — %s", exc
-            )
+            reason = getattr(exc, "reason_code", "memory_tree_ingest_unavailable")
+            logger.warning("Result memory tree ingest blocked: %s", reason)
 
     def build_memory_proposal(
         self,

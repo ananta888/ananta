@@ -9,6 +9,8 @@ from agent.services.retrieval_vector_runtime_scope_service import (
     HubRetrievalVectorRuntimeResolverFactory,
     RetrievalVectorRuntimeScope,
 )
+from ananta_contracts.memory_access import MemoryOperation, MemoryScope
+from tests.security.memory_fixtures import synthetic_memory_access
 from worker.retrieval.vector_store_contract import VectorScope
 
 
@@ -107,6 +109,10 @@ class _FakeMemoryEntryRepo:
     def get_by_goal(self, goal_id: str):
         return list(self._by_goal.get(goal_id, []))
 
+    def get_by_namespace(self, namespace, scope):
+        assert scope is MemoryScope.task
+        return list(self._by_task.get(namespace.task_id, []))
+
 
 def test_retrieval_service_merges_knowledge_index_chunks():
     knowledge = _FakeKnowledgeIndexRetrievalService()
@@ -195,12 +201,16 @@ def test_retrieval_service_includes_result_memory_for_neighbor_tasks():
     service._orchestrator = _FakeOrchestrator()
     service._signature = service._config_signature()
 
-    payload = service.retrieve_context(
-        "timeout retry",
-        task_kind="bugfix",
-        task_id="task-parent-1",
-        neighbor_task_ids=["task-parent-2"],
-    )
+    with synthetic_memory_access(
+        task_id="task-parent-1", channels=("hub-result-memory",),
+        scopes=(MemoryScope.task,), operations=(MemoryOperation.read,),
+    ):
+        payload = service.retrieve_context(
+            "timeout retry",
+            task_kind="bugfix",
+            task_id="task-parent-1",
+            neighbor_task_ids=["task-parent-2"],
+        )
 
     assert payload["strategy"]["result_memory"] == 1
     assert payload["strategy"]["result_memory_reason"] == "ok"
@@ -238,11 +248,25 @@ def test_retrieval_service_prefers_structured_result_memory_document():
     service._orchestrator = _FakeOrchestrator()
     service._signature = service._config_signature()
 
-    payload = service.retrieve_context("parser refactor", task_id="task-parent-1")
+    with synthetic_memory_access(
+        task_id="task-parent-1", channels=("hub-result-memory",),
+        scopes=(MemoryScope.task,), operations=(MemoryOperation.read,),
+    ):
+        payload = service.retrieve_context("parser refactor", task_id="task-parent-1")
 
     memory_chunk = next(chunk for chunk in payload["chunks"] if chunk["engine"] == "result_memory")
     assert "changed_files: app/parser.py" in memory_chunk["content"]
     assert (memory_chunk.get("metadata") or {}).get("memory_format") == "worker_result_compact_v2"
+    import json
+
+    marker = "<untrusted_memory_data>\n"
+    assert marker in payload["context_text"]
+    encoded = payload["context_text"].split(marker, 1)[1].split("\n", 1)[0]
+    data = json.loads(encoded)
+    assert data["memory_entry_ref"] == "mem-2"
+    assert data["chunk_ref"] == memory_chunk["metadata"]["chunk_id"]
+    assert data["source_ref"] == "memory:task-parent-1"
+    assert data["trust"] == "untrusted"
 
 
 def test_retrieval_service_propagates_security_metadata_from_memory_entries():
@@ -279,7 +303,11 @@ def test_retrieval_service_propagates_security_metadata_from_memory_entries():
     service._orchestrator = _FakeOrchestrator()
     service._signature = service._config_signature()
 
-    payload = service.retrieve_context("security summary", task_id="task-sec-1")
+    with synthetic_memory_access(
+        task_id="task-sec-1", channels=("hub-result-memory",),
+        scopes=(MemoryScope.task,), operations=(MemoryOperation.read,),
+    ):
+        payload = service.retrieve_context("security summary", task_id="task-sec-1")
 
     memory_chunk = next(chunk for chunk in payload["chunks"] if chunk["engine"] == "result_memory")
     metadata = dict(memory_chunk.get("metadata") or {})

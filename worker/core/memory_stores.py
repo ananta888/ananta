@@ -3,16 +3,20 @@
 EW-T029: Separate stores for worker_session_memory, project_execution_memory,
           and proposed_long_term_memory.
           Worker can write session/project memory only when memory_write capability allows.
-          Long-term memory updates are proposals unless Hub approval enables direct write.
+          Long-term updates remain proposals; approval and promotion execute only in the Hub.
 """
 from __future__ import annotations
 
 import hashlib
 import time
+from copy import deepcopy
 from dataclasses import dataclass, field
 from enum import Enum
+from threading import RLock
 from typing import Any
 
+from ananta_contracts.memory_access import MemoryOperation, MemoryScope, require_memory_identifier
+from worker.core.memory_authorization import WorkerMemoryAuthorizationPort, require_worker_memory
 
 # ── Store kinds ───────────────────────────────────────────────────────────────
 
@@ -64,81 +68,100 @@ class MemoryWriteResult:
 # ── MemoryStore ───────────────────────────────────────────────────────────────
 
 class MemoryStore:
-    """A single scoped memory store."""
+    """Bounded RAM execution adapter, isolated by live Hub namespace."""
 
-    def __init__(self, kind: MemoryStoreKind) -> None:
+    def __init__(self, kind: MemoryStoreKind, *, authorization: WorkerMemoryAuthorizationPort | None = None):
         self.kind = kind
-        self._entries: dict[str, MemoryEntry] = {}
+        self._authorization = authorization
+        self._scope = {MemoryStoreKind.session: MemoryScope.run, MemoryStoreKind.project: MemoryScope.workspace,
+                       MemoryStoreKind.long_term: MemoryScope.task}[kind]
+        self._entries = {}
+        self._lock = RLock()
 
-    def write(
-        self,
-        key: str,
-        value: str,
-        *,
-        task_id: str,
-        hub_approved: bool = False,
-    ) -> MemoryWriteResult:
-        """Write an entry. Long-term writes require hub_approved=True or become proposals."""
-        if not key or not key.strip():
-            return MemoryWriteResult(False, "tool_schema_invalid", detail="key is empty")
+    def _access(self, operation):
+        return require_worker_memory(self._authorization, self._scope, operation)
 
-        is_proposal = False
-        if self.kind == MemoryStoreKind.long_term and not hub_approved:
-            is_proposal = True
+    def _recheck(self, previous):
+        current = self._access(previous.operation)
+        if current != previous:
+            raise ValueError("memory_policy_changed")
 
-        entry = MemoryEntry(
-            key=key.strip(),
-            value=value,
-            source_task_id=task_id,
-            store_kind=self.kind,
-            is_proposal=is_proposal,
-            approved=hub_approved and self.kind == MemoryStoreKind.long_term,
-        )
-        self._entries[key.strip()] = entry
-        reason = "memory_write_proposal" if is_proposal else "memory_write_ok"
-        return MemoryWriteResult(True, reason, entry=entry)
+    def _reap(self):
+        now = time.time()
+        for key in [key for key, (_entry, expiry) in self._entries.items() if expiry <= now]:
+            del self._entries[key]
 
-    def read(self, key: str) -> MemoryEntry | None:
-        return self._entries.get(key.strip())
+    def write(self, key, value, *, task_id, hub_approved=False):
+        if not isinstance(key, str) or not key.strip() or len(key) > 160 or not isinstance(value, str):
+            return MemoryWriteResult(False, "tool_schema_invalid")
+        try:
+            require_memory_identifier(key.strip(), "key")
+            value_bytes = len(value.encode("utf-8"))
+            if value_bytes > 65536:
+                return MemoryWriteResult(False, "memory_value_quota_exceeded")
+            access = self._access(MemoryOperation.append)
+            if task_id != access.namespace.task_id:
+                return MemoryWriteResult(False, "memory_task_binding_mismatch")
+            storage_key = (*access.namespace.key(self._scope), key.strip())
+            with self._lock:
+                self._reap()
+                if storage_key in self._entries:
+                    # An append grant never becomes an implicit update grant.
+                    update = self._access(MemoryOperation.update)
+                    if update.namespace != access.namespace:
+                        return MemoryWriteResult(False, "memory_policy_changed")
+                size = sum(len(entry.value.encode("utf-8")) for item_key, (entry, _expiry)
+                           in self._entries.items() if item_key != storage_key)
+                if (storage_key not in self._entries and len(self._entries) >= 256) or size + value_bytes > 262144:
+                    return MemoryWriteResult(False, "memory_store_quota_exceeded")
+                entry = MemoryEntry(key.strip(), value, task_id, self.kind,
+                                    is_proposal=self.kind == MemoryStoreKind.long_term, approved=False)
+                self._recheck(access)
+                self._entries[storage_key] = (entry, access.expires_at)
+                reason = "memory_write_proposal" if entry.is_proposal else "memory_write_ok"
+                return MemoryWriteResult(True, reason, entry=deepcopy(entry))
+        except (ValueError, RuntimeError):
+            return MemoryWriteResult(False, "memory_hub_authorization_required")
 
-    def search(self, query: str, *, max_results: int = 10) -> list[MemoryEntry]:
-        """Simple substring search over keys and values."""
-        q = query.lower()
-        results = [
-            e for e in self._entries.values()
-            if q in e.key.lower() or q in e.value.lower()
-        ]
-        return sorted(results, key=lambda e: -e.written_at)[:max_results]
+    def _visible(self):
+        try:
+            access = self._access(MemoryOperation.read)
+            namespace_key = access.namespace.key(self._scope)
+            with self._lock:
+                self._reap()
+                result = [deepcopy(entry) for key, (entry, _expiry) in self._entries.items()
+                          if key[:-1] == namespace_key]
+                self._recheck(access)
+                return result
+        except (ValueError, RuntimeError):
+            return []
 
-    def pending_proposals(self) -> list[MemoryEntry]:
-        """Long-term entries awaiting Hub approval."""
-        return [e for e in self._entries.values() if e.is_proposal and not e.approved]
+    def read(self, key):
+        return next((entry for entry in self._visible() if entry.key == key.strip()), None)
 
-    def approve_proposal(self, key: str) -> bool:
-        """Mark a proposal as approved (called after Hub grants approval)."""
-        entry = self._entries.get(key.strip())
-        if entry and entry.is_proposal:
-            self._entries[key.strip()] = MemoryEntry(
-                key=entry.key,
-                value=entry.value,
-                source_task_id=entry.source_task_id,
-                store_kind=entry.store_kind,
-                written_at=entry.written_at,
-                is_proposal=False,
-                approved=True,
-            )
-            return True
+    def search(self, query, *, max_results=10):
+        if type(max_results) is not int or not 1 <= max_results <= 100:
+            return []
+        results = [entry for entry in self._visible()
+                   if query.lower() in entry.key.lower() or query.lower() in entry.value.lower()]
+        return sorted(results, key=lambda entry: -entry.written_at)[:max_results]
+
+    def pending_proposals(self):
+        return [entry for entry in self._visible() if entry.is_proposal and not entry.approved]
+
+    def approve_proposal(self, key):
+        # Productive promotion belongs to the Hub. Historical boolean approval is inert.
         return False
 
-    def discard(self) -> int:
-        """Discard all entries (used for session cleanup). Returns count discarded."""
-        count = len(self._entries)
-        self._entries.clear()
-        return count
+    def discard(self):
+        """Trusted local terminal cleanup; never a Hub/persistent-memory delete."""
+        with self._lock:
+            count = len(self._entries)
+            self._entries.clear()
+            return count
 
-    def snapshot(self) -> list[dict[str, Any]]:
-        """Safe read-only snapshot of all entries."""
-        return [e.as_dict() for e in self._entries.values()]
+    def snapshot(self):
+        return [entry.as_dict() for entry in self._visible()]
 
 
 # ── WorkerMemoryStores ────────────────────────────────────────────────────────
@@ -146,10 +169,10 @@ class MemoryStore:
 class WorkerMemoryStores:
     """Container for all three memory stores per task execution. EW-T029."""
 
-    def __init__(self) -> None:
-        self.session = MemoryStore(MemoryStoreKind.session)
-        self.project = MemoryStore(MemoryStoreKind.project)
-        self.long_term = MemoryStore(MemoryStoreKind.long_term)
+    def __init__(self, *, authorization: WorkerMemoryAuthorizationPort | None = None) -> None:
+        self.session = MemoryStore(MemoryStoreKind.session, authorization=authorization)
+        self.project = MemoryStore(MemoryStoreKind.project, authorization=authorization)
+        self.long_term = MemoryStore(MemoryStoreKind.long_term, authorization=authorization)
         self._store_map = {
             "worker_session_memory": self.session,
             "project_execution_memory": self.project,

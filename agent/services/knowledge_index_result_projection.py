@@ -32,6 +32,16 @@ class KnowledgeIndexResultProjector:
         content = raw_record.get("content") if isinstance(raw_record.get("content"), str) else raw_record.get("text")
         content = content if isinstance(content, str) else ""
         base_line = raw_record.get("start_line", raw_record.get("line_start"))
+        if "content_line_offset" in raw_record:
+            offset = raw_record["content_line_offset"]
+            stripped, header_lines = _strip_index_header(
+                content, raw_record.get("path") or raw_record.get("file")
+            )
+            if type(offset) is not int or offset < 0 or offset != header_lines:
+                return None
+            if type(base_line) is not int or base_line <= 0:
+                return None
+            content = stripped
         if type(base_line) is not int or base_line <= 0:
             base_line = 1
             content, _header_lines = _strip_index_header(content, raw_record.get("path") or raw_record.get("file"))

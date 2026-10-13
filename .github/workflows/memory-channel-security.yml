@@ -1,0 +1,60 @@
+name: Memory Channel Security
+
+on:
+  pull_request:
+    paths:
+      - "agent/**"
+      - "worker/**"
+      - "client_surfaces/**"
+      - "ananta_contracts/**"
+      - "config/security/memory-channels.v1.json"
+      - "scripts/check_memory_channels.py"
+      - "scripts/check_memory_legacy_access.py"
+      - "scripts/migrate_memory_security.py"
+      - "tests/security/*memory*"
+      - "tests/security/test_ephemeral_scratchpad.py"
+      - ".github/workflows/memory-channel-security.yml"
+  push:
+    branches: [main]
+    paths:
+      - "agent/**"
+      - "worker/**"
+      - "client_surfaces/**"
+      - "ananta_contracts/**"
+      - "config/security/memory-channels.v1.json"
+      - "scripts/check_memory_channels.py"
+      - "scripts/check_memory_legacy_access.py"
+      - "scripts/migrate_memory_security.py"
+      - "tests/security/*memory*"
+      - "tests/security/test_ephemeral_scratchpad.py"
+      - ".github/workflows/memory-channel-security.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inventory-and-policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+      - name: Check registered source storage channels
+        run: |
+          python scripts/check_memory_channels.py
+          python scripts/check_memory_legacy_access.py
+      - name: Install isolated policy test dependency
+        run: python -m pip install pytest==9.0.3
+      - name: Run headless policy and scratchpad tests
+        run: >
+          python -m pytest -q -p no:cacheprovider --confcutdir=tests/security
+          tests/security/test_memory_access_contract.py
+          tests/security/test_memory_policy_gateway.py
+          tests/security/test_ephemeral_scratchpad.py
+          tests/security/test_memory_channel_inventory.py
+          tests/security/test_memory_legacy_source_gate.py
+          tests/security/test_worker_memory_boundary.py
+          tests/security/test_memory_namespace_cache.py

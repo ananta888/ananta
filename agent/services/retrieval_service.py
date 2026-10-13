@@ -9,6 +9,7 @@ from agent.hybrid_orchestrator import ContextChunk, HybridOrchestrator
 from agent.metrics import KNOWLEDGE_RETRIEVAL_CHUNKS, RAG_RETRIEVAL_TASK_KIND_TOTAL
 from agent.repository import memory_entry_repo as default_memory_entry_repo
 from agent.services.knowledge_index_retrieval_service import get_knowledge_index_retrieval_service
+from agent.services.legacy_memory_access import scoped_memory_reader
 from agent.services.retrieval_query_builder import (
     build_retrieval_trace,
     dedupe_candidates,
@@ -128,7 +129,7 @@ class RetrievalService:
         self._knowledge_index_retrieval_service = (
             knowledge_index_retrieval_service or get_knowledge_index_retrieval_service()
         )
-        self._memory_entry_repository = memory_entry_repository or default_memory_entry_repo
+        self._memory_entry_repository = scoped_memory_reader(memory_entry_repository or default_memory_entry_repo)
         self._codecompass_vector_runtime_resolver = codecompass_vector_runtime_resolver
         self._wiki_vector_runtime_resolver = wiki_vector_runtime_resolver
         self._vector_runtime_resolver_factory = vector_runtime_resolver_factory

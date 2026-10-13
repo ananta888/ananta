@@ -8,6 +8,7 @@ from typing import Any
 
 from jsonschema import Draft202012Validator
 
+from agent.services.memory_prompt_data import memory_prompt_positions
 from agent.services.prompt_redaction_service import get_redaction_service
 
 SCHEMA_FILE = Path(__file__).resolve().parents[2] / "schemas" / "prompts" / "prompt_template_snapshot.v1.json"
@@ -97,6 +98,9 @@ class PromptSnapshotService:
             "input_usage_refs": list(input_usage_refs or []),
             "output_schema_ref": str(output_schema_ref),
         }
+        memory_positions = memory_prompt_positions(rendered)
+        if memory_positions:
+            record["extensions"] = {"untrusted_memory_blocks": memory_positions}
         errors = _validate_final_prompt(record)
         if errors:
             raise ValueError(f"invalid_final_prompt_record:{'; '.join(errors)}")

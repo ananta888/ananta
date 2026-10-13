@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "classification": "local_headless_technical_observation",
+  "production_release_evidence": false,
+  "deployment_performed": false,
+  "checks": [
+    {
+      "scope": "structured prompt adversarial tests, tests/context, prompt bundle, MemoryTree context filtering and SQL result memory",
+      "passed": 476,
+      "deselected": 1,
+      "duration_seconds": 21.56
+    },
+    {
+      "scope": "final SQL result memory/legacy context/adversarial serialization/MemoryTree policy followup, overlapping broad checks",
+      "passed": 68,
+      "duration_seconds": 13.29
+    }
+  ],
+  "security_properties": [
+    "memory trust and authority cannot be overridden by caller metadata",
+    "content and source-reference delimiters remain inside quoted data",
+    "source references are descriptive and do not claim Registry verification",
+    "local risk signals are advisory and grant no permissions",
+    "legacy project_internal maps to internal without changing Hub namespace or capability checks",
+    "actual SQL write denied after Hub policy revocation even with approved=True"
+  ],
+  "solid": {
+    "protected": "SRP: separate pure renderer and sensitivity compatibility adapter",
+    "preserved_debt": "ContextBundler remains a broad facade; unstructured legacy prompt paths are not migrated"
+  },
+  "lint": {
+    "new_modules_and_related_memory_modules": "passed",
+    "context_bundle_service": "passed excluding seven inherited E501 long lines"
+  },
+  "remaining": [
+    "migrate unstructured memory prompt paths",
+    "complete quarantine/cache enforcement",
+    "connect exact prompt insertion positions to snapshots",
+    "productive verification"
+  ]
+}

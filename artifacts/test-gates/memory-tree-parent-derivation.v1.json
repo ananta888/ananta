@@ -1,0 +1,54 @@
+{
+  "schema": "ananta.memory-tree-parent-derivation-gate.v1",
+  "status": "protected_tree_origin_and_bounded_observed_parent_derivation_implemented",
+  "classification": "actual_sql_synthetic_headless_hub_authorization_technical_observation",
+  "production_release_evidence": false,
+  "deployment_performed": false,
+  "python_regression_passed": 822,
+  "python_regression_seconds": 80.99,
+  "initial_tree_regression_passed": 95,
+  "initial_tree_regression_seconds": 31.32,
+  "tree_targeted_passed": 74,
+  "tree_targeted_seconds": 21.01,
+  "final_tree_security_cases": 13,
+  "checks": {
+    "ruff": "passed",
+    "memory_channels": "passed",
+    "memory_legacy_access": "passed",
+    "todo_consistency": "passed",
+    "git_diff_check": "passed"
+  },
+  "verified": [
+    "Actual source summary binds authorized observed chunk IDs and content hashes",
+    "Stored summary digest and protected origin refresh on updates",
+    "Supplied provenance cannot replace Hub actor and update operation",
+    "New business metadata no longer silently discarded on updates",
+    "Complete old and new parent sets checked in bounded SQL batch",
+    "Missing old parent and foreign-task parent block and roll back writes",
+    "Node/self references cannot be accepted as chunk parents",
+    "Update grant loss before commit rolls back both summary and origin",
+    "Malformed or oversized parent inputs refuse before node creation",
+    "Actual separate SQL audit writer remains available when pending node update is not autoflushed during parent reads"
+  ],
+  "semantics": {
+    "attribution": "observed_parent_links",
+    "existing_links": "additive_compatibility",
+    "grounding": "unverified"
+  },
+  "remaining": [
+    "General memory parent graphs and full cycle validation",
+    "Registry-bound producer/source versions",
+    "Full export/import preservation"
+  ],
+  "solid": {
+    "protected": "Small authorized-parent reader and pure hash projection; store owns atomic node mutation.",
+    "preserved_debt": "Existing global SQL engine composition and broad tree store adapter remain."
+  },
+  "final_tree_security_seconds": 9.38,
+  "sqlite_audit_regression": {
+    "before_variant": "one bounded isolated test failed with SQLite database is locked when parent-read autoflush is enabled",
+    "before_seconds": 4.66,
+    "after": "same actual SQL audit integration passed as part of final 13-case security suite",
+    "scope": "Ephemeral file SQLite with synthetic preauthorization, distinct audit transaction and 1-second lock timeout; no source file rollback or application database mutation"
+  }
+}

@@ -45,7 +45,12 @@ def store(tmp_path, monkeypatch):
     monkeypatch.setattr(store_module._db_module, "engine", test_engine)
 
     svc = MemoryTreeStoreService()
-    yield svc
+    from tests.security.memory_fixtures import synthetic_memory_access
+    from ananta_contracts.memory_access import MemoryScope
+
+    with synthetic_memory_access(channels=("hub-memory-tree", "hub-memory-vault"),
+                                 scopes=tuple(MemoryScope)):
+        yield svc
 
 
 @pytest.fixture
@@ -402,11 +407,28 @@ def test_memory_vault_export_writes_markdown(store, tmp_path):
         content="handles orders",
         sensitivity="internal",
     )
-    export = MemoryVaultExportService().export(
+    export = MemoryVaultExportService(export_root=tmp_path).export(
         cfg={"memory_vault_export": {"enabled": True, "output_dir": str(tmp_path)}},
         source_ids=["ki-vault"],
     )
     assert export["enabled"] is True
     assert export["written"] == 1
-    files = list((tmp_path / "sources").glob("*.md"))
+    files = list(tmp_path.glob("*/sources/*.md"))
     assert len(files) == 1
+
+
+def test_tree_rejects_legacy_rows_and_sensitivity_metadata_drift(store):
+    from sqlmodel import Session
+
+    import agent.database as db_module
+    from agent.db_models import MemoryTreeChunkDB
+
+    chunk, _ = store.ingest_chunk(source_id="protected", source_type="code", label="new", content="allowed")
+    with Session(db_module.engine) as session:
+        row = session.get(MemoryTreeChunkDB, chunk.id)
+        row.sensitivity = "secret"
+        session.add(row)
+        session.add(MemoryTreeChunkDB(id="unbound-old-row", source_id="protected", source_type="code",
+                                     label="old", content="legacy canary", sensitivity="internal"))
+        session.commit()
+    assert store.get_chunks_by_source("protected") == []

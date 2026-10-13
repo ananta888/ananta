@@ -628,18 +628,7 @@ class SQLContextPolicyLifecycleRepository:
 
     @staticmethod
     def _domain(row: ContextPolicyVersionDB) -> ContextPolicyVersion:
-        return ContextPolicyVersion(
-            policy_id=row.policy_id,
-            version=row.version,
-            tenant_id=row.tenant_id,
-            project_id=row.project_id,
-            state=row.state,
-            document=dict(row.document_json),
-            policy_digest=row.policy_digest,
-            etag=row.etag,
-            created_by=row.created_by,
-            created_at=row.created_at,
-        )
+        return context_policy_version_from_row(row)
 
     @staticmethod
     def _scope_query(
@@ -703,3 +692,18 @@ def _idempotency_key_digest(value: str) -> str:
 
 
 __all__ = ["SQLContextPolicyLifecycleRepository"]
+
+
+def context_policy_version_from_row(row: ContextPolicyVersionDB) -> ContextPolicyVersion:
+    return ContextPolicyVersion(
+        policy_id=row.policy_id,
+        version=row.version,
+        tenant_id=row.tenant_id,
+        project_id=row.project_id,
+        state=row.state,
+        document=dict(row.document_json),
+        policy_digest=row.policy_digest,
+        etag=row.etag,
+        created_by=row.created_by,
+        created_at=row.created_at,
+    )

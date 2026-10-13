@@ -8,6 +8,8 @@ from collections import defaultdict
 from agent.config import settings
 from agent.hybrid_orchestrator import ContextChunk, HybridOrchestrator
 from agent.repository import memory_entry_repo as default_memory_entry_repo
+from agent.services.legacy_memory_access import scoped_memory_reader
+from agent.services.memory_prompt_data import render_retrieval_context
 from agent.services.retrieval_source_contract import normalize_chunk_metadata, resolve_source_selection_policy
 from agent.services.task_neighborhood_service import get_task_neighborhood_service
 
@@ -316,7 +318,7 @@ def memory_candidates(
     top_k: int,
     memory_entry_repository=None,
 ) -> tuple[list[ContextChunk], dict[str, object]]:
-    repo = memory_entry_repository or default_memory_entry_repo
+    repo = scoped_memory_reader(memory_entry_repository or default_memory_entry_repo)
     query_tokens = [token.lower() for token in re.findall(r"[A-Za-z0-9_]+", query or "") if len(token) > 2]
     if not query_tokens:
         return [], {"reason": "no_query_tokens", "entries_considered": 0}
@@ -346,6 +348,10 @@ def memory_candidates(
         content = str(getattr(entry, "content", "") or "").strip()
         tags = [str(tag).strip() for tag in (getattr(entry, "retrieval_tags", None) or []) if str(tag).strip()]
         memory_metadata = dict(getattr(entry, "memory_metadata", None) or {})
+        memory_origin = memory_metadata.get("memory_provenance")
+        memory_origin = memory_origin if isinstance(memory_origin, dict) else {}
+        memory_security = memory_metadata.get("memory_security")
+        memory_security = memory_security if isinstance(memory_security, dict) else {}
         retrieval_document = str(memory_metadata.get("retrieval_document") or "").strip()
         structured_summary = dict(memory_metadata.get("structured_summary") or {})
         security_metadata = dict(memory_metadata.get("security_metadata") or {})
@@ -373,6 +379,9 @@ def memory_candidates(
                 score=score,
                 metadata={
                     "memory_entry_id": str(getattr(entry, "id", "")),
+                    "provenance_ref": str(memory_origin.get("decision_audit_ref") or ""),
+                    "scope": str(memory_security.get("scope") or ""),
+                    "trust": "untrusted",
                     "entry_type": str(getattr(entry, "entry_type", "worker_result")),
                     "source_task_id": entry_task_id or None,
                     "relation": relation,
@@ -686,12 +695,10 @@ def serialize_context(
     chunks: list[ContextChunk],
 ) -> dict[str, object]:
     serialized_chunks = []
-    context_lines: list[str] = []
     for chunk in chunks:
         safe_content = orchestrator._redact(chunk.content)
         safe_source = orchestrator._redact(str(chunk.source or ""))
         safe_metadata = redact_nested(dict(chunk.metadata or {}), orchestrator=orchestrator)
-        context_lines.append(f"[{chunk.engine}] {safe_source}\n{safe_content}")
         serialized_chunks.append(
             {
                 "engine": chunk.engine,
@@ -701,7 +708,7 @@ def serialize_context(
                 "metadata": safe_metadata,
             }
         )
-    context_text = "\n\n".join(context_lines)
+    context_text = render_retrieval_context(serialized_chunks)
     safe_strategy = redact_nested(strategy, orchestrator=orchestrator)
     retrieval_trace = dict(safe_strategy.get("retrieval_trace") or {})
     return {

@@ -10,6 +10,7 @@ from worker.core.context_resolver import (
     _estimate_tokens,
 )
 from worker.core.memory_stores import MemoryStoreKind, WorkerMemoryStores
+from tests.security.memory_fixtures import SyntheticWorkerMemoryAuthorization
 from worker.core.session_search import SearchTarget, SessionSearchIndex
 
 
@@ -176,7 +177,8 @@ class TestContextCompressor:
 
 class TestWorkerMemoryStores:
     def setup_method(self):
-        self.stores = WorkerMemoryStores()
+        self.authority = SyntheticWorkerMemoryAuthorization()
+        self.stores = WorkerMemoryStores(authorization=self.authority)
 
     def test_session_write_with_capability(self):
         result = self.stores.write(
@@ -211,8 +213,8 @@ class TestWorkerMemoryStores:
             "proposed_long_term_memory", "fact", "approved fact",
             task_id="t1", has_memory_write_capability=True, hub_approved=True)
         assert result.success
-        assert result.entry.approved is True
-        assert result.entry.is_proposal is False
+        assert result.entry.approved is False
+        assert result.entry.is_proposal is True
 
     def test_unknown_store_fails(self):
         result = self.stores.write(
@@ -251,9 +253,9 @@ class TestWorkerMemoryStores:
         self.stores.write("proposed_long_term_memory", "key", "val",
                           task_id="t1", has_memory_write_capability=True)
         ok = self.stores.long_term.approve_proposal("key")
-        assert ok is True
+        assert ok is False
         entry = self.stores.long_term.read("key")
-        assert entry.approved is True and entry.is_proposal is False
+        assert entry.approved is False and entry.is_proposal is True
 
     def test_empty_key_rejected(self):
         result = self.stores.write("worker_session_memory", "", "value",
@@ -265,7 +267,8 @@ class TestWorkerMemoryStores:
 
 class TestSessionSearchIndex:
     def setup_method(self):
-        self.index = SessionSearchIndex()
+        self.authority = SyntheticWorkerMemoryAuthorization()
+        self.index = SessionSearchIndex(authorization=self.authority)
         self.index.index_task(task_id="t1", summary="fix nginx config", status="success")
         self.index.index_task(task_id="t2", summary="patch python file", status="failed")
         self.index.index_failure(task_id="t2", reason_code="patch_scope_violation",
@@ -300,7 +303,7 @@ class TestSessionSearchIndex:
         assert all(r.target_type == SearchTarget.patch_artifact for r in results)
 
     def test_project_scope_filter(self):
-        index = SessionSearchIndex()
+        index = SessionSearchIndex(authorization=SyntheticWorkerMemoryAuthorization())
         index.index_task(task_id="proj-t1", summary="nginx fix", status="success",
                          project_id="proj-a")
         index.index_task(task_id="other-t1", summary="nginx fix", status="success",
@@ -318,7 +321,7 @@ class TestSessionSearchIndex:
         assert results == []
 
     def test_max_results_respected(self):
-        index = SessionSearchIndex()
+        index = SessionSearchIndex(authorization=SyntheticWorkerMemoryAuthorization())
         for i in range(20):
             index.index_task(task_id=f"t{i}", summary="common keyword", status="success")
         results = index.search("common", max_results=5)
