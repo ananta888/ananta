@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 from typing import Any, Mapping
 
+from ananta_contracts.specialist_decision import OUTPUT_SCHEMA
+
 TODO_SCORERS = frozenset({"todo_json", "ananta_todo_json"})
-SUPPORTED_SCORERS = frozenset({"generic", *TODO_SCORERS})
+SUPPORTED_SCORERS = frozenset({"generic", "specialist_decision", *TODO_SCORERS})
 
 
 def score_evaluation_output(
@@ -21,6 +24,18 @@ def score_evaluation_output(
     normalized = str(scorer_name or "generic").strip().lower()
     if normalized in TODO_SCORERS:
         return score_todo_track_output(output_text)
+    if normalized == "specialist_decision":
+        result = score_specialist_output(output_text)
+        if expected_output:
+            reference = score_specialist_output(expected_output)
+            valid_reference = reference["schema_valid"]
+            correct = bool(
+                result["schema_valid"]
+                and valid_reference
+                and json.loads(output_text)["label"] == json.loads(expected_output)["label"]
+            )
+            return {**result, "expected_valid": valid_reference, "correct": correct, "total": 1.0 if correct else 0.0}
+        return result
     if normalized != "generic":
         raise ValueError(f"unsupported evaluation scorer: {normalized}")
     text = str(output_text or "").strip()
@@ -33,6 +48,40 @@ def score_evaluation_output(
         "exact_match": exact_match,
         "total": total,
     }
+
+
+def score_specialist_output(output: str) -> dict[str, Any]:
+    """Validate the shared closed output shape; concrete label sets belong to the contract."""
+    try:
+        value = json.loads(output, object_pairs_hook=_unique_output_fields)
+    except (ValueError, TypeError, RecursionError):
+        return {"schema_valid": False, "total": 0.0, "reason_code": "specialist_output_json_invalid"}
+    confidence = value.get("confidence") if isinstance(value, Mapping) else None
+    valid_confidence = confidence is None and isinstance(value, Mapping) and "confidence" not in value
+    if type(confidence) in (int, float):
+        valid_confidence = 0 <= confidence <= 1 and math.isfinite(confidence)
+    valid = (
+        isinstance(value, Mapping)
+        and set(value) <= {"schema", "label", "confidence"}
+        and ("schema" not in value or value["schema"] == OUTPUT_SCHEMA)
+        and isinstance(value.get("label"), str)
+        and bool(value["label"].strip())
+        and valid_confidence
+    )
+    return {
+        "schema_valid": valid,
+        "total": 1.0 if valid else 0.0,
+        "reason_code": None if valid else "specialist_output_fields_invalid",
+    }
+
+
+def _unique_output_fields(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    fields: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in fields:
+            raise ValueError("duplicate specialist output field")
+        fields[key] = value
+    return fields
 
 
 def score_todo_track_output(output_text: str) -> dict[str, Any]:
@@ -68,9 +117,7 @@ def score_todo_track_output(output_text: str) -> dict[str, Any]:
         "has_risk_scale": _non_empty_scale(parsed.get("risk_scale")),
         "has_milestones": bool(milestones),
         "has_tasks": bool(tasks),
-        "milestone_quality_ratio": (
-            sum(milestone_quality) / len(milestone_quality) if milestone_quality else 0.0
-        ),
+        "milestone_quality_ratio": (sum(milestone_quality) / len(milestone_quality) if milestone_quality else 0.0),
         "task_quality_ratio": sum(task_quality) / len(task_quality) if task_quality else 0.0,
         "cross_references_valid": _cross_references_valid(milestones, tasks),
     }
@@ -120,10 +167,7 @@ def _milestone_valid(value: Any) -> bool:
 def _task_valid(value: Any) -> bool:
     return bool(
         isinstance(value, Mapping)
-        and all(
-            str(value.get(key) or "").strip()
-            for key in ("id", "title", "status", "priority", "risk")
-        )
+        and all(str(value.get(key) or "").strip() for key in ("id", "title", "status", "priority", "risk"))
         and isinstance(value.get("acceptance_criteria"), list)
         and bool(value.get("acceptance_criteria"))
         and isinstance(value.get("test_expectations"), list)
@@ -159,5 +203,6 @@ __all__ = [
     "SUPPORTED_SCORERS",
     "TODO_SCORERS",
     "score_evaluation_output",
+    "score_specialist_output",
     "score_todo_track_output",
 ]
