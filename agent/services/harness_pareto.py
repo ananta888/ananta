@@ -11,6 +11,8 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
+from ananta_contracts.harness_metrics import finite_number, freeze_metrics
+
 PROFILES = ("quality", "balanced", "cheap", "low_latency")
 
 
@@ -24,12 +26,12 @@ class Candidate:
     def __post_init__(self) -> None:
         if not isinstance(self.candidate_id, str) or not self.candidate_id:
             raise ValueError("candidate_id_invalid")
-        if not isinstance(self.objectives, Mapping) or not self.objectives:
-            raise ValueError("candidate_objectives_invalid")
-        for metric, value in self.objectives.items():
-            if not isinstance(metric, str) or isinstance(value, bool) or not isinstance(value, (int, float)):
-                raise ValueError("candidate_objectives_invalid")
-        if not 0.0 <= float(self.confidence) <= 1.0 or float(self.variance) < 0.0:
+        try:
+            object.__setattr__(self, "objectives", freeze_metrics(self.objectives))
+        except ValueError:
+            raise ValueError("candidate_objectives_invalid") from None
+        if (not finite_number(self.confidence) or not 0.0 <= self.confidence <= 1.0
+                or not finite_number(self.variance) or self.variance < 0.0):
             raise ValueError("candidate_confidence_invalid")
 
 
@@ -61,6 +63,12 @@ class ParetoSelector:
         return strictly_better
 
     def front(self, candidates: Sequence[Candidate]) -> list[Candidate]:
+        if len({candidate.candidate_id for candidate in candidates}) != len(candidates):
+            raise ValueError("pareto_candidate_ids_duplicate")
+        for candidate in candidates:
+            missing = (self._maximize | self._minimize) - candidate.objectives.keys()
+            if missing:
+                raise ValueError(f"pareto_metric_missing:{sorted(missing)[0]}")
         front: list[Candidate] = []
         for candidate in candidates:
             if not any(other.candidate_id != candidate.candidate_id and self.dominates(other, candidate)

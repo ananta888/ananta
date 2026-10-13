@@ -12,6 +12,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 
 from ananta_contracts.harness_genome import content_digest
+from ananta_contracts.harness_metrics import finite_number, freeze_metrics
 
 TASK_CLASSES = ("coding", "rag", "tool", "mcp", "planning", "delegation", "long_context", "failure_recovery",
                 "security")
@@ -83,10 +84,13 @@ class BaselineRecord:
     suite_id: str
     confidence: float = 1.0
 
+    def __post_init__(self):
+        object.__setattr__(self, "metrics", freeze_metrics(self.metrics))
+
     def assert_valid(self) -> None:
         if not self.model or not self.harness_id or not self.suite_id:
             raise ValueError("benchmark_baseline_identity_invalid")
-        if not self.metrics:
+        if not finite_number(self.confidence) or not 0 <= self.confidence <= 1:
             raise ValueError("benchmark_baseline_metrics_invalid")
         for metric, value in self.metrics.items():
             if not isinstance(metric, str) or isinstance(value, bool) or not isinstance(value, (int, float)):
@@ -103,7 +107,7 @@ class BenchmarkRegistry:
         record.assert_valid()
         key = (record.model, record.harness_id, record.suite_id)
         existing = self._records.get(key)
-        if existing is not None and existing.metrics != record.metrics:
+        if existing is not None and existing != record:
             raise ValueError("benchmark_baseline_conflict")
         self._records[key] = record
 

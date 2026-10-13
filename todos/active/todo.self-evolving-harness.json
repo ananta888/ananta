@@ -149,7 +149,7 @@
         "SEH-015",
         "SEH-016"
       ],
-      "status": "todo"
+      "status": "partial"
     },
     {
       "id": "SEH-M5",
@@ -479,16 +479,17 @@
     {
       "id": "SEH-016",
       "title": "Statistische Robustheit und Benchmark-Noise berücksichtigen",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 80,
       "details": "Mehrfachläufe, Seeds, Konfidenzintervalle und Signifikanz-/Practical-Significance-Regeln, damit zufällige LLM-Schwankungen nicht als Verbesserung promoted werden.",
       "acceptance_criteria": [
         "Promotion benötigt konfigurierbare Mindestzahl von Runs",
         "Varianz und CI werden gespeichert",
         "Tiny wins innerhalb Noise-Band führen nicht automatisch zu Promotion"
-      ]
+      ],
+      "implementation_note": "Gepaarte Seed-/Repeat-Samples, immutable NoisePolicy (mindestens 5 Runs, Practical-Delta, Win-CI-Schwelle), Wiederverwendung des bestehenden Beta-Binomial-Schätzers, Mittelwerte/Varianz/90%-Win-Credible-Intervalle und Persistenz im vorhandenen BenchmarkStore. NoiseAwarePromotionController komponiert bestehende Hard-Gate-/Pareto-Entscheidungen ohne LSP-Bruch. NaN/Inf/bool/Overflow, mutable Metrics/Gate-Listen und fehlende Objectives sind gehärtet. Offen: produktive Repeat-Queue-/Release-Authority-Verdrahtung; Analytics sind keine Produktions-Evidenz."
     },
     {
       "id": "SEH-017",
@@ -934,9 +935,9 @@
   "tasks_status_summary": {
     "total": 44,
     "by_status": {
-      "todo": 25,
+      "todo": 24,
       "in_progress": 0,
-      "partial": 7,
+      "partial": 8,
       "blocked": 0,
       "done": 12
     },
@@ -960,18 +961,18 @@
     },
     "milestones": {
       "total": 9,
-      "todo": 4,
+      "todo": 3,
       "in_progress": 0,
-      "partial": 4,
+      "partial": 5,
       "blocked": 0,
       "done": 1
     }
   },
   "progress_summary": {
     "state": "partial",
-    "todo_remaining": 25,
+    "todo_remaining": 24,
     "in_progress": 0,
-    "partial": 7,
+    "partial": 8,
     "blocked": 0,
     "done": 12,
     "milestones_done": 1,
@@ -1162,15 +1163,15 @@
       "unknown": {
         "total": 44,
         "done": 12,
-        "partial": 7,
+        "partial": 8,
         "blocked": 0,
-        "todo": 25,
+        "todo": 24,
         "in_progress": 0,
-        "progress_percent": 38.0,
+        "progress_percent": 39.8,
         "by_status": {
-          "todo": 25,
+          "todo": 24,
           "in_progress": 0,
-          "partial": 7,
+          "partial": 8,
           "blocked": 0,
           "done": 12
         }

@@ -11,6 +11,8 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 
+from ananta_contracts.harness_metrics import finite_number
+
 
 @dataclass(frozen=True, slots=True)
 class GateOutcome:
@@ -45,15 +47,19 @@ class HarnessGate:
     def evaluate(self, candidate: Mapping) -> GateOutcome:
         try:
             passed, reason = self.check(candidate)
+            if type(passed) is not bool:
+                raise ValueError("gate_passed_flag_invalid")
         except Exception:
             return GateOutcome(self.gate_id, False, "gate_error", self.hard)
         return GateOutcome(self.gate_id, bool(passed), str(reason), self.hard)
 
 
 def threshold_gate(gate_id: str, metric: str, minimum: float, *, hard: bool = True) -> HarnessGate:
+    if not finite_number(minimum):
+        raise ValueError("gate_threshold_invalid")
     def check(candidate: Mapping) -> tuple[bool, str]:
         value = candidate.get(metric)
-        if not isinstance(value, (int, float)) or isinstance(value, bool):
+        if not finite_number(value):
             return False, f"gate_metric_missing:{metric}"
         return (value >= minimum), ("ok" if value >= minimum else f"gate_below_threshold:{metric}")
 
@@ -69,9 +75,11 @@ def security_gate(gate_id: str, metric: str) -> HarnessGate:
 
 
 def regression_gate(gate_id: str, metric: str, baseline: float, tolerance: float, *, hard: bool = True) -> HarnessGate:
+    if not finite_number(baseline) or not finite_number(tolerance) or tolerance < 0:
+        raise ValueError("gate_regression_policy_invalid")
     def check(candidate: Mapping) -> tuple[bool, str]:
         value = candidate.get(metric)
-        if not isinstance(value, (int, float)) or isinstance(value, bool):
+        if not finite_number(value):
             return False, f"gate_metric_missing:{metric}"
         if value < baseline - tolerance:
             return False, f"gate_regression:{metric}"
@@ -85,6 +93,7 @@ class GateEngine:
     gates: Sequence[HarnessGate]
 
     def __post_init__(self) -> None:
+        self.gates = tuple(self.gates)
         seen: set[str] = set()
         for gate in self.gates:
             if gate.gate_id in seen:

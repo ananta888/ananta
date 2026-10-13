@@ -202,3 +202,34 @@ Der Store hat ein separates, kleines Lese-Port-Interface (ISP).
 
 **Offen:** Angular-Vergleichsansicht und policygebundene Operator-Mutationsaktionen.
 Die API kann bereits von CLI/API-Clients für strukturierte Vergleiche verwendet werden.
+
+## Gepaarte Mehrfachläufe und Noise-Gate (SEH-016, Teilimplementierung)
+
+`harness_statistics.py` verwendet den vorhandenen Bayesian Benchmark Estimator;
+es baut keinen konkurrierenden Schätzer. Candidate und Baseline müssen dieselben,
+eindeutigen Seeds besitzen. Die unveränderliche Policy verlangt mindestens fünf Runs
+(konfigurierbar nach oben), einen praktischen Mindestgewinn und eine untere Grenze
+für die Wahrscheinlichkeit eines praktischen gepaarten Gewinns.
+
+Der Report speichert Mittelwerte, Varianzen, gepaarte Delta-Varianz und das 90%-Credible-
+Intervall der **Win-Wahrscheinlichkeit**, ausdrücklich nicht ein Konfidenzintervall des
+kontinuierlichen Mittelwerts. Er übernimmt die dokumentierte Normalapproximation des
+bestehenden Beta-Binomial-Schätzers. Kleine Verbesserungen innerhalb des konfigurierten
+Noise-Bands und instabile Ergebnisse führen zu keinem Promotion-Vorschlag.
+Die skalaren Analytics werden im existierenden append-only Benchmark-Run-Store persistiert.
+
+`NoiseAwarePromotionController` komponiert den bisherigen technischen Controller;
+es erweitert dessen API, ohne durch stärkere Preconditions eine bestehende Unterklasse
+zu brechen (OCP/LSP). Pareto-/Hard-Gate-Verhalten bleibt wirksam. Ein Vorschlag aktiviert
+keine Baseline und ersetzt keine Hub-Registry-/Release-/Approval-Prüfung.
+
+Zusätzlich sind NaN/Infinity/bools und numerischer Überlauf in Metriken fail-closed.
+Das Regression-Gate kann NaN nicht mehr als Pass interpretieren. Eingangs-Dictionaries
+für Candidate/Baseline und registrierte Gate-Listen werden gesnapshottet; nachträgliche
+Caller-Mutationen verändern Rankings oder Hard-Gates nicht (keine versteckten Seiteneffekte).
+Auch eine Ein-Candidate-Front benötigt alle Objectives; doppelte Candidate-IDs sind ungültig.
+
+**Offen:** Wiederholungs-/Seedplanung im produktiven Queue-Adapter und obligatorische
+Verdrahtung des Noise-Gates in die spätere Registry-gebundene Release-Autorität.
+Der kompatible alte Controller bleibt ausschließlich ein technischer Entscheidungshelfer;
+die neue strengere API ist deshalb keine alleinige Produktionsfreigabe.
