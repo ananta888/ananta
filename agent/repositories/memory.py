@@ -48,6 +48,13 @@ def _matches_scope(entry: MemoryEntryDB, scope: Optional[str]) -> bool:
     return entry_scope == str(scope).strip().lower()
 
 
+def _is_quarantined(entry: MemoryEntryDB) -> bool:
+    """A quarantined or revoked entry is never retrievable through a read path."""
+    quarantine = (dict(entry.memory_metadata or {})).get("memory_quarantine")
+    state = quarantine.get("state", "active") if isinstance(quarantine, dict) else "active"
+    return state != "active"
+
+
 class MemoryEntryRepository:
     def get_by_namespace(
         self, namespace: MemoryNamespace, scope: MemoryScope, *,
@@ -104,6 +111,7 @@ class MemoryEntryRepository:
         *,
         include_expired: bool = False,
         scope: Optional[str] = None,
+        include_quarantined: bool = False,
     ) -> List[MemoryEntryDB]:
         with Session(_engine()) as session:
             statement = select(MemoryEntryDB).where(MemoryEntryDB.task_id == task_id)
@@ -123,6 +131,8 @@ class MemoryEntryRepository:
                 continue
             if not _matches_scope(row, scope):
                 continue
+            if not include_quarantined and _is_quarantined(row):
+                continue
             result.append(row)
         return result
 
@@ -132,6 +142,7 @@ class MemoryEntryRepository:
         *,
         include_expired: bool = False,
         scope: Optional[str] = None,
+        include_quarantined: bool = False,
     ) -> List[MemoryEntryDB]:
         with Session(_engine()) as session:
             statement = select(MemoryEntryDB).where(MemoryEntryDB.goal_id == goal_id)
@@ -148,6 +159,8 @@ class MemoryEntryRepository:
             if not include_expired and _is_expired(row):
                 continue
             if not _matches_scope(row, scope):
+                continue
+            if not include_quarantined and _is_quarantined(row):
                 continue
             result.append(row)
         return result

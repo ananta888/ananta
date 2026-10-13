@@ -175,6 +175,26 @@ class MemoryTreeStoreService:
             session.commit()
             return True
 
+    def get_chunk_ids_by_provenance(self, provenance_ref, *, limit=2000):
+        """Return readable chunk IDs that were derived from a given provenance ref."""
+        if (not isinstance(provenance_ref, str) or not provenance_ref or len(provenance_ref) > 256
+                or type(limit) is not int or not 1 <= limit <= 2000):
+            raise ValueError("memory_tree_provenance_invalid")
+        decision = self._decision("read")
+        with Session(_db_module.engine) as session:
+            rows = session.exec(self._query(MemoryTreeChunkDB, MemoryTreeChunkDB.chunk_metadata, decision)
+                                .where(MemoryTreeChunkDB.provenance_ref == provenance_ref)
+                                .with_only_columns(MemoryTreeChunkDB.id).limit(limit)).all()
+        self._boundary.recheck(decision)
+        return list(rows)
+
+    def set_provenance_quarantine(self, provenance_ref, *, action, reason_code):
+        """Apply one lifecycle action to every chunk derived from a provenance ref."""
+        chunk_ids = self.get_chunk_ids_by_provenance(provenance_ref)
+        changed = [self.set_chunk_quarantine(chunk_id_value, action=action, reason_code=reason_code)
+                   for chunk_id_value in chunk_ids]
+        return any(changed)
+
     def seal_source(self, source_id):
         return sum(self.update_lifecycle(chunk.id, "sealed")
                    for chunk in self.get_chunks_by_source(source_id, lifecycle="buffered"))
