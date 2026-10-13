@@ -407,3 +407,38 @@ Argumente `seed`, `field`, `depth`, `direction`; `codecompass.expand_graph` das 
 
 **Weitere Befunde:** `test.run` liest die Allowlist top-level (`allowlisted_test_commands`), der Hub legt sie unter
 `ananta_worker_workspace_mutation` ab; live: `command_not_allowlisted`.
+
+## Shadow-Rollout, Schwellen und Rückfall (JEVCPP-012)
+
+Der Jev-Modus wird nicht global, sondern **pro Decision-Area** geschaltet
+(`agent/services/decision_providers/config.py`, `AREAS`): `tool_routing`, `companion_route`,
+`companion_knowledge`, `retrieval_intent`, `rag_needed`, `prompt_injection` u. a. Jede Area hat genau einen Modus:
+
+| Modus | Wirkung |
+|---|---|
+| `off` (Default) | Ananta verhält sich exakt wie ohne Jev; es wird kein Provider kontaktiert. |
+| `shadow` | Der Provider entscheidet und protokolliert (`DecisionTrace`), das Ergebnis wird nie verwendet. |
+| `active` | Die Kaskade entscheidet; unterhalb der Schwelle greift der deklarierte Fallback (klassischer LLM/Regeln). |
+
+**Shadow zuerst:** Neue Areas laufen ausschließlich in `shadow` gegen reale Hub-Fälle; die operative Entscheidung
+bleibt der bestehende Pfad. `DecisionTrace` liefert je Lauf `source`, `fallback_reason` und Kalibrierungszähler, sodass
+Qualität gegen die Baseline messbar ist, ohne etwas zu verändern.
+
+**Schwellen je Profil:** Vor einer Promotion wird pro Area eine `confidence_threshold` (Default `0.9`) und optional
+`question_thresholds` sowie `text_min_confidence` festgelegt. Ein Ergebnis unterhalb der Schwelle wird nicht
+akzeptiert, sondern an die nächste Kaskadenstufe bzw. den bestehenden Pfad eskaliert (`deferred`, nie geraten).
+Zusätzlich verlangt der `active`-Modus einen expliziten Provider-Opt-in (`external_calls_allowed` nur mit TLS für
+externe Endpunkte); `off` kostet nichts und liest keine Secrets.
+
+**Rückfallpfad (Rollback):** Der Modus ist die einzige Umschaltung. Eine Area auf `off` zurücksetzen (oder
+`providers.*.enabled: false` global) stellt sofort das Vor-Jev-Verhalten wieder her — ohne Neustart-Bindung an Modelle
+oder Gewichte. Fehlt ein Provider/eine Auth, liefert die Area `bounded blocked` statt zu warten; die Kaskade fällt auf
+die nächste Stufe zurück.
+
+**Vergleich und Entscheidung:** Alternative Backends (Jev `typesafe_jev`, lokaler `llamacpp_decision`, klassischer
+kleiner LLM-Specialist, deterministische Regeln) laufen in derselben Benchmark-/Shadow-Sicht
+(`scripts/decision_provider_benchmark.py`, `scripts/jev_tool_decision_calibration.py`). Kein Backend wird allein
+aufgrund von Upstream- oder Video-Benchmarks promotet; die Entscheidung stützt sich auf eigene, eingefrorene Ananta-
+Benchmarks mit reproduzierbarer lokaler Evidenz. Abschlussstatus je Area bleibt eine der vier Stufen: **Standard
+(System-1)**, **optionaler Specialist**, **experimentell/Shadow**, **nicht übernehmen**. Synthetische Shadow-Läufe
+sind technische Beobachtungen und erfüllen kein Produktionsfreigabe-Gate.

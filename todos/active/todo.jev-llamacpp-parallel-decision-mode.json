@@ -6,7 +6,7 @@
   "owner": "Peter Stuiber / Ananta",
   "track": "jev_llamacpp_parallel_decision_mode",
   "title": "Jev-Modus fuer llama.cpp: parallele typisierte Entscheidungen als lokaler System-1-Pfad",
-  "status": "in_progress",
+  "status": "partial",
   "priority": "P1",
   "status_scale": [
     "todo",
@@ -80,7 +80,7 @@
     {
       "id": "JEVCPP-M1",
       "title": "Upstream, Semantik und reproduzierbare Runtime",
-      "status": "in_progress",
+      "status": "todo",
       "task_ids": [
         "JEVCPP-001",
         "JEVCPP-002",
@@ -90,7 +90,7 @@
     {
       "id": "JEVCPP-M2",
       "title": "Ananta-Adapter, Isolation und System-1/System-2-Routing",
-      "status": "in_progress",
+      "status": "partial",
       "task_ids": [
         "JEVCPP-004",
         "JEVCPP-005",
@@ -101,7 +101,7 @@
     {
       "id": "JEVCPP-M3",
       "title": "Modelle, Kalibrierung und Performance benchmarken",
-      "status": "in_progress",
+      "status": "partial",
       "task_ids": [
         "JEVCPP-008",
         "JEVCPP-009",
@@ -111,7 +111,7 @@
     {
       "id": "JEVCPP-M4",
       "title": "Tests, Rollout und Entscheidung",
-      "status": "in_progress",
+      "status": "partial",
       "task_ids": [
         "JEVCPP-011",
         "JEVCPP-012"
@@ -426,7 +426,7 @@
       "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 40,
+      "progress_percent": 60,
       "depends_on": [
         "JEVCPP-005",
         "JEVCPP-006",
@@ -445,7 +445,12 @@
         "Feature-off behaelt bestehendes Ananta-Verhalten."
       ],
       "evidence": [
-        "Fork: tools/server/tests/unit/test_decision.py +10 Tests für das offene Feld, 34/34 auf CUDA und CPU; Ananta: Router-, Kalibrier- und Shadow-Tests headless mit Fake-Runtimes"
+        "Fork: tools/server/tests/unit/test_decision.py +10 Tests für das offene Feld, 34/34 auf CUDA und CPU; Ananta: Router-, Kalibrier- und Shadow-Tests headless mit Fake-Runtimes",
+        "Ananta 2026-10-13: tests/decision/test_decision_providers.py um llama.cpp-Contract-Faelle ergaenzt (Schema-/Wertfehler, Antwortformfehler, Response-zu-gross, Timeout/Transport retryable, HTTP-Retryability, base_url) und einen Cross-Request-Isolationstest (cache_context nie wiederverwendet, Kontexte getrennt). 50 Tests headless, 3.66 s."
+      ],
+      "remaining": [
+        "Fork-seitige Shared-Prefix-, Queue-Full- und GPU-/CPU-Modelltests bleiben im Vendor-Fork",
+        "Live-Modell-Smoke separat und nur mit Opt-in"
       ]
     },
     {
@@ -453,10 +458,10 @@
       "milestone_id": "JEVCPP-M4",
       "title": "Shadow-Rollout und Einsatzentscheidung dokumentieren",
       "type": "documentation",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 70,
       "depends_on": [
         "JEVCPP-010",
         "JEVCPP-011"
@@ -471,6 +476,10 @@
         "Rollout ist pro Profil deaktivierbar und besitzt dokumentierten Rueckfallpfad.",
         "Kein Backend wird allein aufgrund Upstream-/Video-Benchmarks promoted.",
         "Entscheidung basiert auf eigenen eingefrorenen Benchmarks und reproduzierbarer lokaler Evidenz."
+      ],
+      "implemented_solution": "docs/jev-llamacpp-decision-mode.md: Shadow-Rollout-Abschnitt mit Area-Modi (off/shadow/active), Schwellen je Profil, dokumentiertem Rueckfallpfad (Area auf off) und Vergleichs-/Entscheidungsregeln ergaenzt.",
+      "remaining": [
+        "Realer Shadow-Lauf gegen produktive Ananta-Faelle und Festhalten der Abschlussstufe je Area"
       ]
     }
   ],
@@ -488,9 +497,9 @@
   "tasks_status_summary": {
     "total": 12,
     "by_status": {
-      "todo": 4,
+      "todo": 3,
       "in_progress": 0,
-      "partial": 4,
+      "partial": 5,
       "blocked": 0,
       "done": 4
     },
@@ -498,7 +507,8 @@
     "by_priority": {
       "P0": 5,
       "P1": 7,
-      "P2": 0
+      "P2": 0,
+      "P3": 0
     },
     "by_risk": {
       "low": 2,
@@ -513,9 +523,9 @@
     },
     "milestones": {
       "total": 4,
-      "todo": 0,
-      "in_progress": 4,
-      "partial": 0,
+      "todo": 1,
+      "in_progress": 0,
+      "partial": 3,
       "blocked": 0,
       "done": 0
     }
@@ -523,23 +533,145 @@
   "tasks_type_summary": {
     "total": 12,
     "by_type": {
-      "research": 1,
-      "infrastructure": 1,
-      "evaluation": 3,
-      "integration": 2,
-      "architecture": 1,
-      "performance": 2,
-      "testing": 1,
-      "documentation": 1
+      "research": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "infrastructure": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "evaluation": {
+        "total": 3,
+        "done": 1,
+        "partial": 1,
+        "blocked": 0,
+        "todo": 1,
+        "in_progress": 0,
+        "progress_percent": 43.3,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 1,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "integration": {
+        "total": 2,
+        "done": 1,
+        "partial": 1,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 87.5,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 1,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "architecture": {
+        "total": 1,
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 65.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 1,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "performance": {
+        "total": 2,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 2,
+        "in_progress": 0,
+        "progress_percent": 0.0,
+        "by_status": {
+          "todo": 2,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "testing": {
+        "total": 1,
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 60.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 1,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "documentation": {
+        "total": 1,
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 70.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 1,
+          "blocked": 0,
+          "done": 0
+        }
+      }
     }
   },
   "progress_summary": {
-    "state": "in_progress",
-    "todo_remaining": 4,
+    "state": "partial",
+    "todo_remaining": 3,
     "in_progress": 0,
-    "partial": 4,
+    "partial": 5,
     "blocked": 0,
-    "done": 4
+    "done": 4,
+    "milestones_done": 0,
+    "milestones_total": 4
   },
   "success_criteria": [
     "Der offene Jev-aehnliche llama.cpp-Inferenzmodus ist reproduzierbar lokal gestartet oder sein aktueller technischer Blocker ist konkret dokumentiert.",
