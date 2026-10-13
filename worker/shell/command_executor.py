@@ -13,6 +13,7 @@ from typing import Any
 from worker.core.redaction import sanitize_subprocess_environment
 from worker.core.tool_registry import ResourceLimits, ToolInvocationEnvelope, ToolResult, WorkerToolRegistry
 from worker.shell.command_policy import classify_command
+from worker.shell.filesystem_isolation import isolated_command
 
 
 def _needs_approval(policy_decision: str, command_requires_approval: bool) -> bool:
@@ -168,15 +169,21 @@ def execute_command_plan(
     cwd = _resolve_cwd(repository_root, str(command_plan_artifact.get("working_directory") or "."))
     start = time.monotonic()
     try:
-        completed = subprocess.run(
-            shlex.split(command),
-            cwd=str(cwd),
-            text=True,
-            capture_output=True,
-            timeout=invocation.resource_limits.timeout_seconds,  # T008: from envelope
-            check=False,
-            env=_bounded_environment(environment),
-        )
+        with isolated_command(
+            shlex.split(command), workspace=repository_root, environment=_bounded_environment(environment),
+        ) as (argv, bounded_environment, descriptors):
+            completed = subprocess.run(
+                argv,
+                cwd=str(cwd),
+                text=True,
+                capture_output=True,
+                timeout=invocation.resource_limits.timeout_seconds,  # T008: from envelope
+                check=False,
+                env=bounded_environment,
+                close_fds=True,
+                pass_fds=descriptors,
+                stdin=subprocess.DEVNULL,
+            )
         raw_stdout = completed.stdout or ""
         raw_stderr = completed.stderr or ""
         exit_code = int(completed.returncode)

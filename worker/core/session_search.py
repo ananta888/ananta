@@ -7,12 +7,17 @@ EW-T030: Search can find prior tasks, failures, patch artifacts,
 """
 from __future__ import annotations
 
+import json
 import re
 import time
+from copy import deepcopy
 from dataclasses import dataclass, field
 from enum import Enum
+from threading import RLock
 from typing import Any
 
+from ananta_contracts.memory_access import MemoryOperation, MemoryScope
+from worker.core.memory_authorization import WorkerMemoryAuthorizationPort, require_worker_memory
 
 # ── SearchTarget ──────────────────────────────────────────────────────────────
 
@@ -75,11 +80,42 @@ class SessionSearchIndex:
     Backed by simple term matching — no external search dependency.
     """
 
-    def __init__(self) -> None:
-        self._docs: list[IndexedDocument] = []
+    def __init__(self, *, authorization: WorkerMemoryAuthorizationPort | None = None) -> None:
+        self._authorization = authorization
+        self._docs = []
+        self._lock = RLock()
+        self.last_reason_code = "memory_hub_authorization_required"
+
+    def _access(self, operation):
+        return require_worker_memory(self._authorization, MemoryScope.run, operation)
 
     def index(self, doc: IndexedDocument) -> None:
-        self._docs.append(doc)
+        try:
+            access = self._access(MemoryOperation.append)
+            namespace = access.namespace
+            if (doc.tenant_id and doc.tenant_id != namespace.tenant_id
+                    or doc.project_id and doc.project_id != namespace.workspace_id):
+                raise ValueError("memory_namespace_mismatch")
+            metadata = json.loads(json.dumps(doc.metadata, allow_nan=False))
+            size = len(json.dumps({"id": doc.id, "content": doc.content, "metadata": metadata,
+                                   "tags": sorted(doc.tags)}, allow_nan=False).encode("utf-8"))
+            if size > 65536:
+                raise ValueError("memory_value_quota_exceeded")
+            with self._lock:
+                self._docs = [item for item in self._docs if item[1] > time.time()]
+                if len(self._docs) >= 256 or sum(item[3] for item in self._docs) + size > 262144:
+                    raise ValueError("memory_store_quota_exceeded")
+                if self._access(MemoryOperation.append) != access:
+                    raise ValueError("memory_policy_changed")
+                admitted = deepcopy(doc)
+                admitted.tenant_id, admitted.project_id = namespace.tenant_id, namespace.workspace_id
+                admitted.metadata = metadata
+                self._docs.append((namespace.key(MemoryScope.run), access.expires_at, admitted, size))
+                self.last_reason_code = "memory_access_allowed"
+        except (TypeError, UnicodeError):
+            self.last_reason_code = "memory_value_invalid"
+        except ValueError as exc:
+            self.last_reason_code = str(exc) if str(exc).startswith("memory_") else "memory_value_invalid"
 
     def index_task(
         self,
@@ -177,8 +213,25 @@ class SessionSearchIndex:
         if not terms:
             return []
 
+        if type(max_results) is not int or not 1 <= max_results <= 100:
+            self.last_reason_code = "memory_query_invalid"
+            return []
+        try:
+            access = self._access(MemoryOperation.read)
+        except ValueError as exc:
+            self.last_reason_code = str(exc)
+            return []
+        namespace = access.namespace
+        if (tenant_id and tenant_id != namespace.tenant_id
+                or project_id and project_id != namespace.workspace_id):
+            self.last_reason_code = "memory_namespace_mismatch"
+            return []
+        with self._lock:
+            self._docs = [item for item in self._docs if item[1] > time.time()]
+            documents = [deepcopy(doc) for key, _expiry, doc, _size in self._docs
+                         if key == namespace.key(MemoryScope.run)]
         results: list[SearchResult] = []
-        for doc in self._docs:
+        for doc in documents:
             # Scope filter
             if project_id and doc.project_id and doc.project_id != project_id:
                 continue
@@ -200,11 +253,19 @@ class SessionSearchIndex:
                     metadata=doc.metadata,
                 ))
 
+        try:
+            if self._access(MemoryOperation.read) != access:
+                raise ValueError("memory_policy_changed")
+        except ValueError as exc:
+            self.last_reason_code = str(exc)
+            return []
+        self.last_reason_code = "memory_access_allowed"
         results.sort(key=lambda r: -r.score)
         return results[:max_results]
 
     def clear(self) -> None:
-        self._docs.clear()
+        with self._lock:
+            self._docs.clear()
 
 
 # ── Scoring and snippet helpers ───────────────────────────────────────────────

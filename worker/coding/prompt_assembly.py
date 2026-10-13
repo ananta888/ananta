@@ -5,6 +5,7 @@ from typing import Any
 
 from worker.core.execution_profile import normalize_execution_profile, prompt_context_chars_for_profile
 from worker.core.redaction import redact_text
+from worker.core.untrusted_context_data import quote_context_data
 
 
 def _redact(text: str) -> str:
@@ -63,6 +64,17 @@ def _context_chunk_entry(value: Any) -> dict[str, Any]:
     }
 
 
+def _grouped_context(seed: list[str], neighbors: list[str]) -> str:
+    lines = []
+    if seed:
+        lines.append("Seed context:")
+        lines.extend(f"- {chunk}" for chunk in seed)
+    if neighbors:
+        lines.append("Graph-expanded neighbors:")
+        lines.extend(f"- {chunk}" for chunk in neighbors)
+    return "\n".join(lines)
+
+
 def assemble_coding_prompt(
     *,
     task: dict[str, Any],
@@ -104,16 +116,22 @@ def assemble_coding_prompt(
             else:
                 blocked_chunks.append({"reason": guardrail_reason, "preview": clean[:160]})
                 continue
-        remaining = bounded_context_limit - used_chars
+        neighbor = str(entry.get("group") or "seed") == "expanded_neighbor"
+        overhead = _grouped_context(
+            bounded_seed_chunks if neighbor else [*bounded_seed_chunks, ""],
+            [*bounded_neighbor_chunks, ""] if neighbor else bounded_neighbor_chunks,
+        )
+        remaining = bounded_context_limit - len(overhead)
         if remaining <= 0:
             break
-        bounded = clean[:remaining]
-        labeled = f"[{entry['label']}] {bounded}"
-        if str(entry.get("group") or "seed") == "expanded_neighbor":
-            bounded_neighbor_chunks.append(labeled)
+        quoted = quote_context_data(clean, max_chars=remaining, origin_id=entry["label"])
+        if quoted is None:
+            break
+        if neighbor:
+            bounded_neighbor_chunks.append(quoted.text)
         else:
-            bounded_seed_chunks.append(labeled)
-        used_chars += len(bounded)
+            bounded_seed_chunks.append(quoted.text)
+        used_chars = len(_grouped_context(bounded_seed_chunks, bounded_neighbor_chunks))
     file_lines = [
         f"- {entry.get('path')} | symbol={entry.get('symbol') or '-'} | reason={entry.get('reason') or 'selection'}"
         for entry in selected_files
@@ -124,15 +142,11 @@ def assemble_coding_prompt(
     constraint_summary = _redact(str(constraints))
     task_text = _redact(str(task))
     expected_schema_text = _redact(str(expected_output_schema))
-    context_lines: list[str] = []
-    if bounded_seed_chunks:
-        context_lines.append("Seed context:")
-        context_lines.extend(f"- {chunk}" for chunk in bounded_seed_chunks)
-    if bounded_neighbor_chunks:
-        context_lines.append("Graph-expanded neighbors:")
-        context_lines.extend(f"- {chunk}" for chunk in bounded_neighbor_chunks)
-    context_text = "\n".join(context_lines)
-    retrieval_summary = _redact(str(dict(retrieval_trace or {}))) if retrieval_trace else "- none"
+    context_text = _grouped_context(bounded_seed_chunks, bounded_neighbor_chunks)
+    trace_data = quote_context_data(
+        str(dict(retrieval_trace)), max_chars=4096, source_type="descriptive_retrieval_trace",
+    ) if retrieval_trace else None
+    retrieval_summary = trace_data.text if trace_data else "- none"
     guardrail_summary = (
         f"- blocked_context_chunks={len(blocked_chunks)}"
         if blocked_chunks

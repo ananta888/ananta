@@ -7,6 +7,7 @@ import importlib.util
 import json
 import math
 import random
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping, Protocol
@@ -19,6 +20,7 @@ from worker.training.datasets import VerifiedValidationDataset, iter_jsonl
 from worker.training.local_transformers_tokenizer import load_local_tokenizer
 from worker.training.process_control import CancellationToken
 from worker.training.prompt_rendering import render_chat_messages
+from worker.training.specialist_predictions import persist_specialist_predictions
 
 
 @dataclass(frozen=True)
@@ -121,6 +123,7 @@ class MockAdapterEvaluator:
     name = "mock"
 
     def evaluate_existing_adapter(self, context: AdapterEvaluationContext) -> AdapterEvaluationOutcome:
+        _require_specialist_coverage(context)
         context.cancel.raise_if_cancelled()
         context.emit("phase", {"phase": "evaluating_base"})
         base_loss = 1.0
@@ -128,44 +131,42 @@ class MockAdapterEvaluator:
         context.emit("phase", {"phase": "evaluating_adapter"})
         adapter_loss = 0.75
         sample_count = min(context.request.configuration.max_samples, 20)
-        samples = []
-        for index, row in enumerate(iter_jsonl(context.dataset.validation_path)):
-            if index >= sample_count:
-                break
-            reference = _prompt_reference(row)
-            expected = _expected_output(row)[:16_000]
-            base_output = f"[mock-base:{reference[:12]}]"
-            adapter_output = expected or f"[mock-adapter:{reference[:12]}]"
-            base_score = score_evaluation_output(
-                context.request.configuration.scorer_name,
-                base_output,
-                expected_output=expected,
-            )
-            adapter_score = score_evaluation_output(
-                context.request.configuration.scorer_name,
-                adapter_output,
-                expected_output=expected,
-            )
-            samples.append(
-                {
-                    "id": reference,
-                    "record_index": index,
-                    "base_output": base_output,
-                    "adapter_output": adapter_output,
-                    "expected_output": expected or None,
-                    "base_score": base_score,
-                    "adapter_score": adapter_score,
-                    "winner": _score_winner(base_score, adapter_score),
-                }
-            )
-        metrics = _comparison_metrics(
-            base_loss,
-            adapter_loss,
-            context.dataset.validation_records,
-            samples=samples,
-            scorer_name=context.request.configuration.scorer_name,
+        if context.request.configuration.scorer_name == "specialist_decision":
+            sample_count = context.dataset.validation_records
+        samples = _mock_comparisons(context, sample_count)
+        return _finish_comparison(context, base_loss, adapter_loss, context.dataset.validation_records, samples)
+
+
+def _mock_comparisons(context: AdapterEvaluationContext, sample_count: int) -> Iterator[dict[str, Any]]:
+    for index, row in enumerate(iter_jsonl(context.dataset.validation_path)):
+        if index >= sample_count:
+            break
+        reference = _prompt_reference(row)
+        expected = _expected_output(row)[:16_000]
+        base_output = f"[mock-base:{reference[:12]}]"
+        adapter_output = expected or f"[mock-adapter:{reference[:12]}]"
+        base_score = score_evaluation_output(
+            context.request.configuration.scorer_name,
+            base_output,
+            expected_output=expected,
         )
-        return _write_evaluation(context, metrics)
+        adapter_score = score_evaluation_output(
+            context.request.configuration.scorer_name,
+            adapter_output,
+            expected_output=expected,
+        )
+        yield (
+            {
+                "id": reference,
+                "record_index": index,
+                "base_output": base_output,
+                "adapter_output": adapter_output,
+                "expected_output": expected or None,
+                "base_score": base_score,
+                "adapter_score": adapter_score,
+                "winner": _score_winner(base_score, adapter_score),
+            }
+        )
 
 
 class PeftAdapterEvaluator:
@@ -176,6 +177,7 @@ class PeftAdapterEvaluator:
         self._model_loader = model_loader or PeftAdapterModelLoader()
 
     def evaluate_existing_adapter(self, context: AdapterEvaluationContext) -> AdapterEvaluationOutcome:
+        _require_specialist_coverage(context)
         missing = [
             name
             for name in (*self._requirements, *self._model_loader.requirements)
@@ -233,12 +235,19 @@ class PeftAdapterEvaluator:
                 emit=context.emit,
             )
             context.cancel.raise_if_cancelled()
-            samples = _generate_comparisons(
+            samples = _iter_generated_comparisons(
                 context=context,
                 rows=rows,
                 tokenizer=tokenizer,
                 adapter_model=adapter_model,
                 torch_module=torch,
+            )
+            base_loss = _finite(base_metrics.get("eval_loss"))
+            adapter_loss = _finite(adapter_metrics.get("eval_loss"))
+            if base_loss is None or adapter_loss is None:
+                raise TrainingBackendError("evaluation_failed", "evaluation did not produce finite loss metrics")
+            return _finish_comparison(
+                context, base_loss, adapter_loss, min(len(rows), context.dataset.validation_records), samples
             )
         except TrainingBackendError:
             raise
@@ -250,20 +259,6 @@ class PeftAdapterEvaluator:
                     "out_of_memory", "adapter evaluation exhausted memory", retryable=True
                 ) from exc
             raise TrainingBackendError("evaluation_failed", f"base-vs-adapter evaluation failed: {exc}") from exc
-        base_loss = _finite(base_metrics.get("eval_loss"))
-        adapter_loss = _finite(adapter_metrics.get("eval_loss"))
-        if base_loss is None or adapter_loss is None:
-            raise TrainingBackendError("evaluation_failed", "evaluation did not produce finite loss metrics")
-        return _write_evaluation(
-            context,
-            _comparison_metrics(
-                base_loss,
-                adapter_loss,
-                min(len(rows), context.dataset.validation_records),
-                samples=samples,
-                scorer_name=context.request.configuration.scorer_name,
-            ),
-        )
 
 
 def _evaluate_base_and_adapter(
@@ -335,20 +330,24 @@ def _comparison_metrics(
     return result
 
 
-def _generate_comparisons(
+def _iter_generated_comparisons(
     *,
     context: AdapterEvaluationContext,
     rows: list[dict[str, Any]],
     tokenizer: Any,
     adapter_model: Any,
     torch_module: Any,
-) -> list[dict[str, Any]]:
-    samples: list[dict[str, Any]] = []
-    generation_rows = rows[: min(len(rows), context.request.configuration.max_samples, 8)]
+) -> Iterator[dict[str, Any]]:
+    limit = context.request.configuration.max_samples
+    if context.request.configuration.scorer_name != "specialist_decision":
+        limit = min(limit, 8)
+    generation_rows = rows[: min(len(rows), limit)]
     for index, row in enumerate(generation_rows):
         context.cancel.raise_if_cancelled()
         prompt = _prompt_text(row, tokenizer)
         reference = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+        if context.request.configuration.scorer_name == "specialist_decision":
+            reference = _prompt_reference(row)
         encoded = tokenizer(
             prompt,
             return_tensors="pt",
@@ -392,7 +391,7 @@ def _generate_comparisons(
             adapter_output,
             expected_output=expected,
         )
-        samples.append(
+        yield (
             {
                 "id": reference,
                 "record_index": index,
@@ -404,7 +403,42 @@ def _generate_comparisons(
                 "winner": _score_winner(base_score, adapter_score),
             }
         )
-    return samples
+
+
+def _require_specialist_coverage(context: AdapterEvaluationContext) -> None:
+    if (
+        context.request.configuration.scorer_name == "specialist_decision"
+        and context.request.configuration.max_samples < context.dataset.validation_records
+    ):
+        raise TrainingBackendError(
+            "specialist_prediction_coverage_invalid", "specialist evaluation requires every record"
+        )
+
+
+def _finish_comparison(
+    context: AdapterEvaluationContext,
+    base_loss: float,
+    adapter_loss: float,
+    records: int,
+    samples: Iterable[Mapping[str, Any]],
+) -> AdapterEvaluationOutcome:
+    scorer = context.request.configuration.scorer_name
+    if scorer != "specialist_decision":
+        return _write_evaluation(
+            context, _comparison_metrics(base_loss, adapter_loss, records, samples=list(samples), scorer_name=scorer)
+        )
+    artifact, preview, wins = persist_specialist_predictions(
+        context.artifact_root,
+        samples,
+        expected_records=context.dataset.validation_records,
+        check_cancelled=context.cancel.raise_if_cancelled,
+    )
+    metrics = _comparison_metrics(base_loss, adapter_loss, records, samples=preview, scorer_name=scorer)
+    metrics.update(
+        {"wins": wins, "prediction_records": context.dataset.validation_records, "prediction_artifact": artifact.name}
+    )
+    outcome = _write_evaluation(context, metrics)
+    return AdapterEvaluationOutcome(metrics=outcome.metrics, artifacts=(*outcome.artifacts, artifact))
 
 
 def _prompt_reference(row: Mapping[str, Any]) -> str:

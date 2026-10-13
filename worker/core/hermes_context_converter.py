@@ -1,12 +1,12 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any
-import re
 
 from worker.core.context_resolver import ContextBlock, ContextSensitivity
 from worker.core.sanitizer import OutputSanitizer
-
+from worker.core.untrusted_context_data import quote_context_data
 
 _SENSITIVE_BLOCKS = frozenset({ContextSensitivity.secret, ContextSensitivity.customer_confidential})
 _SAN = OutputSanitizer()
@@ -70,34 +70,30 @@ def convert_context_blocks_to_prompt(
             suspicious.append({"origin_id": block.origin_id, "reason_code": finding})
             continue
 
-        label = f"[source={block.source_type}:{block.origin_id}] "
         sanitized_content = _SAN.sanitize(content).text
-        entry = label + sanitized_content
-        original_chars = len(entry)
-        if total + len(entry) > max_context_chars:
-            remaining = max_context_chars - total
-            suffix = "[truncated_for_budget]"
-            content_budget = remaining - len(label) - len(suffix)
-            if content_budget <= 0:
-                # Not enough room even for label + suffix — skip entirely
-                truncated.append({
-                    "origin_id": block.origin_id,
-                    "reason_code": "budget_exhausted",
-                    "original_chars": original_chars,
-                    "included_chars": 0,
-                })
-                continue
-            # Keep the provenance label intact; truncate content only (HF-T009)
-            entry = label + sanitized_content[:content_budget] + suffix
+        separator_chars = 1 if lines else 0
+        remaining = max_context_chars - total - separator_chars
+        if remaining <= 0:
+            break
+        quoted = quote_context_data(
+            sanitized_content, max_chars=remaining, source_type=block.source_type,
+            origin_id=block.origin_id, provenance=block.provenance,
+        )
+        if quoted is None:
+            truncated.append({"origin_id": block.origin_id, "reason_code": "truncated_for_budget",
+                              "original_chars": len(sanitized_content), "included_chars": 0})
+            continue
+        entry = quoted.text
+        if quoted.truncated:
             truncated.append({
                 "origin_id": block.origin_id,
                 "reason_code": "truncated_for_budget",
-                "original_chars": original_chars,
+                "original_chars": len(sanitized_content),
                 "included_chars": len(entry),
             })
         lines.append(entry)
         included.append({"origin_id": block.origin_id, "reason_code": "included"})
-        total += len(entry)
+        total += len(entry) + separator_chars
         if total >= max_context_chars:
             break
 

@@ -12,10 +12,12 @@ from ananta_contracts.workflow_worker_gateway import (
     SideEffectGatewayReceipt,
     WorkflowWorkerBinding,
 )
+from worker.runtime.native_graph.artifact_outputs import NativeOutputMaterializationError
 from worker.runtime.native_graph.contracts import NativeNodeCommand, NativeNodeResult
 from worker.runtime.native_graph.node_runtime import NativeDelegatedNodeRuntime
 from worker.runtime.native_graph.pi_composition import build_native_node_handlers
 from worker.runtime.native_graph.ports import NativeAuthorizationVerifierPort
+from worker.runtime.native_graph.result_maintenance_composition import build_result_maintenance_handlers
 from worker.runtime.native_graph.task_adapter import NativeGraphWorkerTaskAdapter
 from worker.runtime.workflow_hub_gateway import (
     HttpWorkflowHubDecisionClient,
@@ -233,9 +235,11 @@ class NativeWorkerCommandRuntimePort(Protocol):
 class TaskScopedNativeWorkerExecutor:
     """Worker-only adapter over injected workspace and command-runtime ports."""
 
-    def __init__(self, *, runtime: Any, workspaces: Any) -> None:
+    def __init__(self, *, runtime: Any, workspaces: Any, output_materializer=None, input_materializer=None) -> None:
         self._runtime = runtime
         self._workspaces = workspaces
+        self._output_materializer = output_materializer
+        self._input_materializer = input_materializer
 
     def execute(
         self,
@@ -248,18 +252,40 @@ class TaskScopedNativeWorkerExecutor:
         agent_config: dict[str, Any],
     ) -> Mapping[str, Any]:
         workspace = self._workspaces.resolve_workspace_context(task=task)
-        return self._runtime.execute_and_verify_command(
+        prepared = self._output_materializer.prepare(task) if self._output_materializer is not None else None
+        if prepared is None:
+            context = task.get("worker_execution_context") or {}
+            raw_native = context.get("native_node_command")
+            if isinstance(raw_native, dict):
+                projected = NativeNodeCommand.from_mapping(raw_native)
+                if projected.node.output_artifacts:
+                    raise ValueError("native_artifact_output_materializer_unavailable")
+                if projected.node.input_artifacts:
+                    prepared = (projected, {})
+        if prepared is not None and (task.get("id") != hub_task_id or task.get("tenant_id") != prepared[0].tenant_id):
+            raise ValueError("native_output_task_binding_invalid")
+        if prepared is not None and prepared[0].node.input_artifacts:
+            if self._input_materializer is None:
+                raise ValueError("native_artifact_input_materializer_unavailable")
+            self._input_materializer.materialize(command=prepared[0], task=task, workspace_dir=workspace.workspace_dir)
+        result = self._runtime.execute_and_verify_command(
             tid=hub_task_id,
             task=task,
             command=command,
             trace_id=trace_id,
             worker_profile="balanced",
-            profile_source="workflow_adapter",
+            profile_source="task_context",
             timeout_seconds=timeout_seconds,
             workspace_dir=workspace.workspace_dir,
             native_runtime_payload=None,
             agent_cfg=agent_config,
         )
+        if prepared is not None and prepared[1] and result.get("status") == "completed":
+            artifacts = self._output_materializer.materialize(
+                command=prepared[0], files=prepared[1], task=task, workspace_dir=workspace.workspace_dir,
+            )
+            return {**result, "artifact_refs": artifacts}
+        return result
 
 
 class NativeTaskScopedNodeHandler:
@@ -271,15 +297,19 @@ class NativeTaskScopedNodeHandler:
         agent_config: Mapping[str, Any],
         task_snapshots: NativeHubExecutionScope,
         executor: NativeWorkerCommandRuntimePort,
+        artifact_publication=None,
     ) -> None:
         self._agent_config = dict(agent_config)
         self._task_snapshots = task_snapshots
         self._executor = executor
+        self._artifact_publication = artifact_publication
 
     def execute(self, command: NativeNodeCommand, *, hub_task_id: str) -> NativeNodeResult:
         raw_command = self._command_text(command)
         if not raw_command:
             return self._failed(command, hub_task_id, "native_node_command_input_required")
+        if command.node.output_artifacts and self._artifact_publication is None:
+            return self._failed(command, hub_task_id, "native_artifact_publication_unavailable")
         try:
             task_payload = self._task_snapshots.task_snapshot(hub_task_id=hub_task_id)
             agent_config = self._hub_bound_agent_config(command)
@@ -293,6 +323,8 @@ class NativeTaskScopedNodeHandler:
                 agent_config=agent_config,
             )
         except Exception as exc:  # noqa: BLE001 - runtime adapter must fail closed
+            if isinstance(exc, NativeOutputMaterializationError):
+                raise  # Preserve post-execution uncertainty in the delegated runtime.
             return self._failed(
                 command,
                 hub_task_id,
@@ -314,6 +346,14 @@ class NativeTaskScopedNodeHandler:
                 hub_task_id,
                 "native_node_materialized_artifacts_missing",
             )
+        if status == "completed" and artifacts:
+            try:
+                artifacts = self._artifact_publication.publish(command=command, task=task_payload, references=artifacts)
+            except Exception as exc:  # noqa: BLE001 -- publication failure cannot become a completed result
+                # Execution already happened. Let the delegated runtime retain
+                # uncertainty on a claimed side effect instead of authorizing
+                # a new retry through a simple ledger failure.
+                raise ValueError(_reason(exc, "native_artifact_publication_failed")) from exc
         output_data = {
             "status": status,
             "exit_code": int(result.get("exit_code") or 0),
@@ -418,6 +458,7 @@ def build_native_graph_worker_task_adapter(
     agent_config: Mapping[str, Any],
     executor: NativeWorkerCommandRuntimePort | None = None,
     authorization_verifier: NativeAuthorizationVerifierPort | None = None,
+    artifact_publication=None,
 ) -> NativeGraphWorkerTaskAdapter | None:
     runtime_cfg = agent_config.get("worker_runtime")
     runtime_cfg = dict(runtime_cfg) if isinstance(runtime_cfg, Mapping) else {}
@@ -440,11 +481,12 @@ def build_native_graph_worker_task_adapter(
     scope = NativeHubExecutionScope(client)
     runtime = NativeDelegatedNodeRuntime(
         handler=build_native_node_handlers(
-            default=NativeTaskScopedNodeHandler(
+            default=build_result_maintenance_handlers(default=NativeTaskScopedNodeHandler(
                 agent_config=agent_config,
                 task_snapshots=scope,
                 executor=executor,
-            ),
+                artifact_publication=artifact_publication,
+            ), scope=scope, native_config=native_cfg),
             scope=scope,
             client=client,
             native_config=native_cfg,

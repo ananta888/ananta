@@ -9,7 +9,9 @@ import re
 from dataclasses import asdict, dataclass
 from typing import Any, Mapping
 
+from ananta_contracts.hub_evidence import HubEvidenceAssignmentError
 from ananta_contracts.lora_evaluation import SUPPORTED_SCORERS
+from ananta_contracts.lora_evidence import lora_evidence_assignment
 
 CONTRACT_VERSION = "ananta.lora-training.v1"
 TRAIN_JOB_TYPE = "train_lora"
@@ -38,6 +40,15 @@ class TrainingContractError(ValueError):
         self.message = message
         self.http_status = http_status
         self.retryable = retryable
+
+
+def _hub_evidence(value: Any, attempt_id: str) -> dict | None:
+    if value is None:
+        raise TrainingContractError("hub_evidence_assignment_invalid", "Evidence assignment must be an object")
+    try:
+        return lora_evidence_assignment(value, attempt_id=attempt_id)
+    except (HubEvidenceAssignmentError, TypeError, ValueError) as exc:
+        raise TrainingContractError("hub_evidence_assignment_invalid", str(exc)) from exc
 
 
 def _mapping(value: Any, field: str) -> Mapping[str, Any]:
@@ -619,6 +630,7 @@ class TrainingJobRequest:
     exports: tuple[TrainingExportSpec, ...] = ()
     resume_checkpoint: ResumeCheckpoint | None = None
     tenant_storage_key: str | None = None
+    hub_evidence_assignment: dict | None = None
 
     def __post_init__(self) -> None:
         if self.governance is not None and self.governance.base_model_digest != self.base_model.snapshot_hash:
@@ -649,6 +661,7 @@ class TrainingJobRequest:
             "exports",
             "resume_checkpoint",
             "tenant_storage_key",
+            "hub_evidence_assignment",
         }
         data = _closed_mapping(data, "training request", frozenset(allowed))
         version = _text(data.get("contract_version"), "contract_version", maximum=64)
@@ -690,6 +703,10 @@ class TrainingJobRequest:
                 or data.get("tenant_scope_digest"),
                 "tenant_storage_key",
             ),
+            hub_evidence_assignment=(
+                _hub_evidence(data["hub_evidence_assignment"], str(data.get("attempt_id")))
+                if "hub_evidence_assignment" in data else None
+            ),
         )
 
     @property
@@ -702,6 +719,10 @@ class TrainingJobRequest:
             payload.pop("exports")
         if self.governance is None:
             payload.pop("governance")
+        if self.hub_evidence_assignment is None:
+            payload.pop("hub_evidence_assignment")
+        else:
+            payload["hub_evidence_assignment"] = _hub_evidence(self.hub_evidence_assignment, self.attempt_id)
         return payload
 
     def validate_resume_binding(self) -> None:
@@ -743,6 +764,7 @@ class AdapterEvaluationJobRequest:
     validation_dataset: ValidationDatasetManifest
     configuration: AdapterEvaluationConfiguration
     tenant_storage_key: str | None = None
+    hub_evidence_assignment: dict | None = None
 
     @classmethod
     def from_mapping(cls, value: Any) -> "AdapterEvaluationJobRequest":
@@ -764,6 +786,7 @@ class AdapterEvaluationJobRequest:
             "validation_dataset",
             "configuration",
             "tenant_storage_key",
+            "hub_evidence_assignment",
         }
         data = _closed_mapping(data, "evaluation request", frozenset(allowed))
         version = _text(data.get("contract_version"), "contract_version", maximum=64)
@@ -798,6 +821,10 @@ class AdapterEvaluationJobRequest:
                 or data.get("tenant_scope_digest"),
                 "tenant_storage_key",
             ),
+            hub_evidence_assignment=(
+                _hub_evidence(data["hub_evidence_assignment"], str(data.get("attempt_id")))
+                if "hub_evidence_assignment" in data else None
+            ),
         )
 
     @property
@@ -805,7 +832,12 @@ class AdapterEvaluationJobRequest:
         return canonical_sha256(self.to_dict())
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        payload = asdict(self)
+        if self.hub_evidence_assignment is None:
+            payload.pop("hub_evidence_assignment")
+        else:
+            payload["hub_evidence_assignment"] = _hub_evidence(self.hub_evidence_assignment, self.attempt_id)
+        return payload
 
 
 JobRequest = TrainingJobRequest | AdapterEvaluationJobRequest
