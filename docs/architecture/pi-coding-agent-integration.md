@@ -1236,3 +1236,1093 @@ Parsing a manifest does not attest that runtime; Hub source admission and
 Worker verification still have to bind it to an actual deployment. All 27
 contract checks passed in 19.21 seconds; Ruff passed. No manifest was installed
 and no model, GPU or external provider was invoked by these tests.
+
+## Lokaler Abschluss-Review am 2026-10-10
+
+Die gesamte Pi-Testsammlung wurde erneut headless ausgeführt: 370 Tests
+bestanden in 14,69 Sekunden; der Node-Transporttest wurde übersprungen, weil
+Node im Test-Environment fehlt. Abgedeckt sind unter anderem Event-Parsing,
+Timeout/Abbruch/Overflow, Secret-Redaktion, Read-only-Policy, Session-Scope,
+Provider-Bindung, Worker-Konfiguration und transaktionale Resultatannahme.
+Diese synthetischen technischen Beobachtungen sind keine Produktions-Evidence.
+
+PI-T05 bleibt offen für die produktive Aufnahme des Runtime-Manifests in das
+Hub Evidence Registry, die RUN-Reservierung vor Dispatch und die gebundene
+Registry-Abschlussprüfung. Pi-Resultate erlauben derzeit keine Artefakt-Refs;
+die generische Native-Artefaktübergabe allein erfüllt diese Pi-Anforderung nicht.
+PI-T06 benötigt außerdem explizit aktivierbare Live-Smokes für lokale und
+externe Modellendpunkte. Dabei müssen Hub-Zuweisung und Evidence-Policy erhalten
+bleiben; ein direkter CLI-Aufruf darf keinen freigegebenen Hub-Lauf vortäuschen.
+Docker-Zugriff ist im aktuellen Sandbox-Kontext verweigert. Es wurde weder
+deployt noch ein Modellendpunkt aufgerufen. Die nächsten Implementierungsschritte
+sind Manifest-Admission, Dispatch-Reservierung und Registry-Abschlussbindung.
+
+Die neue `PiRuntimeManifestAdmissionService` vergleicht das geschlossene
+Manifest exakt mit einer unabhängigen `PiRuntimeDeploymentPort`-Projektion
+für Tenant, Projekt und registrierten Worker. Erst danach registriert das
+vorhandene Hub Evidence Registry eine unveränderliche Quelle mit Manifest-,
+Policy- und Scope-Bindung. Der Pi-Service erzeugt keine SRC-/RUN-IDs selbst.
+Wiederholte Admission bleibt durch das Registry idempotent. Abweichende
+Deployment-Fakten oder eine nicht verfügbare Deployment-Quelle führen vor
+Identity-Ausstellung zum Abbruch.
+
+49 Manifest-/Admission-/Registry-Tests mit echter SQL-Persistenz sind bestanden
+(3,08 Sekunden). Deployment-Fakten sind in diesen Tests ausdrücklich synthetisch;
+die ausgestellten Test-Quellen dürfen keine Produktionsfreigabe erfüllen.
+Ein produktiver Adapter muss registrierten Worker, tatsächlich eingesetztes
+unveränderliches Image/Revision und beobachtete Versionen unabhängig verbinden.
+Dieser Adapter und die Produktions-Komposition sind noch nicht implementiert;
+die neue Servicegrenze ist kein vollständiger Deployment-Nachweis. SRP trennt
+Deployment-Faktenprüfung von Identity-Ausstellung; DIP/ISP schützt die schmale
+Deployment-Schnittstelle. Bestehende breite Worker-Komposition bleibt erhalten.
+
+Vor Wiederverwendung eines aufgenommenen Manifests prüft `require_admitted`
+die aktuelle unabhängige Deployment-Projektion erneut und verifiziert die
+persistierte Registry-Quelle unter ihrem exakten Binding-Digest. Origin-Typ,
+Manifest-Inhalt, Policy, Scope und synthetische Klassifikation müssen exakt
+passen. Eine gültige SRC-Identität für ein anderes Dokument ist keine
+Pi-Deployment-Autorität; eine inzwischen geänderte Deployment-Projektion
+verhindert die Wiederverwendung. Diese reine Prüfung stellt keine neue
+Identität aus. 28 Admission-/Registry-Tests bestanden in 3,05 Sekunden, darunter
+sechs Prüfungen zur unveränderten Quellenzahl und falschen Bindungen. Produktive
+Deployment-Beobachtung und RUN-Reservierungs-Komposition bleiben offen.
+
+`PiRunEvidenceReservationService` ergänzt nun die Hub-Reservierungsgrenze.
+Sie lädt und sperrt den tatsächlichen Pi-Task, prüft die aktuelle Pi-Authority
+(registrierter Worker, Assignment, Ownership-Lease und Grant) und verlangt
+exakte Tenant-/Projekt-/Worker-Bindung zum erneut verifizierten Runtime-Manifest.
+Das vorhandene Registry nimmt die konkrete persistierte Worker-Execution-Context
+als Task-Input-Quelle auf und reserviert den RUN unter Task, Assignment,
+Native-Dispatch-Binding, Manifest-Revision, Input-, Profil- und Environment-Digest.
+Die Native-Dispatch-Kennung bezeichnet die vorhandene Native-Lease-Bindung;
+sie ist kein Recovery-Dispatch-Token und keine neue Evidence-Identität.
+
+Reservierung ist nur für `created`, `assigned` oder `queued` erlaubt;
+`running`, `in_progress` und terminale Tasks werden vor Aufnahme weiterer
+Quellen oder RUN-Ausstellung abgewiesen. Wiederholung bleibt Registry-idempotent.
+72 Reservation-/Admission-/Resultat-/Registry-Tests mit echten SQL-Tasks und
+Lease-/Assignment-/Registry-Zeilen bestanden in 6,68 Sekunden. Die Deployment-
+Projektion ist synthetisch und die reservierten Identitäten sind Test-Evidence.
+
+Die Servicegrenze ist noch nicht in den produktiven Versand eingehängt. Der
+Dispatcher muss sie vor jeglicher Worker-Ausführung aufrufen, die geschlossene
+Registry-Assignment-Projektion weiterreichen und den Abschluss daran prüfen.
+Manifest-Revision und Kontextdigest ersetzen außerdem keinen fehlenden
+immutablen Task-Workspace-/Quellennachweis. Registry-Persistenz verwendet ihre
+eigene Transaktion; atomare Task-/Outbox-/Registry-Dispatch-Komposition ist
+hiermit nicht behauptet. SRP trennt Reservierung von Ausführung und
+Resultatprüfung; bestehende SQL-Authority wird über einen injizierten Port
+wiederverwendet (DIP). Kein Worker erhält Identity-Ausstellungsbefugnisse.
+
+Die Vorbereitung der geschlossenen Worker-Projektion deckte eine Lücke im
+gemeinsamen Registry auf: `assignment_projection` prüfte Task/Assignment/Lease,
+berechnete jedoch die persistierte RUN-Bindung nicht erneut. Das Registry
+verifiziert jetzt vor jeder Projektion den kanonischen RUN-Digest und die
+Hub-Issuer-ID-Bindung. Anschließend müssen alle SRC-Einträge vorhanden,
+aufgenommen, unverändert und unter dem Run-Scope zulässig sein. Manipulierte
+Inputs, Revisionen, Environment-Fakten, Quellenlisten oder Scope-Felder sowie
+veränderte/zurückgezogene Quellen können nicht mehr in eine Worker-Projektion
+gelangen. Die kanonische RUN-Digestbildung wird mit der bestehenden abgeschlossenen
+Run-Verifikation geteilt, statt zwei Binding-Definitionen zu pflegen (SRP/DRY).
+47 Registry-/Pi-Admission-/Reservation-Tests bestanden in 4,29 Sekunden;
+Ruff und Diff-Prüfung bestanden. Die produktive Pi-Versand-Komposition bleibt
+offen; diese Änderung härtet deren gemeinsame Identity-Grenze.
+
+Die neue Pi-`assignment_projection` lädt vor Weitergabe erneut den gesperrten
+Task, verlangt einen Status vor Ausführung und prüft aktuelle Pi-Authority,
+frische Deployment-Fakten sowie die exakt aufgenommene Manifestquelle. Das
+Registry vergleicht zusätzlich den aktuellen Task-Kontextdigest und den
+erwarteten RUN-Binding-Digest. Die verifizierte Manifest-SRC muss zu den im RUN
+reservierten Quellen gehören; ein später unter anderer Policy aufgenommener
+Manifest-Eintrag darf sie nicht ersetzen. Nur die vorhandene geschlossene
+Registry-Projektion wird zurückgegeben. Kontext, Manifest und Environment-Daten
+werden nicht zusätzlich an den Worker transportiert. Die neuen Registry-
+Parameter sind optional und erhalten bestehende Verbraucher.
+
+39 Pi-Reservation-/Registry-Prüfungen bestanden in 4,78 Sekunden, darunter
+Kontextänderung, Lease-Ablauf, bereits gestarteter Task, falscher RUN-Digest,
+geänderte Deployment-Beobachtung und ausgetauschte Manifestquelle. Ruff und
+Diff-Prüfung bestanden. Dies ist die geprüfte Dispatch-Servicegrenze; sie ist
+noch kein Nachweis eines produktiven Worker-Versands oder Registry-Abschlusses.
+SRP hält die Dispatch-Prüfung beim Hub; die Worker-Projektion bleibt klein
+(ISP) und setzt keine neue Ausstellungsbefugnis voraus.
+
+`PiRunEvidenceCompletionService` bindet jetzt den Registry-Abschluss an ein
+bereits persistiertes, vom Hub akzeptiertes Pi-Ergebnis. Sie lädt den gesperrten
+terminalen Task, prüft den vollständigen Pi-Umschlag und seine unveränderliche
+technische Quittung und vergleicht deren historisch akzeptierte Assignment-
+Authority mit der vorreservierten geschlossenen Registry-Projektion. Task,
+Lease-Digest, Quellen, aktueller Inputdigest und RUN-Binding müssen exakt passen.
+Erst danach wird das Registry-Ergebnis gespeichert; der Worker stellt nichts aus.
+
+Eine exakte Wiederholung nach erfolgreichem Registry-Abschluss prüft die
+persistierte terminale RUN-Bindung und alle SRC-Einträge erneut. Lease-Ablauf
+nach bereits rechtzeitig akzeptiertem Task-Ergebnis verhindert diese reine
+Wiederholung nicht. Fehlende Pi-Quittung, geänderter Kontext, fremde Task-/RUN-
+Bindung und ausgetauschte Quellen führen zum Abbruch. Der bestehende Registry-
+Resultat-Lookup unterstützt nun optional den erwarteten terminalen Zustand;
+der Standard bleibt `succeeded` und ist kein erweitertes Release-Gate.
+
+Der volle Pi-/Registry-Durchlauf bestand 430 Tests mit einem übersprungenen
+Node-Transporttest in 16,59 Sekunden. Die danach ergänzte Prüfung gegen
+Quellenmutation bei Wiederholung wurde separat in der sieben Fälle umfassenden
+Completion-Suite geprüft. Alle verwendeten Deployment-Fakten bleiben synthetisch.
+Dispatch- und Abschluss-Services sind noch nicht produktiv eingehängt; atomare
+Task-/Registry-/Outbox-Persistenz und tatsächliche Pi-Ausführung unter dieser
+Evidence-Projektion sind weiterhin offen. SRP trennt Abschluss von Reservierung
+und bestehender Task-Resultatannahme. Bestehende breite Registry-/Runtime-
+Komposition bleibt erhalten, ohne Worker-Orchestrierung hinzuzufügen.
+
+### Explizite technische Pi-Live-Smokes
+
+`tests/pi/test_pi_live_smoke.py` enthält getrennte lokale und externe, vollständig headless SDK-Smokes. Standardmäßig sind beide aus. `ANANTA_TEST_PI_LIVE_LOCAL=1` beziehungsweise `ANANTA_TEST_PI_LIVE_EXTERNAL=1` aktiviert genau den ausgewählten Fall. Erforderlich sind jeweils die gleichnamigen Suffixe `_BASE_URL`, `_MODEL` und `_API_KEY`, außerdem `ANANTA_TEST_NODE_BINARY` und `ANANTA_TEST_PI_SDK` (gepinntes `dist/index.js`). Der lokale Fall verwendet den vorhandenen Ollama/OpenAI-kompatiblen Vertrag, der externe den bestehenden OpenRouter-Vertrag mit HTTPS. Fehlende Ressourcen/Auth und ungültige Auswahl schlagen begrenzt fehl; es gibt keine Discovery, Modellwahl, Auth-Abfrage oder menschliche Freigabe.
+
+Der Aufruf nutzt den vorhandenen gepinnten SDK-Einstieg, ein privates No-Tools-/Read-only-Projekt und die Worker-Prozessisolation mit einem eigenen privaten Ergebnisstore-Canary. 32 Ausgabetokens, 30 Sekunden Prozesszeit, 45 Sekunden Testzeit und 64 KiB Ausgabe begrenzen den Lauf. Der bestehende Parser verlangt exakt einen abgeschlossenen Turn mit gebundenem Provider/Modell und ohne Tools oder Retry. Antworten und Credentials werden nicht als Testdiagnose ausgegeben. Aufruf: `python -m pytest -q tests/pi/test_pi_live_smoke.py` mit der expliziten Operator-Auswahl.
+
+Dies sind technische Verbindungs-/SDK-Beobachtungen, keine Hub-Dispatch- oder Produktions-Release-Evidence. Das Testgerüst erzeugt keine SRC-/RUN-Identitäten und darf keine produktive Registry-Abnahme ersetzen. PI-T05 und produktive Manifest-/Provider-/Deployment-Akzeptanz bleiben separat. SRP trennt Auswahl von Ausführung; DIP verwendet die vorhandenen Prozess-, Konfigurations- und Ereignisports. Kein produktiver Default oder Hub-Worker-Orchestrierungsweg wird geändert.
+
+Die zusätzlichen Smoke-Prozessporttests prüften einen erfolgreichen technischen Turn sowie Prozessfehler, Modellsubstitution, unerlaubtes Tool-Ereignis und privaten Canary-Schreibversuch. Der erste Negativlauf fand, dass Pytest bei einer Resultat-Assertion die komplette Objekt-Repräsentation mit synthetischem stderr-Token drucken konnte. Deshalb wird Prozessfehler jetzt ausschließlich als festes ValueError gemeldet; private Provider-Ausgabe wird nicht Teil der Diagnose. Jeder Fehler erzeugt keine Erfolgsbeobachtung und entfernt die eigene Konfiguration. Abschließende85Tests bestehen in4.23s;4explizite Ressourcen-/Live-Smoke-Skips, Ruff/Todo grün. Kein echter Modellendpunkt wurde dabei aufgerufen.
+
+### Signierte Evidence-Transportprojektion als Dispatch-Voraussetzung
+
+Der bestehende Native-Execution-Vertrag unterstützt optional `evidence_assignment` ausschließlich für `pi_coding_agent`. Die geschlossene Hub-Registry-Projektion muss dieselbe Task-ID tragen und ist Teil derselben Ed25519-Signatur einschließlich Worker-Empfänger und Ablauf. Sie wird außerhalb des Task-Inputs transportiert: `worker_execution_context` und sein reservierter Digest bleiben unverändert. Der Vertrag prüft Form und Transportbindung; die produktive Hub-Versandstelle muss die tatsächliche Registry-Reservation und unabhängige Deployment-Fakten weiterhin vorher validieren. Ein Signaturaufruf ersetzt keine Registry-Aufnahme.
+
+`verify_native_execution_envelope` liefert Task und Projektion getrennt. Der bisherige Task-only-Verifier bleibt für alte Requests unverändert; bei vorhandener Evidence weist er begrenzt zurück, damit niemand eine zugewiesene Identität stillschweigend verwirft. Der Worker-HTTP-Port benötigt dafür explizit `evidence_consumer`. Fehlt dieser, erfolgt HTTP503 vor Resultstore-Reservierung und vor jeglicher Ausführung. Ein Legacy-Consumer wird bei einer Evidence-Zuweisung nie aufgerufen. Worker erzeugen keine Identitäten und erhalten keine neuen Orchestrierungsrechte.
+
+35 Registry-/Signatur-/HTTP-Tests bestehen in3.90s. Positive Transporttests verwenden echte vom Hub-Test-Registry ausgestellte SRC/RUN-Identitäten; fremde Task, Nicht-Pi-Profil, umsignierte Projektion, entfernte/null Evidence und fehlender Consumer werden abgewiesen. Das ist eine Transportvoraussetzung; produktive Registry-/Outbox-/Abschluss-Komposition bleibt offen. SRP trennt die geschlossene Projektion vom Task-Input, DIP ergänzt einen kleinen expliziten Consumer-Port und die bisherige API bleibt kompatibel.
+
+### Dauerhafte Ergebnisbindung der signierten Pi-Zuweisung
+
+Der Worker bindet eine über den signierten Native-Transport empfangene
+Evidence-Zuweisung zusätzlich an seinen bestehenden SQLite-Ergebnisslot.
+Reservierung, Veröffentlichung und Abholung verwenden denselben Digest aus
+Task-Projektion und vollständiger geschlossener Hub-Zuweisung. Das unveränderte
+`worker_execution_context` bleibt Modellinput; die Zuweisung bleibt separate
+Transportautorität. Alte Slots ohne Evidence behalten ihre bisherigen Digests.
+
+Eine andere Assignment-/Dispatch-Bindung oder das Weglassen der Evidence darf
+einen bestehenden Slot weder veröffentlichen noch lesen oder erneut ausführen.
+Das gilt nach Wiederöffnung der Datenbank und auch bei einer neu gültig
+signierten Anfrage. Die Tests verwenden vom Test-Hub registrierte Identitäten;
+veränderte Projektionen sind ausschließlich negative Prüfinputs.
+
+SRP/DIP: Die HTTP-Schicht reicht die verifizierte Zuweisung weiter, der lokale
+Store vollstreckt die dauerhafte Bindung. Er besitzt weiterhin keine Hub-Queue
+und stellt keine Evidence-Identitäten aus. Die produktive Pi-Komposition mit
+Manifestzulassung, atomarer Hub-Reservierung/Dispatch und Registry-Abschluss
+bleibt offen; diese lokale Prüfung ist keine produktive Release-Evidenz.
+
+### Gemeinsame Hub-Transaktion für RUN und Versandmarkierung
+
+`SQLAlchemyNativeDispatchJournal.begin_in_transaction` verwendet die aktive
+Session des Aufrufers. Es lädt die autoritative Task-Zeile unter Sperre,
+vergleicht die aktuelle Versandprojektion und schreibt die bestehende eindeutige
+Versandmarkierung mit `flush`. Es öffnet keine weitere Session und führt weder
+Commit noch Rollback aus. Der bisherige `begin`-Aufruf besitzt weiterhin seine
+eigene Transaktion und nutzt dieselbe Prüfung.
+
+Der Hub kann damit das `TransactionEvidenceIdentityRepository`, Pi-Reservierung,
+geschlossene Assignment-Projektion, Journal und Task-Status in einem Commit
+zusammenführen. Bei einem Journal-Konflikt muss die gesamte Transaktion zurück;
+eine bereits erzeugte RUN-/Input-SRC-Reservierung darf nicht separat bestehen
+bleiben. Der Versand darf erst nach erfolgreichem Commit beginnen. SQLite-
+Serialisierung und Transaktions-Lebensdauer bleiben Verantwortung des Aufrufers.
+
+`tests/pi/test_pi_dispatch_transaction.py` prüft mit echten SQL-Task-, Registry-
+und Journal-Zeilen Commit, vollständigen Rollback, bestehende Versandmarkierung,
+fehlende aktive Transaktion und veralteten Task-Input. Deployment-Fakten sind
+explizit synthetisch. Diese Schnittstelle beseitigt die getrennte Journal-
+Transaktion als Kompositionshindernis; sie bindet die produktive Versandroute
+noch nicht an einen unabhängigen Deployment-Adapter an.
+
+SRP/DIP: Das Journal behält die Verantwortung für den Versand-Fence, während
+der Aufrufer die gemeinsame Transaktion besitzt. Es gibt keine Worker-
+Orchestrierung, keine neue Evidence-Ausgabe und keine implizite zweite Session.
+
+### Atomare Pi-Versandvorbereitung
+
+`PiDispatchPreparationService` komponiert nun die tatsächlichen Hub-Services
+innerhalb einer gemeinsamen SQL-Transaktion: aktuelle Task-/Assignment-Authority,
+unabhängiges Deployment-Port, Manifestaufnahme, RUN-Reservierung, geschlossene
+Evidence-Projektion, Ed25519-Transportsignatur, Versandjournal und Task-Status.
+Das Deployment und der Policy-Digest kommen aus injizierten Hub-Ports; der
+Aufrufer kann keine Manifestbytes als Deployment-Nachweis übergeben.
+
+Die Anfrage wird erst nach erfolgreichem Commit zurückgegeben. Fehler bei
+Authority, Signatur, Journal oder Commit rollen Task, neue Registry-Identitäten
+und Versandmarkierung zurück. Der Service sendet selbst nichts und besitzt
+keine Worker-Ausführung. Die Worker-Evidence bleibt außerhalb des Task-Inputs.
+Die Tests trennen die Workflow-HMAC-Testauthority von der zwingend benötigten
+Ed25519-Transportsignatur.
+
+SRP/DIP: Dieser kleine Hub-Kompositionsservice besitzt die Transaktionsgrenze;
+Registry und Journal behalten ihre Fachverantwortung. Der bestehende direkte
+Task-Statuswechsel wird hier transaktional zusammengeführt; die produktive
+Routenintegration mit ihren weiteren Policy-/Trace-Hooks ist noch offen.
+Insbesondere ist kein unabhängiger produktiver Deployment-Adapter vorhanden.
+Die synthetische SQL-Prüfung ersetzt diese Zulassung nicht.
+
+### Native-Autopilot nutzt Pi-Evidence-Ports
+
+Der tatsächliche Native-Versandhandler verlangt für Pi jetzt sowohl
+`prepare_pi` als auch `complete_pi`. Er nutzt die atomar vorbereitete signierte
+Anfrage und den bereits persistierten Journal-Claim. Die allgemeine
+Task-only-Signierung und eine zweite Journal-Reservierung laufen für Pi nicht.
+Nach der vorhandenen Hub-Resultatannahme schließt der Pi-Port den reservierten
+Registry-RUN; erst danach wird das Journal angenommen.
+
+Das Journal validiert bei Pi die exakte bestehende Pi-Resultatquittung anstelle
+der allgemeinen Native-Quittung. Registry- oder Journal-Abschlussfehler werden
+als begrenzter fehlgeschlagener Dispatch gemeldet. Eine bereits terminale Task
+bleibt dabei terminal; sie ersetzt keinen fehlenden Registry-/Journal-Abschluss.
+Ausstehende Versandmarkierungen verhindern erneuten blinden Versand.
+
+Die produktiven Default-Ports besitzen weiterhin keinen unabhängigen
+Deployment-Adapter. Deshalb werden Pi-Dispatches ohne installierte vollständige
+Hub-Evidence-Komposition vor dem Transport zurückgewiesen. Gewöhnliche
+Native-Aufgaben behalten ihren bisherigen Weg. Die Tests installieren die
+konkrete atomare Vorbereitung und den Registry-Abschluss mit realen SQL-Zeilen;
+Worker-Transport und Deployment-Fakten sind ausdrücklich synthetisch.
+
+SRP/DIP: Zwei kleine Hub-Ports halten Reservierung und Evidence-Abschluss aus
+der Route heraus. Die bestehende Route ist weiterhin ein größerer
+Orchestrierungsbaustein; diese SRP-Schuld bleibt bestehen. Produktiver
+Deployment-Adapter, Evidence-aware Worker-Ausführung und persistente
+Evidence-Zuordnung für Recovery bleiben offen.
+
+### Pi-Recovery darf den Registry-Abschluss nicht überspringen
+
+Beide Hub-Recovery-Wege verlangen bei Pi jetzt einen expliziten
+Evidence-Abschluss-Port vor der Annahme des Journals. Die reine
+`reconcile_native_dispatches`-Prüfung darf eine gültige terminale
+Pi-Task-Quittung ohne Registry-Abschluss nicht als angenommen melden.
+`recover_native_dispatch_results` benötigt zusätzlich den Port für die
+bereits reservierte Assignment-Projektion und bindet sie in die signierte
+Ergebnisabholung ein. Der Ergebnisport führt keinen neuen Execute-Aufruf aus.
+
+Ohne vollständige Pi-Evidence-Komposition bleibt der Zustand begrenzt
+`unresolved`: RUN und Versandmarkierung bleiben erhalten, die Task wird nicht
+umgeschrieben. Nach konkretem Registry-Abschluss kann die vorhandene
+Pi-Quittung das Journal schließen. Die realen SQL-Regressionen prüfen beide
+fehlenden Kompositionen sowie den erfolgreichen Registry-vor-Journal-Abschluss.
+
+SRP/DIP: Recovery orchestriert die Hub-Ports, Registry prüft die Evidenz und
+Journal prüft den Versandabschluss. Eine durable Zuordnung der reservierten
+Projektion für neu gestartete Hub-Prozesse bleibt zu implementieren; die
+Tests verwenden hierfür eine explizite lokale Port-Komposition.
+
+### Dauerhafte Pi-Evidence-Zuordnung für Hub-Neustarts
+
+Die additive Tabelle `pi_dispatch_evidence` speichert nur die geschlossene
+Registry-Assignment-Projektion, Tenant/Projekt/Task und den bestehenden
+Journal-Claim. Sie wird im gleichen Commit wie RUN, Journal und Task-Start
+geschrieben. Sie enthält keinen Prompt, kein Modellresultat und kein
+Worker-Credential. Die vorhandenen Tabellen und APIs werden nicht umbenannt.
+
+`reserved_assignment` lädt die Zuordnung unter Task-/Journal-Sperren und
+prüft aktuellen Versand-Input, Claim und Projekt. Danach werden aktuelle
+Hub-Authority und die komplette geschlossene Registry-Projektion erneut
+verglichen. Der Aufruf reserviert keine neue Identität.
+`complete_reserved` nutzt dieselbe dauerhafte Zuordnung für den vorhandenen
+strengen Pi-Registry-Abschluss; exakter terminaler Replay bleibt auch nach
+Lease-Ablauf möglich. Mutierte Registry-Quellen bleiben dabei gesperrt.
+
+Ein unabhängiger neu geöffneter SQL-Engine-Test lädt den vorhandenen RUN und
+schließt ihn ohne zusätzliche Reservierung ab. Drei negative Fälle ändern
+Claim, Projekt oder Dispatch-Projektion. Ein Commitfehler entfernt auch die
+neue Zuordnungszeile.
+
+SRP: Die Caller-Session-Repositoryklasse persistiert und prüft die lokale
+Zuordnung; der Hub-Service revalidiert Registry und aktuelle Authority. Der
+Repositoryadapter nutzt weiterhin den vorhandenen reinen Versand-Digest-Helper
+aus dem Service-Namespace; diese Namespace-Kopplung bleibt bestehen, ohne
+Service-Locator, Hub-Global-State oder zweite Transaktion einzuführen.
+Die produktive Installation der Recovery-Ports, der unabhängige Deployment-
+Adapter und die Evidence-aware Worker-Ausführung bleiben offen.
+
+### Anwendungsspezifische Pi-Dispatch-/Recovery-Komposition
+
+`install_pi_dispatch_service(app, service=...)` installiert die vollständige
+Hub-Pi-Komposition nur für diese Anwendung. Worker-Rolle, unvollständiger
+Service und doppelte Installation werden zurückgewiesen. Es gibt keinen
+globalen Pi-Service und keine Übernahme zwischen Flask-Anwendungen.
+
+Die tatsächliche Native-Versandroute nutzt den installierten Service, wenn
+keine expliziten Pi-Test-/Override-Ports gesetzt sind. Teilweise gesetzte
+Override-Ports werden nicht mit einer anderen Komposition gemischt.
+`production_native_result_recovery_ports` übernimmt aus derselben Anwendung
+`reserved_assignment` und `complete_reserved`. Die gewöhnlichen
+Native-Ausführungen behalten ihre bestehenden Ports.
+
+Die Produktionsfactory wird im Test mit dem tatsächlichen installierten
+Service und neu geöffnetem SQL-Engine ausgeführt: der bestehende terminale
+Pi-RUN und das Journal werden angenommen, ohne Fetch oder Execute. Eine
+zweite Routenprüfung nutzt direkt die App-Installation statt der expliziten
+Pi-Override-Ports. Deployment und Inferenz bleiben dabei synthetisch.
+
+DIP/SRP: Die Anwendung besitzt die Komposition; Route und Recovery greifen
+auf die jeweils benötigten Lifecycle-Methoden zu. Die vorhandene Route-Seam
+und die explizite Hub-Rolle bleiben erhalten. Die automatische produktive
+Erstellung dieses Services aus unabhängigen Deployment-/Policy-Fakten sowie
+die Evidence-aware Worker-Ausführung bleiben offen. Eine manuelle interne
+Testinstallation ist keine Deployment-Zulassung.
+
+### Worker-Consumer mit aktueller Hub-Evidence-Prüfung
+
+`VerifiedPiEvidenceConsumer` kann als expliziter `evidence_consumer` des
+signaturprüfenden Native-HTTP-Ports eingesetzt werden. Er validiert Pi-Task,
+Native-Kommando, Tenant und geschlossene Task-Evidence-Bindung und liest vor
+der Ausführung die aktuelle Registry-Projektion über `PiEvidenceReadPort`.
+Nur die vollständige kanonisch identische Projektion erlaubt den bestehenden
+Ausführungs-Consumer. Hub-Ausfall oder geänderte Assignment-/Dispatch-Bindung
+führt zu einem begrenzten Fehler ohne Pi-Ausführung.
+
+Der Decision-Port erhält separate Kopien von Task und Kommando; er kann
+den späteren Modellinput nicht verändern. Worker stellen weiterhin keine
+Identitäten aus und treffen keine Queue-/Delegationsentscheidung.
+
+Die Tests nutzen echte vom Test-Hub registrierte positive SRC/RUN-Identitäten.
+Zusätzlich verbindet ein HTTP-Test Signaturprüfung, Consumer und tatsächliches
+Test-Registry: eine nach der Signierung mutierte SQL-Quelle sperrt die Ausführung.
+Der Registry-Aufruf erfolgt ausschließlich über einen injizierten Test-Port,
+nicht als Hub-Repository-Import in produktivem Worker-Code.
+
+SRP/ISP/DIP: Der kleine Reader-Port prüft ausschließlich die aktuelle
+Evidence-Zuweisung; Ausführung und HTTP-Signaturprüfung bleiben getrennt.
+Der authentifizierte produktive Worker-Hub-Transport dieses Readers und seine
+Runtime-Komposition sind noch zu implementieren. Der HTTP-Default bleibt
+ohne vollständig zusammengesetzten Evidence-Consumer gesperrt.
+
+### Authentifizierter Pi-Evidence-Leseweg über Workflow-Gateway
+
+Der additive `pi_evidence_read`-Befehl nutzt denselben authentifizierten
+Workflow-Worker-Transport. Er verlangt explizit registrierte Worker-ID und URL,
+aktuelle Ownership/Fencing und die Task-ID der exakten Worker-Assignment.
+Anschließend prüft die bestehende Hub-Authority die signierte Workflow-Bindung.
+Erst danach wird der Pi-Leseport aufgerufen.
+
+Die produktive Gateway-Komposition enthält einen anwendungsbezogenen Callback
+zum installierten Pi-Dispatch-Service. Dieser vergleicht aktuelle Task-/Input-/
+Kommando-Bindung, Worker-ID/URL und Tenant/Workflow/Run/Step mit den zuvor
+authentifizierten Gateway-Fakten und lädt nur die bereits reservierte
+Registry-Projektion. Ohne installierten Pi-Service bleibt der Aufruf gesperrt.
+Der Callback erzeugt weder Identitäten noch Tasks.
+
+`HubPiEvidenceReader` sendet das signierte Workflow-Envelope, Task-/Kommando-ID,
+Attempt/Fencing und tatsächlichen Input-Digest über den bestehenden
+`HttpWorkflowHubDecisionClient`. Er sendet keine selbst gewählte RUN-/SRC-ID
+und gibt nur eine validierte geschlossene Projektion an den Consumer weiter.
+
+Die Tests prüfen registrierten Eigentümer, anonymen/fremden Worker, fremde
+Task, stale Fence, fehlenden Hub-Port, tatsächlichen Task-Workflow-Abgleich
+und die geschlossene Worker-Anfrage. Positive Registry-Identitäten kommen aus
+dem Test-Hub; der Gateway-Auth-Test isoliert nur den Decision-Callback und
+behauptet keine Registry- oder produktive Evidence.
+
+SRP/DIP: Reader und App-Callback sind getrennte kleine Adapter. Der vorhandene
+Gateway-Dispatcher bleibt ein größerer, zentraler Kompositionsbaustein; diese
+SRP-/OCP-Schuld wird mit einem additiven Befehl fortgeführt. Die globale
+Gateway-Service-Cache-Struktur bleibt bestehen, während der Pi-Service bei
+jedem Aufruf aus der jeweiligen Hub-Anwendung aufgelöst wird. Runtime-
+Installation des Worker-Consumers und unabhängige Deployment-Zulassung
+bleiben offen.
+
+### Worker-HTTP-Runtime installiert Evidence-Consumer
+
+Die produktive Worker-Blueprint-Registrierung installiert jetzt
+`consume_pi_evidence_task` als expliziten Evidence-Consumer. Pro Anfrage
+komponiert er den bestehenden authentifizierten Hub-Decision-Client,
+`HubPiEvidenceReader`, die genaue Zuweisungsprüfung und den vorhandenen
+Workflow-Ausführungsconsumer. Fehlende Transportkonfiguration oder Hub-Ausfall
+verhindern die Ausführung; eine Task-only-Ausführung ist kein Fallback.
+Gewöhnliche Native-Anfragen behalten ihren bisherigen Consumer.
+
+SRP/DIP: Die neue Worker-Komposition führt ausschließlich delegierte Arbeit
+aus und bleibt getrennt von Hub-Registry und Task-Queue. Drei Runtime-Fälle
+prüfen den erfolgreichen aktuellen Read sowie fehlenden/ausgefallenen Hub
+vor Ausführung. Die unabhängige Hub-Deployment-Zulassung und produktive
+Live-Abnahme bleiben offen.
+
+### Explizite Hub-Startup-Komposition
+
+Die App startet jetzt die Phase `pi_dispatch_evidence`. Der Bootstrap ist
+standardmäßig deaktiviert. Ein explizites boolesches
+`ANANTA_PI_EVIDENCE_ENABLED=True` verlangt die Hub-Rolle sowie unabhängige
+Deployment- und Policy-Ports in den Hub-App-Extensions
+`ananta.pi_runtime_deployments` und `ananta.pi_evidence_policy`.
+Der Policy-Port bietet `digest_for_task`, der Deployment-Port
+`require_manifest`. Diese Ports werden ausschließlich durch vertrauenswürdige
+Hub-Bootstrap-Komposition installiert; Worker-Metadaten oder Task-Input können
+sie nicht ersetzen.
+
+Fehlen Ports, liefert der Bootstrap sofort den maschinenlesbaren Zustand
+`blocked` mit `pi_evidence_independent_ports_unavailable`; es gibt kein
+interaktives Warten, keine erfundenen Deployment-Fakten und keine Installation
+eines unvollständigen Dispatch-Service. Sind die Ports vorhanden, baut die
+produktive Factory den SQL-Pi-Service mit Hub-Authority und Signierschlüsseln
+und installiert ihn pro Anwendung. `ready` bedeutet ausschließlich
+Komposition bereit, nicht Deployment oder Release abgenommen.
+
+Die vorhandene Docker-Übersicht `inspect_light` kürzt Image-IDs und besitzt
+keinen unabhängigen Pi-Versionsnachweis; sie ist deshalb keine geeignete
+Ersatz-Zulassung. Ein konkreter unabhängiger Deployment-Observer bleibt offen.
+
+SRP/DIP: Der Bootstrap besitzt nur Aktivierung und Port-Komposition;
+Manifest-/Registry-Zulassung und Worker-Ausführung bleiben getrennt.
+Das Startup wird vor dem Start der Hintergrunddienste zusammengesetzt.
+Es werden keine zusätzlichen Docker-Berechtigungen oder produktiven
+Deployments eingeführt.
+
+### Konkreter gepinnter Deployment-Observer
+
+`PinnedPiRuntimeDeployments` bindet exakt Tenant/Projekt/Worker-ID/URL an
+eine vom Hub freigegebene vollständige Container-ID, unveränderliche
+Manifest-Fakten, feste Node-/Package-Pfade und einen nichtprivilegierten
+numerischen Benutzer. Unbekannte oder doppelte Zuordnungen werden abgewiesen.
+Jeder Zugriff vergleicht eine frische unabhängige Beobachtung mit allen
+gepinnten Manifest-Fakten; es gibt keinen Worker-Report- oder Cache-Fallback.
+
+`DockerPiRuntimeObserver` verwendet einen ausdrücklich bereitgestellten
+Hub-Docker-Runner. Er fragt nur volle Container-/Image-ID, Running,
+ReadonlyRootfs, Start-Marker, Mount-Zielpfade und gepinnte OCI-Revision ab.
+Environment, Credentials und Mount-Quellpfade werden nicht gelesen. Feste
+Lesekommandos beobachten Node-Version und Package-Name/-Version mit
+`env -i`, nichtprivilegiertem Benutzer, isoliertem Python und ohne Shell.
+Node/Package/Interpreter-/Bibliotheks-Mounts sowie Symlink-Ziele in
+veränderlichen Mounts werden gesperrt. Ein zweiter Containervergleich
+verhindert Übernahme bei einem Wechsel während der Prüfung.
+
+Jeder der fünf möglichen Docker-Aufrufe besitzt ein Fünf-Sekunden-Limit
+und das Ergebnis wird auf 16 KiB begrenzt geprüft. Runner-Fehler und
+abweichende Identitäten/Versionen liefern feste Fehlercodes ohne Rohoutput.
+Die Prüfung ergänzt die bestehenden Sandbox-Grenzen, ersetzt aber keine
+allgemeine Container-/Netzwerk-/Ressourcen-Zulassung.
+
+SRP/DIP: Gepinnte Hub-Inventarentscheidungen und Docker-Infrastruktur sind
+getrennte Adapter; der bestehende Manifest-Admission-Service bleibt
+unverändert. Es wird kein Docker-Socket zusätzlich verfügbar gemacht.
+Die 19 neuen Tests verwenden synthetische Docker-Ausgaben. Reale
+Container-Probe, vertrauenswürdige Inventar-/Policy-Provisionierung und
+produktive Live-Abnahme bleiben offen.
+
+### Reale isolierte Docker-Probe des Deployment-Observers
+
+`tests/pi/pi_deployment_observer_live_gate.py` erstellt ausschließlich ein
+eigenes temporäres Fixture-Image aus einem lokal gepinnten Basisimage,
+dem tatsächlichen Node-Binary und dem vorhandenen gepinnten SDK. Es startet
+zwei eigene Container ohne Netzwerk, mit ReadonlyRootfs, ohne Linux-Capabilities,
+mit `no-new-privileges` und begrenzten CPUs/PIDs/Memory. Der positive Observer
+erkennt tatsächlich Node 24.21.0 und Pi 0.85.1. Ein zweiter Container mit
+einer gemounteten SDK-Laufzeit wird vor dem Versionsaufruf abgewiesen.
+Die eigenen Container und temporären Image-Referenzen werden entfernt.
+
+Der erste Build scheiterte an der lokalen Basisimage-Auflösung; der Gate
+verwendet jetzt eine eigene temporäre Referenz auf das gepinnte Image. Die
+erste tatsächliche Observer-Ausführung fand zusätzlich eine abschließende
+Docker-Leerzeile, die der Parser nicht akzeptierte. Nur abschließende
+Zeilenumbrüche werden jetzt entfernt; ein zusätzlicher Unit-Test deckt die
+reale Ausgabeform ab. Inhaltliche Identitäts-/Mount-/Versionsprüfungen
+bleiben unverändert. Beide realen Containerfälle bestehen anschließend.
+
+Diese Probe ist eine lokale technische Beobachtung ohne Hub-reservierten
+Release-RUN und ohne Modellaufruf. Die Fixture-OCI-Revision ist ausdrücklich
+ein Testlabel, kein Nachweis der Source-Provenance des Basisimages. Die
+vertrauenswürdige produktive Inventar-/Policy-Zulassung und komplette
+Live-Abnahme bleiben offen.
+
+### Gepinnte Hub-Evidence-Policy statt frei gewähltem Digest
+
+`PiEvidencePolicyPin` ist eine unveränderliche Hub-Deklaration für exakt
+ein Deployment, eine signierte Policy-Version, ein Providerprofil, einen
+Provider und ein Modell. Die explizite `preauthorized_read_only`-Freigabe
+ist standardmäßig false. `PinnedPiEvidencePolicy.digest_for_task` liefert
+nur nach exakter Task-/Projekt-/Worker-Bindung einen kanonischen Digest
+der gesamten Policy. Eine neue Deployment-Beobachtung muss dasselbe
+gepinnte Manifest bestätigen.
+
+Das Profil bleibt `pi-sdk-no-tools-v1`/`read_only`: Schreiboperationen,
+Ein-/Ausgabeartefakte und fehlende Pi-Capability werden nicht zugelassen.
+Policy-/Provider-/Modellwechsel sowie nicht vorautorisierte oder fremde
+Aufgaben werden begrenzt abgewiesen. Die Policy ergänzt die vorhandene
+aktuelle SQL-Hub-Authority und Organization-/Grant-Prüfungen; sie ersetzt
+oder erteilt keine obligatorische Sicherheitsfreigabe.
+
+Der tatsächliche SQL-Reservierungstest prüft, dass beide aufgenommenen
+Quellen exakt diesen Policy-Digest tragen. Ein nicht freigegebener Pin
+verhindert RUN-Reservierung und Task-Start. Das ursprüngliche negative
+Testsetup kopierte ORM-State mit `model_copy` und konnte die Attribute
+nicht ändern; es nutzt jetzt den bestehenden Domain-Task-Repository-Port.
+Die zugelassenen Fakten sind ausdrücklich synthetische Test-Policy.
+
+SRP/DIP: Policy und Deployment-Observer bleiben getrennt; die Policy hängt
+am schmalen `PiRuntimeDeploymentPort`. Worker und Task-Inhalt können
+weder den Pin verändern noch die boolesche Vorautorisierung aktivieren.
+Trusted Policy-/Inventar-Provisionierung und produktive Live-Abnahme
+bleiben offen; keine produktive Aktivierung ist erfolgt.
+
+### Geschlossene Konfiguration provisioniert die Hub-Ports
+
+Die normale vertrauenswürdige Hub-`AGENT_CONFIG` enthält jetzt standardmäßig
+`pi_evidence: {enabled: false, bindings: []}`. Bei expliziter Aktivierung
+kann der Startup die konkreten Deployment-/Policy-Ports aus `bindings`
+erstellen. Er benutzt dafür den begrenzten Docker-Observer, ohne einen
+zusätzlichen Socket oder Container-Privilege bereitzustellen. Fehlt der
+Zugriff im Hub, scheitert die spätere aktuelle Beobachtung begrenzt.
+
+Jede der höchstens 64 Bindungen enthält genau:
+
+- `manifest`: die vollständige geschlossene `PiRuntimeManifest.to_dict()`-Form,
+- `container_id`: volle lokal freigegebene Container-ID,
+- `node_binary` und `package_json`: feste absolute Image-Pfade,
+- `user_id`: expliziter nichtprivilegierter numerischer Benutzer und Gruppe,
+- `policy`: `policy_version`, `provider_profile_id`, `provider_id`, `model_id`
+  und optional das strikt boolesche `preauthorized_read_only` (Default false).
+
+Unbekannte Felder, unvollständige Daten, doppelte Scopes, relative Pfade
+und String-Freigaben werden vor der Installation abgewiesen. Ein
+synthetisches Manifest darf seinen Evidence-Scope nicht auf production
+ändern. Es werden keine Credentials in diesem Block benötigt oder akzeptiert.
+
+Sind bereits vollständige vertrauenswürdige Bootstrap-Ports installiert,
+werden sie weiterverwendet; teilweise installierte Ports werden nicht mit
+anderen Konfigurationsquellen gemischt. Bei deaktiviertem Profil wird kein
+Docker-Observer erstellt. `ready` bezeichnet weiter nur die abgeschlossene
+Komposition: vor jedem Versand bleiben aktuelle Deployment-, Policy-,
+Assignment- und Registry-Prüfungen erforderlich.
+
+Der Integrationstest liest die normale Konfiguration, baut beide konkreten
+Ports und führt echte SQL-Hub-Reservierung durch. Die Runtime-Beobachtung
+ist dabei explizit synthetisch; die getrennte echte isolierte Docker-Probe
+bleibt eine technische Beobachtung. Produktive Konfigurationswerte und
+Live-Abnahme sind weiterhin nicht gesetzt bzw. durchgeführt.
+
+SRP/DIP: Der neue Konfigurationsadapter übersetzt ausschließlich die
+geschlossene Hub-Deklaration in die bestehenden schmalen Ports. Policy,
+Docker-Infrastruktur und Transaktions-Service bleiben getrennt.
+
+### Auditkorrektur: vorbereitete Kontextreferenz im Versand
+
+Der Hub-Queue-Adapter legt vorbereitete `context_bundle_id` am Top-Level
+der Task ab. Die Native-Transportprojektion hatte dieses Feld bisher
+weggelassen. Der Worker-Context-Reader sah daher keine Referenz und konnte
+den vorbereiteten Kontext nicht anfordern. Die optionale Top-Level-Referenz
+ist jetzt Teil derselben signierten Task-Projektion und überlebt den
+Versand bis zum bestehenden `HubPiTaskContextReader`. Nachträglicher
+Referenztausch scheitert an der Signatur.
+
+Fehlende oder null Referenzen werden weiter ausgelassen, damit bestehende
+gewöhnliche Task-/Store-/Journal-Projektionen unverändert bleiben. Eine
+vorhandene Referenz muss eine begrenzte, nichtleere Zeichenkette ohne
+Whitespace-Steuerzeichen sein. Für historische context-bearing Journals
+ändert sich die Projektion; ein alter abweichender Journal-Digest darf
+nicht durch einen neuen Versand oder eine erfundene Migration ersetzt
+werden und bleibt unter der vorhandenen Bindungsprüfung gesperrt.
+
+SRP: Der geschlossene Transportvertrag erhält die Referenz, der vorhandene
+Hub-Reader prüft und liefert die genehmigte Projektion. Das ist keine
+ContextBundle-Evidence-Zulassung. Der weitere Audit hat gezeigt, dass die
+RUN-Reservierung bisher Deployment- und Task-Kontextquelle bindet, aber
+keine separate Quelle der tatsächlich genehmigten Bundle-Bytes. Diese
+Bindung ist zusätzlich zu implementieren; die vollständige Pi-Umstellung
+ist deshalb weiterhin unvollständig.
+
+### Aufnahme genehmigter Kontextbytes vor Pi-RUN-Reservierung
+
+`PiContextEvidenceAdmission` erhält die genehmigte
+`NativeContextBundleProjection` über den schmalen
+`PiApprovedContextPort.read(session, task, command, worker_id)` in der
+bestehenden Hub-Transaktion. Sie prüft Bytes-Digest, Task, Bundle und
+Kommando. Erst danach stellt das Hub-Registry eine eigene Quelle des Typs
+`pi_native_approved_context` aus. Ihr Policy-Digest bindet sowohl die
+Pi-Vorautorisierung als auch die ausgewertete Context-Policy. Scope und
+Synthetic-Klassifikation stammen aus dem zugelassenen Manifest.
+
+Die RUN-Reservierung enthält diese Quelle zusätzlich zu Deployment und
+Task-Kontext. Die atomare Versandvorbereitung kann denselben Context-Port
+komponieren; fehlender Port oder widersprüchliche Projektion führt bei
+Kontextaufgaben vor RUN-/Journal-/Task-Start zum Rollback. Bei Aufgaben
+ohne Kontext bleiben die bisherigen zwei Quellen unverändert. Eine
+deklarierte Context-Policy ohne Referenz wird ausdrücklich abgewiesen.
+
+Die Referenzprüfung wurde als gemeinsamer Contract-Helper vereinheitlicht;
+der bisherige Worker-Import bleibt als Re-Export kompatibel.
+
+SRP/DIP: Der neue Admission-Service besitzt nur Prüfung und Aufnahme der
+bereits genehmigten Projektion; Source-IDs kommen weiterhin ausschließlich
+aus dem Registry. Die acht neuen SQL-Tests verwenden einen explizit
+synthetischen Hub-Projektionsport. Die konkrete transaktionsgebundene
+Policy-Projektion sowie erneute Prüfung der reservierten Bytes beim
+Worker-Abruf und Registry-Abschluss bleiben zu implementieren. Die
+Kontextaufgaben bleiben im produktiven Default ohne vollständigen Port
+begrenzt gesperrt; dies ist ein Zwischenstand, kein Ersatz für deren
+vollständige Umstellung.
+
+### Transaktionsgebundener genehmigter Pi-Kontext
+
+`TransactionPiApprovedContextReader` sperrt die aktuelle Task und ihr
+Bundle in der bereits aktiven Caller-Session, prüft Kommando-/Bundle-
+Eigentümerbindung und den vorbereiteten Snapshot und verwendet anschließend
+die bestehende `NativeContextPolicyService`-Freigabe.
+`TransactionActiveContextPolicies` liest ausschließlich die aktuelle
+Policy-Version aus derselben Session mit PostgreSQL-Row-Lock; sie öffnet
+und beendet keine eigene Transaktion. Der Destination-Katalog bleibt
+ein expliziter anwendungsbezogener Port.
+
+Die vorhandene Row→Policy-Domain-Projektion ist jetzt eine gemeinsame
+reine Funktion; das bisherige Repository-API delegiert unverändert an sie.
+Es gibt keine zweite Implementierung dieser Bindungsfelder.
+
+Der Hub-Startup installiert den Reader in die Pi-Versandvorbereitung,
+wenn der bestehende `source_control_destination_catalog` verfügbar ist.
+Fehlt er, bleiben Context-Aufgaben unter dem vorhandenen fehlenden
+Projektionsport begrenzt gesperrt.
+
+Fünf neue Tests verwenden echte SQL-Task-, Bundle- und aktive Policy-
+Zeilen. Sie prüfen freigegebene statt unbewertet zusammengestellte
+Bytes, fremden Eigentümer, widerrufene/geänderte Policy, fremdes Kommando
+und fehlende aktive Caller-Transaktion. Das erste Testsetup griff auf
+eine abgelaufene ORM-Instanz nach Commit zu; es verwendet jetzt die
+feste technische Task-ID beim Wiederladen.
+
+SRP/DIP: Aktive Policy-Persistenz und Kontext-Projektion bleiben getrennt
+und nutzen den bestehenden Destination-Port. Die bestehende
+`ContextAccessPolicyService`-Fassade koppelt reine Block-Prüfung weiterhin
+an die Initialisierung ihres globalen Repository-/Klassifikations-
+Locators; diese SRP-/DIP-Schuld bleibt erhalten. Eine reine
+`NativeContextBlockPolicyPort`-Komposition wäre die sauberere künftige
+Struktur. Reservierte Bytes müssen weiterhin beim Worker-Abruf und
+Registry-Abschluss exakt revalidiert werden.
+
+### Reservierte Kontextbytes bei Abruf und Abschluss prüfen
+
+Das Registry bietet jetzt `assignment_sources` als reine Prüfung/Abfrage
+der bereits registrierten exakten Assignment-Quellen an. RUN-Bindung,
+Hub-Identität, geschlossene Projektion und jede Quelle werden revalidiert;
+die Abfrage stellt keine neue SRC-/RUN-Identität aus. Sie verwendet die
+bestehende gemeinsame Source-Prüfung und liefert deren geprüfte DTOs.
+
+`PiContextEvidenceAdmission.require_reserved` vergleicht die aktuelle
+genehmigte Projektion mit exakt einer reservierten Context-Quelle.
+Task/Bundle/Kommando-Origin, Bytes-Digest und kombinierte Context-/Pi-Policy
+müssen unverändert sein. Für Abschluss und Replay kommt der ursprüngliche
+Pi-Policy-Digest aus der bereits aufgenommenen Task-Inputquelle, nicht
+aus einer neuen nachträglichen Vorautorisierung.
+
+Der Hub-Assignment-Read und `reserved_context` führen denselben Vergleich
+in einer Caller-Transaktion aus. Die produktive Gateway-Komposition
+verwendet `reserved_context` für `native_context_read`: die bereits
+authentifizierte Task-/Worker-/Workflow-Bindung muss mit dem gespeicherten
+RUN übereinstimmen. Sie gibt nur die exakt reservierten genehmigten Bytes
+zurück und behält den bestehenden content-freien Bundle-Read-Auditevent.
+Explizite technische Gateway-Testkompositionen bleiben kompatibel.
+
+Registry-Abschluss und terminaler Replay prüfen ebenfalls diese Bindung.
+Geänderte Bytes, andere Context-Policy oder entfernte Referenz verhindern
+Abschluss und lassen den RUN reserviert. Es wird dabei keine Ersatzquelle
+aufgenommen. Exakter Replay nach Lease-Ablauf bleibt möglich, sofern
+Context-Policy und Quellen weiter gültig sind.
+
+SRP/DIP/LSP: Source-Verifikation bleibt im Registry, Kontextvergleich im
+Admission-Service. Assignment-Read und Context-Read haben getrennte
+Rückgabeverträge und teilen eine private geprüfte Input-Projektion; keine
+Return-Type-Umschaltung im öffentlichen Assignment-Port. Die bestehende
+Gateway-Verzweigung und CAP-Fassadenkopplung bleiben als dokumentierte
+SRP/OCP-Schuld bestehen. Eine vollständige integrierte SDK-/Provider-
+Abnahme dieser neuen Kontextkette ist weiterhin erforderlich.
+
+### Native Worker → Hub-Autorisierung/Budget → echtes gepinntes SDK
+
+`test_pi_native_pinned_sdk.py` führt den tatsächlichen Native-Worker-
+Adapter und Pi-Provider mit dem vorhandenen Node-/SDK-Paket, begrenztem
+SDK-Prozess und privater Ergebnisdatei aus. Nur die Antwort des eigenen
+Loopback-Modellservers ist synthetisch. Der vom Test-Hub ausgewählte
+Endpoint ist bereits vor Signierung in Providerprofil, Budget-Context und
+Native-Kommando identisch gebunden; der tatsächlich empfangene Request
+nutzt exakt diesen Pfad und `selected-model`, ohne Tools.
+
+Die Testkomposition erlaubt dazu explizite Endpoint-/Provider-Optionen.
+Bestehende Defaults bleiben erhalten. Die Kommando-Fixture leitet den
+Endpoint aus dem echten Hub-Context ab, statt ihren festen Default erneut
+einzusetzen. Ein zusätzlicher Konsistenztest prüft diese Binding-Kette.
+
+Der echte SDK-Lauf liefert einen gültigen terminalen Native-Resultat-
+Datensatz und lässt die private Canary-Datei unverändert. Die zwei
+konkreten Testressourcen sind explizit über `ANANTA_TEST_NODE_BINARY`
+und `ANANTA_TEST_PI_SDK` zu setzen; ohne sie wird der Hardware-/Paketpfad
+als nicht ausgeführt markiert. Es gibt keinen externen Modellkontakt.
+
+Die Hub-Signatur-/Budget-Stores dieser Worker-Komposition sind die
+vorhandenen In-Memory-Testports. Dies beweist den tatsächlichen SDK-Pfad,
+aber noch nicht die gemeinsame komplette SQL-Context-/Registry-Dispatch-
+Kette. Deren Integration und produktive Provider-/Deployment-Abnahme
+bleiben ausdrücklich offen; keine produktive Release-Evidenz.
+
+SRP/DIP: Endpoint-Auswahl bleibt beim Hub, tatsächlicher SDK-Prozess beim
+Worker. Die injizierten Provider-Testports ersetzen ausschließlich die
+Resource-Auswahl und verbinden den vorhandenen Ausführungsadapter.
+
+### Gemeinsamer SQL-/Kontext-/Worker-HTTP-/SDK-/Registry-Nachweis
+
+`test_pi_sdk_sql_evidence_chain.py` verbindet die tatsächlichen SQL-Task-,
+Assignment-/Grant-, Context-Policy-/Bundle- und Evidence-Registry-Zeilen mit
+der atomaren Pi-Versandvorbereitung. Der signierte Worker-HTTP-Aufruf geht
+durch die Evidence-Prüfung, authentifizierte Hub-Gateway-Entscheidungen und
+den Native-Worker-Adapter bis zum echten gepinnten SDK-Prozess.
+
+Der eigene Modellserver beobachtet beim ersten tatsächlichen Request den
+bereits reservierten SQL-RUN mit drei Quellen. Der Request enthält nur die
+genehmigten Kontextbytes und das vorgegebene Modell, keine Tools. Das echte
+SDK-Ergebnis wird durch die vorhandene SQL-Pi-Ergebnisannahme persistiert;
+anschließend werden exakt derselbe RUN und das Versandjournal abgeschlossen.
+Die private Canary-Datei bleibt unverändert.
+
+Ein zweiter Fall ändert die Bundle-Bytes nach Reservierung. Der signierte
+Worker-Aufruf wird vor jedem SDK-Modellrequest abgewiesen, der RUN bleibt
+mit den ursprünglichen drei Quellen reserviert. Es gibt kein vorher
+erzeugtes erfolgreiches Mock-Resultat für diesen Test.
+
+Grenzen: Der Modellinhalt und die Deployment-Fakten sind synthetisch.
+Workflow-Signatur-/Budget-Gateway-Stores verwenden weiter die vorhandenen
+In-Memory-Testports; Task-/Lease-/Grant-/Kontext-/Registry-Annahme nutzt
+echte SQL-Persistenz. Hub-/Worker-Flask-Adapter laufen im Testprozess,
+der SDK-Prozess ist tatsächlich separat und filesystem-isoliert. Dies
+beweist die lokale zusammengesetzte Kette, nicht produktive Container-/
+Provider-Live-Abnahme. Synthetic-Scope verhindert Release-Promotion.
+
+SRP/DIP: Die neue Prüfung komponiert die vorhandenen getrennten Ports;
+es werden keine weiteren Produktionspfade oder Worker-Orchestrierungs-
+rechte eingeführt. Eine produktive Freigabe bleibt separat erforderlich.
+
+### Legacy-Worker-Einstiege verlangen aktuelle Pi-Evidence
+
+Der Abschlussaudit fand einen alternativen Einstieg: Der produktive
+Native-Adapter konnte auch über den bisherigen Task-only-Consumer
+aufgerufen werden. Seine Pi-Node-Komposition prüfte vorher nur
+Workflow-Autorisierung und Budget; sie verlangte keinen reservierten RUN.
+
+Die einzige produktive `NativePiNodeHandler`-Erstellung in
+`pi_composition` installiert jetzt zwingend `HubPiEvidenceReader`.
+Der Node liest vor Credential-Auflösung, Providerbudget und SDK die
+aktuelle registrierte Assignment-Projektion und validiert deren genaue
+Task-Bindung. Damit hängt die Evidence-Prüfung am produktiven
+Ausführungsadapter selbst und wird durch einen Task-only-Einstieg
+nicht übersprungen. Der HTTP-Evidence-Consumer bleibt zusätzlich aktiv.
+
+Der vorherige Produktions-Kompositionstest ohne Registry-Port muss
+jetzt begrenzt fehlschlagen. Er prüft ausdrücklich: kein Shell-Fallback,
+kein SDK-/Provider-Aufruf, kein Credential-Read und kein Providerbudget.
+Die gemeinsame SQL-/SDK-Kette installiert denselben Node-Reader und
+besteht mit reserviertem RUN weiterhin. Direkte isolierte Node-/Provider-
+Testkompositionen können technische Beobachtungen ohne Registry-Port
+ausführen; sie sind nicht die produktive Factory und liefern keine
+Release-Evidenz.
+
+SRP/DIP: Die Node-Prüfung benutzt einen schmalen Evidence-Leseport und
+bleibt execution-only; der Hub entscheidet weiterhin allein über
+Registry, Aufgaben und Delegation. Es wird keine Worker-Orchestrierung
+oder neue Identitätsausgabe eingeführt. Produktive Container-/Provider-
+Abnahme bleibt offen.
+
+### Exakte signierte Zuweisung bis zur Node-Ausführung
+
+Der verifizierte HTTP-Evidence-Consumer bindet jetzt die geschlossene
+signierte Assignment-Projektion für die synchrone Ausführung in einem
+Task-lokalen ContextVar. Die gespeicherte Form ist ein unveränderlicher
+JSON-Snapshot; Leser erhalten eine neue validierte Kopie. Nach Erfolg
+oder Fehler wird der vorherige Kontext wiederhergestellt.
+
+Der produktiv mit Evidence-Reader konfigurierte Pi-Node verlangt diesen
+Scope und vergleicht die erneute aktuelle Hub-Projektion kanonisch mit
+dem exakt signierten Assignment. Er kann kein anderes aktuelles RUN-/
+Assignment übernehmen. Task-only-Einstiege ohne signierten Scope werden
+jetzt bereits vor Registry-Read, Credentials, Budget und SDK gesperrt.
+
+Neue negative Tests prüfen mutierte Rückgabekopien, fremde Task-ID,
+separaten Context, Fehler-Cleanup und geänderte Assignment-Projektion
+zwischen Consumer und Node. Die echte SQL-/SDK-Kette funktioniert weiter.
+
+SRP/DIP: Der kleine Scope-Port trägt ausschließlich die bereits geprüfte
+Zuweisung, ohne Datenbank, Identitätsausgabe oder Orchestrierung. Das
+ContextVar ist wie der vorhandene Native-Ausführungsscope kontextlokal,
+kein geteilter Task-Wert zwischen Containern oder Worker-Aufträgen.
+Produktive Container-/Provider-Abnahme bleibt weiterhin offen.
+
+### Optionales imagefestes Pi-Worker-Paket
+
+`docker/compose-next/Dockerfile.pi-worker` ist eine ausdrücklich gewählte
+Erweiterung eines genehmigten Ananta-Runtime-Basisimages mit Node/npm.
+Das bisherige Standardimage installiert kein Pi-SDK; eine Installation
+im beschreibbaren `/app/data/home`-Backend-Prefix erfüllt den neuen
+Immutable-Deployment-Nachweis nicht. Der neue Layer installiert daher
+SDK 0.85.1 samt gesperrten Transitiven aus
+`config/cli_backends/pi/package-lock.json` in
+`/opt/ananta/cli-backends/pi/0.85.1`. Das ist exakt das bestehende
+CLI-Provisioner-Layout inklusive `node_modules/.bin/pi`.
+
+`npm ci` prüft Integritäten und verwendet getrennte leere User-/Global-
+Konfigurationen unter sauberer Umgebung, ohne Lifecycle-Skripte, Audit
+oder Funding-Abfragen. Der Build prüft Node ≥22.19, SDK-Name/-Version
+und tatsächlichen `createAgentSession`-Import und entfernt Schreibrechte
+aus dem Prefix. Laufzeit ist ausdrücklich Worker mit positiver UID/GID;
+Hub-URL/Token, Providercredential, Profil, Scratch-Mounts und Readonly-
+Rootfs bleiben kontrollierte Deployment-Konfiguration.
+
+Ein Build gegen das lokal gepinnte vorhandene Basisimage und eine reale
+netzklose Readonly-Containerprobe bestätigen Node 24.18.0, Pi 0.85.1,
+UID1000, Worker-Rolle, SDK-Import und unveränderlichen Katalog-Prefix.
+Der erste Build scheiterte an npm-Doppelladen derselben `/dev/null`-
+Konfiguration; getrennte leere Dateien beheben dies.
+
+Der Layer übernimmt Anwendungscode und Entry-Point aus dem genehmigten
+Basisimage. Die lokale Probe gegen ein vorhandenes Cache-Basisimage
+ist daher kein Nachweis der aktuellen gesamten Hub-/Worker-Revision.
+Für produktive Zulassung muss der Basisimage-Digest unabhängig mit der
+freigegebenen Source-Revision verbunden sein. Es wurden keine laufenden
+Deployments geändert und keine Pi-Profil-Aktivierung vorgenommen.
+
+SRP/DIP: Der neue opt-in Layer besitzt nur das feste SDK-Paket und
+übernimmt das bestehende Worker-/Hub-Portmodell. Das Standardimage
+und andere CLI-Backend-Profile werden nicht umgestellt.
+
+### Aktueller Anwendungscode und echte Runtime-Erkennung im Pi-Image
+
+Die reale CLI-/Runtime-Probe zeigte im gecachten Basisstand
+`backend_not_provisionable`: das SDK-Paket war imagefest installiert,
+aber der alte Anwendungscode kannte den Pi-Katalogeintrag nicht. Der
+Pi-Worker-Layer übernimmt deshalb jetzt die aktuellen `agent/`,
+`worker/` und `ananta_contracts/`-Quellen sowie das Pi-Workerprofil.
+Er entfernt vorher nur diese alten Image-Verzeichnisse, sodass keine
+veralteten Module aus dem Basisimage im neuen Laufzeitbaum verbleiben.
+
+Ein erneuter tatsächlicher Build und ein Readonly-/network-none-/
+cap-drop-/no-new-privileges-Container mit UID1000 bestätigen die
+aktuelle `CliBackendProvisioner(headless_runner=PiProbeProcess()).status('pi')`:
+installed=true, ready, 0.85.1, Probe-RC0, korrekte Version und
+unveränderte private Canary-Datei. Der Ergebnisdatei-Isolationspfad
+ist bei dieser Probe aktiviert.
+
+Zusätzlich stimmen alle 4.720 Python-/MJS-Quelldateien der drei
+Anwendungspakete im Image exakt mit dem aktuellen Worktree überein.
+Das ist eine technische Byte-Übereinstimmung dieses lokalen Builds,
+keine unveränderliche CI-/Release-Revision oder Hub-reservierte
+Release-Evidenz. Separate Hub-/Worker-Containerintegration und
+produktive Provider-Abnahme bleiben offen.
+
+SRP: Der optionale Image-Layer besitzt nun SDK und den expliziten
+aktuellen Quellbaum; die genehmigte Basis liefert nur Abhängigkeiten
+und Entry-Point. Es werden keine Runtime-Rechte oder Queue-/
+Worker-Orchestrierungsgrenzen geändert.
+
+### Tatsächlicher Hub-/Worker-App-Start im aktuellen Image
+
+Der neue bounded `pi_worker_startup_gate.py` startet ausschließlich
+eigene kurzlebige Container per Image-Digest, ohne Netzwerk und
+Capabilities, mit ReadonlyRootfs, nonroot UID und eigener tmpfs-Datenbank.
+Die tatsächliche Datenbankinitialisierung und `create_app(testing=True)`
+laufen im Container; der Testmodus unterbindet Hintergrundarbeit.
+45-Sekunden-Limit und abschließendes Entfernen des eigenen benannten
+Containers verhindern interaktives Warten oder verwaiste Fixtures.
+
+Die ersten Startversuche fanden zwei echte Paketierungslücken des
+gecachten Basisstands: fehlendes aktuelles Voice-Runtime-Modul und
+fehlende GeoMap-Registry. Der Pi-Layer übernimmt jetzt zusätzlich
+`voice_runtime/`, GeoMap-Konfigurationen, Schemas und statische Assets.
+Es werden ausschließlich Quell-/Template-Verzeichnisse kopiert,
+keine Credentials oder Runtime-Daten.
+
+Der Worker-Start besteht mit beiden Native-HTTP-Routen. Ein separater
+Hub-Start besteht und besitzt diese Worker-Execution-Routen nicht.
+Diese Prüfungen sind echte Container-Startbeobachtungen; sie verbinden
+noch nicht beide Apps über RPC mit einem Modellauftrag. Integrierte
+getrennte Container-Ausführung und produktive Provider-/Release-Abnahme
+bleiben offen.
+
+SRP: Das Image-Layer besitzt die aktuelle Runtime-Paketierung; das
+kleine Gate besitzt nur temporäre Startup-Fixtures und Cleanup. Der
+Hub bleibt Queue-/Policy-Owner, Worker bleiben Ausführungsinstanzen.
+
+### Getrennte Container: negative RPC-Grenzen
+
+`tests/pi/pi_container_rpc_gate.py` startet zwei aktuelle vollständige
+App-Container auf einem eigenen internen Docker-Netz. Beide laufen ohne
+Capabilities, mit schreibgeschütztem Root-Dateisystem, nonroot und
+getrennter temporärer Datenbank. Es gibt keine veröffentlichten Host-Ports.
+Readiness und HTTP-Aufrufe sind begrenzt; ausschließlich die eigenen
+Container und das eigene Netz werden abschließend entfernt.
+
+Die tatsächlichen Netzwerkaufrufe bestehen: Hub zu Worker ohne Bearer
+liefert 401, mit synthetischem Bearer ohne signierte Zuweisung 422;
+Worker zu Hub findet keinen Worker-Ausführungseinstieg (404). Der Bericht
+`artifacts/test-gates/pi-container-rpc-boundaries.v1.json` klassifiziert
+diese Beobachtungen ausdrücklich als technische negative Tests.
+Es werden keine Evidence-Identitäten erfunden oder ausgegeben.
+
+Der erfolgreiche signierte SDK-Auftrag über getrennte Container mit
+Hub-Ergebnisannahme sowie produktive Provider-/Release-Abnahme bleiben
+offen. Die bestehenden Startup-Gates werden dadurch nicht als vollständige
+Legacy-Umstellung umgedeutet. SRP bleibt gewahrt: Das neue Gate besitzt nur
+Netzwerk-Fixtures und deren begrenzte Lebensdauer; Produktcode und
+Hub-Orchestrierung werden nicht in den Testtreiber verlagert.
+
+### Echter SDK-Durchlauf über getrennte Hub-/Worker-Container
+
+`tests/pi/pi_container_chain_gate.py` führt die beiden vollständigen Apps
+in eigenen nonroot Containern mit ReadonlyRootfs und internem Docker-Netz
+aus. Der Hub besitzt SQL-Task, Lease, Grant, ContextBundle, Registry und
+Signierung. Der Worker erhält über HTTP ausschließlich Provider-Kontext,
+öffentliche Verification-Keys und später den signierten Auftrag. Er startet
+den tatsächlichen isolierten Pi-SDK-Prozess aus dem unveränderlichen Image.
+Es gibt keine gemeinsam beschreibbare Datenbank und keine Host-Port-Freigabe.
+
+Der synthetische Modell-Endpunkt beobachtet vor seinem einzigen Aufruf
+den reservierten Hub-RUN mit drei Quellen. Im Prompt erscheinen nur die
+freigegebenen Kontextbytes, das Hub-ausgewählte Modell und keine Tools.
+Der Worker speichert das Ergebnis; `/result` liefert exakt dasselbe Ergebnis.
+Ein zweiter `/execute`-Aufruf wird mit 409 abgewiesen und löst keinen weiteren
+Modellaufruf aus. Die tatsächliche Hub-Ergebnisannahme schließt denselben
+RUN als `succeeded` und das Versandjournal als `accepted` ab.
+
+Der zusätzliche Modus `--mode context_mutation` verändert den SQL-Kontext
+nach der Reservierung. Die Worker-Evidence-Prüfung verweigert den Auftrag
+mit 409 vor dem Modellaufruf. Der ursprüngliche RUN bleibt mit seinen drei
+ursprünglichen Quellen reserviert; es werden keine neuen Identitäten erzeugt.
+
+Die Prüfung fand eine Runtime-Lücke: Landlock verweigerte dem SDK den
+Lesezugriff auf `/etc/hosts` und `/etc/resolv.conf`. Ein Regressionstest
+reproduzierte `PermissionError` vor der Korrektur. Das Pi-Launch-Profil
+erlaubt nun ausschließlich diese vorhandenen Systemdateien als zusätzliche
+Readonly-Ressourcen. Der allgemeine Shell-Isolationsport bleibt unverändert;
+privater Resultstore und Worker-Tokens bleiben außerhalb der SDK-Freigabe.
+Alle 24 Pi-/Tool-Isolationstests und der relevante Block mit 770 Tests
+bestehen. Zwei optionale produktive Live-Smokes bleiben ohne Opt-in übersprungen.
+
+Der Bericht `artifacts/test-gates/pi-container-sdk-chain.v1.json` enthält
+die tatsächlichen Beobachtungen und Grenzen. Hub-Gateway-Signatur/Budget-
+Speicher, Deployment-Manifest und Modellantwort sind bestehende synthetische
+Testports. Nur im eigenen Fixture-Hub wird der Command-Transporthandler
+ersetzt; produktive Worker-Registrierungs-Authentifizierung wird damit nicht
+als abgenommen behauptet. Das Worker-Adapter-Setup ist explizite Testkomposition.
+Die Prüfung aktiviert kein produktives Pi-Profil und erfüllt keine Release-Gates.
+
+Wiederholung nach eigenem Image-Build:
+
+```bash
+python -m tests.pi.pi_container_chain_gate --image sha256:<vollstaendiger-image-digest>
+python -m tests.pi.pi_container_chain_gate --image sha256:<vollstaendiger-image-digest> --mode context_mutation
+```
+
+SRP/DIP: Das Worker-Launch-Modul besitzt die SDK-Ressourcen und verwendet
+den vorhandenen Isolationsport. Der Fixture-Treiber besitzt ausschließlich
+seine Container und deren begrenzte Lebensdauer. Bestehende globale
+Konfigurationshelfer und der zentrale Gateway-Dispatcher bleiben bekannte
+Strukturschulden; neue Worker-Orchestrierungsrechte entstehen nicht.
+
+Die vollständige PI-T05-Abnahme bleibt offen: Resume/Sitzungszweige und
+Pi-Artefaktreferenzen sind derzeit ausdrücklich deaktiviert. Der erfolgreiche
+Read-only-Turn und gespeicherte Ergebnisabruf ersetzen diese Anforderungen
+nicht. Produktive Deployment-/Provider-/Release-Abnahme ist zusätzlich
+von den synthetischen Container-Prüfungen zu unterscheiden.
+
+### Pi-Antwort als Hub-registriertes Artefakt
+
+Die bisher pauschal ausgeschlossene Pi-Artefaktübergabe unterstützt jetzt
+ein ausdrücklich deklariertes Antwortartefakt. Der Hub benennt den Output
+im signierten Artefakt-Scope des Auftrags und ergänzt am Node:
+
+```yaml
+output_artifacts: [answer]
+metadata:
+  pi_result_artifact:
+    output_name: answer
+    source: assistant_answer
+    filename: answer.md
+    media_type: text/markdown
+```
+
+Zulässig sind `text/plain` und `text/markdown`, ein einzelner Dateiname
+ohne Pfad und exakt ein deklariertes Output. `answer` ist ein Beispielname;
+er muss mit `output_name` und dem Hub-signierten `allowed_artifacts`-Scope
+übereinstimmen. Andere Quellen, zusätzliche Felder, Traversal-Pfade,
+unbekannte Medien und unautorisierte Output-Namen werden verweigert.
+
+Im bestehenden Hub-Inventar muss `policy.preauthorized_result_artifacts`
+zusätzlich ausdrücklich `true` sein. Der neue boolesche Pin ist standardmäßig
+`false`; Read-only-Freigabe allein erlaubt keine Artefaktveröffentlichung.
+Bestehende No-Artifact-Policy-Digests bleiben unverändert. Stringwerte wie
+`"true"` werden abgewiesen. Kein Deployment oder Profil wird automatisch aktiviert.
+
+Der Worker bereitet den vorhandenen `NativeArtifactPublisher` vor, bevor
+er Credentials, Modellbudget oder SDK beansprucht. Nach dem erfolgreichen
+Turn überträgt er nur die Antwortbytes; das SDK erhält weder Schreibtools
+noch Zugriff auf Worker-Resultstore oder Hub-Tokens. Der vorhandene Hub-Ingress
+prüft aktuelle Task-/Assignment-/Lease-Fakten, speichert unveränderliche Bytes
+und registriert die Hub-Artefaktidentität. Der Worker erfindet keine Identität.
+
+Die Pi-Ergebnisannahme prüft im selben Task-Schreibvorgang die tatsächliche
+SQL-Registrierung einschließlich Command-/Assignment-/Lease-Provenienz.
+Dateiname, Medienart, Größe und Hash müssen der deklarierten Antwort
+entsprechen. Die technische Hub-Receipt bindet die geprüfte Artefaktversion.
+Exakte Receipt-Wiederholung und RUN-Abschluss prüfen diese Registrierung
+erneut; fehlende oder veränderte Artefakte werden nicht durch Replay geheilt.
+Die Node-Deadline wird vor und nach Veröffentlichung geprüft.
+
+Der produktive Task-Forwarding-Pfad bewahrt die kanonischen Pi-Referenzen
+und führt sie nicht nochmals durch die allgemeine Artefaktregistrierung.
+`execution_artifacts`, verschachteltes Worker-Ergebnis und Native-Verifikation
+müssen übereinstimmen. Die bestehende breite Forwarding-Fassade bleibt
+bekannte SRP-Strukturschuld; Pi-Projektion, Declaration und transaktionale
+Artefaktprüfung liegen in eigenen Modulen und verwenden kleine Ports.
+
+Die gezielten Tests benutzen tatsächlichen Hub-Dateispeicher und SQL:
+Idempotente Übertragung erzeugt keine zweite Version; geänderte Antwortbytes,
+beschädigte oder fehlende Registrierungen und abgelaufene Leases verweigern
+den Abschluss. Der echte gepinnte SDK-Prozess besteht Plain-/Artefakt- und
+Kontextmutationsfälle. `--mode answer_artifact` im Container-Gate besteht
+mit einem beim Hub gespeicherten Antwortartefakt, einem Modellaufruf und
+Abschluss desselben vorab reservierten RUN. Der relevante Block besteht
+mit 809 Tests, zwei nicht aktivierten Live-Smokes und vier bestehenden
+Startup-Deprecation-Warnungen. Details und Fixture-Grenzen stehen in
+`artifacts/test-gates/pi-answer-artifact-admission.v1.json`.
+
+Zum Abschalten weiterer Artefaktaufträge den zusätzlichen Policy-Pin auf
+`false` setzen. Bereits laufende Aufträge bei Bedarf über die vorhandenen
+Hub-Grant-/Lease-Widerrufe stoppen; weder Identitäten noch abgeschlossene
+Receipts umschreiben oder durch Wiederholung neu ausführen.
+
+Resume/Sitzungszweige, Workspace-Dateiextraktion und andere Artefaktquellen
+bleiben offen. Produktive Worker-Registrierungs-Authentifizierung und
+Provider-/Release-Abnahme werden durch synthetische Fixture-Handler nicht
+behauptet. PI-T05 bleibt deshalb offen.
+
+### Native-Planprüfung und Pi-Capability (2026-10-12)
+
+Die Hub-Planprüfung kennt jetzt `coding.agent.pi` als delegierte Capability.
+Zuvor wies sie vollständige Native-Pläne mit dieser Capability bereits vor
+der Delegation zurück, obwohl der opt-in Pi-Worker-Handler vorhanden war.
+Task-Kind und Capability stehen gemeinsam in `ananta_contracts.pi_native`;
+der Hub importiert dafür keinen Worker-Ausführungscode. Die bisherigen
+Konstantenimporte aus `pi_node` bleiben als Re-Exports kompatibel.
+
+Die Erkennung erteilt keine Freigabe: Hub-Policy, Worker-Capability,
+Worker-Policy, opt-in Profil, signierte Delegation und Evidence-Prüfungen
+bleiben erforderlich. Regressionen prüfen einen tatsächlich vom Hub
+signierten delegierten Knoten, Worker ohne Capability, Worker-Policy-Ablehnung,
+Hub-Policy-Ablehnung vor Task-Erzeugung und eine weiterhin abgewiesene unbekannte
+Capability. Queue, Policy und Ausführungshandler dieser fünf Fälle sind
+synthetisch; eine produktive Modell- oder Release-Abnahme wird daraus nicht
+abgeleitet. SRP/DIP: gemeinsames Vertragsvokabular statt Hub-Kopplung an den
+Worker-Handler; bestehende Pi-Ausführungsports bleiben unverändert.
+
+Der abschließende Pi-/Native-/Taskadapter-/Maintenance-Regressionsblock besteht
+mit 642 Tests in 45.50 Sekunden; nur zwei nicht aktivierte externe Live-Smokes
+sind übersprungen. Die vorhandenen gepinnten SDK-Isolations- und SQL-Evidence-
+Kettentests laufen mit dem explizit konfigurierten lokalen Node/SDK mit.
+Bericht: `artifacts/test-gates/pi-native-capability-delegation.v1.json`.
+
+Der Worker-Prozessadapter importiert `agent.cli_backends.pi_runtime` jetzt
+explizit. Der Architekturdetektor kennt zusätzlich genau diesen SDK-Resolver,
+`coding_agent_process` (begrenzte Prozessausführung) und `provisioning`
+(Worker-lokaler Runtime-Status/Probe). Diese geprüften Ausführungsbausteine liegen
+im durch AGENTS.md vorgegebenen CLI-Namespace und importieren keine Hub-Task-
+oder Delegationsdienste. Eine pauschale Freigabe von `agent.cli_backends` wird
+nicht eingeführt. Die Namespace-/Packaging-Schuld bleibt sichtbar.

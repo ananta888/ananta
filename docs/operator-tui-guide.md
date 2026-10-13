@@ -187,3 +187,32 @@ Alle Payloads (Chat, TUI-View) werden vor dem Versand E2E-verschlüsselt. Der Re
 ## Architecture Boundary
 
 The operator TUI is a client surface. It can inspect hub state, render terminal views, prepare explicit actions, and route requests through hub-owned contracts. It must not orchestrate workers, mutate state directly, or create hidden execution loops.
+
+### Memory-Audit lesen
+
+Mit Projekt-Verwaltungsrechten öffnet `:memory-audit <project-id>` die
+projektgebundene Audit-Ansicht vom Hub. Beispiel:
+
+```text
+:memory-audit project-a --run-id run-a --channel-id hub-result-memory --page-size 50
+```
+
+Weitere Filter: `--task-id`, `--trace-id`, `--scope`. Die Antwort nennt
+`next_after_sequence`; mit `--after-sequence <wert>` wird die nächste Seite
+geladen. `:help memory-audit` zeigt die Syntax. Der bestehende Viewer unterstützt
+Scrollen und Schließen mit Esc. Die Anmeldung wird vom TUI übernommen; Tokens
+gehören nicht in den Befehl. Angezeigt werden Policy-Entscheidungen und deren
+Metadaten, keine Rohinhalte oder Inhalts-Diffs. Die Angular-Ansicht unter
+Control Center → Memory-Zugriffe verwendet dieselbe Hub-API.
+
+Vorher-/Nachher-Hash-Diffs der Hub-Result-Memory-Schreibsession sind inzwischen
+über denselben Viewer verfügbar:
+
+```text
+:memory-audit project-a --view diffs --run-id memory-session-example
+```
+
+Die Run-ID steht im Audit-Readmodel. Kanal-, Task-, Trace- und Scope-Filter
+gelten auch für Diffs. Eine Session ohne Nachher-Snapshot bleibt ausdrücklich
+unvollständig. Der Diff zeigt beobachtete Änderungen im berechtigten Bereich,
+keine Rohinhalte und keinen Beweis ausschließlicher Verursachung durch den Run.

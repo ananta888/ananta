@@ -190,16 +190,72 @@
         "Resume und Sitzungszweige strikt an Tenant, Projekt, Task, Assignment und Dispatch Lease binden; keine automatische öffentliche Freigabe oder Gist-Uploads.",
         "Hub reserviert RUN-Identität vor Ausführung und registriert Quellen; Pi übernimmt ausschließlich zugewiesene Identitäten und kann keine Evidenz selbst ausstellen.",
         "Artefakte und Resultate über vorhandenen verifizierten Hub-Ingress liefern; Wiederholung idempotent, abgelaufene Leases und verspätete Resultate ablehnen."
-      ]
+      ],
+      "implementation_notes": [
+        "2026-10-10: Gesamt-Pi-Gate 370 passed/1 skipped (Node fehlt), 14.69 s. Dokumentierter Ist-Stand: Manifest-Admission, Hub-RUN-Reservierung/Registry-Abschluss, Pi-Artefakt-Ingress und opt-in Live-Smokes weiterhin offen; keine Produktions-Evidence oder Inferenz behauptet.",
+        "2026-10-10: PiRuntimeManifestAdmissionService + schmales unabhängiges Deployment-Port vergleichen exakte Manifest-Fakten vor SRC-Aufnahme im vorhandenen Hub Evidence Registry. 49 echte SQL-Registry-/Manifest-Tests bestanden; synthetische Deployment-Fakten. Produktiver Deployment-Adapter/Komposition, RUN-Reservierung und Registry-Abschluss weiterhin offen; keine Produktions-Evidence.",
+        "2026-10-10: require_admitted prüft registrierte Manifest-Quelle und frische unabhängige Deployment-Fakten vor Wiederverwendung, ohne neue SRC-Ausstellung. Falsche Origin-/Content-/Policy-/Scope-Bindungen und geänderte Deployments abgewiesen; 28 SQL-Admission-/Registry-Tests bestanden. Produktiver Deployment-Adapter und RUN-Komposition bleiben offen.",
+        "2026-10-10: PiRunEvidenceReservationService lädt echte SQL-Tasks und aktuelle Pi-Authority, verifiziert Manifestquelle und nimmt konkreten Task-Kontext als Inputquelle im Registry auf; RUN-Reservierung vor Ausführung, gestartete/terminale Tasks abgewiesen. 72 Tests bestanden. Noch nicht im produktiven Versand; Workspace-/Quellen-Nachweis, Outbox-/Registry-Transaktionskomposition, geschlossene Worker-Projektion und Registry-Abschluss weiterhin offen.",
+        "2026-10-10: Gemeinsames Hub Evidence Registry prüft vor Worker-Assignment-Projektion kanonische persistierte RUN-Bindung/Hub-ID sowie jede vorhandene, aufgenommene, unveränderte und scope-zulässige SRC-Identität. Manipulierte SQL-RUN-/SRC-Zeilen werden abgewiesen; 47 Tests bestanden. Pi-Versand-Komposition weiterhin offen.",
+        "2026-10-10: Pi-Dispatch-Service liefert geschlossene Registry-Assignment-Projektion nur nach aktueller Task-/Authority-/Kontext-/Manifest-/Deployment-Prüfung. Ausgetauschte Manifestquelle muss im RUN reserviert sein; kein Extra-Kontexttransport. 39 Tests bestanden. Produktive Versandstelle und Registry-Abschluss noch anzubinden.",
+        "2026-10-10: PiRunEvidenceCompletionService schließt vorreservierten RUN nur nach persistierter unveränderlicher Hub-Pi-Resultatquittung und exakter Assignment-/Lease-/Input-/Quellenbindung. Exakter Replay nach Ablauf zulässig; mutierte Quellen auch beim Replay abgewiesen. 430 passed/1 Node-skip im Vollgate, sieben Completion-Fälle separat bestanden. Produktive Dispatch-/Outbox-/Abschluss-Komposition weiterhin offen.",
+        "2026-10-12 current source audit: actual autopilot_native_dispatch binds Worker, signs closed Native envelope, sets in_progress and starts Native dispatch journal before transport. It never composes PiRunEvidenceReservationService or completion service. Reservation requires pre-execution created/assigned/queued status, so it must run before that status transition. Native signature currently permits no evidence assignment field; projection must remain outside immutable worker_execution_context input hash and be signature-bound. Independent PiRuntimeDeploymentPort and caller-transaction Registry/outbox composition remain prerequisites; source audit does not claim production wiring.",
+        "2026-10-12 begin signed transport prerequisite: optional closed Registry assignment only for Pi, signature-bound outside immutable Task context; evidence-aware verified DTO and explicit Worker consumer port. Legacy verifier cannot silently drop a provided identity; absent evidence-aware Worker port rejects before store reservation/execution. Production Registry/outbox/manifest composition remains next, no default change or unregistered production identity.",
+        "Signed Pi evidence transport prerequisite implemented: optional closed Registry projection in Ed25519 envelope outside immutable Task context; dedicated verified envelope DTO and explicit Worker evidence_consumer. Missing consumer503 before store/execution, legacy verifier refuses identity-dropping use, ordinary Native requests unchanged. Seven actual Hub-test-issued Registry projection/signature/HTTP cases and28existing HTTP cases pass35/3.90s; full relevantPi/HTTP/autopilot/journal482passed/6explicit resource/live skips20.81s. Productive dispatch/manifest/transactional outbox/Registry completion composition remains open; no productive run or release claim.",
+        "2026-10-12: Durable Worker result slots now bind the full signed closed Hub evidence projection separately from immutable Task input. Reserve/publish/read require exact projection; reopened slots reject reassignment, changed dispatch/binding and evidence downgrade, even under a new valid signature. Five added real Hub-test-registry cases; focused64passed5.27s; full Pi/native HTTP/resultstore/autopilot/journal511passed6explicit skips23.20s; RuffPASS. Production manifest/reservation/journal/completion composition remains open; no release evidence.",
+        "2026-10-12: Native dispatch journal gains caller-owned active-session begin_in_transaction with locked current Task projection validation and flush-only unique send fence. Existing standalone begin uses same validation. Real SQL Pi Registry RUN/input-SRC, closed projection, journal and Task-status commit/rollback tested together; pre-existing send fence aborts new Registry reservation; no active session/stale input rejected. Initial positive test used incorrect composite Registry PK (1failed3passed); corrected. Focused22passed4.98s before stale-input addition; final516passed6explicit skips23.53s including all five new cases, RuffPASS. Productive deployment adapter/route/completion composition remains open; no release evidence.",
+        "2026-10-12: PiDispatchPreparationService now composes locked current Authority, independent deployment/policy ports, manifest admission, caller-session Registry reservation/projection, Ed25519 envelope, durable journal and in_progress Task in one commit. Returns payload only after commit, never sends. Assignment/signing/journal/commit failures roll back. Initial test incorrectly supplied workflow HMAC as transport key (1failed8passed), corrected to separate Ed25519 signer. Regression520passed6skips23.23s before final commit-failure case; final focused10passed4.37s with all five new preparation cases; RuffPASS. Production deployment adapter, route policy/trace integration, Worker consumer and exact Registry completion/recovery remain open; no release evidence.",
+        "2026-10-12: Actual Native autopilot now requires Pi preparation/completion ports, sends atomically reserved signed payload/claim, closes exact Registry RUN after real Hub result admission and settles journal only after that. Concrete preparation service adds caller-session Registry completion. Journal selects strict Pi receipt rather than generic Native receipt. Initial route test exposed generic-only journal validation and terminal-success masking (1failed2passed); corrected. Missing composition denies before transport. Registry/journal failures keep terminal Task but return bounded failed dispatch with pending journal; no false success. Regression524passed6skips24.53s before final journal-failure case; final focused4passed4.21s, RuffPASS. Independent production deployment adapter/default composition, Worker evidence consumer and persisted evidence-aware recovery remain open; no production acceptance.",
+        "2026-10-12: Both Hub recovery paths now require explicit Pi evidence completion before journal acceptance; result recovery additionally requires reserved assignment port and signature-binds it for result-only HTTP retrieval. Without ports a terminal Pi Task receipt cannot bypass reserved Registry state; bounded unresolved leaves Task/RUN/journal unchanged. Real SQL tests show blocked recovery and concrete Registry-before-journal success. Focused29passed5.98s; regression536passed6explicit skips25.60s; RuffPASS. Durable reserved projection lookup across process restart, independent production deployment/default composition and Worker evidence consumer remain open; no productive acceptance.",
+        "2026-10-12: Additive pi_dispatch_evidence table and caller-session repository now retain closed Registry projection with tenant/project/Task and exact send claim in the atomic preparation commit. reserved_assignment revalidates locked Task/journal projection, current Authority and full Registry assignment; complete_reserved validates exact persisted assignment and receipt including replay after lease expiry. Independent reopened SQL engine verifies existing RUN reused, no new reservation; mutated claim/project/dispatch denied; failed commit removes mapping. Focused17passed4.76s; regression541passed6explicit skips27.04s; RuffPASS. Production Recovery port installation, independent deployment/default composition and Worker consumer remain open. Namespace coupling to pure existing Service digest helper preserved and documented; no credentials/input/results in mapping, no production evidence.",
+        "2026-10-12: Per-app trusted Hub Pi dispatch service installation added, worker/incomplete/duplicate installation rejected. Actual Native route resolves complete installed service only when both override ports absent, avoiding mixed authority. Production result-recovery factory now binds installed durable reserved_assignment/complete_reserved. Real SQL test with reopened independent engine and actual production factory completes existing RUN/journal without Fetch/Execute; app-installed route also passes. Focused7passed4.07s; regression544passed6explicit skips26.59s; RuffPASS. Automatic production bootstrap from independent deployment/policy facts and Worker evidence consumer remain open; no deployment or productive acceptance.",
+        "2026-10-12: VerifiedPiEvidenceConsumer added with narrow PiEvidenceReadPort. Validates Pi/tenant/task command, compares entire canonical current Hub projection before execution, gives decision reader detached Task/command copies, fails closed on Hub unavailability/mismatch. Positive identities actually issued by test Registry. Additional signed HTTP→consumer→actual test-Registry tests reject source mutated after signing before execution. Regression547passed6explicit skips27.28s before final two HTTP cases; focused17passed5.07s all five new cases, RuffPASS. Authenticated productive reader transport/runtime composition and independent deployment/bootstrap still open; no productive activation.",
+        "2026-10-12: Additive pi_evidence_read uses existing registered Worker gateway, strict Task-owner/active lease checks and signed Workflow authority before Pi reader. Productive gateway callback resolves per-app Pi service and checks actual command/input, Worker and tenant/workflow/run/step against persisted reservation. HubPiEvidenceReader uses existing authenticated HTTP decision client and sends only bound command facts, no chosen evidence ID. First new handler misplaced before binding parse (5failed43passed and Ruff undefined binding); moved after authenticated ownership check. Focused68passed7.64s; fullPi/Workflow gateway/Native dispatch+HTTP+recovery583passed6explicit skips28.01s; RuffPASS. Worker runtime installation and independent deployment/bootstrap remain open. Existing central/global gateway SRP/OCP debt preserved; Pi service resolves per app.",
+        "2026-10-12: Productive Worker task blueprint now installs consume_pi_evidence_task. Worker-only composition resolves existing authenticated Hub decision client, current evidence reader and verified consumer before existing delegated execution; no Task-only fallback for evidence-bearing requests. Missing configuration/Hub error prevents execution. Three new runtime cases pass; focused21passed5.40s, regression586passed6explicit skips28.30s, RuffPASS. Independent productive Hub deployment/bootstrap and live acceptance remain open; no actual deployment/model claim.",
+        "2026-10-12: Actual app startup phase pi_dispatch_evidence added before background services. Explicit boolean app activation and Hub role required; default disabled. Independent deployment.require_manifest and policy.digest_for_task ports required; missing ports yield bounded machine-readable blocked state with no guessed facts/service. Productive factory composes SQL Pi service/Authority/signing and installs per app when trusted ports present. Docker inspect_light audit shows truncated image identity/no Pi version proof, unsuitable for admission. Five bootstrap tests3.05s; broader Pi/Workflow/Native/startup smoke+telemetry597passed6skips4existing Pydantic warnings32.73s; RuffPASS. Concrete independent deployment observer/port provisioning, productive activation/live acceptance remain open.",
+        "2026-10-12: Concrete PinnedPiRuntimeDeployments and DockerPiRuntimeObserver added. Hub-owned exact tenant/project/Worker inventory pins full container/image/revision, Node/package paths and nonroot UID. Observer uses narrow Docker projections without env/credentials/mount-source reads, clean-environment bounded Node/JSON version probes, immutable root and runtime/library mount denial, exact before/after container start snapshot. No Worker self-report or new Docker privilege. 19 synthetic observation/inventory negatives+positive pass2.54s; fullPi/Workflow/Native/startup616passed6skips4existing warnings32.89s; RuffPASS. Actual isolated Docker probe, trusted inventory/policy provisioning and productive live acceptance remain open; observations are not release evidence.",
+        "2026-10-12: Added owned isolated Docker live gate with actual cached Node24.21.0 and full pinned SDK0.85.1, local digest-pinned base, nonroot/read-only/network-none/cap-drop/resource-bounded containers. First build failed on direct base-ID resolution; own temporary local alias fixed it. First real observer failed on extra Docker terminal newline; parser now trims only terminal CR/LF and real-output unit regression added. Final actual immutable observation and mounted-SDK rejection PASS, all own container/image/alias removals checked successful. Regression617passed6skips4existing warnings37.02s, RuffPASS. Fixture OCI revision is a synthetic test label, no basis-source provenance or Hub release RUN; production_release_evidence false. Trusted productive inventory/policy provisioning and full live acceptance remain open.",
+        "2026-10-12: Concrete immutable PiEvidencePolicyPin/PinnedPiEvidencePolicy provides Hub-owned canonical policy digest. Default preauthorization false; exact tenant/project/Worker/deployment, signed policy version, provider profile/provider/model and no-tools/read-only shape required. Fresh deployment re-observation; existing mandatory current SQL/Organization/grant authority retained. Actual SQL reservation binds both admitted source policy digests; unapproved policy creates no RUN and leaves Task assigned. Initial negative tests hit invalid copied ORM state (3failed5passed), switched to Domain Task repository projection. Regression626passed6skips4existing warnings33.84s before final four cases; focused13passed4.73s including provider changes and actual denial rollback, RuffPASS. Trusted policy/inventory provisioning and full productive live acceptance remain open; synthetic Hub policy fixtures, no production activation.",
+        "2026-10-12: Closed trusted AGENT_CONFIG.pi_evidence now defaults disabled/empty inventory and can provision concrete pinned deployment observer and immutable policy ports on Hub startup. Exact bounded entries require full manifest, container/runtime/user pins and closed policy; unknown/missing fields, duplicate scope, relative paths, string approval and synthetic-to-production scope change rejected before any probe. No Docker observer when disabled; complete explicit ports preserved and partial ports not mixed. Integration follows normal config→both real adapters→actual atomic SQL RUN reservation with synthetic observation. Focused13passed3.79s; fullPi/Workflow/Native/startup638passed6skips4existing warnings34.33s; RuffPASS. Trusted productive values/activation and complete SDK/provider live acceptance remain open; no serving configuration changed.",
+        "2026-10-12 completion audit found concrete context transport bug: Queue adapter stores prepared context_bundle_id top-level, Native projection omitted it, so Worker reader silently saw no prepared context. Optional bounded nonempty reference now sign-bound and delivered through existing Hub reader; swapped reference denied. Null/absent omitted to preserve ordinary legacy projection/store/journal digests. Historical context-bearing old journal binding differs and must remain denied, not migrated by invented resend. Focused74passed6.55s before final null/invalid cases; regression644passed6skips4existing warnings35.49s with six new cases, RuffPASS. Separate gap identified: RUN reserves manifest and Task-context sources but not actual approved ContextBundle bytes; concrete context evidence source/reservation/read/completion binding still required before full completion. Productive activation/live acceptance also open.",
+        "2026-10-12: PiContextEvidenceAdmission + caller-transaction PiApprovedContextPort now admit exact approved content digest after Task/bundle/command/projection validation. Hub Registry issues context SRC with combined Pi/context policy digest, manifest scope/classification; RUN reserves third source before execution. Atomic Pi preparation accepts context port; missing reader or mismatched projection rolls back RUN/journal/start. Declared context selectors without reference denied. Shared context reference contract helper replaces duplicate Hub/Worker validation, old Worker import re-export preserved. Focused20passed5.14s then8context cases3.74s; fullPi/Workflow/Native/startup652passed6skips4existing warnings37.27s; RuffPASS. Concrete same-transaction policy reader and exact reserved context read/completion revalidation remain open; production default context tasks fail bounded until full port, not a final narrowed substitute.",
+        "2026-10-12: TransactionPiApprovedContextReader now loads locked current Task/Bundle and active SQL Context Policy in caller-owned transaction, validates prepared snapshot/command/ownership and reuses existing CAP projection plus app-owned destination port. TransactionActiveContextPolicies opens no nested session; shared pure Row→Policy mapper keeps existing repository API. Startup supplies concrete reader when destination catalog available. First test hit expired detached ORM ID (5failed6passed); fixed test reload uses literal technical Task ID. Focused11passed3.63s; fullPi/Native policy/context lifecycle/Workflow/dispatch/startup714passed6skips4existing warnings37.04s, RuffPASS. Existing global CAP facade locator SRP/DIP debt preserved/documented; exact reserved context byte/policy revalidation at Worker read and Registry completion still open.",
+        "2026-10-12: Registry assignment_sources reads/verifies exact existing RUN projection and immutable SRC identities without issuing replacements; common source verifier now returns verified DTOs. Pi context guard compares current approved origin/bytes/combined policy with reserved context source; original Pi policy digest comes from immutable Task-input source for completion/replay. Reserved assignment/context and Registry completion enforce guard; productive native_context_read gateway uses app reserved_context with exact registered Worker/workflow/Task binding and safe existing audit event. Changed content/policy/removed reference denies read/close, keeps RUN reserved and no extra SRC; exact terminal replay after expiry passes. Regression718passed6skips4existing warnings38.69s before final gateway case/private read-wrapper refactor; final focused45passed7.51s, HubRegistry+context37passed4.67s, RuffPASS. Public assignment/context return contracts separate. Full real SQL→approved source→authenticated Worker→pinned SDK→Registry acceptance still needs integrated proof; productive live acceptance open.",
+        "2026-10-12: Integrated actual SQL Task/lease/grant/Context policy/bundle/Registry→atomic signed dispatch→Worker HTTP/evidence guard→authenticated Hub decisions→Native adapter→real pinned SDK→SQL result admission→same RUN/journal completion proof added. Model server observes reserved RUN/three sources before actual SDK request, approved bytes only/selected-model/no tools/private canary intact. Second case changes context after reservation: HTTP409, zero model requests, original RUN remains reserved. No successful mock result generated before reservation. Focused2passed4.52s; resources-enabled block752passed2unopted live-provider skips4existing warnings44.17s; RuffPASS. Signature/budget gateway stores remain in-memory fixtures, deployment/model response synthetic, Flask apps in-process while actual SDK separate/isolated. This proves local assembled chain, not productive container/provider acceptance; synthetic classification prevents release promotion.",
+        "2026-10-12 legacy-entry audit: productive Native adapter could execute Pi through Task-only consumer without HTTP evidence guard. Only productive NativePiNodeHandler factory now always injects HubPiEvidenceReader; Node validates current exact registered assignment before credential/providerbudget/SDK. Missing Registry composition now bounded failed, no shell/provider/credential/budget. Prior productive test without reserved RUN changed from success to required denial; isolated technical test constructors remain optional and cannot count as release evidence. Integrated real SQL/SDK chain uses same node evidence reader and succeeds. Focused20passed2.79s +actualSDK2passed4.65s; resources block752passed2unopted live skips4existing warnings44.06s; RuffPASS. No productive factory callsite remains without reader (current source rg); productive container/provider acceptance open.",
+        "2026-10-12: Exact verified signed Pi assignment now carried through Task-local immutable JSON ContextVar scope from EvidenceConsumer to productive Node. Node requires scope and canonical equality with fresh Hub assignment, preventing substitution and Task-only execution even with a reserved current RUN. Scope detached copies, foreign Task/new context denial and reset after exception tested; changed assignment before Node denies credentials/budget/SDK. Actual SQL/SDK success remains. Initial focused39passed7.54s; block753passed2live-provider skips4existing warnings43.12s before final changed-assignment case; final transport+actual SDK31passed8.36s, RuffPASS. No worker issuance/global task value/orchestration; productive container/provider acceptance open.",
+        "2026-10-12 container packaging audit: standard Compose-next image lacks Pi SDK and mutable runtime prefix cannot satisfy immutable observer. Added opt-in Dockerfile.pi-worker layer and deterministic npm package/lock (166 locked packages, actual pinned SDK integrity). npm ci clean env/separate empty configs, scripts disabled, exact SDK/version/import and Node minimum checked, image prefix read-only, positive UID/GID and Worker role. Initial build failed duplicate /dev/null npm config; separate files fixed. Actual final Docker build PASS; network-none/read-only/cap-drop nonroot container probe Node24.18.0/Pi0.85.1/UID1000/Worker/immutable prefix/createAgentSession import PASS; UID00 build rejected64 before npm. Existing cached base application code not claimed current: source-provenance/current full Hub/Worker revision and productive container/provider acceptance remain open. No serving rollout or profile activation.",
+        "2026-10-12 actual container runtime detection audit: image CLI --version0.85.1 passes, but cached base Python catalog returned backend_not_provisionable. Pi Worker Docker layer now removes only old image application packages and COPYs current agent/worker/contracts sources and Pi profile. Actual rebuild PASS; all4720Python/MJS files exact current Worktree match. Final actual nonroot read-only/network-none/cap-drop container uses current CliBackendProvisioner+PiProbeProcess with private-store isolation enabled: installed/ready0.85.1/probeRC0/versionmatch/private canary unchanged PASS. Local byte match not CI/release revision or Hub-issued release run; separate actual Hub/Worker container chain and productive provider acceptance remain open. No serving deployment modified.",
+        "2026-10-12 actual container app startup: bounded owned image-digest gate initializes isolated SQL DB and actual Flask app(testing=True background work disabled) as nonroot/read-only/network-none/cap-drop with tmpfs and enforced container cleanup. Initial failures found missing current voice_runtime.backends.audio_decision and geomaps registry inherited from old base; image now copies current voice sources and GeoMap config/schema/assets. Actual Worker startup PASS native execute/result routes present; separate actual Hub startup PASS those Worker routes absent. Real separate app startup proved, not communicating RPC/model chain. Source gate Ruff/diff/TodoPASS; productive provider/release and combined separate-container execution remain open; no serving changes."
+      ],
+      "container_rpc_boundary_result": "2026-10-12 actual current immutable image: two owned nonroot readonly full-app containers on own internal Docker network; Hub to Worker unsigned request401 without auth and422 with auth; Worker to Hub execution route404. All three expected checks PASS. Own containers/network removed; no host ports, production config or serving deployment touched. Source gate tests/pi/pi_container_rpc_gate.py, report artifacts/test-gates/pi-container-rpc-boundaries.v1.json. Negative RPC technical observation only, no SRC/RUN minted or production release evidence. Successful signed SDK/container result chain and real-provider acceptance remain open.",
+      "container_sdk_chain_result": "2026-10-12 actual separate full Hub/Worker application containers: Hub SQL reserves RUN/three sources before real isolated Pi0.85.1 SDK model POST; one selected-model request, approved context only, no tools; actual Worker result store retrieval exact, duplicate execution409 with no second model call; Hub Task admission closes same RUN succeeded and journal accepted. Separate changed ContextBundle case409/zero model calls/same RUN remains reserved. Gates tests/pi/pi_container_chain_gate.py normal/context_mutation PASS; report artifacts/test-gates/pi-container-sdk-chain.v1.json. Found real protected-SDK DNS gap: /etc/hosts and /etc/resolv.conf unreadable; targeted Pi-only readonly resources fix, baseline regressionFAIL then24isolationPASS. Resources-enabled block770passed2unopted live skips4existing warnings44.04s; RuffPASS. Gateway signature/budget ports and deployment/model are explicitly synthetic fixtures; no serving activation or release claim. PI-T05 resume/session branches and Pi artifact ingress remain unsupported and must not be declared complete.",
+      "answer_artifact_implementation_result": "2026-10-12 Hub-declared assistant_answer artifact implemented through existing Native byte publisher/ingress/immutable SQL storage; separate default-false preauthorized_result_artifacts pin, no-artifact digest compatibility preserved. No SDK file/tool permission added. Pi terminal admission binds registered content hash/size/filename/media to actual answer and exact Task/assignment/lease; receipt replay and Registry closure recheck registrations. Actual task-scoped forwarding now preserves exact Pi artifact projection and skips generic re-registration; node deadline checked before/after publication. Invalid paths/media/extra fields/unsigned output/missing transport, different answer, expired lease and missing/corrupt artifacts denied. Final53focusedPASS7.68s;66policy/config/factory/ingressPASS8.27s;actualSDK4plain+artifact/context-mutation casesPASS6.43s. Actual separate Hub/Worker full-app containers run real isolated SDK0.85.1; one answer stored at Hub, same pre-reserved RUN succeeded, journal accepted, retrieve exact, duplicate409; final image sha256:d4fccd9cdf21773f8836dee1b67d14aa11b73a80472ee8d201269bd7c7487be7. Final block809passed2unopted live skips4existing warnings59.48s; Ruff/namespace/diffPASS. Report artifacts/test-gates/pi-answer-artifact-admission.v1.json. Synthetic fixtures, not production release acceptance. Resume/session branches, non-answer/workspace artifacts and productive strict registration/provider/release acceptance remain open; PI-T05 stays in_progress.",
+      "native_capability_delegation_result": {
+        "status": "native_plan_recognition_corrected_authority_gates_preserved",
+        "report": "artifacts/test-gates/pi-native-capability-delegation.v1.json",
+        "shared_contract": "ananta_contracts/pi_native.py",
+        "regression_passed": 642,
+        "regression_skipped": 2,
+        "seconds": 45.5,
+        "production_release_evidence": false,
+        "deployment_performed": false,
+        "scope": "Hub recognizes coding.agent.pi and signs delegation; missing Worker capability and Hub/Worker policy denial still fail closed. Unknown capabilities remain rejected before ingestion.",
+        "remaining": [
+          "Hub-bound session continuation and branches",
+          "Workspace extraction and other artifact sources",
+          "Productive Worker registration/provider/release acceptance"
+        ]
+      }
     },
     {
       "id": "PI-T06",
       "title": "Headless-Verifikation und Einführung dokumentieren",
       "type": "verification",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "P2",
       "risk": "medium",
-      "progress_percent": 0.0,
+      "progress_percent": 30,
       "depends_on": [
         "PI-T05"
       ],
@@ -209,7 +265,38 @@
         "Negative Tests für Schreibversuch im Read-only-Modus, fremde Session, unerlaubte Extension, Modellwechsel und stale Lease ausführen; keine menschlichen Eingaben erforderlich.",
         "Optionalen explizit aktivierten Live-Smoke für einen lokalen und einen externen Modellendpunkt vorsehen; ohne Opt-in überspringen, mit Opt-in bei fehlender Auth/Binary begrenzt fehlschlagen.",
         "Deutsche Dokumentation mit Einrichtung, Grenzen, CodeCompass-Ablauf, Abschalten/Rollback und Transportentscheidung ergänzen; bestehende Provider-Vertragstests und relevante Repository-Gates ausführen."
-      ]
+      ],
+      "implementation_notes": [
+        "2026-10-10: Gesamt-Pi-Gate 370 passed/1 skipped (Node fehlt), 14.69 s. Dokumentierter Ist-Stand: Manifest-Admission, Hub-RUN-Reservierung/Registry-Abschluss, Pi-Artefakt-Ingress und opt-in Live-Smokes weiterhin offen; keine Produktions-Evidence oder Inferenz behauptet.",
+        "2026-10-12: begin independent optional live-smoke harness slice while PI-T05 productive acceptance remains open. Explicit local/external opt-ins, pinned SDK process boundary, no tools, strict terminal parser, bounded missing-resource/auth failures, technical-only non-release observation; no live endpoint called in this implementation slice.",
+        "Optional no-tools real SDK local/external smoke tests implemented with separate literal1 opt-ins, required endpoint/model/auth and pinned runtime resources, external HTTPS,30s process/45s test bound, strict pinned terminal/model/no-tools parser and forced private-result-store filesystem boundary.12 configuration checks pass3.03s;2live cases explicitly skip without opt-in. No provider called and no Hub-dispatch or production evidence claimed.",
+        "Final smoke/configuration/event/runtime/process-isolation regression80passed/4explicit skips3.83s; Ruff and Todo consistency pass. Two skips are opt-in live models, two are existing explicit process-isolation resource gates. No actual provider request, deployment or production registry evidence.",
+        "Execution negative ports exposed pytest assertion repr leaking synthetic stderr secret (1failed/16passed/2skipped). Fixed process failure now raises only pi_live_smoke_process_failed; five harness success/model/tool/canary/error checks validate exact isolation selection, cleanup, no secret/error output and technical-only observations. Final85passed/4skipped4.23s, RuffPASS. Optional actual endpoints remain uncalled; no production proof or completed PI-T05 claim.",
+        "2026-10-12: Actual Native Worker adapter→existing Hub signature/lease/budget test ports→real pinned SDK process→terminal Native result now exercised at explicitly Hub-selected owned loopback endpoint. Existing fixtures accept endpoint/provider resource seams; command endpoint comes from Hub context, profile/context/command consistent. Real Node24.21.0/SDK0.85.1, no tools, one selected-model request, private result canary intact. Focused19passed3.71s; full resources-enabled Pi/Registry/Native context/Workflow/dispatch/startup750passed2explicit unopted live-provider skips4existing warnings41.68s; RuffPASS. Hub authority/budget stores for this Worker proof are existing in-memory test ports, not complete SQL Registry chain. Real SQL/context source→gateway→SDK→Registry integrated proof and productive local/external provider acceptance remain open; no release evidence.",
+        "2026-10-12: Integrated actual SQL Task/lease/grant/Context policy/bundle/Registry→atomic signed dispatch→Worker HTTP/evidence guard→authenticated Hub decisions→Native adapter→real pinned SDK→SQL result admission→same RUN/journal completion proof added. Model server observes reserved RUN/three sources before actual SDK request, approved bytes only/selected-model/no tools/private canary intact. Second case changes context after reservation: HTTP409, zero model requests, original RUN remains reserved. No successful mock result generated before reservation. Focused2passed4.52s; resources-enabled block752passed2unopted live-provider skips4existing warnings44.17s; RuffPASS. Signature/budget gateway stores remain in-memory fixtures, deployment/model response synthetic, Flask apps in-process while actual SDK separate/isolated. This proves local assembled chain, not productive container/provider acceptance; synthetic classification prevents release promotion.",
+        "2026-10-12 container packaging audit: standard Compose-next image lacks Pi SDK and mutable runtime prefix cannot satisfy immutable observer. Added opt-in Dockerfile.pi-worker layer and deterministic npm package/lock (166 locked packages, actual pinned SDK integrity). npm ci clean env/separate empty configs, scripts disabled, exact SDK/version/import and Node minimum checked, image prefix read-only, positive UID/GID and Worker role. Initial build failed duplicate /dev/null npm config; separate files fixed. Actual final Docker build PASS; network-none/read-only/cap-drop nonroot container probe Node24.18.0/Pi0.85.1/UID1000/Worker/immutable prefix/createAgentSession import PASS; UID00 build rejected64 before npm. Existing cached base application code not claimed current: source-provenance/current full Hub/Worker revision and productive container/provider acceptance remain open. No serving rollout or profile activation.",
+        "2026-10-12 actual container runtime detection audit: image CLI --version0.85.1 passes, but cached base Python catalog returned backend_not_provisionable. Pi Worker Docker layer now removes only old image application packages and COPYs current agent/worker/contracts sources and Pi profile. Actual rebuild PASS; all4720Python/MJS files exact current Worktree match. Final actual nonroot read-only/network-none/cap-drop container uses current CliBackendProvisioner+PiProbeProcess with private-store isolation enabled: installed/ready0.85.1/probeRC0/versionmatch/private canary unchanged PASS. Local byte match not CI/release revision or Hub-issued release run; separate actual Hub/Worker container chain and productive provider acceptance remain open. No serving deployment modified.",
+        "2026-10-12 actual container app startup: bounded owned image-digest gate initializes isolated SQL DB and actual Flask app(testing=True background work disabled) as nonroot/read-only/network-none/cap-drop with tmpfs and enforced container cleanup. Initial failures found missing current voice_runtime.backends.audio_decision and geomaps registry inherited from old base; image now copies current voice sources and GeoMap config/schema/assets. Actual Worker startup PASS native execute/result routes present; separate actual Hub startup PASS those Worker routes absent. Real separate app startup proved, not communicating RPC/model chain. Source gate Ruff/diff/TodoPASS; productive provider/release and combined separate-container execution remain open; no serving changes."
+      ],
+      "container_rpc_boundary_result": "2026-10-12 actual current immutable image: two owned nonroot readonly full-app containers on own internal Docker network; Hub to Worker unsigned request401 without auth and422 with auth; Worker to Hub execution route404. All three expected checks PASS. Own containers/network removed; no host ports, production config or serving deployment touched. Source gate tests/pi/pi_container_rpc_gate.py, report artifacts/test-gates/pi-container-rpc-boundaries.v1.json. Negative RPC technical observation only, no SRC/RUN minted or production release evidence. Successful signed SDK/container result chain and real-provider acceptance remain open.",
+      "container_sdk_chain_result": "2026-10-12 actual separate full Hub/Worker application containers: Hub SQL reserves RUN/three sources before real isolated Pi0.85.1 SDK model POST; one selected-model request, approved context only, no tools; actual Worker result store retrieval exact, duplicate execution409 with no second model call; Hub Task admission closes same RUN succeeded and journal accepted. Separate changed ContextBundle case409/zero model calls/same RUN remains reserved. Gates tests/pi/pi_container_chain_gate.py normal/context_mutation PASS; report artifacts/test-gates/pi-container-sdk-chain.v1.json. Found real protected-SDK DNS gap: /etc/hosts and /etc/resolv.conf unreadable; targeted Pi-only readonly resources fix, baseline regressionFAIL then24isolationPASS. Resources-enabled block770passed2unopted live skips4existing warnings44.04s; RuffPASS. Gateway signature/budget ports and deployment/model are explicitly synthetic fixtures; no serving activation or release claim. PI-T05 resume/session branches and Pi artifact ingress remain unsupported and must not be declared complete.",
+      "answer_artifact_implementation_result": "2026-10-12 Hub-declared assistant_answer artifact implemented through existing Native byte publisher/ingress/immutable SQL storage; separate default-false preauthorized_result_artifacts pin, no-artifact digest compatibility preserved. No SDK file/tool permission added. Pi terminal admission binds registered content hash/size/filename/media to actual answer and exact Task/assignment/lease; receipt replay and Registry closure recheck registrations. Actual task-scoped forwarding now preserves exact Pi artifact projection and skips generic re-registration; node deadline checked before/after publication. Invalid paths/media/extra fields/unsigned output/missing transport, different answer, expired lease and missing/corrupt artifacts denied. Final53focusedPASS7.68s;66policy/config/factory/ingressPASS8.27s;actualSDK4plain+artifact/context-mutation casesPASS6.43s. Actual separate Hub/Worker full-app containers run real isolated SDK0.85.1; one answer stored at Hub, same pre-reserved RUN succeeded, journal accepted, retrieve exact, duplicate409; final image sha256:d4fccd9cdf21773f8836dee1b67d14aa11b73a80472ee8d201269bd7c7487be7. Final block809passed2unopted live skips4existing warnings59.48s; Ruff/namespace/diffPASS. Report artifacts/test-gates/pi-answer-artifact-admission.v1.json. Synthetic fixtures, not production release acceptance. Resume/session branches, non-answer/workspace artifacts and productive strict registration/provider/release acceptance remain open; PI-T05 stays in_progress.",
+      "native_capability_delegation_result": {
+        "status": "native_plan_recognition_corrected_authority_gates_preserved",
+        "report": "artifacts/test-gates/pi-native-capability-delegation.v1.json",
+        "shared_contract": "ananta_contracts/pi_native.py",
+        "regression_passed": 642,
+        "regression_skipped": 2,
+        "seconds": 45.5,
+        "production_release_evidence": false,
+        "deployment_performed": false,
+        "scope": "Hub recognizes coding.agent.pi and signs delegation; missing Worker capability and Hub/Worker policy denial still fail closed. Unknown capabilities remain rejected before ingestion.",
+        "remaining": [
+          "Hub-bound session continuation and branches",
+          "Workspace extraction and other artifact sources",
+          "Productive Worker registration/provider/release acceptance"
+        ]
+      }
     }
   ],
   "critical_path_tasks": [
@@ -223,8 +310,8 @@
   "tasks_status_summary": {
     "total": 6,
     "by_status": {
-      "todo": 1,
-      "in_progress": 1,
+      "todo": 0,
+      "in_progress": 2,
       "partial": 0,
       "blocked": 0,
       "done": 4
@@ -349,8 +436,8 @@
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 1,
-    "in_progress": 1,
+    "todo_remaining": 0,
+    "in_progress": 2,
     "partial": 0,
     "blocked": 0,
     "done": 4,
@@ -365,5 +452,92 @@
     "generator_version": "1.0",
     "source_hash": "4f2620eae4095ac327f6391b1856dadfceeaefebb715d1b7fda4e21096f7130b",
     "is_stale": false
+  },
+  "local_review_2026_10_10": {
+    "classification": "local_headless_synthetic_technical_observation",
+    "production_release_evidence": false,
+    "passed": 370,
+    "skipped": 1,
+    "duration_seconds": 14.69,
+    "scope": "tests/pi",
+    "skip_reason": "Node absent; JavaScript HTTP transport contract unexecuted",
+    "deployment_performed": false,
+    "remaining": [
+      "Hub runtime-manifest source admission and immutable deployment binding",
+      "Hub RUN reservation before dispatch and Registry-bound completion",
+      "Pi-specific artifact ingress (current Pi contract requires empty artifact_refs)",
+      "Explicit opt-in bounded local/external model live smokes"
+    ],
+    "environment_blockers": [
+      "Docker API denied by sandbox",
+      "Node unavailable in test environment"
+    ],
+    "supplemental_runs": [
+      {
+        "scope": "Pi runtime manifest/admission and real SQL Hub Evidence Registry",
+        "passed": 49,
+        "duration_seconds": 3.08,
+        "synthetic_deployment_facts": true
+      },
+      {
+        "scope": "Pi pinned manifest reuse and real SQL Hub Evidence Registry",
+        "passed": 28,
+        "duration_seconds": 3.05,
+        "synthetic_deployment_facts": true
+      },
+      {
+        "scope": "Pi RUN reservation from actual locked SQL Task/current Pi authority, manifest admission, result policy and SQL Registry",
+        "passed": 72,
+        "duration_seconds": 6.68,
+        "synthetic_deployment_facts": true,
+        "production_dispatch_wiring": false
+      },
+      {
+        "scope": "Registry immutable RUN/SRC revalidation before closed Worker assignment projection, Pi admission/reservation",
+        "passed": 47,
+        "duration_seconds": 4.29,
+        "synthetic_deployment_facts": true
+      },
+      {
+        "scope": "Pi closed dispatch projection with current Task/authority/input/manifest/deployment revalidation and Registry optional digest pins",
+        "passed": 39,
+        "duration_seconds": 4.78,
+        "synthetic_deployment_facts": true,
+        "production_dispatch_wiring": false
+      },
+      {
+        "scope": "Full tests/pi and Hub Evidence Registry after receipt-bound RUN completion; before additional replay-source mutation case",
+        "passed": 430,
+        "skipped": 1,
+        "duration_seconds": 16.59,
+        "skip_reason": "Node absent",
+        "production_dispatch_wiring": false
+      },
+      {
+        "scope": "Pi completion seven cases including persisted source mutation during replay",
+        "passed": 7,
+        "duration_seconds": 3.88,
+        "synthetic_deployment_facts": true
+      }
+    ]
+  },
+  "pinned_sdk_isolation_review": {
+    "status": "real_pinned_sdk_production_entry_local_gate_passed",
+    "classification": "local_headless_synthetic_technical_observation",
+    "production_release_evidence": false,
+    "report": "artifacts/test-gates/pi-pinned-sdk-isolation.v1.json",
+    "passed": 480,
+    "skipped": 0,
+    "remaining": [
+      "Live provider/model and deployment-manifest release acceptance",
+      "Actual Hub dispatch with pinned SDK and production registered RUN/SRC evidence",
+      "Other CLI/provider launch profiles",
+      "aarch64 kernel execution gate",
+      "Network/resource/deployment sandbox completion"
+    ],
+    "supersedes_local_environment_blockers": [
+      "Docker API available in this session",
+      "Cached Node extracted for explicit test runs; host PATH unchanged"
+    ]
   }
 }

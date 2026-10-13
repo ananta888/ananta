@@ -2,7 +2,7 @@
   "$schema": "../todo.track.schema.json",
   "version": "1.0",
   "created": "2026-09-24",
-  "updated_at": "2026-09-24",
+  "updated_at": "2026-10-13",
   "owner": "Ananta",
   "track": "bpmn_execution_semantics_hardening",
   "title": "BPMN-Ausfuehrung in Ananta: Semantik erhalten, Grenzen sichtbar machen und echte Hub-/Worker-Laeufe absichern",
@@ -384,7 +384,32 @@
       "implementation_notes": [
         "Realer oeffentlicher Start/Login, TaskQueueService, SQL-Task-Persistenz, Assignment, Worker-Autorisierung und Native-Resultatannahme in isolierten Containern gruen. User-Tasks erfordern signierte Hub-Policyentscheidungen; fehlende Auto-Policy liefert bounded blocked.",
         "Tool-/Artefakt-Scope und endliche Verbrauchswerte werden vor Annahme geprueft; auch fehlgeschlagene Arbeit verbraucht das Run-Budget. Fenced Queue-Erstellung und Resultatquittierung sowie Abbruch-Recovery ohne erneute Delegation integriert.",
-        "Offen: generischer Result-Ingress schreibt derzeit Worker-Felder auf den Task, bevor Native Attempt/Fence prueft. Artefakt-Transfer/Hub-Receipts fehlen; entsprechende BPMN-Plaene werden vor Start explizit gesperrt. Vollstaendiges Claim/Grant/Cancel/Seiteneffekt-Fencing bleibt eigener Sicherheitsabschluss."
+        "2026-10-10: Generischer Native-Result-Ingress prueft den originalen Worker-Umschlag vor Projektion/Artefaktnormalisierung und validiert Resultat, Assignment, registrierten Worker, Ownership-Lease und Grant in der Task-save/CAS-Transaktion. Hub-eigene technische Result-Receipts sind unveraenderlich und beim Native-Polling Pflicht; Pi behält seinen strengeren Providervertrag. Offen: positiver Artefakt-Transfer mit Hub-Receipts und die echte Full-App-/Dispatch-Abnahme.",
+        "2026-10-11: Positiver Artefakt-Transfer jetzt über getrennte Hub-/Worker-Container und produktive authentifizierte Native-Ingress-/Input-Routen nachgewiesen. LocalNativeArtifactWriter/Reader und NativeArtifactPublisher übertragen echte synthetische Bytes; Hub prüft aktuelle Assignment/Lease/Output/Hash-Bindung und persistiert das technische Receipt vor Task-Abschluss. Private Workflow-Signierkonfiguration wird nur im Hub-Tmpfs über den produktiven Lookup geladen. Full-App-/Autopilot-Dispatch-Abnahme bleibt offen.",
+        "2026-10-11: Separates --full-app-Gate startet create_app(testing=False), prüft SQL-Hub-Memory-Composition, reale Health/Login-Routen und unveränderte Auth-Grenzen ohne unautorisierte Task-Anlage. ROLE-/Native-/api-Composition korrigiert; vollständiger Bootstrap und ausgewählte Artefakt-Handoff/Denial-Regression bestehen mit Cleanup. Positiver Autopilot-/Outbox-/Containerverlust-Pfad bleibt offen.",
+        "2026-10-11: Realer Full-App-Container mit Worker-Neuerstellung prueft injizierten Lease-Ablauf: altes Ergebnis abgewiesen, signierter Cancel von Transport-Review erfolgreich, Retry ohne Hub-Policy gesperrt. Exakte bounded Hub-Policy erlaubt neuen Task/Attempt mit hoeherer Fence und Workflow-Abschluss. Normale Redelivery bleibt geprueft; 996 breite Tests bestanden. Retention/Tool-Isolation, PostgreSQL und produktive Release-Abnahme bleiben offen.",
+        "2026-10-11: Worker-Result-Retention bereinigt ungelesene abgelaufene Payloads beim Oeffnen und vor Storage-Operationen in bounded Batches; endlicher headless CLI fuer Idle-Stores. Replay-Tombstones, Quota und Publication-Fences bleiben erhalten; Live-Ergebnisse unveraendert. 1009 breite Tests, 31 abschliessende gezielte Tests und isolierter Container-Storage-Check bestanden; reale Worker-Neuerstellung/Redelivery weiterhin erfolgreich. Idle-Wartungstakt, Tool-Isolation unter gleicher UID, Tombstone-Retirement und produktive Abnahme bleiben offen.",
+        "2026-10-11: Gemeinsamer Worker-Shell-Port mit konfiguriertem privatem Result-Store nutzt verpflichtenden Landlock-/Seccomp-Launcher, gepinnten Workspace-FD und begrenzte Umgebung. Keine ungesicherte Ausfuehrung bei fehlendem Kernel/Profil. Full-App-Hub/Worker-Gate beweist erlaubten Workspace und gesperrten SQLite-Read/Write/Truncate/Chmod bei gleicher UID, echte Result-/Artefaktannahme und completed. 1145 breite Tests, 56 Abschlusschecks bestanden. Andere Provider-/Tool-Ports, aarch64-Ausfuehrung, Netzwerk/Deployment und Release-Abnahme bleiben offen.",
+        "2026-10-12: Exact registered Worker/private-store owner binding implemented end to end. Typed opt-in profile and registration retain an opaque deployment binding; actual SQL active parent/project and strict live registered owner are checked before queue ingestion, child recipient is pinned, Autopilot never substitutes another store, dispatch reloads current registry, independent signer/consumer recipient checks and Worker pre-open store-binding/cache checks deny drift. Focused 126PASS8.63s; final owner cases26PASS4.04s; broad BPMN/Autopilot/profile/Pi/adapter/startup1111PASS9explicitPGskip1deselected4existingwarnings81.13s. Actual SQL, signed HTTP/private SQLite and scoped expiry use synthetic fixtures, not release evidence. Automatic Hub cadence, authority-bound tombstone retirement and full reference/container/PG acceptance remain open. Report artifacts/test-gates/bpmn-result-store-owner-binding.v1.json.",
+        "2026-10-12: Durable automatic Hub private-result maintenance cadence implemented. Explicit default-off Hub preauthorization binds active SQL control Task/project and exact registered Worker/store; shared fast Hub reconciler performs finite low-priority batches. SQL reservation/outbox survives restart and unknown outcomes; global pending capacity64, interval600..86400, batch1..1000. Signed generic Hub Run lease, initial checkpoint before queue effects and120sdeadline with queued-task cancellation added without fabricating BPMN metadata. Same-transaction fenced before-start retirement plus current-reservation delegation gate deny stale resurrection. Full existing runtime health/budget/locality/rollout/release selection and mandatory human-tool policy remain enforced. Actual SQL queue/grants/assignment, independent Ed25519 HTTP, scoped private SQLite expiry, actual Hub terminal receipt, crash-after-Task recovery and policy cancellation verified with synthetic policy fixtures. Broad1236PASS11explicitPGskip1deselected4existingwarnings83.06s; owned PostgreSQL all11PASS27.89s including2new cadence/control cases, container/network absent after cleanup; final98policy/cadence casesPASS8.57s. No deployment or production evidence. Authority-bound tombstone retirement and full compiled reference/container/PostgreSQL matrix remain open. Report artifacts/test-gates/bpmn-native-maintenance-cadence.v1.json.",
+        "2026-10-12: Replay-preserving result-compaction foundation implemented. Worker SQLite trades only expired tenant/project/exact-binding slots for permanent minimal denial markers under closed Ed25519 permits; quota and replay denial survive restart/concurrency, marker exhaustion rolls back, expiry rechecked after write-lock wait. Shared private-result hashing preserves legacy ASCII JSON including Unicode inputs. Actual Hub SQL historical admission verifies accepted immutable dispatch and terminal Native/Pi receipt, exact registered store and stronger capability, expired canonical grant and congruent SQL/JSON execution lease; unknown/mutated/active facts deny. Existing expiry handler rejects uncomposed retirement; capability is not advertised. Broad1797PASS23explicitSKIP1deselected143.36s; final115focusedPASS9.96s. Technical/synthetic only, no production evidence/deployment. Remaining productive Hub issuer/current authority, bounded candidate scan, Worker composition, durable compaction acknowledgements and cadence restart/revocation reconciliation; full BPMN reference/container/PG acceptance also remains. Report artifacts/test-gates/bpmn-result-retirement-foundation.v1.json.",
+        "2026-10-12: Owner-bound extra maintenance capacity implemented and verified. Normal capacity is used first; a globally bounded per-store reserve64 (strict0..1000) admits only maintenance/project/exact installed store owner when full. Classification and reservation are atomic and survive restart; expiry preserves quota and replay, signed Hub compaction recycles quota while keeping permanent denial markers. Store identity now persists in SQLite; changed identity after restart denied before expiry/result changes, concurrent first bind admits one owner. Productive maintenance HTTP performs current Hub admission before store resolution/reservation via a separate narrow Worker port, with unchanged consumer consume/supports interface and execution-time authorization. Actual SQL queue/grants/assignment, independent Ed25519 Worker HTTP and Hub receipt complete with full ordinary capacity. Actual SQL grant revocation denies a still-valid signed transport before consuming reserve or scrubbing content. Broad1725PASS22explicitSKIP1deselected4existingwarnings117.08s; final55focusedPASS6.48s, earlier120PASS7.96s. Source/legacy-memory/CLI/Ruff gates PASS. No deployment/production evidence; retirement issuer, candidate/ack journal, explicit retirement handler and cadence reconciliation remain open. Report artifacts/test-gates/bpmn-maintenance-capacity.v1.json.",
+        "2026-10-12: Productive-source retirement pipeline implemented behind explicit default-off Hub/Worker opt-in. Current Hub policy/project/control/cadence/assignment/grant/lease guard signed manifest issuance, bounded scoped cursor and same-transaction Task/manifest persistence; post-dispatch issuance denied. Actual Autopilot signs reloaded immutable projection, Worker validates permit and pre/post authority, preserves permanent replay markers, and Hub confirms only admitted completed receipt under exact accepted dispatch/output bindings. Finite existing Hub tick reconciles acknowledgements after restart; malformed journal blocks without false markers. Higher canonical superseding fence uses original Hub-issued immutable history revision from actual receipt and expired original grant; missing/mutated history denied. Max128retired entries/200-byteTask IDs preserve transport bounds, expiry1000 unchanged; PG ceilings preserve stricter existing settings. Broad1737PASS24explicitSKIP1deselected4existingwarnings132.26s; final115focusedPASS17.04s; ownedPG13PASS33.51s with2new cursor concurrency/rollback cases, owned container/network cleaned. No deployment/production evidence. Full compiled reference/container/PostgreSQL and productive packaging/provider/registration/rollout/release acceptance remain; additional transport/deployment-fault/concurrency coverage continues. Report artifacts/test-gates/bpmn-result-retirement-pipeline.v1.json.",
+        "2026-10-12: Full application Native reference matrix expanded and locally accepted: real create_app(testing=False), login/autopilot HTTP, actual SQL queue/registry/assignment/grants/journal/receipt, independent Worker container. All13references PASS96.42s: service/artifacts, XORtrue/false/default, loop1/2/3, subprocess, approve/reject/blocked(noTasks), timer/message(exactlyoneconsume), ANDpending-sibling plus actual timestamps/event order. Existing focused shell-isolation scope unchanged. Actualcurrent core/browser all22PASS68.71s including authenticated Chromium editor and SQL recomposition. Runner safety20PASS2.83s. Owned containers/network/volume cleanup verified, no deployment/production evidence. Full PostgreSQL/fault matrix, pre-reserved synthetic Registry runs for complete chain and optional/productive admission remain; tasks stay partial. Report artifacts/test-gates/bpmn-full-app-reference-matrix.v1.json.",
+        "2026-10-12: Actual Hub Evidence Registry integrated into full-app references. Actual SQL control Tasks/projects and current Worker assignment/grant/lease guard same-transaction synthetic immutable input SRC admission, pre-execution test RUN reservation and closed Task projection; Registry alone mints IDs. Separate Worker validates/returns exact projection; Hub admitted Native receipt and result digest complete/verify registered run/assignment/lease. Actual timestamp order verified and all16testRuns explicitly denied production release. Host binds actualHEAD/selected dirty-source hash and rejects source changes. Optional generic native preparation hook preserves default paths; failure/rewritten command blocks before journal/send. All13fullApp references/16uniqueRUNsPASS112.34s, owned cleanup verified. Broad1795PASS24skip1deselected4existingwarnings129.74s;80focusedPASS12.27s; final33runner/dispatchPASS4.93s. No deployment/production evidence. Controller-only/event/browser Registry identities, full PG/fault and optional/productive admission remain. Report artifacts/test-gates/bpmn-full-app-registry-runs.v1.json.",
+        "2026-10-12: Owned full-application PostgreSQL reference gate implemented and accepted with separate Hub/Worker/database containers: all13references,16unique pre-execution Registry test RUNs,55.42s. Actual Worker recreation/redelivery43.96s and expired-lease exact-policy fresh retry43.69s PASS; exact owned cleanup verified for each. Worker remains on private SQLite, owned PG image digest/internal network/no host ports; strict transport guard denies Worker/shared/foreign DB opt-in.25 runner/isolation cases PASS3.57s. No productive provider, deployment or release evidence; controller/event/browser Registry and complete UI command coverage remain open. Report artifacts/test-gates/bpmn-postgres-full-app.v1.json.",
+        "2026-10-12: Actual signed Hub control-lease decorator now reserves Registry test RUN before start/advance/resume, including reject/blocked/timer/message cases. Inputs bind plan/data/parallel limits and full signed control command; result binds actual verified signed workflow checkpoint and unchanged SQL Task tenant/project. Registry failure stops before action and rolls back source/run; modified input/command/scope cannot complete original RUN. Final full13reference gates PASS: PostgreSQL 132control +16Worker RUNs/51.75s; SQLite 123control +16Worker RUNs/116.4s; all test scope before execution, production denied, owned cleanup verified.1145broad PASS13skip1deselected91.16s; final263PASS14.21s. Fault-mode/browser Registry and full UI/CaseFlow/optional/productive acceptance remain open. Report artifacts/test-gates/bpmn-hub-control-registry.v1.json.",
+        "2026-10-12: Registry lifecycle now covers real Worker-loss/recreation/redelivery and expired-lease exact-policy retry. Actual SQL control Task/project created before Hub lease execution; both original/fresh Worker assignments receive pre-dispatch Registry reservations. Unknown original results stay reserved/unverified; actual admitted redelivery completes same RUN; expired original stays uncompleted and fresh higher-fenced attempt uses distinct RUN. Refused control invocation is observed reserved, never labeled succeeded. Both PG gates PASS40.04/40.51s and SQLite gates PASS40.39/42.28s; actual Worker recreation and owned cleanup verified. Gate exposed productive state-machine bug: pre-execution refusal could not persist todo->waiting_for_review; canonical request_review table now includes safe pre-execution states, with no force/execution fabrication/terminal reopening. Removed duplicate review special case and incorrect fixture control-as-dependency link.52focused PASS9.77s; broad1863PASS13explicitPGskip58deselected186.15s. Browser Registry, full authenticated UI recovery/commands/CaseFlow and optional/productive acceptance remain open. Report artifacts/test-gates/bpmn-registry-fault-recovery.v1.json."
+      ],
+      "notes": [
+        "2026-10-11: Positiver --full-app-autopilot-Lauf mit create_app(testing=False), echtem authentifiziertem Autopilot-Tick und getrenntem Worker bestanden: Native-Einzelknoten sowie Producer/Consumer mit produktivem Artefakt-Ingress und Hub-Receipt. Geschlossene Ed25519-Projektion bindet Empfänger und Ablaufzeit; keine generische LLM-Proposal-/Hub-Ausführung. 34.26 s mit vollständigem Cleanup; 989 Regressionstests und separate 22/22 Container-/Chromium-Fälle bestanden. Synthetische Admission/Handler, keine produktive Release-Evidence. Outbox/echter Containerverlust/PostgreSQL/Packaging bleiben offen.",
+        "2026-10-11: Dauerhaftes Hub-Dispatch-Journal vor Worker-HTTP integriert. Unique Tenant/Task-Slot und CAS-Claim verhindern Doppelversand auch nach Prozess-Neuaufbau/Status-Reset; unbekannte Outcomes bleiben blockiert. Begrenzte headless Hub-Reconciliation schließt nur aus persistierten, command-/worker-/assignment-gebundenen Receipts. 994 breite Regressionstests bestanden; vollständiger Full-App-Native-/Artefakt-Containerlauf prüft accepted-Journale mit Cleanup. Noch keine reale Mid-Execution-Containerverlust-/Worker-Result-Redelivery-Abnahme; BPMNX-007/014/015 bleiben partial.",
+        "2026-10-11: Reale Worker-Containerverlust-Abnahme nach Native-Ausführung vor HTTP-Ergebnisantwort bestanden (--full-app-worker-loss, 28.98 s, vollständiges Cleanup). Host prüft Worker-exited/73 und erfolgreichen Hub-Exit. Hub bleibt für Folgeticks aktiv: unknown-Journal unverändert, Status-Reset verhindert keinen Journal-Fence, kein zweiter Versand/Receipt, headless Reconciliation unresolved, Workflow nicht fälschlich completed. Normaler Full-App-Native-/Artefaktlauf besteht separat in 35.42 s; 35 gezielte Regressionstests bestanden. Synthetische Graph-/Handler-Fixtures. Worker-Result-Redelivery, Scheduler-Anbindung und vollständiger Wiederanlauf bleiben offen; partial-Status bleibt erhalten.",
+        "2026-10-11: Worker-lokaler dauerhafter Native-Ergebnisspeicher und signierter Abruf ohne Ausführung implementiert. Produktiver Worker-Port benötigt explizite private ANANTA_NATIVE_RESULT_STORE_PATH-Konfiguration. Hub-Recovery nimmt nur transport-blockierte Review-Tasks unter exaktem ursprünglichem Journal und aktueller Lease/Assignment/Grant/Registrierung auf; manuelle Reviews/Pi werden nicht pauschal freigegeben. SQLite-Neuöffnung + signierter Worker-HTTP-Abruf + tatsächliche SQL-Admission geprüft, stale/revoked Autorität abgewiesen. 1042 Regressionstests und 69 fokussierte Prüfungen bestanden; normale Full-App-/Artefakt-Publication und reale Verlust-Containment-Container bestehen mit Cleanup. Vollständige Container-Neuerstellung mit Ergebnis-Redelivery, Scheduler, Retention-Isolation/PostgreSQL/Packaging bleiben offen; partial unverändert.",
+        "2026-10-11: Vollständige --full-app-worker-redelivery-Abnahme besteht: Resultat im Worker-eigenen Docker-Datenvolume vor Prozess-Exit 73 gespeichert, Host bestätigt Ausfall und andere Containeridentität, signierter Abruf übernimmt Originalresultat ohne Wieder-Ausführung. Produktive Hub-Forwarding-/SQL-Admission schließt Task, ursprüngliches Journal und Workflow. 34.19 s, vollständiges Container/Netzwerk/Volume-Cleanup; normale Native-/Artefakt-Regression separat 35.52 s; 45 fokussierte Tests bestanden. Privilegierter Test-Bootstrap ist netzlos/CHOWN-only und setzt nur neue Worker-Volume-Rechte; Worker bleibt UID 65534. Synthetische Admission/Handler, keine Release-Evidence. Scheduler, Lease-Expiry-/Neuversuchs-Policy, Retention/Tool-Isolation, PostgreSQL/Packaging bleiben offen.",
+        "2026-10-11: Begrenzte opt-in Hub-Scheduler-Reconciliation integriert, ohne neuen Loop/Worker-Auftrag. Ein aktueller tenant/task-/Goal-/Team-gebundener Transport-Review-Kandidat pro Tick; bestehender Tick-Zähler rotiert Kandidaten. Worker-Rolle, Stop, deaktivierte Policy und manuelle Reviews konstruieren keine Recovery-Ports. Vollständige Worker-Neuerstellung/Nachlieferung erfolgt jetzt über authentifizierten Autopilot-HTTP-Tick, schließt Task/Journal/Workflow ohne weiteren Dispatch (37.92 s, Cleanup). 1037 breite Tests und 34 gezielte Prüfungen bestanden. Default off, ausdrückliche Hub-Policy nötig; Lease-Expiry-/Neuversuchs-Policy, Retention/Tool-Isolation, PostgreSQL/Packaging weiterhin offen.",
+        "2026-10-12: Owned nonroot read-only PostgreSQL container concurrency gate added. Six actual cases PASS16.75s: one durable send; exact concurrent receipt replay; contradictory result rejection; actual authority-row lock timeout55P03 and stale admission after superseding lease; accepted journal sticky across unknown settlement; caller rollback. Separate PostgreSQL-backed Hub mutation-lock instances avoid shared Python serialization. Full SQL metadata schema initialized per isolated case; schemas/container/network cleaned. Default six cases skip without explicit owned fixture; JUnit requires six executed/no skips for gate success. Ruff/diff/TodoPASS. No production source or serving DB changed. Report artifacts/test-gates/bpmn-postgres-native-concurrency.v1.json. Remaining PostgreSQL full BPMN waits/control/reference matrix, idle maintenance cadence, authority-bound tombstone retirement and productive packaging/release acceptance; task stays partial.",
+        "2026-10-12: Delegated native_result_maintenance implemented behind default-off strict Worker profile. Actual signed Worker HTTP plus SQLite prove tenant/project-only expiry, unchanged foreign payloads, preserved replay tombstones and no second execution. Productive Hub queue composition validates actual SQL active control Task/project before ingestion; duplicate scope drift denied. 37 focused cases PASS4.86s; broad BPMN/Pi/adapter/security/startup regression 1661PASS11skip1deselected116.30s. Independent owned PostgreSQL gate now 9PASS22.04s, adding timer cancel/consume, duplicate message/receipt and stale signed control-lease races; component scope only. Disposable fixture first exhausted256MiB tmpfs; own512MiB and bounded WAL corrected, serving DB unchanged. Memory inventory registers actual Pi dispatch evidence SQL and Meet task CUDA scratch components; memory/legacy/CLI source gates and Ruff PASS. Reports artifacts/test-gates/bpmn-postgres-event-waits.v1.json and bpmn-delegated-result-maintenance.v1.json. Automatic Hub cadence/exact Worker-store destination binding, full compiled PostgreSQL/reference matrix, full productive container admission and authority-bound tombstone retirement remain open; task stays partial."
       ]
     },
     {
@@ -561,7 +586,13 @@
       "implementation_notes": [
         "Geschlossene Hub-Status-/Eventprojektion zeigt Task, Originalelement, quellengebundene Aktivierung/Iteration, Definition, Plan und Revision. Provenienz stammt aus dem unveraenderlichen Hub-Plan, nicht aus Worker-Behauptungen; kein Variablen-/Nachrichten-/Tool-Payloaddump.",
         "Ausgewaehlte Kanten und Statusmarker sind definitionsgebunden; Snapshot-Doppelabfrage verwirft konkurrierende Revisionen. Resume/Retry/Cancel behalten authentifizierte Run-/Plan-/Checkpoint-/Revisionsbindung und sind nur nach Hub-Hinweisen bedienbar.",
-        "Offen: vollstaendige CaseFlow-Trace-Komposition fuer expandierte Originalkanten und eine echte Browser-Recovery/Command-Matrix fuer alle Erweiterungen. Der schmale Container-Hub meldet fuer CaseFlow-Trace weiterhin unavailable; die UI erfindet daraus keinen Nachweis."
+        "Offen: vollstaendige CaseFlow-Trace-Komposition fuer expandierte Originalkanten und eine echte Browser-Recovery/Command-Matrix fuer alle Erweiterungen. Der schmale Container-Hub meldet fuer CaseFlow-Trace weiterhin unavailable; die UI erfindet daraus keinen Nachweis.",
+        "2026-10-12: Full application Native reference matrix expanded and locally accepted: real create_app(testing=False), login/autopilot HTTP, actual SQL queue/registry/assignment/grants/journal/receipt, independent Worker container. All13references PASS96.42s: service/artifacts, XORtrue/false/default, loop1/2/3, subprocess, approve/reject/blocked(noTasks), timer/message(exactlyoneconsume), ANDpending-sibling plus actual timestamps/event order. Existing focused shell-isolation scope unchanged. Actualcurrent core/browser all22PASS68.71s including authenticated Chromium editor and SQL recomposition. Runner safety20PASS2.83s. Owned containers/network/volume cleanup verified, no deployment/production evidence. Full PostgreSQL/fault matrix, pre-reserved synthetic Registry runs for complete chain and optional/productive admission remain; tasks stay partial. Report artifacts/test-gates/bpmn-full-app-reference-matrix.v1.json.",
+        "2026-10-12: Additive owner-only persisted BPMN definition endpoint and real editor Lauf wieder laden implemented. Exact raw-source SHA plus original canonical plan/policy binding; public workflow aliases preserve distinct admitted definition identity. Read authorization requires no live runtime query or new execution. Browser validates typed IDs/hashes/byte quota/WebCrypto and ignores stale edited drafts; current status must match snapshot run/plan/definition. Real Chromium full page reload + second login restores edited source and completed state, exactly1start/2Worker tasks, all22container cases PASS67.55s with owned cleanup.1192backend PASS13skip1deselected93.11s;41focusedPASS5.56s;67frontendPASS3.27s; changed dependency closure TypeScript PASS using existing ambient declarations. Full-app TypeScript blocked by missing cached ECharts/Game-Core dependencies. Existing route retry fixture now explicitly ROLEhub, matching actual mandatory Hub policy context; policy not bypassed. Browser Registry, full UI command/recovery/CaseFlow matrix and optional/productive admission remain open. Report artifacts/test-gates/bpmn-definition-browser-recovery.v1.json.",
+        "2026-10-13: Source-bound CaseFlow edge lineage implemented. Regenerated immutable admitted XML/plan binds expanded edge IDs to original elements, directions, scope/iteration and activation counts; catalog cannot rebind a valid predecessor. No Worker/event assertion supplies lineage, absent events stay unverified. UI retains each activation row and suppresses incomplete/mixed collapsed edge markers and contradictory activity colours.36focusedPASS3.72s; broad1187PASS13skip1deselected91.76s;69frontendPASS3.21s;22actualcontainer/browserPASS68.64s with cleanup; changed TypeScript closurePASS. Complete canonical traversal/correlation, browser Registry and full UI command recovery remain open. Report artifacts/test-gates/bpmn-caseflow-source-provenance.v1.json.",
+        "2026-10-13: Canonical Hub edge observations now emitted through existing fenced event port: selected/skipped/blocked and actual completed/failed target states. CaseFlow validates canonical Hub actor/schema/full run-plan-definition-direction binding and strict attempts; both real XOR outputs project fully verified traces. Observed replay fix uses exact existing dedupe port after normal fenced conflict, retaining first timestamp, rejecting changed intent/stale lease and not rebasing another control transition. Final PG full13references checks130edge observations and all actual edges of completed references PASS54.52s; core/browser22PASS113.97s with cleanup.1209broadPASS13skip1deselected94.52s;120focusedPASS18.19s;70frontendPASS3.51s;changedTypeScriptPASS. Recovery assertion now specifically counts the canonical gateway choice alongside additive edge events. Cancel edge settlement, full UI command matrix, browser Registry and optional/productive acceptance remain open. Report artifacts/test-gates/bpmn-canonical-edge-events.v1.json.",
+        "2026-10-13: Cancel-Kantenabschluss, korrekte Cancel-Schritte und Pause im authentifizierten Editor implementiert. Echter Browserpfad deckt Pause -> kompletter Reload/Login -> Recovery -> Resume -> Cancel mit null Timer-Folgeaufgaben ab. Dabei fehlende Projektbindung im Preflight und oeffentliche Kompatibilitaets-Checkpoint-Referenzen als echte Integrationsluecken behoben: gemeinsamer Start-Scope-Guard, explizite Projektbindung, geschlossenes command_binding mit signiertem Native-Checkpoint, gebundene Receipt-Beobachtung, verifiziertes No-op-Checkpoint-Reuse und begrenzte unveraenderte Admission-Retries. Positive Service-/Approval-Retry-Recovery und Browser-Registry bleiben offen. Bericht: artifacts/test-gates/bpmn-pause-cancel-command-recovery.v1.json. Kein Deploy und keine Produktions-Release-Evidence.",
+        "2026-10-13: Positive authentifizierte Approval-Retry-Recovery mit Cancel -> kompletter Reload/Login -> Retry -> erneuter Reload lokal abgenommen. Persistenter Hub-Kanten-Epoch und pending-Ereignisse entfernen alte Cancel-Markierungen, ohne Ergebnisse/Skips oder Definition/Planrevision umzuschreiben. Offene Gates stellen den wartenden/pausierten Laufstatus wieder her, ohne Freigabe zu erteilen. SQL-Crash-/Replay-Tests und erhaltener Service-Abschluss ohne Wiederholung; fokussierter Chromium-Lauf beweist einen Retry und null unfreigegebene Worker-Aufgaben. 1394 breite Backend- und 77 Frontend-Tests bestanden. Bericht: artifacts/test-gates/bpmn-retry-edge-recovery.v1.json. Browser-Registry und produktive Freigabe bleiben offen."
       ]
     },
     {
@@ -597,7 +628,39 @@
       "implementation_notes": [
         "21/21 getrennte Hub-/Worker-/Chromium-Containerfaelle gruen: XOR/Default, AND-Barriere, erlaubte/verweigerte/fehlende Freigabe, Schleife, Timer, Nachricht, Unterprozess, SQL-Neuaufbau, oeffentlicher Start/Replay, echte Anmeldung und Editorabschluss.",
         "71 Frontend-Unit-Tests, acht Browserfaelle mit API-Doubles und sieben Runner-Cleanup-/Timeouttests gruen. Ein ausgewaehlter Container-Teiltest wird im Bericht ausdruecklich als partial markiert; volle Abnahme nutzte keine Auswahl.",
-        "Offen: positive Artefakterzeugung mit Hub-Ingress/Receipt sowie Full-App-/Autopilot-Dispatch-/Containerverlust- und Packaging-Abnahme. Artefaktfall ist ein negativer Zero-Task-Test; kein gruener Ersatz fuer fehlenden Transfer."
+        "Offen: positive Artefakterzeugung mit Hub-Ingress/Receipt sowie Full-App-/Autopilot-Dispatch-/Containerverlust- und Packaging-Abnahme. Artefaktfall ist ein negativer Zero-Task-Test; kein gruener Ersatz fuer fehlenden Transfer.",
+        "2026-10-10: Kompilierter XML-BPMN-Artefaktlauf mit gefenceter SQL-Task-Erzeugung, echten policy-geprueften Producer-/Consumer-Befehlen, getrennter Worker-Artefaktpersistenz und Hub-Ingress/Result-Receipts erreicht completed nach Hub-Neuaufbau zwischen Tasks. Dispatch/Transportidentitaet in diesem lokalen Integrationstest synthetisch; TCP-/Container-/Full-App-/Autopilot-Abnahme weiterhin offen. Dieser Stand ersetzt die fruehere pauschal negative Artefaktsperre.",
+        "2026-10-11: Vollständige Container-/Chromium-Matrix ohne Case-Auswahl: 22/22 bestanden in 67.00 s, vollständiges Projekt-Cleanup. Neuer Producer→Hub-Receipt→Consumer-Byte-Handoff geprüft; manipulierte unaufgenommene Referenz nach echtem Worker-HTTP-Lauf bleibt vor Task-Persistenz abgewiesen. 57 gezielte Compiler-/Artefakt-/HTTP-/Ingress-/Runner-Tests bestanden in 10.14 s. Keine Full-App-/Autopilot-/Containerverlust-/Packaging- oder Produktions-Evidence-Abnahme behauptet.",
+        "2026-10-11: Separates --full-app-Gate startet create_app(testing=False), prüft SQL-Hub-Memory-Composition, reale Health/Login-Routen und unveränderte Auth-Grenzen ohne unautorisierte Task-Anlage. ROLE-/Native-/api-Composition korrigiert; vollständiger Bootstrap und ausgewählte Artefakt-Handoff/Denial-Regression bestehen mit Cleanup. Positiver Autopilot-/Outbox-/Containerverlust-Pfad bleibt offen.",
+        "2026-10-11: Realer Full-App-Container mit Worker-Neuerstellung prueft injizierten Lease-Ablauf: altes Ergebnis abgewiesen, signierter Cancel von Transport-Review erfolgreich, Retry ohne Hub-Policy gesperrt. Exakte bounded Hub-Policy erlaubt neuen Task/Attempt mit hoeherer Fence und Workflow-Abschluss. Normale Redelivery bleibt geprueft; 996 breite Tests bestanden. Retention/Tool-Isolation, PostgreSQL und produktive Release-Abnahme bleiben offen.",
+        "2026-10-11: Worker-Result-Retention bereinigt ungelesene abgelaufene Payloads beim Oeffnen und vor Storage-Operationen in bounded Batches; endlicher headless CLI fuer Idle-Stores. Replay-Tombstones, Quota und Publication-Fences bleiben erhalten; Live-Ergebnisse unveraendert. 1009 breite Tests, 31 abschliessende gezielte Tests und isolierter Container-Storage-Check bestanden; reale Worker-Neuerstellung/Redelivery weiterhin erfolgreich. Idle-Wartungstakt, Tool-Isolation unter gleicher UID, Tombstone-Retirement und produktive Abnahme bleiben offen.",
+        "2026-10-11: Gemeinsamer Worker-Shell-Port mit konfiguriertem privatem Result-Store nutzt verpflichtenden Landlock-/Seccomp-Launcher, gepinnten Workspace-FD und begrenzte Umgebung. Keine ungesicherte Ausfuehrung bei fehlendem Kernel/Profil. Full-App-Hub/Worker-Gate beweist erlaubten Workspace und gesperrten SQLite-Read/Write/Truncate/Chmod bei gleicher UID, echte Result-/Artefaktannahme und completed. 1145 breite Tests, 56 Abschlusschecks bestanden. Andere Provider-/Tool-Ports, aarch64-Ausfuehrung, Netzwerk/Deployment und Release-Abnahme bleiben offen.",
+        "2026-10-12: Exact registered Worker/private-store owner binding implemented end to end. Typed opt-in profile and registration retain an opaque deployment binding; actual SQL active parent/project and strict live registered owner are checked before queue ingestion, child recipient is pinned, Autopilot never substitutes another store, dispatch reloads current registry, independent signer/consumer recipient checks and Worker pre-open store-binding/cache checks deny drift. Focused 126PASS8.63s; final owner cases26PASS4.04s; broad BPMN/Autopilot/profile/Pi/adapter/startup1111PASS9explicitPGskip1deselected4existingwarnings81.13s. Actual SQL, signed HTTP/private SQLite and scoped expiry use synthetic fixtures, not release evidence. Automatic Hub cadence, authority-bound tombstone retirement and full reference/container/PG acceptance remain open. Report artifacts/test-gates/bpmn-result-store-owner-binding.v1.json.",
+        "2026-10-12: Durable automatic Hub private-result maintenance cadence implemented. Explicit default-off Hub preauthorization binds active SQL control Task/project and exact registered Worker/store; shared fast Hub reconciler performs finite low-priority batches. SQL reservation/outbox survives restart and unknown outcomes; global pending capacity64, interval600..86400, batch1..1000. Signed generic Hub Run lease, initial checkpoint before queue effects and120sdeadline with queued-task cancellation added without fabricating BPMN metadata. Same-transaction fenced before-start retirement plus current-reservation delegation gate deny stale resurrection. Full existing runtime health/budget/locality/rollout/release selection and mandatory human-tool policy remain enforced. Actual SQL queue/grants/assignment, independent Ed25519 HTTP, scoped private SQLite expiry, actual Hub terminal receipt, crash-after-Task recovery and policy cancellation verified with synthetic policy fixtures. Broad1236PASS11explicitPGskip1deselected4existingwarnings83.06s; owned PostgreSQL all11PASS27.89s including2new cadence/control cases, container/network absent after cleanup; final98policy/cadence casesPASS8.57s. No deployment or production evidence. Authority-bound tombstone retirement and full compiled reference/container/PostgreSQL matrix remain open. Report artifacts/test-gates/bpmn-native-maintenance-cadence.v1.json.",
+        "2026-10-12: Replay-preserving result-compaction foundation implemented. Worker SQLite trades only expired tenant/project/exact-binding slots for permanent minimal denial markers under closed Ed25519 permits; quota and replay denial survive restart/concurrency, marker exhaustion rolls back, expiry rechecked after write-lock wait. Shared private-result hashing preserves legacy ASCII JSON including Unicode inputs. Actual Hub SQL historical admission verifies accepted immutable dispatch and terminal Native/Pi receipt, exact registered store and stronger capability, expired canonical grant and congruent SQL/JSON execution lease; unknown/mutated/active facts deny. Existing expiry handler rejects uncomposed retirement; capability is not advertised. Broad1797PASS23explicitSKIP1deselected143.36s; final115focusedPASS9.96s. Technical/synthetic only, no production evidence/deployment. Remaining productive Hub issuer/current authority, bounded candidate scan, Worker composition, durable compaction acknowledgements and cadence restart/revocation reconciliation; full BPMN reference/container/PG acceptance also remains. Report artifacts/test-gates/bpmn-result-retirement-foundation.v1.json.",
+        "2026-10-12: Owner-bound extra maintenance capacity implemented and verified. Normal capacity is used first; a globally bounded per-store reserve64 (strict0..1000) admits only maintenance/project/exact installed store owner when full. Classification and reservation are atomic and survive restart; expiry preserves quota and replay, signed Hub compaction recycles quota while keeping permanent denial markers. Store identity now persists in SQLite; changed identity after restart denied before expiry/result changes, concurrent first bind admits one owner. Productive maintenance HTTP performs current Hub admission before store resolution/reservation via a separate narrow Worker port, with unchanged consumer consume/supports interface and execution-time authorization. Actual SQL queue/grants/assignment, independent Ed25519 Worker HTTP and Hub receipt complete with full ordinary capacity. Actual SQL grant revocation denies a still-valid signed transport before consuming reserve or scrubbing content. Broad1725PASS22explicitSKIP1deselected4existingwarnings117.08s; final55focusedPASS6.48s, earlier120PASS7.96s. Source/legacy-memory/CLI/Ruff gates PASS. No deployment/production evidence; retirement issuer, candidate/ack journal, explicit retirement handler and cadence reconciliation remain open. Report artifacts/test-gates/bpmn-maintenance-capacity.v1.json.",
+        "2026-10-12: Productive-source retirement pipeline implemented behind explicit default-off Hub/Worker opt-in. Current Hub policy/project/control/cadence/assignment/grant/lease guard signed manifest issuance, bounded scoped cursor and same-transaction Task/manifest persistence; post-dispatch issuance denied. Actual Autopilot signs reloaded immutable projection, Worker validates permit and pre/post authority, preserves permanent replay markers, and Hub confirms only admitted completed receipt under exact accepted dispatch/output bindings. Finite existing Hub tick reconciles acknowledgements after restart; malformed journal blocks without false markers. Higher canonical superseding fence uses original Hub-issued immutable history revision from actual receipt and expired original grant; missing/mutated history denied. Max128retired entries/200-byteTask IDs preserve transport bounds, expiry1000 unchanged; PG ceilings preserve stricter existing settings. Broad1737PASS24explicitSKIP1deselected4existingwarnings132.26s; final115focusedPASS17.04s; ownedPG13PASS33.51s with2new cursor concurrency/rollback cases, owned container/network cleaned. No deployment/production evidence. Full compiled reference/container/PostgreSQL and productive packaging/provider/registration/rollout/release acceptance remain; additional transport/deployment-fault/concurrency coverage continues. Report artifacts/test-gates/bpmn-result-retirement-pipeline.v1.json.",
+        "2026-10-12: Full application Native reference matrix expanded and locally accepted: real create_app(testing=False), login/autopilot HTTP, actual SQL queue/registry/assignment/grants/journal/receipt, independent Worker container. All13references PASS96.42s: service/artifacts, XORtrue/false/default, loop1/2/3, subprocess, approve/reject/blocked(noTasks), timer/message(exactlyoneconsume), ANDpending-sibling plus actual timestamps/event order. Existing focused shell-isolation scope unchanged. Actualcurrent core/browser all22PASS68.71s including authenticated Chromium editor and SQL recomposition. Runner safety20PASS2.83s. Owned containers/network/volume cleanup verified, no deployment/production evidence. Full PostgreSQL/fault matrix, pre-reserved synthetic Registry runs for complete chain and optional/productive admission remain; tasks stay partial. Report artifacts/test-gates/bpmn-full-app-reference-matrix.v1.json.",
+        "2026-10-12: Actual Hub Evidence Registry integrated into full-app references. Actual SQL control Tasks/projects and current Worker assignment/grant/lease guard same-transaction synthetic immutable input SRC admission, pre-execution test RUN reservation and closed Task projection; Registry alone mints IDs. Separate Worker validates/returns exact projection; Hub admitted Native receipt and result digest complete/verify registered run/assignment/lease. Actual timestamp order verified and all16testRuns explicitly denied production release. Host binds actualHEAD/selected dirty-source hash and rejects source changes. Optional generic native preparation hook preserves default paths; failure/rewritten command blocks before journal/send. All13fullApp references/16uniqueRUNsPASS112.34s, owned cleanup verified. Broad1795PASS24skip1deselected4existingwarnings129.74s;80focusedPASS12.27s; final33runner/dispatchPASS4.93s. No deployment/production evidence. Controller-only/event/browser Registry identities, full PG/fault and optional/productive admission remain. Report artifacts/test-gates/bpmn-full-app-registry-runs.v1.json.",
+        "2026-10-12: Owned full-application PostgreSQL reference gate implemented and accepted with separate Hub/Worker/database containers: all13references,16unique pre-execution Registry test RUNs,55.42s. Actual Worker recreation/redelivery43.96s and expired-lease exact-policy fresh retry43.69s PASS; exact owned cleanup verified for each. Worker remains on private SQLite, owned PG image digest/internal network/no host ports; strict transport guard denies Worker/shared/foreign DB opt-in.25 runner/isolation cases PASS3.57s. No productive provider, deployment or release evidence; controller/event/browser Registry and complete UI command coverage remain open. Report artifacts/test-gates/bpmn-postgres-full-app.v1.json.",
+        "2026-10-12: Actual signed Hub control-lease decorator now reserves Registry test RUN before start/advance/resume, including reject/blocked/timer/message cases. Inputs bind plan/data/parallel limits and full signed control command; result binds actual verified signed workflow checkpoint and unchanged SQL Task tenant/project. Registry failure stops before action and rolls back source/run; modified input/command/scope cannot complete original RUN. Final full13reference gates PASS: PostgreSQL 132control +16Worker RUNs/51.75s; SQLite 123control +16Worker RUNs/116.4s; all test scope before execution, production denied, owned cleanup verified.1145broad PASS13skip1deselected91.16s; final263PASS14.21s. Fault-mode/browser Registry and full UI/CaseFlow/optional/productive acceptance remain open. Report artifacts/test-gates/bpmn-hub-control-registry.v1.json.",
+        "2026-10-12: Registry lifecycle now covers real Worker-loss/recreation/redelivery and expired-lease exact-policy retry. Actual SQL control Task/project created before Hub lease execution; both original/fresh Worker assignments receive pre-dispatch Registry reservations. Unknown original results stay reserved/unverified; actual admitted redelivery completes same RUN; expired original stays uncompleted and fresh higher-fenced attempt uses distinct RUN. Refused control invocation is observed reserved, never labeled succeeded. Both PG gates PASS40.04/40.51s and SQLite gates PASS40.39/42.28s; actual Worker recreation and owned cleanup verified. Gate exposed productive state-machine bug: pre-execution refusal could not persist todo->waiting_for_review; canonical request_review table now includes safe pre-execution states, with no force/execution fabrication/terminal reopening. Removed duplicate review special case and incorrect fixture control-as-dependency link.52focused PASS9.77s; broad1863PASS13explicitPGskip58deselected186.15s. Browser Registry, full authenticated UI recovery/commands/CaseFlow and optional/productive acceptance remain open. Report artifacts/test-gates/bpmn-registry-fault-recovery.v1.json.",
+        "2026-10-12: Additive owner-only persisted BPMN definition endpoint and real editor Lauf wieder laden implemented. Exact raw-source SHA plus original canonical plan/policy binding; public workflow aliases preserve distinct admitted definition identity. Read authorization requires no live runtime query or new execution. Browser validates typed IDs/hashes/byte quota/WebCrypto and ignores stale edited drafts; current status must match snapshot run/plan/definition. Real Chromium full page reload + second login restores edited source and completed state, exactly1start/2Worker tasks, all22container cases PASS67.55s with owned cleanup.1192backend PASS13skip1deselected93.11s;41focusedPASS5.56s;67frontendPASS3.27s; changed dependency closure TypeScript PASS using existing ambient declarations. Full-app TypeScript blocked by missing cached ECharts/Game-Core dependencies. Existing route retry fixture now explicitly ROLEhub, matching actual mandatory Hub policy context; policy not bypassed. Browser Registry, full UI command/recovery/CaseFlow matrix and optional/productive admission remain open. Report artifacts/test-gates/bpmn-definition-browser-recovery.v1.json.",
+        "2026-10-13: Source-bound CaseFlow edge lineage implemented. Regenerated immutable admitted XML/plan binds expanded edge IDs to original elements, directions, scope/iteration and activation counts; catalog cannot rebind a valid predecessor. No Worker/event assertion supplies lineage, absent events stay unverified. UI retains each activation row and suppresses incomplete/mixed collapsed edge markers and contradictory activity colours.36focusedPASS3.72s; broad1187PASS13skip1deselected91.76s;69frontendPASS3.21s;22actualcontainer/browserPASS68.64s with cleanup; changed TypeScript closurePASS. Complete canonical traversal/correlation, browser Registry and full UI command recovery remain open. Report artifacts/test-gates/bpmn-caseflow-source-provenance.v1.json.",
+        "2026-10-13: Canonical Hub edge observations now emitted through existing fenced event port: selected/skipped/blocked and actual completed/failed target states. CaseFlow validates canonical Hub actor/schema/full run-plan-definition-direction binding and strict attempts; both real XOR outputs project fully verified traces. Observed replay fix uses exact existing dedupe port after normal fenced conflict, retaining first timestamp, rejecting changed intent/stale lease and not rebasing another control transition. Final PG full13references checks130edge observations and all actual edges of completed references PASS54.52s; core/browser22PASS113.97s with cleanup.1209broadPASS13skip1deselected94.52s;120focusedPASS18.19s;70frontendPASS3.51s;changedTypeScriptPASS. Recovery assertion now specifically counts the canonical gateway choice alongside additive edge events. Cancel edge settlement, full UI command matrix, browser Registry and optional/productive acceptance remain open. Report artifacts/test-gates/bpmn-canonical-edge-events.v1.json.",
+        "2026-10-13: Cancel-Kantenabschluss, korrekte Cancel-Schritte und Pause im authentifizierten Editor implementiert. Echter Browserpfad deckt Pause -> kompletter Reload/Login -> Recovery -> Resume -> Cancel mit null Timer-Folgeaufgaben ab. Dabei fehlende Projektbindung im Preflight und oeffentliche Kompatibilitaets-Checkpoint-Referenzen als echte Integrationsluecken behoben: gemeinsamer Start-Scope-Guard, explizite Projektbindung, geschlossenes command_binding mit signiertem Native-Checkpoint, gebundene Receipt-Beobachtung, verifiziertes No-op-Checkpoint-Reuse und begrenzte unveraenderte Admission-Retries. Positive Service-/Approval-Retry-Recovery und Browser-Registry bleiben offen. Bericht: artifacts/test-gates/bpmn-pause-cancel-command-recovery.v1.json. Kein Deploy und keine Produktions-Release-Evidence.",
+        "2026-10-13: Positive authentifizierte Approval-Retry-Recovery mit Cancel -> kompletter Reload/Login -> Retry -> erneuter Reload lokal abgenommen. Persistenter Hub-Kanten-Epoch und pending-Ereignisse entfernen alte Cancel-Markierungen, ohne Ergebnisse/Skips oder Definition/Planrevision umzuschreiben. Offene Gates stellen den wartenden/pausierten Laufstatus wieder her, ohne Freigabe zu erteilen. SQL-Crash-/Replay-Tests und erhaltener Service-Abschluss ohne Wiederholung; fokussierter Chromium-Lauf beweist einen Retry und null unfreigegebene Worker-Aufgaben. 1394 breite Backend- und 77 Frontend-Tests bestanden. Bericht: artifacts/test-gates/bpmn-retry-edge-recovery.v1.json. Browser-Registry und produktive Freigabe bleiben offen.",
+        "2026-10-13: Browser-Executor vor Chromium-Start an echte SQL-Task/Assignment/Ownership-Lease und Hub Registry gebunden. Hub stellt test-SRC/RUN aus; Browser darf nur geschlossene Projektion zurueckgeben. Ergebnisabschluss erfolgt nach Hub-Pruefung realer Native Tasks/Control-Events und gesperrter aktueller SQL-Bindungen. Geaenderte IDs/Eingaben/Scopes, stale Leases und abgebrochene Tasks bleiben unvollendet; produktive Freigabe verweigert synthetische Evidenz. Browser-Image-ID gepinnt, Frontend-Quellsnapshot vor/nach Gate geprueft. 22 Containerfaelle/1412 breite Tests vor finalem Cancel-Task-Guard; danach 43 fokussierte Tests und finaler Browserlauf bestanden. Bericht: artifacts/test-gates/bpmn-browser-registry-reservation.v1.json. Spezielle Test-Bootstrap-Zulassung ersetzt keine produktive Worker-Registrierung oder Release-Abnahme."
+      ],
+      "notes": [
+        "2026-10-11: Positiver --full-app-autopilot-Lauf mit create_app(testing=False), echtem authentifiziertem Autopilot-Tick und getrenntem Worker bestanden: Native-Einzelknoten sowie Producer/Consumer mit produktivem Artefakt-Ingress und Hub-Receipt. Geschlossene Ed25519-Projektion bindet Empfänger und Ablaufzeit; keine generische LLM-Proposal-/Hub-Ausführung. 34.26 s mit vollständigem Cleanup; 989 Regressionstests und separate 22/22 Container-/Chromium-Fälle bestanden. Synthetische Admission/Handler, keine produktive Release-Evidence. Outbox/echter Containerverlust/PostgreSQL/Packaging bleiben offen.",
+        "2026-10-11: Dauerhaftes Hub-Dispatch-Journal vor Worker-HTTP integriert. Unique Tenant/Task-Slot und CAS-Claim verhindern Doppelversand auch nach Prozess-Neuaufbau/Status-Reset; unbekannte Outcomes bleiben blockiert. Begrenzte headless Hub-Reconciliation schließt nur aus persistierten, command-/worker-/assignment-gebundenen Receipts. 994 breite Regressionstests bestanden; vollständiger Full-App-Native-/Artefakt-Containerlauf prüft accepted-Journale mit Cleanup. Noch keine reale Mid-Execution-Containerverlust-/Worker-Result-Redelivery-Abnahme; BPMNX-007/014/015 bleiben partial.",
+        "2026-10-11: Reale Worker-Containerverlust-Abnahme nach Native-Ausführung vor HTTP-Ergebnisantwort bestanden (--full-app-worker-loss, 28.98 s, vollständiges Cleanup). Host prüft Worker-exited/73 und erfolgreichen Hub-Exit. Hub bleibt für Folgeticks aktiv: unknown-Journal unverändert, Status-Reset verhindert keinen Journal-Fence, kein zweiter Versand/Receipt, headless Reconciliation unresolved, Workflow nicht fälschlich completed. Normaler Full-App-Native-/Artefaktlauf besteht separat in 35.42 s; 35 gezielte Regressionstests bestanden. Synthetische Graph-/Handler-Fixtures. Worker-Result-Redelivery, Scheduler-Anbindung und vollständiger Wiederanlauf bleiben offen; partial-Status bleibt erhalten.",
+        "2026-10-11: Worker-lokaler dauerhafter Native-Ergebnisspeicher und signierter Abruf ohne Ausführung implementiert. Produktiver Worker-Port benötigt explizite private ANANTA_NATIVE_RESULT_STORE_PATH-Konfiguration. Hub-Recovery nimmt nur transport-blockierte Review-Tasks unter exaktem ursprünglichem Journal und aktueller Lease/Assignment/Grant/Registrierung auf; manuelle Reviews/Pi werden nicht pauschal freigegeben. SQLite-Neuöffnung + signierter Worker-HTTP-Abruf + tatsächliche SQL-Admission geprüft, stale/revoked Autorität abgewiesen. 1042 Regressionstests und 69 fokussierte Prüfungen bestanden; normale Full-App-/Artefakt-Publication und reale Verlust-Containment-Container bestehen mit Cleanup. Vollständige Container-Neuerstellung mit Ergebnis-Redelivery, Scheduler, Retention-Isolation/PostgreSQL/Packaging bleiben offen; partial unverändert.",
+        "2026-10-11: Vollständige --full-app-worker-redelivery-Abnahme besteht: Resultat im Worker-eigenen Docker-Datenvolume vor Prozess-Exit 73 gespeichert, Host bestätigt Ausfall und andere Containeridentität, signierter Abruf übernimmt Originalresultat ohne Wieder-Ausführung. Produktive Hub-Forwarding-/SQL-Admission schließt Task, ursprüngliches Journal und Workflow. 34.19 s, vollständiges Container/Netzwerk/Volume-Cleanup; normale Native-/Artefakt-Regression separat 35.52 s; 45 fokussierte Tests bestanden. Privilegierter Test-Bootstrap ist netzlos/CHOWN-only und setzt nur neue Worker-Volume-Rechte; Worker bleibt UID 65534. Synthetische Admission/Handler, keine Release-Evidence. Scheduler, Lease-Expiry-/Neuversuchs-Policy, Retention/Tool-Isolation, PostgreSQL/Packaging bleiben offen.",
+        "2026-10-11: Begrenzte opt-in Hub-Scheduler-Reconciliation integriert, ohne neuen Loop/Worker-Auftrag. Ein aktueller tenant/task-/Goal-/Team-gebundener Transport-Review-Kandidat pro Tick; bestehender Tick-Zähler rotiert Kandidaten. Worker-Rolle, Stop, deaktivierte Policy und manuelle Reviews konstruieren keine Recovery-Ports. Vollständige Worker-Neuerstellung/Nachlieferung erfolgt jetzt über authentifizierten Autopilot-HTTP-Tick, schließt Task/Journal/Workflow ohne weiteren Dispatch (37.92 s, Cleanup). 1037 breite Tests und 34 gezielte Prüfungen bestanden. Default off, ausdrückliche Hub-Policy nötig; Lease-Expiry-/Neuversuchs-Policy, Retention/Tool-Isolation, PostgreSQL/Packaging weiterhin offen.",
+        "2026-10-12: Owned nonroot read-only PostgreSQL container concurrency gate added. Six actual cases PASS16.75s: one durable send; exact concurrent receipt replay; contradictory result rejection; actual authority-row lock timeout55P03 and stale admission after superseding lease; accepted journal sticky across unknown settlement; caller rollback. Separate PostgreSQL-backed Hub mutation-lock instances avoid shared Python serialization. Full SQL metadata schema initialized per isolated case; schemas/container/network cleaned. Default six cases skip without explicit owned fixture; JUnit requires six executed/no skips for gate success. Ruff/diff/TodoPASS. No production source or serving DB changed. Report artifacts/test-gates/bpmn-postgres-native-concurrency.v1.json. Remaining PostgreSQL full BPMN waits/control/reference matrix, idle maintenance cadence, authority-bound tombstone retirement and productive packaging/release acceptance; task stays partial.",
+        "2026-10-12: Delegated native_result_maintenance implemented behind default-off strict Worker profile. Actual signed Worker HTTP plus SQLite prove tenant/project-only expiry, unchanged foreign payloads, preserved replay tombstones and no second execution. Productive Hub queue composition validates actual SQL active control Task/project before ingestion; duplicate scope drift denied. 37 focused cases PASS4.86s; broad BPMN/Pi/adapter/security/startup regression 1661PASS11skip1deselected116.30s. Independent owned PostgreSQL gate now 9PASS22.04s, adding timer cancel/consume, duplicate message/receipt and stale signed control-lease races; component scope only. Disposable fixture first exhausted256MiB tmpfs; own512MiB and bounded WAL corrected, serving DB unchanged. Memory inventory registers actual Pi dispatch evidence SQL and Meet task CUDA scratch components; memory/legacy/CLI source gates and Ruff PASS. Reports artifacts/test-gates/bpmn-postgres-event-waits.v1.json and bpmn-delegated-result-maintenance.v1.json. Automatic Hub cadence/exact Worker-store destination binding, full compiled PostgreSQL/reference matrix, full productive container admission and authority-bound tombstone retirement remain open; task stays partial."
       ]
     },
     {
@@ -625,7 +688,39 @@
       "implementation_notes": [
         "Signed-CAS-Run-Leases, atomare Empfaengerpruefung fuer Queue-Erstellung, Events, Checkpoints/Waits und Resultatquittierung/Fehlversuche integriert. Adversariale Tests pausieren innerhalb des Empfaengers und erzwingen Ablauf/Uebernahme; stale Mutationen scheitern.",
         "Task-Receipt-Recovery, Abbruch nach Taskcommit vor Checkpoint, immutable Resultatdigest, finite Verbrauchswerte/Budgetfailure, stale Checkpoints sowie Tool-/Datencontainment getestet. Evidence-Registry-Tests reservieren klassifizierte synthetische Runs vor simuliertem Ausfuehren und verweigern Produktionspromotion.",
-        "Offen: lueckenloses Empfaengerfencing fuer Ownership-Claims, Grant-Erstellung/Widerruf, Queue-Cancel und Seiteneffekte; generischer Result-Ingress vor Taskmutation; PostgreSQL-Konkurrenz und durchgaengige Produktions-/Dispatch-Outbox-Recovery. Keine Cross-Store-Atomaritaet behauptet."
+        "2026-10-10: Ownership-Claim, Grant-Erteilung/Widerruf, Task-Cancel und Hub-seitige Seiteneffekt-Planung/Autorisierung besitzen transaktionale Control-Lease-Empfaenger. Tests injizieren Ablauf innerhalb des Empfaengers, pruefen Uebernahme und fremde Scopes; Task-Cancel behält CAS, Historie und normale Post-Commit-Benachrichtigungen. Offen: PostgreSQL-Konkurrenz, produktive Dispatch-/Outbox-Recovery, positive Artefakt-Admission und reale Container-Abnahme. Worker-Ausfuehrung bleibt assignment-/attempt-gebunden; keine Cross-Store-Atomaritaet oder externe Exactly-once-Ausfuehrung behauptet.",
+        "2026-10-11: Die aktualisierten hostile Attempt-/Fence- und unadmitted Artifact-Containerfälle bestehen unter der tatsächlichen transaktionalen Native-Result-Authority. Verweigerte Ergebnisse verändern weder terminalen Task-Zustand noch Native-Receipt noch Ownership-Acknowledgement. Signiermaterial ist Hub-exklusiv; Worker erhält nur Verifikation. Vollständige 22-Fall-Matrix mit echter Anmeldung und Chromium grün. Technische synthetische Beobachtungen; keine Registry-Release-Evidence, reale Containerverlust-/Full-App-Abnahme bleibt offen.",
+        "2026-10-11: Artefakt-Negativfall verschärft: konsistente wiederholte Envelope-Fakten verwenden die tatsächliche Worker-lokale Referenz; exakte Ablehnung native_artifact_hub_receipt_required ist Pflicht. Finaler Vollgate erneut 22/22 in 67.00 s mit Cleanup. Zusätzlich 92 Datei-/Transfer-/Input-/Todo-Tests in 8.42 s; insgesamt 149 gezielte Tests.",
+        "2026-10-11: Separates --full-app-Gate startet create_app(testing=False), prüft SQL-Hub-Memory-Composition, reale Health/Login-Routen und unveränderte Auth-Grenzen ohne unautorisierte Task-Anlage. ROLE-/Native-/api-Composition korrigiert; vollständiger Bootstrap und ausgewählte Artefakt-Handoff/Denial-Regression bestehen mit Cleanup. Positiver Autopilot-/Outbox-/Containerverlust-Pfad bleibt offen.",
+        "2026-10-11: Realer Full-App-Container mit Worker-Neuerstellung prueft injizierten Lease-Ablauf: altes Ergebnis abgewiesen, signierter Cancel von Transport-Review erfolgreich, Retry ohne Hub-Policy gesperrt. Exakte bounded Hub-Policy erlaubt neuen Task/Attempt mit hoeherer Fence und Workflow-Abschluss. Normale Redelivery bleibt geprueft; 996 breite Tests bestanden. Retention/Tool-Isolation, PostgreSQL und produktive Release-Abnahme bleiben offen.",
+        "2026-10-11: Worker-Result-Retention bereinigt ungelesene abgelaufene Payloads beim Oeffnen und vor Storage-Operationen in bounded Batches; endlicher headless CLI fuer Idle-Stores. Replay-Tombstones, Quota und Publication-Fences bleiben erhalten; Live-Ergebnisse unveraendert. 1009 breite Tests, 31 abschliessende gezielte Tests und isolierter Container-Storage-Check bestanden; reale Worker-Neuerstellung/Redelivery weiterhin erfolgreich. Idle-Wartungstakt, Tool-Isolation unter gleicher UID, Tombstone-Retirement und produktive Abnahme bleiben offen.",
+        "2026-10-11: Gemeinsamer Worker-Shell-Port mit konfiguriertem privatem Result-Store nutzt verpflichtenden Landlock-/Seccomp-Launcher, gepinnten Workspace-FD und begrenzte Umgebung. Keine ungesicherte Ausfuehrung bei fehlendem Kernel/Profil. Full-App-Hub/Worker-Gate beweist erlaubten Workspace und gesperrten SQLite-Read/Write/Truncate/Chmod bei gleicher UID, echte Result-/Artefaktannahme und completed. 1145 breite Tests, 56 Abschlusschecks bestanden. Andere Provider-/Tool-Ports, aarch64-Ausfuehrung, Netzwerk/Deployment und Release-Abnahme bleiben offen.",
+        "2026-10-12: Exact registered Worker/private-store owner binding implemented end to end. Typed opt-in profile and registration retain an opaque deployment binding; actual SQL active parent/project and strict live registered owner are checked before queue ingestion, child recipient is pinned, Autopilot never substitutes another store, dispatch reloads current registry, independent signer/consumer recipient checks and Worker pre-open store-binding/cache checks deny drift. Focused 126PASS8.63s; final owner cases26PASS4.04s; broad BPMN/Autopilot/profile/Pi/adapter/startup1111PASS9explicitPGskip1deselected4existingwarnings81.13s. Actual SQL, signed HTTP/private SQLite and scoped expiry use synthetic fixtures, not release evidence. Automatic Hub cadence, authority-bound tombstone retirement and full reference/container/PG acceptance remain open. Report artifacts/test-gates/bpmn-result-store-owner-binding.v1.json.",
+        "2026-10-12: Durable automatic Hub private-result maintenance cadence implemented. Explicit default-off Hub preauthorization binds active SQL control Task/project and exact registered Worker/store; shared fast Hub reconciler performs finite low-priority batches. SQL reservation/outbox survives restart and unknown outcomes; global pending capacity64, interval600..86400, batch1..1000. Signed generic Hub Run lease, initial checkpoint before queue effects and120sdeadline with queued-task cancellation added without fabricating BPMN metadata. Same-transaction fenced before-start retirement plus current-reservation delegation gate deny stale resurrection. Full existing runtime health/budget/locality/rollout/release selection and mandatory human-tool policy remain enforced. Actual SQL queue/grants/assignment, independent Ed25519 HTTP, scoped private SQLite expiry, actual Hub terminal receipt, crash-after-Task recovery and policy cancellation verified with synthetic policy fixtures. Broad1236PASS11explicitPGskip1deselected4existingwarnings83.06s; owned PostgreSQL all11PASS27.89s including2new cadence/control cases, container/network absent after cleanup; final98policy/cadence casesPASS8.57s. No deployment or production evidence. Authority-bound tombstone retirement and full compiled reference/container/PostgreSQL matrix remain open. Report artifacts/test-gates/bpmn-native-maintenance-cadence.v1.json.",
+        "2026-10-12: Replay-preserving result-compaction foundation implemented. Worker SQLite trades only expired tenant/project/exact-binding slots for permanent minimal denial markers under closed Ed25519 permits; quota and replay denial survive restart/concurrency, marker exhaustion rolls back, expiry rechecked after write-lock wait. Shared private-result hashing preserves legacy ASCII JSON including Unicode inputs. Actual Hub SQL historical admission verifies accepted immutable dispatch and terminal Native/Pi receipt, exact registered store and stronger capability, expired canonical grant and congruent SQL/JSON execution lease; unknown/mutated/active facts deny. Existing expiry handler rejects uncomposed retirement; capability is not advertised. Broad1797PASS23explicitSKIP1deselected143.36s; final115focusedPASS9.96s. Technical/synthetic only, no production evidence/deployment. Remaining productive Hub issuer/current authority, bounded candidate scan, Worker composition, durable compaction acknowledgements and cadence restart/revocation reconciliation; full BPMN reference/container/PG acceptance also remains. Report artifacts/test-gates/bpmn-result-retirement-foundation.v1.json.",
+        "2026-10-12: Owner-bound extra maintenance capacity implemented and verified. Normal capacity is used first; a globally bounded per-store reserve64 (strict0..1000) admits only maintenance/project/exact installed store owner when full. Classification and reservation are atomic and survive restart; expiry preserves quota and replay, signed Hub compaction recycles quota while keeping permanent denial markers. Store identity now persists in SQLite; changed identity after restart denied before expiry/result changes, concurrent first bind admits one owner. Productive maintenance HTTP performs current Hub admission before store resolution/reservation via a separate narrow Worker port, with unchanged consumer consume/supports interface and execution-time authorization. Actual SQL queue/grants/assignment, independent Ed25519 Worker HTTP and Hub receipt complete with full ordinary capacity. Actual SQL grant revocation denies a still-valid signed transport before consuming reserve or scrubbing content. Broad1725PASS22explicitSKIP1deselected4existingwarnings117.08s; final55focusedPASS6.48s, earlier120PASS7.96s. Source/legacy-memory/CLI/Ruff gates PASS. No deployment/production evidence; retirement issuer, candidate/ack journal, explicit retirement handler and cadence reconciliation remain open. Report artifacts/test-gates/bpmn-maintenance-capacity.v1.json.",
+        "2026-10-12: Productive-source retirement pipeline implemented behind explicit default-off Hub/Worker opt-in. Current Hub policy/project/control/cadence/assignment/grant/lease guard signed manifest issuance, bounded scoped cursor and same-transaction Task/manifest persistence; post-dispatch issuance denied. Actual Autopilot signs reloaded immutable projection, Worker validates permit and pre/post authority, preserves permanent replay markers, and Hub confirms only admitted completed receipt under exact accepted dispatch/output bindings. Finite existing Hub tick reconciles acknowledgements after restart; malformed journal blocks without false markers. Higher canonical superseding fence uses original Hub-issued immutable history revision from actual receipt and expired original grant; missing/mutated history denied. Max128retired entries/200-byteTask IDs preserve transport bounds, expiry1000 unchanged; PG ceilings preserve stricter existing settings. Broad1737PASS24explicitSKIP1deselected4existingwarnings132.26s; final115focusedPASS17.04s; ownedPG13PASS33.51s with2new cursor concurrency/rollback cases, owned container/network cleaned. No deployment/production evidence. Full compiled reference/container/PostgreSQL and productive packaging/provider/registration/rollout/release acceptance remain; additional transport/deployment-fault/concurrency coverage continues. Report artifacts/test-gates/bpmn-result-retirement-pipeline.v1.json.",
+        "2026-10-12: Full application Native reference matrix expanded and locally accepted: real create_app(testing=False), login/autopilot HTTP, actual SQL queue/registry/assignment/grants/journal/receipt, independent Worker container. All13references PASS96.42s: service/artifacts, XORtrue/false/default, loop1/2/3, subprocess, approve/reject/blocked(noTasks), timer/message(exactlyoneconsume), ANDpending-sibling plus actual timestamps/event order. Existing focused shell-isolation scope unchanged. Actualcurrent core/browser all22PASS68.71s including authenticated Chromium editor and SQL recomposition. Runner safety20PASS2.83s. Owned containers/network/volume cleanup verified, no deployment/production evidence. Full PostgreSQL/fault matrix, pre-reserved synthetic Registry runs for complete chain and optional/productive admission remain; tasks stay partial. Report artifacts/test-gates/bpmn-full-app-reference-matrix.v1.json.",
+        "2026-10-12: Actual Hub Evidence Registry integrated into full-app references. Actual SQL control Tasks/projects and current Worker assignment/grant/lease guard same-transaction synthetic immutable input SRC admission, pre-execution test RUN reservation and closed Task projection; Registry alone mints IDs. Separate Worker validates/returns exact projection; Hub admitted Native receipt and result digest complete/verify registered run/assignment/lease. Actual timestamp order verified and all16testRuns explicitly denied production release. Host binds actualHEAD/selected dirty-source hash and rejects source changes. Optional generic native preparation hook preserves default paths; failure/rewritten command blocks before journal/send. All13fullApp references/16uniqueRUNsPASS112.34s, owned cleanup verified. Broad1795PASS24skip1deselected4existingwarnings129.74s;80focusedPASS12.27s; final33runner/dispatchPASS4.93s. No deployment/production evidence. Controller-only/event/browser Registry identities, full PG/fault and optional/productive admission remain. Report artifacts/test-gates/bpmn-full-app-registry-runs.v1.json.",
+        "2026-10-12: Owned full-application PostgreSQL reference gate implemented and accepted with separate Hub/Worker/database containers: all13references,16unique pre-execution Registry test RUNs,55.42s. Actual Worker recreation/redelivery43.96s and expired-lease exact-policy fresh retry43.69s PASS; exact owned cleanup verified for each. Worker remains on private SQLite, owned PG image digest/internal network/no host ports; strict transport guard denies Worker/shared/foreign DB opt-in.25 runner/isolation cases PASS3.57s. No productive provider, deployment or release evidence; controller/event/browser Registry and complete UI command coverage remain open. Report artifacts/test-gates/bpmn-postgres-full-app.v1.json.",
+        "2026-10-12: Actual signed Hub control-lease decorator now reserves Registry test RUN before start/advance/resume, including reject/blocked/timer/message cases. Inputs bind plan/data/parallel limits and full signed control command; result binds actual verified signed workflow checkpoint and unchanged SQL Task tenant/project. Registry failure stops before action and rolls back source/run; modified input/command/scope cannot complete original RUN. Final full13reference gates PASS: PostgreSQL 132control +16Worker RUNs/51.75s; SQLite 123control +16Worker RUNs/116.4s; all test scope before execution, production denied, owned cleanup verified.1145broad PASS13skip1deselected91.16s; final263PASS14.21s. Fault-mode/browser Registry and full UI/CaseFlow/optional/productive acceptance remain open. Report artifacts/test-gates/bpmn-hub-control-registry.v1.json.",
+        "2026-10-12: Registry lifecycle now covers real Worker-loss/recreation/redelivery and expired-lease exact-policy retry. Actual SQL control Task/project created before Hub lease execution; both original/fresh Worker assignments receive pre-dispatch Registry reservations. Unknown original results stay reserved/unverified; actual admitted redelivery completes same RUN; expired original stays uncompleted and fresh higher-fenced attempt uses distinct RUN. Refused control invocation is observed reserved, never labeled succeeded. Both PG gates PASS40.04/40.51s and SQLite gates PASS40.39/42.28s; actual Worker recreation and owned cleanup verified. Gate exposed productive state-machine bug: pre-execution refusal could not persist todo->waiting_for_review; canonical request_review table now includes safe pre-execution states, with no force/execution fabrication/terminal reopening. Removed duplicate review special case and incorrect fixture control-as-dependency link.52focused PASS9.77s; broad1863PASS13explicitPGskip58deselected186.15s. Browser Registry, full authenticated UI recovery/commands/CaseFlow and optional/productive acceptance remain open. Report artifacts/test-gates/bpmn-registry-fault-recovery.v1.json.",
+        "2026-10-12: Additive owner-only persisted BPMN definition endpoint and real editor Lauf wieder laden implemented. Exact raw-source SHA plus original canonical plan/policy binding; public workflow aliases preserve distinct admitted definition identity. Read authorization requires no live runtime query or new execution. Browser validates typed IDs/hashes/byte quota/WebCrypto and ignores stale edited drafts; current status must match snapshot run/plan/definition. Real Chromium full page reload + second login restores edited source and completed state, exactly1start/2Worker tasks, all22container cases PASS67.55s with owned cleanup.1192backend PASS13skip1deselected93.11s;41focusedPASS5.56s;67frontendPASS3.27s; changed dependency closure TypeScript PASS using existing ambient declarations. Full-app TypeScript blocked by missing cached ECharts/Game-Core dependencies. Existing route retry fixture now explicitly ROLEhub, matching actual mandatory Hub policy context; policy not bypassed. Browser Registry, full UI command/recovery/CaseFlow matrix and optional/productive admission remain open. Report artifacts/test-gates/bpmn-definition-browser-recovery.v1.json.",
+        "2026-10-13: Source-bound CaseFlow edge lineage implemented. Regenerated immutable admitted XML/plan binds expanded edge IDs to original elements, directions, scope/iteration and activation counts; catalog cannot rebind a valid predecessor. No Worker/event assertion supplies lineage, absent events stay unverified. UI retains each activation row and suppresses incomplete/mixed collapsed edge markers and contradictory activity colours.36focusedPASS3.72s; broad1187PASS13skip1deselected91.76s;69frontendPASS3.21s;22actualcontainer/browserPASS68.64s with cleanup; changed TypeScript closurePASS. Complete canonical traversal/correlation, browser Registry and full UI command recovery remain open. Report artifacts/test-gates/bpmn-caseflow-source-provenance.v1.json.",
+        "2026-10-13: Canonical Hub edge observations now emitted through existing fenced event port: selected/skipped/blocked and actual completed/failed target states. CaseFlow validates canonical Hub actor/schema/full run-plan-definition-direction binding and strict attempts; both real XOR outputs project fully verified traces. Observed replay fix uses exact existing dedupe port after normal fenced conflict, retaining first timestamp, rejecting changed intent/stale lease and not rebasing another control transition. Final PG full13references checks130edge observations and all actual edges of completed references PASS54.52s; core/browser22PASS113.97s with cleanup.1209broadPASS13skip1deselected94.52s;120focusedPASS18.19s;70frontendPASS3.51s;changedTypeScriptPASS. Recovery assertion now specifically counts the canonical gateway choice alongside additive edge events. Cancel edge settlement, full UI command matrix, browser Registry and optional/productive acceptance remain open. Report artifacts/test-gates/bpmn-canonical-edge-events.v1.json.",
+        "2026-10-13: Cancel-Kantenabschluss, korrekte Cancel-Schritte und Pause im authentifizierten Editor implementiert. Echter Browserpfad deckt Pause -> kompletter Reload/Login -> Recovery -> Resume -> Cancel mit null Timer-Folgeaufgaben ab. Dabei fehlende Projektbindung im Preflight und oeffentliche Kompatibilitaets-Checkpoint-Referenzen als echte Integrationsluecken behoben: gemeinsamer Start-Scope-Guard, explizite Projektbindung, geschlossenes command_binding mit signiertem Native-Checkpoint, gebundene Receipt-Beobachtung, verifiziertes No-op-Checkpoint-Reuse und begrenzte unveraenderte Admission-Retries. Positive Service-/Approval-Retry-Recovery und Browser-Registry bleiben offen. Bericht: artifacts/test-gates/bpmn-pause-cancel-command-recovery.v1.json. Kein Deploy und keine Produktions-Release-Evidence.",
+        "2026-10-13: Positive authentifizierte Approval-Retry-Recovery mit Cancel -> kompletter Reload/Login -> Retry -> erneuter Reload lokal abgenommen. Persistenter Hub-Kanten-Epoch und pending-Ereignisse entfernen alte Cancel-Markierungen, ohne Ergebnisse/Skips oder Definition/Planrevision umzuschreiben. Offene Gates stellen den wartenden/pausierten Laufstatus wieder her, ohne Freigabe zu erteilen. SQL-Crash-/Replay-Tests und erhaltener Service-Abschluss ohne Wiederholung; fokussierter Chromium-Lauf beweist einen Retry und null unfreigegebene Worker-Aufgaben. 1394 breite Backend- und 77 Frontend-Tests bestanden. Bericht: artifacts/test-gates/bpmn-retry-edge-recovery.v1.json. Browser-Registry und produktive Freigabe bleiben offen.",
+        "2026-10-13: Browser-Executor vor Chromium-Start an echte SQL-Task/Assignment/Ownership-Lease und Hub Registry gebunden. Hub stellt test-SRC/RUN aus; Browser darf nur geschlossene Projektion zurueckgeben. Ergebnisabschluss erfolgt nach Hub-Pruefung realer Native Tasks/Control-Events und gesperrter aktueller SQL-Bindungen. Geaenderte IDs/Eingaben/Scopes, stale Leases und abgebrochene Tasks bleiben unvollendet; produktive Freigabe verweigert synthetische Evidenz. Browser-Image-ID gepinnt, Frontend-Quellsnapshot vor/nach Gate geprueft. 22 Containerfaelle/1412 breite Tests vor finalem Cancel-Task-Guard; danach 43 fokussierte Tests und finaler Browserlauf bestanden. Bericht: artifacts/test-gates/bpmn-browser-registry-reservation.v1.json. Spezielle Test-Bootstrap-Zulassung ersetzt keine produktive Worker-Registrierung oder Release-Abnahme."
+      ],
+      "notes": [
+        "2026-10-11: Positiver --full-app-autopilot-Lauf mit create_app(testing=False), echtem authentifiziertem Autopilot-Tick und getrenntem Worker bestanden: Native-Einzelknoten sowie Producer/Consumer mit produktivem Artefakt-Ingress und Hub-Receipt. Geschlossene Ed25519-Projektion bindet Empfänger und Ablaufzeit; keine generische LLM-Proposal-/Hub-Ausführung. 34.26 s mit vollständigem Cleanup; 989 Regressionstests und separate 22/22 Container-/Chromium-Fälle bestanden. Synthetische Admission/Handler, keine produktive Release-Evidence. Outbox/echter Containerverlust/PostgreSQL/Packaging bleiben offen.",
+        "2026-10-11: Dauerhaftes Hub-Dispatch-Journal vor Worker-HTTP integriert. Unique Tenant/Task-Slot und CAS-Claim verhindern Doppelversand auch nach Prozess-Neuaufbau/Status-Reset; unbekannte Outcomes bleiben blockiert. Begrenzte headless Hub-Reconciliation schließt nur aus persistierten, command-/worker-/assignment-gebundenen Receipts. 994 breite Regressionstests bestanden; vollständiger Full-App-Native-/Artefakt-Containerlauf prüft accepted-Journale mit Cleanup. Noch keine reale Mid-Execution-Containerverlust-/Worker-Result-Redelivery-Abnahme; BPMNX-007/014/015 bleiben partial.",
+        "2026-10-11: Reale Worker-Containerverlust-Abnahme nach Native-Ausführung vor HTTP-Ergebnisantwort bestanden (--full-app-worker-loss, 28.98 s, vollständiges Cleanup). Host prüft Worker-exited/73 und erfolgreichen Hub-Exit. Hub bleibt für Folgeticks aktiv: unknown-Journal unverändert, Status-Reset verhindert keinen Journal-Fence, kein zweiter Versand/Receipt, headless Reconciliation unresolved, Workflow nicht fälschlich completed. Normaler Full-App-Native-/Artefaktlauf besteht separat in 35.42 s; 35 gezielte Regressionstests bestanden. Synthetische Graph-/Handler-Fixtures. Worker-Result-Redelivery, Scheduler-Anbindung und vollständiger Wiederanlauf bleiben offen; partial-Status bleibt erhalten.",
+        "2026-10-11: Worker-lokaler dauerhafter Native-Ergebnisspeicher und signierter Abruf ohne Ausführung implementiert. Produktiver Worker-Port benötigt explizite private ANANTA_NATIVE_RESULT_STORE_PATH-Konfiguration. Hub-Recovery nimmt nur transport-blockierte Review-Tasks unter exaktem ursprünglichem Journal und aktueller Lease/Assignment/Grant/Registrierung auf; manuelle Reviews/Pi werden nicht pauschal freigegeben. SQLite-Neuöffnung + signierter Worker-HTTP-Abruf + tatsächliche SQL-Admission geprüft, stale/revoked Autorität abgewiesen. 1042 Regressionstests und 69 fokussierte Prüfungen bestanden; normale Full-App-/Artefakt-Publication und reale Verlust-Containment-Container bestehen mit Cleanup. Vollständige Container-Neuerstellung mit Ergebnis-Redelivery, Scheduler, Retention-Isolation/PostgreSQL/Packaging bleiben offen; partial unverändert.",
+        "2026-10-11: Vollständige --full-app-worker-redelivery-Abnahme besteht: Resultat im Worker-eigenen Docker-Datenvolume vor Prozess-Exit 73 gespeichert, Host bestätigt Ausfall und andere Containeridentität, signierter Abruf übernimmt Originalresultat ohne Wieder-Ausführung. Produktive Hub-Forwarding-/SQL-Admission schließt Task, ursprüngliches Journal und Workflow. 34.19 s, vollständiges Container/Netzwerk/Volume-Cleanup; normale Native-/Artefakt-Regression separat 35.52 s; 45 fokussierte Tests bestanden. Privilegierter Test-Bootstrap ist netzlos/CHOWN-only und setzt nur neue Worker-Volume-Rechte; Worker bleibt UID 65534. Synthetische Admission/Handler, keine Release-Evidence. Scheduler, Lease-Expiry-/Neuversuchs-Policy, Retention/Tool-Isolation, PostgreSQL/Packaging bleiben offen.",
+        "2026-10-11: Begrenzte opt-in Hub-Scheduler-Reconciliation integriert, ohne neuen Loop/Worker-Auftrag. Ein aktueller tenant/task-/Goal-/Team-gebundener Transport-Review-Kandidat pro Tick; bestehender Tick-Zähler rotiert Kandidaten. Worker-Rolle, Stop, deaktivierte Policy und manuelle Reviews konstruieren keine Recovery-Ports. Vollständige Worker-Neuerstellung/Nachlieferung erfolgt jetzt über authentifizierten Autopilot-HTTP-Tick, schließt Task/Journal/Workflow ohne weiteren Dispatch (37.92 s, Cleanup). 1037 breite Tests und 34 gezielte Prüfungen bestanden. Default off, ausdrückliche Hub-Policy nötig; Lease-Expiry-/Neuversuchs-Policy, Retention/Tool-Isolation, PostgreSQL/Packaging weiterhin offen.",
+        "2026-10-12: Owned nonroot read-only PostgreSQL container concurrency gate added. Six actual cases PASS16.75s: one durable send; exact concurrent receipt replay; contradictory result rejection; actual authority-row lock timeout55P03 and stale admission after superseding lease; accepted journal sticky across unknown settlement; caller rollback. Separate PostgreSQL-backed Hub mutation-lock instances avoid shared Python serialization. Full SQL metadata schema initialized per isolated case; schemas/container/network cleaned. Default six cases skip without explicit owned fixture; JUnit requires six executed/no skips for gate success. Ruff/diff/TodoPASS. No production source or serving DB changed. Report artifacts/test-gates/bpmn-postgres-native-concurrency.v1.json. Remaining PostgreSQL full BPMN waits/control/reference matrix, idle maintenance cadence, authority-bound tombstone retirement and productive packaging/release acceptance; task stays partial.",
+        "2026-10-12: Delegated native_result_maintenance implemented behind default-off strict Worker profile. Actual signed Worker HTTP plus SQLite prove tenant/project-only expiry, unchanged foreign payloads, preserved replay tombstones and no second execution. Productive Hub queue composition validates actual SQL active control Task/project before ingestion; duplicate scope drift denied. 37 focused cases PASS4.86s; broad BPMN/Pi/adapter/security/startup regression 1661PASS11skip1deselected116.30s. Independent owned PostgreSQL gate now 9PASS22.04s, adding timer cancel/consume, duplicate message/receipt and stale signed control-lease races; component scope only. Disposable fixture first exhausted256MiB tmpfs; own512MiB and bounded WAL corrected, serving DB unchanged. Memory inventory registers actual Pi dispatch evidence SQL and Meet task CUDA scratch components; memory/legacy/CLI source gates and Ruff PASS. Reports artifacts/test-gates/bpmn-postgres-event-waits.v1.json and bpmn-delegated-result-maintenance.v1.json. Automatic Hub cadence/exact Worker-store destination binding, full compiled PostgreSQL/reference matrix, full productive container admission and authority-bound tombstone retirement remain open; task stays partial."
       ]
     },
     {
@@ -859,7 +954,7 @@
       "protected": [
         "SRP: source compiler, conditions, projections, waits, leases, receipt recovery, fenced Task ingestion and status lineage separated",
         "DIP/ISP: narrow fenced/read ports on existing Hub-owned persistence/task boundaries; no unfenced BPMN fallback",
-        "LSP/OCP: additive wire fields and capabilities; legacy dependency flows preserved; explicit unsupported artifacts"
+        "LSP/OCP: additive wire fields and capabilities; legacy dependency flows preserved; closed artifact file declarations and assignment-bound admission"
       ],
       "preserved_debt": [
         "Large Native orchestrator, Worker gateway and Angular editor still coordinate multiple concerns",
@@ -868,10 +963,233 @@
       ],
       "not_claimed": [
         "Distributed cross-store atomicity or complete recipient fencing",
-        "Positive artifact ingress and pre-write generic result admission",
         "PostgreSQL/full-app/Autopilot/container-loss recovery or production image/locked frontend build",
-        "Production release readiness or Camunda parity"
+        "Production release readiness or Camunda parity",
+        "Real TCP/container artifact handoff and complete production dispatch/Outbox recovery"
       ]
+    },
+    "local_hardening_2026_10_10": {
+      "kind": "local_headless_synthetic_verification",
+      "evidence_status": "technical_observation_unverified_for_production_release",
+      "production_release_evidence": false,
+      "deployment_performed": false,
+      "implemented": [
+        "Original Native response validation before generic forwarding projections and artifact normalization",
+        "Native result admission/immutable technical receipt under the actual Task transaction and current SQL authority",
+        "Optional recipient-fenced ownership claims, grant issuance/revocation, Task cancellation and Hub side-effect planning/authorization",
+        "Recovery fixture composed on one SQLAlchemy authority database; independent direct SQLite recipient regressions retained",
+        "Shared bounded Native artifact-byte transfer contract with closed fields and exact independent Hub binding validation",
+        "Transaction-bound Native artifact materialization service using authoritative SQL Task/ownership/assignment/grants and immutable Hub storage; authenticated endpoint/Worker transport pending",
+        "NativeArtifactDispatch revalidates production SQL Native execution lease/assignment/grant authority, checks authenticated Worker identity and supplies an exact stable dispatch-binding digest also required by result completion",
+        "Strict registered-Worker GET/POST Native artifact endpoint with bounded body/rate, Hub-role-only production composition, real SQL transaction ownership and audited bounded signature/lease denial; Worker transport remains pending",
+        "Worker NativeArtifactPublisher and shared closed receipt validation; tested through real Flask auth/SQL/storage/Task completion using test-client transport; production HTTP/output-byte/execution composition remains pending",
+        "Production NativeArtifactHttpTransport with file-managed credentials, restricted artifact targets, no-redirect HTTP helper and bounded body/response/timeout; real TCP validation blocked by sandbox socket PermissionError",
+        "Confined Worker local artifact reader and NativeNodeArtifactPublication; default Node handler requires Hub publication before returning artifacts and propagates post-execution publication failures to runtime uncertainty handling; production root/producer composition pending",
+        "Production Worker startup injects file-managed HTTP transport, publisher and read-only local SQL artifact/version adapter through workflow composition into Native handler; ordinary command executor still emits trace descriptors and needs task-bound output materialization",
+        "NativeOutputFileMaterializer/LocalNativeArtifactWriter now materialize explicit native_output_files after completed commands into immutable task-bound local SQL/storage; Worker startup injects materializer and executor returns real named references; full compiled BPMN/downstream artifact acceptance pending",
+        "NativeArtifactInputService validates current consumer dispatch and exact completed producer/result-receipt/Hub-registration scope before bounded immutable byte reads; generic ArtifactStore FIFO reads now fail without blocking; input HTTP/Worker consumption pending",
+        "Strict read-input scope/endpoint and NativeArtifactInputDownloader validate exact consumer command, closed producer provenance/immutable identity and bounded bytes; workspace materialization/execution composition pending",
+        "NativeInputWorkspaceMaterializer performs confined no-overwrite placement of validated named downloads before command execution, injected at Worker startup; actual Hub auth/SQL input-to-workspace-to-command test passed; full compiled BPMN acceptance pending",
+        "Native result completion resolves exact locked Hub Artifact/Version bindings and records admitted artifact identities in its technical receipt; no Worker-local or rolled-back registration can complete a Task",
+        "Source-bound native_input_files/native_output_files and task IO for ordinary BPMN graphs as well as regions; shared pure Hub/Worker file-declaration validation; export/reimport and request tamper regressions",
+        "Actual Worker subprocess/policy/schema/materializer composition verified for outputs and authenticated Hub inputs; fixed unsupported workflow_adapter profile source to task_context, added closed optional existing provider_hash metadata to Worker result schema, and denied missing output materializer before execution; approval-required command blocks without execution",
+        "Fresh Hub artifact-input composition reopens persisted SQL/storage: accepted immutable producer input survives expired producer execution lease; expired current consumer and mutated persisted producer receipt are denied; component recovery verified, full compiled BPMN process recovery pending",
+        "Hub delegation fails closed on missing/empty declared input references before provider selection, ownership claim, authorization grants and queue submission; actual Native orchestrator regression proves no dispatch or Worker execution",
+        "Compiled XML BPMN linear integration uses production queue adapter/fenced SQL Task ingestion, synthetic registered Worker assignments, actual policy-checked Native Worker subprocesses and production Task result admission; Hub reconstructed after each task, exactly two tasks/executions; artifact IO extension pending",
+        "Complete compiled XML BPMN artifact handoff now reaches completed through production fenced SQL tasks, real policy-checked producer/consumer commands, separate Worker artifact SQL/storage, Hub byte admission and immutable result receipts, with Hub reconstruction between tasks; synthetic dispatch/transport identity remains explicit. Replaced unconditional BPMN artifact denial with exact safe file-declaration gate; missing declarations still denied"
+      ],
+      "verification": {
+        "passed": 893,
+        "skipped": 1,
+        "deselected": 1,
+        "duration_seconds": 58.59,
+        "supplemental_runs": [
+          {
+            "scope": "tests/bpmn; full regression after compiled artifact handoff and conditional file-declaration start gate",
+            "passed": 816,
+            "skipped": 4,
+            "deselected": 1,
+            "duration_seconds": 55.24,
+            "skip_reason": "Real TCP cases cannot create local sockets in sandbox; existing slow loop deselected by suite policy"
+          },
+          {
+            "scope": "tests/security/workflow_runtime/test_workflow_runtime_security_docs.py",
+            "passed": 15,
+            "duration_seconds": 3.58
+          },
+          {
+            "scope": "tests/bpmn/test_compiled_task_artifact_composition.py; actual compiled graph/Task/result/reconstruction foundation without artifact IO, synthetic in-process Worker dispatch",
+            "passed": 1,
+            "duration_seconds": 3.82
+          },
+          {
+            "scope": "tests/bpmn/test_native_artifact_dispatch_readiness.py and tests/test_native_graph_runtime.py; missing-input pre-dispatch failure and Native runtime compatibility",
+            "passed": 16,
+            "duration_seconds": 3.23
+          },
+          {
+            "scope": "tests/bpmn/test_native_artifact_inputs.py; persisted artifact handoff under fresh Hub service/engine/storage composition, expiry and receipt mutation",
+            "passed": 27,
+            "duration_seconds": 7.28
+          },
+          {
+            "scope": "Native artifact inputs/outputs, Native task adapters, Worker startup, Worker contract schemas/provider provenance and shell policy; actual local subprocess execution, immutable output creation, Hub-authenticated input consumption and headless approval denial",
+            "passed": 70,
+            "duration_seconds": 10.0
+          },
+          {
+            "scope": "tests/bpmn; full BPMN regressions after source-bound file declarations and shared workspace path contract",
+            "passed": 806,
+            "skipped": 4,
+            "deselected": 1,
+            "duration_seconds": 52.83,
+            "skip_reason": "Real TCP cases cannot create local sockets in the sandbox; existing slow loop deselected by configured suite policy"
+          },
+          {
+            "scope": "tests/bpmn/test_native_artifact_file_binding.py, test_native_artifact_workspace.py, test_native_artifact_outputs.py, test_execution_routing.py and test_xml_regions.py; source binding, shared paths and XML roundtrip",
+            "passed": 103,
+            "duration_seconds": 10.08
+          },
+          {
+            "scope": "tests/bpmn/test_native_artifact_inputs.py, tests/bpmn/test_native_artifact_workspace.py, tests/bpmn/test_native_artifact_outputs.py, tests/test_ai_agent_create_app_refactor.py and tests/test_native_graph_task_adapters.py; real Hub auth/SQL/download/placement with synthetic consuming command",
+            "passed": 64,
+            "duration_seconds": 9.85
+          },
+          {
+            "scope": "tests/security/workflow_runtime/test_workflow_runtime_security_docs.py",
+            "passed": 15,
+            "duration_seconds": 3.67
+          },
+          {
+            "scope": "tests/bpmn/test_native_artifact_inputs.py, tests/bpmn/test_native_artifact_http.py and tests/bpmn/test_native_artifact_network.py; real Flask auth/SQL input download and Worker proof validation",
+            "passed": 61,
+            "skipped": 4,
+            "duration_seconds": 9.46,
+            "skip_reason": "Real TCP cases cannot create local sockets in the sandbox"
+          },
+          {
+            "scope": "tests/bpmn/test_native_artifact_inputs.py and tests/artifact/test_artifact_store.py; real SQL consumer/producer authority and immutable bytes including FIFO denial",
+            "passed": 15,
+            "duration_seconds": 4.43
+          },
+          {
+            "scope": "tests/bpmn/test_native_artifact_outputs.py, tests/bpmn/test_native_artifact_reader.py, tests/test_ai_agent_create_app_refactor.py, tests/test_native_graph_task_adapters.py and tests/workflow/test_workflow_adapter_worker_composition.py; real local SQL/files with synthetic command-execution stub",
+            "passed": 52,
+            "duration_seconds": 6.75
+          },
+          {
+            "scope": "tests/test_ai_agent_create_app_refactor.py, tests/workflow/test_workflow_adapter_worker_composition.py and tests/pi/test_pi_worker_readiness.py before subsequent startup injection regression",
+            "passed": 28,
+            "duration_seconds": 8.1
+          },
+          {
+            "scope": "tests/test_ai_agent_create_app_refactor.py and tests/workflow/test_workflow_adapter_worker_composition.py including production artifact publication injection",
+            "passed": 14,
+            "duration_seconds": 5.89
+          },
+          {
+            "scope": "tests/bpmn/test_native_artifact_reader.py including supplemental hard-link denial",
+            "passed": 16,
+            "duration_seconds": 2.6
+          },
+          {
+            "scope": "tests/bpmn/test_native_artifact_reader.py, tests/test_native_graph_task_adapters.py and tests/test_native_graph_runtime.py; before the supplemental hard-link reader denial",
+            "passed": 42,
+            "duration_seconds": 3.54
+          },
+          {
+            "scope": "tests/bpmn/test_native_artifact_network.py; real HTTP serialization through intercepted opening seam into actual Flask auth/SQL/storage; real localhost socket cases blocked by sandbox PermissionError",
+            "passed": 11,
+            "skipped": 4,
+            "duration_seconds": 3.83
+          },
+          {
+            "scope": "tests/bpmn/test_native_artifact_http.py including Worker pre-encoding byte-size regression",
+            "passed": 29,
+            "duration_seconds": 5.69
+          },
+          {
+            "scope": "tests/bpmn/test_native_artifact_http.py and tests/bpmn/test_native_artifact_transfer.py; Worker publisher through Flask test-client transport and actual Hub auth/SQL/storage/Task completion",
+            "passed": 57,
+            "duration_seconds": 5.83
+          },
+          {
+            "scope": "tests/bpmn/test_native_artifact_http.py, tests/bpmn/test_native_artifact_admission.py, tests/bpmn/test_native_artifact_transfer.py, tests/bpmn/test_native_result_admission.py and tests/pi/test_pi_result_completion_policy.py",
+            "passed": 133,
+            "duration_seconds": 12.01
+          },
+          {
+            "scope": "tests/bpmn/test_native_artifact_http.py including subsequently added production Hub-role regression",
+            "passed": 17,
+            "duration_seconds": 4.47
+          },
+          {
+            "scope": "tests/bpmn/test_native_artifact_admission.py, tests/bpmn/test_native_result_admission.py and tests/pi/test_pi_result_completion_policy.py; production Native SQL dispatch adapter with synthetic task inputs",
+            "passed": 88,
+            "duration_seconds": 10.67
+          },
+          {
+            "scope": "tests/bpmn/test_native_artifact_admission.py, tests/bpmn/test_native_result_admission.py, tests/pi/test_pi_result_completion_policy.py and tests/test_workflow_runtime_sqlalchemy_stores.py; includes Hub artifact result registration gate",
+            "passed": 135,
+            "duration_seconds": 11.32
+          },
+          {
+            "scope": "tests/bpmn/test_native_artifact_admission.py, tests/bpmn/test_native_artifact_transfer.py and tests/bpmn/test_artifact_boundary.py; real SQL/storage with explicitly synthetic dispatch port",
+            "passed": 40,
+            "duration_seconds": 4.49
+          },
+          {
+            "scope": "tests/bpmn/test_native_artifact_transfer.py",
+            "passed": 29,
+            "duration_seconds": 2.77
+          },
+          {
+            "scope": "tests/bpmn/test_xml_regions.py::test_looped_embedded_subprocess_uses_exported_state_for_next_iteration",
+            "passed": 1,
+            "duration_seconds": 4.76
+          },
+          {
+            "scope": "tests/bpmn/test_task_cancel_fencing.py and tests/bpmn/test_side_effect_recipient_fencing.py, including the subsequently added terminal-task scope regression",
+            "passed": 17,
+            "duration_seconds": 4.19
+          }
+        ],
+        "scope": [
+          "tests/bpmn",
+          "tests/pi/test_pi_result_completion_policy.py",
+          "tests/test_native_graph_task_adapters.py",
+          "tests/test_native_graph_production_bridge.py",
+          "tests/test_native_graph_runtime.py",
+          "tests/test_workflow_runtime_side_effect_ledger.py",
+          "tests/test_workflow_runtime_sqlalchemy_stores.py",
+          "tests/workflow/test_workflow_transition_authorization_grant.py",
+          "tests/task/test_task_runtime_goal_finalize.py",
+          "tests/task/test_task_status_service.py"
+        ]
+      },
+      "checks": [
+        "Ruff: all changed Python files passed",
+        "git diff --check passed",
+        "CLI backend shim imports passed",
+        "Meet Worker boundary detector passed (146 files)"
+      ],
+      "remaining": [
+        "Positive ordinary Native artifact upload/receipt ingress",
+        "Production Worker output-byte resolution and execution composition; real localhost network admission requires socket-enabled environment",
+        "CaseFlow expanded-edge trace and full browser command/recovery matrix",
+        "PostgreSQL concurrency, full-app Autopilot/durable dispatch outbox/container-loss recovery and production packaging",
+        "Updated cross-container hostile-result cases require a fresh run; Docker socket access is denied by the current sandbox"
+      ],
+      "solid_review": {
+        "protected": [
+          "SRP: projection, authority reader, completion policy, forwarding guard and cancellation service separated",
+          "DIP/ISP: reuse existing completion-policy seam and optional guarded status CAS/fenced mutation ports",
+          "OCP/LSP: additive ports and Pi compatibility facade; no unfenced BPMN fallback"
+        ],
+        "preserved_debt": [
+          "Broad Native orchestrator, TaskRuntimeService, Worker gateway and Angular component remain; existing post-commit behavior reused"
+        ]
+      }
     }
   },
   "weighted_progress_summary": {
@@ -929,10 +1247,691 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-24T14:10:53.393655Z",
+    "generated_at": "2026-10-11T11:11:22.752796Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "8ccdab6440dc3e25134a598f8e0a4bc57e89e5e2c47ee6c3c0604488610c114b",
+    "source_hash": "319ecc216695094ab6d73a0d1d97fa51e1ba00842dc3bfdaa29023c37a33608d",
     "is_stale": false
+  },
+  "local_container_review_2026_10_11": {
+    "classification": "synthetic_test_technical_observation",
+    "production_release_evidence": false,
+    "deployment": false,
+    "container_cases_passed": 22,
+    "container_cases_total": 22,
+    "partial_case_selection": false,
+    "browser_requested": true,
+    "cleanup_complete": true,
+    "elapsed_seconds": 67.0,
+    "targeted_tests_passed": 57,
+    "targeted_tests_seconds": 10.14,
+    "artifact_transfer": "Worker-local immutable bytes -> production authenticated Hub ingress -> assignment/lease-bound Hub technical receipt -> production consumer input download",
+    "preserved_boundaries": [
+      "No shared Hub database/signing key",
+      "Hub owns queue/dispatch/approval",
+      "No worker delegation",
+      "Synthetic content and explicit policy fixtures",
+      "No release evidence issuance or promotion"
+    ],
+    "remaining": [
+      "Real container-loss/outbox recovery",
+      "Complete CaseFlow and browser recovery matrix",
+      "PostgreSQL concurrency",
+      "Production packaging and release admission"
+    ],
+    "artifact_reference_denial_reason": "native_artifact_hub_receipt_required",
+    "additional_boundary_tests_passed": 92,
+    "additional_boundary_tests_seconds": 8.42,
+    "unique_targeted_tests_passed": 149
+  },
+  "full_application_bootstrap_review_2026_10_11": {
+    "classification": "synthetic_test_technical_observation",
+    "production_release_evidence": false,
+    "testing_flag": false,
+    "passed": true,
+    "cleanup_complete": true,
+    "scope": "full_application_bootstrap_only",
+    "positive_autopilot_dispatch": false,
+    "fixes": [
+      "authoritative ROLE for Hub Memory composition",
+      "additive authenticated Native artifact /api aliases"
+    ],
+    "artifact_selected_regression_cases_passed": 2,
+    "artifact_selected_regression_is_partial": true,
+    "report": "artifacts/test-gates/bpmn-full-app-bootstrap.v1.json"
+  },
+  "full_application_native_autopilot_review_2026_10_11": {
+    "classification": "synthetic_test_technical_observation",
+    "production_release_evidence": false,
+    "passed": true,
+    "cleanup_complete": true,
+    "testing_flag": false,
+    "positive_autopilot_dispatch": true,
+    "scenarios": [
+      "Native single node",
+      "Producer/consumer artifact handoff"
+    ],
+    "regression_tests_passed": 989,
+    "container_seconds": 35.26,
+    "report": "artifacts/test-gates/bpmn-full-app-native-autopilot.v1.json",
+    "remaining": [
+      "Durable dispatch outbox and real container-loss recovery",
+      "PostgreSQL concurrency",
+      "Production image packaging and actual provider/tool execution",
+      "Public production release admission",
+      "Complete CaseFlow/browser recovery matrix"
+    ],
+    "post_composition_focused_tests_passed": 66
+  },
+  "native_dispatch_journal_review_2026_10_11": {
+    "classification": "synthetic_test_technical_observation",
+    "production_release_evidence": false,
+    "regression_tests_passed": 994,
+    "container_seconds": 35.38,
+    "cleanup_complete": true,
+    "remaining": [
+      "Actual mid-execution container loss",
+      "Durable Worker-result redelivery",
+      "Pre-send recovery or policy-authorized new attempts",
+      "PostgreSQL concurrency",
+      "Production packaging and release admission"
+    ],
+    "report": "artifacts/test-gates/bpmn-native-dispatch-journal.v1.json",
+    "final_focused_tests_passed": 40
+  },
+  "worker_container_loss_review_2026_10_11": {
+    "classification": "synthetic_test_technical_observation",
+    "production_release_evidence": false,
+    "passed": true,
+    "cleanup_complete": true,
+    "worker_exit_code": 73,
+    "loss_boundary": "After production Native consumer execution, before HTTP result response",
+    "container_seconds": 28.98,
+    "focused_tests_passed": 35,
+    "normal_full_app_regression_passed": true,
+    "remaining": [
+      "Durable Worker-result redelivery and eventual workflow completion",
+      "Scheduler reconciliation integration",
+      "Policy-authorized recovery/new attempts after lease expiry",
+      "Loss before execution and within external tool/provider operations",
+      "PostgreSQL concurrency and production packaging/release admission"
+    ],
+    "report": "artifacts/test-gates/bpmn-worker-container-loss.v1.json"
+  },
+  "worker_result_recovery_review_2026_10_11": {
+    "classification": "synthetic_test_technical_observation",
+    "production_release_evidence": false,
+    "regression_tests_passed": 1042,
+    "focused_tests_passed": 69,
+    "scope": [
+      "Worker-local SQLite reopen preserves exact projection-bound result",
+      "Signed retrieval-only Worker HTTP never executes consumer",
+      "Hub SQL admits original current assignment and closes original dispatch journal",
+      "Expired lease, changed fence/assignment, revoked grant/registration and non-transport review denied",
+      "Bounded streaming retrieval without redirects or automatic retries"
+    ],
+    "container_restart_redelivery_verified": true,
+    "remaining": [
+      "Bounded scheduler reconciliation integration",
+      "Recovery after lease expiry/new-attempt policy",
+      "Retention maintenance and execution-tool filesystem isolation",
+      "PostgreSQL concurrency",
+      "Production packaging/provider execution/release admission"
+    ],
+    "report": "artifacts/test-gates/bpmn-native-worker-result-recovery.v1.json",
+    "followup_report": "artifacts/test-gates/bpmn-worker-recreation-redelivery.v1.json"
+  },
+  "worker_recreation_redelivery_review_2026_10_11": {
+    "classification": "synthetic_test_technical_observation",
+    "production_release_evidence": false,
+    "passed": true,
+    "worker_exit_observed": true,
+    "worker_container_recreated": true,
+    "workflow_completed": true,
+    "original_dispatch_claim_preserved": true,
+    "cleanup_complete": true,
+    "elapsed_seconds": 34.19,
+    "focused_tests_passed": 45,
+    "remaining": [
+      "Expired-lease recovery and Hub-authorized new-attempt policy",
+      "Retention maintenance and execution-tool filesystem isolation",
+      "PostgreSQL concurrency",
+      "Production packaging/providers/release admission"
+    ],
+    "report": "artifacts/test-gates/bpmn-worker-recreation-redelivery.v1.json",
+    "scheduler_reconciliation_verified": true,
+    "scheduler_followup_report": "artifacts/test-gates/bpmn-native-result-scheduler.v1.json"
+  },
+  "native_result_scheduler_review_2026_10_11": {
+    "classification": "synthetic_test_technical_observation",
+    "production_release_evidence": false,
+    "passed": true,
+    "scheduler_http_tick": true,
+    "worker_recreated": true,
+    "workflow_completed": true,
+    "dispatched_on_recovery_tick": 0,
+    "cleanup_complete": true,
+    "elapsed_seconds": 37.92,
+    "broad_tests_passed": 1037,
+    "focused_tests_passed": 34,
+    "remaining": [
+      "Expired-lease recovery and Hub-authorized new-attempt policy",
+      "Retention maintenance and execution-tool filesystem isolation",
+      "PostgreSQL concurrency",
+      "Production packaging/providers/release admission"
+    ],
+    "report": "artifacts/test-gates/bpmn-native-result-scheduler.v1.json"
+  },
+  "expired_dispatch_retry_review_2026_10_11": {
+    "classification": "synthetic_test_technical_observation",
+    "production_release_evidence": false,
+    "passed": true,
+    "full_app_testing_flag": false,
+    "expired_result_admitted": false,
+    "retry_without_policy_denied": true,
+    "exact_hub_policy_permitted_fresh_attempt": true,
+    "new_task_and_attempt": true,
+    "higher_fencing_token": true,
+    "old_journal_unknown": true,
+    "workflow_completed": true,
+    "worker_container_recreated": true,
+    "cleanup_complete": true,
+    "elapsed_seconds": 40.45,
+    "normal_redelivery_regression_seconds": 38.95,
+    "normal_redelivery_regression_passed": true,
+    "broad_tests_passed": 996,
+    "broad_tests_seconds": 66.45,
+    "focused_tests_passed": 23,
+    "fixture_limits": [
+      "Synthetic compiled graph and handler",
+      "Explicit SQL lease-expiry fault injection",
+      "Signed controls through production orchestrator, not HTTP control endpoint"
+    ],
+    "solid_review": "Retry SQL policy has a focused read-only port (SRP/ISP). Cancellation reuses central active-state definitions; transactional lease validation is preserved. Global SQL/Flask composition remains DIP debt.",
+    "remaining": [
+      "Retention maintenance and execution-tool filesystem isolation",
+      "PostgreSQL concurrency",
+      "Production packaging/providers/release admission"
+    ],
+    "report": "artifacts/test-gates/bpmn-expired-dispatch-retry.v1.json"
+  },
+  "worker_result_retention_review_2026_10_11": {
+    "classification": "synthetic_test_technical_observation",
+    "production_release_evidence": false,
+    "status": "bounded_storage_maintenance_implemented_and_verified",
+    "startup_and_request_scrubbing": true,
+    "finite_idle_maintenance_cli": true,
+    "default_batch_size": 100,
+    "maximum_batch_size": 1000,
+    "replay_tombstones_and_quota_preserved": true,
+    "live_results_preserved": true,
+    "unknown_execution_expiry_fenced": true,
+    "sqlite_secure_delete": true,
+    "cryptographic_disk_erasure_claimed": false,
+    "broad_tests_passed": 1009,
+    "broad_tests_seconds": 68.41,
+    "final_focused_tests_passed": 31,
+    "final_focused_tests_seconds": 4.99,
+    "final_focused_additional_tests": 1,
+    "unique_host_tests_passed": 1010,
+    "isolated_container_storage_tests_passed": 23,
+    "isolated_container_seconds": 1.13,
+    "isolated_container_network": "none",
+    "isolated_container_uid": 65534,
+    "isolated_container_source_mounts": "read_only; shared agent/worker contracts included",
+    "full_app_worker_recreation_redelivery_passed": true,
+    "full_app_elapsed_seconds": 38.81,
+    "full_app_cleanup_complete": true,
+    "solid_review": "Store owns bounded payload lifecycle; CLI owns finite composition/reporting (SRP). No Worker scheduling or Hub queue ownership. Existing Native package dependency on Hub contracts is preserved DIP/packaging debt.",
+    "remaining": [
+      "OS-level execution-tool isolation from private Worker store",
+      "Hub/deployment-controlled idle maintenance cadence",
+      "Authority-bound tombstone retirement or store rotation",
+      "PostgreSQL concurrency and production packaging/providers/release admission"
+    ],
+    "report": "artifacts/test-gates/bpmn-worker-result-retention.v1.json"
+  },
+  "private_store_tool_isolation_review_2026_10_11": {
+    "active_cached_store_authoritative_after_config_removal": true,
+    "broad_tests_passed": 1145,
+    "broad_tests_seconds": 70.19,
+    "classification": "synthetic_test_technical_observation",
+    "descendant_process_and_symlink_escape_denied": true,
+    "final_focused_additional_tests": 24,
+    "final_focused_tests_passed": 56,
+    "final_focused_tests_seconds": 3.59,
+    "fixture_limits": [
+      "Static synthetic graph and handler",
+      "Adversarial fixture commands with explicit synthetic policy",
+      "Real Shell execution port, actual Worker SQLite store and authenticated Hub dispatch/admission"
+    ],
+    "full_application_cleanup_complete": true,
+    "full_application_elapsed_seconds": 35.47,
+    "full_application_gate_passed": true,
+    "isolated_container": {
+      "capabilities": "none",
+      "network": "none",
+      "source_mounts": "read_only",
+      "uid": 65534,
+      "tests_passed": 14,
+      "duration_seconds": 0.98,
+      "cleanup_complete": true
+    },
+    "landlock_minimum_abi": 6,
+    "mandatory_metadata_seccomp": true,
+    "memory_channel_groups": 17,
+    "native_and_artifact_workflows_completed": true,
+    "private_read_write_truncate_chmod_denied": true,
+    "production_release_evidence": false,
+    "registered_memory_source_components": 503,
+    "remaining": [
+      "Other provider/CLI/tool execution ports",
+      "aarch64 positive kernel execution gate",
+      "Network egress and complete deployment sandbox profiles",
+      "Resource/output buffering and pathname metadata",
+      "Idle maintenance cadence and authority-bound tombstone retirement",
+      "PostgreSQL concurrency and production packaging/providers/release admission"
+    ],
+    "report": "artifacts/test-gates/bpmn-private-store-tool-isolation.v1.json",
+    "required_landlock_erratum": 3,
+    "scope": "Worker run_shell/execute_command_plan with authoritative configured private result-store path",
+    "solid_review": "Focused policy composition, single-threaded launcher, kernel ABI adapter and metadata filter (SRP/ISP). Existing Shell approval/execution/result mixing and Flask/environment composition coupling are preserved debt. No Hub ownership moves to Worker.",
+    "status": "common_shell_private_result_store_boundary_implemented_and_verified",
+    "tested_architecture": "x86_64",
+    "tested_host_and_container_abi": 7,
+    "tool_inherited_workspace_fd_closed_before_exec": true,
+    "unique_host_tests_passed": 1169,
+    "unrestricted_fallback": false,
+    "worker_descriptors_and_service_environment_not_passed": true,
+    "worker_parent_inspection_and_signals_denied": true,
+    "workspace_fd_pinned": true,
+    "workspace_write_allowed": true,
+    "xattr_timestamp_and_io_uring_bypass_denied": true,
+    "broad_deselected_tests": 1,
+    "headless_gate_command": "python3 scripts/test_bpmn_container.py --full-app-tool-isolation",
+    "checks": {
+      "ruff": "passed",
+      "source_channel_gate": "passed",
+      "legacy_source_gate": "passed",
+      "todo_consistency": "passed",
+      "diff_check": "passed"
+    }
+  },
+  "postgres_concurrency_work": {
+    "status": "native_dispatch_and_event_wait_components_verified_full_bpmn_matrix_pending",
+    "report": "artifacts/test-gates/bpmn-postgres-event-waits.v1.json",
+    "previous_report": "artifacts/test-gates/bpmn-postgres-native-concurrency.v1.json",
+    "tests_passed": 9,
+    "seconds": 22.04,
+    "production_release_evidence": false,
+    "deployment_performed": false,
+    "scope": "Actual owned PostgreSQL and independent SQL engines; real signed control leases/checkpoint CAS plus previous Native dispatch/result races. Synthetic catch targets/message authorizer; full compiled BPMN reference matrix remains open."
+  },
+  "delegated_result_maintenance_work": {
+    "status": "owner_bound_delegation_and_durable_hub_cadence_locally_verified",
+    "report": "artifacts/test-gates/bpmn-delegated-result-maintenance.v1.json",
+    "worker_profile_default_enabled": false,
+    "focused_passed": 37,
+    "broad_passed": 1661,
+    "broad_skipped": 11,
+    "broad_deselected": 1,
+    "production_release_evidence": false,
+    "deployment_performed": false,
+    "remaining": [
+      "Full compiled BPMN reference/container/PostgreSQL acceptance matrix",
+      "Actual productive Worker packaging/provider/registration/rollout/release admission",
+      "Additional transport byte-boundary and deployment-fault/retirement concurrency coverage",
+      "Unknown or unadmitted outcomes remain protected, not eligible for retirement"
+    ],
+    "final_registration_follow_up": {
+      "maintenance_capability_advertised_only_after_explicit_optin": true,
+      "handler_pi_composition_startup_passed": 36,
+      "seconds": 10.03,
+      "worker_runtime_compatibility_passed": 7,
+      "compatibility_seconds": 2.49
+    },
+    "retirement_pipeline_report": "artifacts/test-gates/bpmn-result-retirement-pipeline.v1.json"
+  },
+  "result_store_owner_binding_work": {
+    "status": "registered_exact_owner_binding_implemented_and_locally_verified",
+    "report": "artifacts/test-gates/bpmn-result-store-owner-binding.v1.json",
+    "production_release_evidence": false,
+    "deployment_performed": false,
+    "focused_passed": 126,
+    "final_owner_cases": 26,
+    "broad_passed": 1111,
+    "remaining": [
+      "Full compiled BPMN reference/container/PostgreSQL acceptance matrix",
+      "Actual productive Worker packaging/provider/registration/rollout/release admission",
+      "Additional transport byte-boundary and deployment-fault/retirement concurrency coverage",
+      "Unknown or unadmitted outcomes remain protected, not eligible for retirement"
+    ],
+    "final_contract_routing_passed": 72,
+    "retirement_pipeline_report": "artifacts/test-gates/bpmn-result-retirement-pipeline.v1.json"
+  },
+  "automatic_native_maintenance_cadence_work": {
+    "status": "durable_policy_bound_hub_cadence_implemented_and_locally_verified",
+    "report": "artifacts/test-gates/bpmn-native-maintenance-cadence.v1.json",
+    "production_release_evidence": false,
+    "deployment_performed": false,
+    "broad_passed": 1236,
+    "owned_postgres_passed": 11,
+    "final_policy_cases": 98,
+    "remaining": [
+      "Full compiled BPMN reference/container/PostgreSQL acceptance matrix",
+      "Actual productive Worker packaging/provider/registration/rollout/release admission",
+      "Additional transport byte-boundary and deployment-fault/retirement concurrency coverage",
+      "Unknown or unadmitted outcomes remain protected, not eligible for retirement"
+    ],
+    "retirement_pipeline_report": "artifacts/test-gates/bpmn-result-retirement-pipeline.v1.json"
+  },
+  "result_retirement_foundation_work": {
+    "status": "signed_private_compaction_and_historical_hub_admission_locally_verified_productive_composition_pending",
+    "report": "artifacts/test-gates/bpmn-result-retirement-foundation.v1.json",
+    "production_release_evidence": false,
+    "deployment_performed": false,
+    "broad_passed": 1797,
+    "broad_skipped": 23,
+    "broad_deselected": 1,
+    "broad_seconds": 143.36,
+    "focused_passed": 115,
+    "focused_seconds": 9.96,
+    "remaining": [
+      "Full compiled BPMN reference/container/PostgreSQL acceptance matrix",
+      "Actual productive Worker packaging/provider/registration/rollout/release admission",
+      "Additional transport byte-boundary and deployment-fault/retirement concurrency coverage",
+      "Unknown or unadmitted outcomes remain protected, not eligible for retirement"
+    ],
+    "owned_postgres_regression_passed": 11,
+    "owned_postgres_regression_seconds": 30.46,
+    "owned_postgres_cleanup_verified": true,
+    "maintenance_capacity_report": "artifacts/test-gates/bpmn-maintenance-capacity.v1.json",
+    "retirement_pipeline_report": "artifacts/test-gates/bpmn-result-retirement-pipeline.v1.json"
+  },
+  "native_maintenance_capacity_work": {
+    "status": "owner_bound_extra_capacity_durable_identity_and_current_admission_implemented_and_locally_verified",
+    "report": "artifacts/test-gates/bpmn-maintenance-capacity.v1.json",
+    "production_release_evidence": false,
+    "deployment_performed": false,
+    "broad_passed": 1725,
+    "broad_skipped": 22,
+    "broad_deselected": 1,
+    "broad_seconds": 117.08,
+    "final_focused_passed": 55,
+    "final_focused_seconds": 6.48,
+    "default_extra_capacity": 64,
+    "current_hub_admission_before_reservation": true,
+    "durable_identity_relabeling_denied": true,
+    "remaining": [
+      "Full compiled BPMN reference/container/PostgreSQL acceptance matrix",
+      "Actual productive Worker packaging/provider/registration/rollout/release admission",
+      "Additional transport byte-boundary and deployment-fault/retirement concurrency coverage",
+      "Unknown or unadmitted outcomes remain protected, not eligible for retirement"
+    ],
+    "retirement_pipeline_report": "artifacts/test-gates/bpmn-result-retirement-pipeline.v1.json"
+  },
+  "native_result_retirement_pipeline_work": {
+    "status": "hub_issued_retirement_worker_compaction_and_durable_acknowledgement_implemented_and_locally_verified",
+    "report": "artifacts/test-gates/bpmn-result-retirement-pipeline.v1.json",
+    "production_release_evidence": false,
+    "deployment_performed": false,
+    "broad_passed": 1737,
+    "broad_skipped": 24,
+    "broad_deselected": 1,
+    "broad_seconds": 132.26,
+    "final_focused_passed": 115,
+    "final_focused_seconds": 17.04,
+    "owned_postgres_passed": 13,
+    "owned_postgres_seconds": 33.51,
+    "owned_postgres_cleanup_verified": true,
+    "worker_profile_default_enabled": false,
+    "retirement_manifest_entries_max": 128,
+    "original_hub_history_required_for_superseded_lease": true,
+    "remaining": [
+      "Full compiled BPMN reference/container/PostgreSQL acceptance matrix",
+      "Actual productive Worker packaging/provider/registration/rollout/release admission",
+      "Additional transport byte-boundary and deployment-fault/retirement concurrency coverage",
+      "Unknown or unadmitted outcomes remain protected, not eligible for retirement"
+    ]
+  },
+  "full_application_native_reference_matrix_work": {
+    "status": "complete_native_reference_matrix_in_full_application_locally_verified",
+    "report": "artifacts/test-gates/bpmn-full-app-reference-matrix.v1.json",
+    "production_release_evidence": false,
+    "deployment_performed": false,
+    "full_app_reference_cases": 13,
+    "full_app_seconds": 96.42,
+    "core_browser_cases": 22,
+    "core_browser_seconds": 68.71,
+    "runner_safety_passed": 20,
+    "cleanup_verified": true,
+    "remaining": [
+      "Full PostgreSQL reference and fault matrix",
+      "Registry identities for controller-only/event/browser acceptance actions; Worker runs are covered",
+      "Optional backend and productive packaging/provider/rollout/release admission"
+    ],
+    "registry_worker_runs_report": "artifacts/test-gates/bpmn-full-app-registry-runs.v1.json"
+  },
+  "full_app_hub_registry_worker_runs_work": {
+    "status": "pre_reserved_hub_registry_worker_reference_runs_implemented_and_locally_verified",
+    "report": "artifacts/test-gates/bpmn-full-app-registry-runs.v1.json",
+    "production_release_evidence": false,
+    "deployment_performed": false,
+    "unique_hub_reserved_worker_runs": 16,
+    "full_app_reference_cases": 13,
+    "full_app_seconds": 112.34,
+    "broad_passed": 1795,
+    "broad_skipped": 24,
+    "focused_passed": 80,
+    "cleanup_verified": true,
+    "remaining": [
+      "Pre-reserved Registry coverage for browser acceptance",
+      "Complete authenticated UI recovery/command and CaseFlow trace coverage",
+      "Optional backend and productive provider/rollout/release acceptance"
+    ]
+  },
+  "postgres_full_app_work": {
+    "report": "artifacts/test-gates/bpmn-postgres-full-app.v1.json",
+    "reference_cases": 13,
+    "worker_registry_runs": 16,
+    "worker_recreation_redelivery": "passed",
+    "expired_lease_retry": "passed",
+    "production_release_evidence": false
+  },
+  "full_app_hub_control_registry_work": {
+    "status": "implemented_and_locally_verified",
+    "report": "artifacts/test-gates/bpmn-hub-control-registry.v1.json",
+    "database_gates": {
+      "postgresql": {
+        "reference_cases": 13,
+        "worker_runs": 16,
+        "control_runs": 132,
+        "seconds": 51.75,
+        "cleanup_verified": true,
+        "controller_run_counts": {
+          "and_join": 60,
+          "artifact_handoff": 5,
+          "loop": 15,
+          "message": 5,
+          "native_node": 4,
+          "policy_approve": 5,
+          "policy_blocked": 3,
+          "policy_reject": 4,
+          "subprocess": 8,
+          "timer": 5,
+          "xor_default": 6,
+          "xor_false": 6,
+          "xor_true": 6
+        }
+      },
+      "sqlite": {
+        "reference_cases": 13,
+        "worker_runs": 16,
+        "control_runs": 123,
+        "seconds": 116.4,
+        "cleanup_verified": true,
+        "controller_run_counts": {
+          "and_join": 51,
+          "artifact_handoff": 5,
+          "loop": 15,
+          "message": 5,
+          "native_node": 4,
+          "policy_approve": 5,
+          "policy_blocked": 3,
+          "policy_reject": 4,
+          "subprocess": 8,
+          "timer": 5,
+          "xor_default": 6,
+          "xor_false": 6,
+          "xor_true": 6
+        }
+      }
+    },
+    "production_release_evidence": false,
+    "remaining": [
+      "Pre-reserved Registry coverage for browser acceptance",
+      "Complete authenticated UI recovery/command and CaseFlow trace coverage",
+      "Optional backend and productive provider/rollout/release acceptance"
+    ]
+  },
+  "fault_registry_work": {
+    "status": "implemented_and_locally_verified",
+    "report": "artifacts/test-gates/bpmn-registry-fault-recovery.v1.json",
+    "database_gates": {
+      "postgresql": {
+        "redelivery": {
+          "seconds": 40.04,
+          "actual_worker_recreated": true,
+          "cleanup_verified": true,
+          "controller_runs": 4,
+          "uncompleted_controller_runs": 0,
+          "original_worker_run_reserved": true,
+          "same_run_completed_after_admission": true,
+          "unique_worker_runs": 1
+        },
+        "expired_retry": {
+          "seconds": 40.51,
+          "actual_worker_recreated": true,
+          "cleanup_verified": true,
+          "controller_runs": 7,
+          "uncompleted_controller_runs": 1,
+          "old_run_uncompleted": true,
+          "new_attempt_distinct_run": true,
+          "unique_worker_runs": 2
+        }
+      },
+      "sqlite": {
+        "redelivery": {
+          "seconds": 40.39,
+          "actual_worker_recreated": true,
+          "cleanup_verified": true,
+          "controller_runs": 4,
+          "uncompleted_controller_runs": 0,
+          "original_worker_run_reserved": true,
+          "same_run_completed_after_admission": true,
+          "unique_worker_runs": 1
+        },
+        "expired_retry": {
+          "seconds": 42.28,
+          "actual_worker_recreated": true,
+          "cleanup_verified": true,
+          "controller_runs": 7,
+          "uncompleted_controller_runs": 1,
+          "old_run_uncompleted": true,
+          "new_attempt_distinct_run": true,
+          "unique_worker_runs": 2
+        }
+      }
+    },
+    "broad_passed": 1863,
+    "production_release_evidence": false,
+    "remaining": [
+      "Pre-reserved Registry coverage for browser acceptance",
+      "Complete authenticated UI recovery/command and CaseFlow trace coverage",
+      "Optional backend and productive provider/rollout/release acceptance"
+    ]
+  },
+  "browser_definition_recovery_work": {
+    "status": "implemented_and_locally_verified",
+    "report": "artifacts/test-gates/bpmn-definition-browser-recovery.v1.json",
+    "production_release_evidence": false,
+    "remaining": [
+      "Browser pre-execution Hub Registry identities",
+      "Complete UI pause/resume/retry/cancel recovery matrix and expanded CaseFlow edge traces",
+      "Optional backend and productive provider/rollout/release acceptance",
+      "Provision cached frontend test dependencies for full-app TypeScript build"
+    ]
+  },
+  "caseflow_source_provenance_work": {
+    "status": "implemented_and_locally_verified",
+    "report": "artifacts/test-gates/bpmn-caseflow-source-provenance.v1.json",
+    "production_release_evidence": false,
+    "remaining": [
+      "Canonical traversal event coverage and complete original-edge correlation for every control/activation boundary",
+      "Browser pre-execution Hub Registry coverage",
+      "Full UI pause/resume/retry/cancel recovery matrix",
+      "Optional backend and productive rollout/provider/release acceptance"
+    ]
+  },
+  "canonical_edge_events_work": {
+    "status": "implemented_and_locally_verified",
+    "report": "artifacts/test-gates/bpmn-canonical-edge-events.v1.json",
+    "production_release_evidence": false,
+    "remaining": [
+      "Browser pre-execution Registry identities; pause/resume/retry/cancel recovery is covered by the dedicated recovery reports",
+      "Browser pre-execution Registry identities",
+      "Optional backend and productive provider/rollout/release acceptance"
+    ]
+  },
+  "pause_cancel_command_recovery_work": {
+    "status": "implemented_and_locally_verified",
+    "report": "artifacts/test-gates/bpmn-pause-cancel-command-recovery.v1.json",
+    "production_release_evidence": false,
+    "remaining": [
+      "Optional backend and productive provider/rollout/release acceptance"
+    ],
+    "core_browser_cases": 22,
+    "core_browser_seconds": 130.02,
+    "cleanup_verified": true,
+    "broad_passed": 1387,
+    "final_publication_passed": 228,
+    "frontend_passed": 76,
+    "followup_reports": [
+      "artifacts/test-gates/bpmn-full-frontend-build.v1.json"
+    ]
+  },
+  "positive_retry_recovery_work": {
+    "status": "implemented_and_locally_verified",
+    "report": "artifacts/test-gates/bpmn-retry-edge-recovery.v1.json",
+    "production_release_evidence": false,
+    "remaining": [
+      "Productive provider/rollout/release acceptance"
+    ],
+    "core_browser_cases": 22,
+    "core_browser_seconds": 147.21,
+    "cleanup_verified": true,
+    "followup_reports": [
+      "artifacts/test-gates/bpmn-full-frontend-build.v1.json"
+    ]
+  },
+  "browser_registry_reservation_work": {
+    "status": "implemented_and_locally_verified",
+    "report": "artifacts/test-gates/bpmn-browser-registry-reservation.v1.json",
+    "production_release_evidence": false,
+    "scope": "Chromium acceptance executor",
+    "remaining": [
+      "Independent component/controller test scopes require their own Registry binding before any stronger evidence claim",
+      "Productive provider/packaging/rollout/release acceptance",
+      "Locked full frontend build dependency provisioning"
+    ]
+  },
+  "full_frontend_build_work": {
+    "status": "locally_verified",
+    "report": "artifacts/test-gates/bpmn-full-frontend-build.v1.json",
+    "production_release_evidence": false,
+    "deployment_performed": false,
+    "remaining": [
+      "Fresh lockfile installation and productive frontend packaging/release acceptance"
+    ]
   }
 }

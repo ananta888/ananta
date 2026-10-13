@@ -7,7 +7,7 @@
   "track": "meet-chat-delivery",
   "status": "in_progress",
   "created_at": "2026-09-24",
-  "updated_at": "2026-09-24",
+  "updated_at": "2026-10-10",
   "purpose": "Eine Chat-Nachricht des Menschen ging verloren, weil der Machine-Chat-Kanal bei jeder Lease-Erneuerung (~40 s) geschlossen, geleert und neu geoeffnet wurde (Log: chat_poll_err meet_chat_closed -> chat opened).",
   "goal": "Unbeantwortete Human-Nachrichten ueberleben Close/Reopen, werden nach dem Reopen genau einmal verarbeitet und beantwortet, ohne Scope-/Autoritaets-/Limitregeln aufzuweichen und ohne Texte zu loggen.",
   "status_scale": [
@@ -183,8 +183,725 @@
   },
   "summary_notes": [
     "Nicht deployt. Webrtc-Client-Aenderung: webrtc-minimize-server 15ca1d5 (Track todos/active/todo.meet-chat-renewal-continuity.json dort).",
-    "Offen/bestehend, nicht Teil dieses Tracks: companion.py loggt weiterhin RECV/REPLY-Textausschnitte und STATE mit Chat-Inhalt; ein Human-Event mit veralteter membership_epoch schliesst den Client-Chatport weiterhin (meet_chat_event_scope_invalid).",
+    "RECV/REPLY/STATE und Chat-Fehler enthalten lokal keine Chat-Texte/Payloads mehr; feste Diagnostik und exakte Port-Fehlererkennung gepr\u00fcft (artifacts/test-gates/meet-chat-diagnostics.v1.json). Offen: veraltete membership_epoch und Live-Abnahme nach Deployment.",
     "MCD-004 (2026-09-24): Live meet_chat_reply_denied nach getragener Eingabe; Ursache Client-Antwortfenster ab sentAt, Fix webrtc 2f40686 (120 s ab Zustellung). Nicht deployt.",
-    "Offen (nicht Teil von MCD-004): der Companion-Loop pollt waehrend Modell-+TTS-Runde (~50 s) nicht; eine in dieser Zeit gesendete Eingabe kann im Client die 30-s-Frische ueberschreiten und vor dem ersten Poll verworfen werden (dann chat_gap). Mehrere Eingaben in einem Batch werden nacheinander beantwortet; ab ~3 wartenden Eingaben kann das 120-s-Antwortfenster knapp werden."
-  ]
+    "Lokale Companion-Komposition pollt und erneuert jetzt waehrend Modell/TTS, nutzt begrenzte Inbox und ACK-Praefix. 50-s-Ausfuehrungsfall mit rechtzeitig angenommener zweiter Nachricht im echten run()-Loop bestanden (synthetische Browser/Model-Ports). Offen: reale Browser-/Deployment-Abnahme, GPU-/Lipsync-Live-Abnahme.",
+    "2026-10-10: Lokaler Meet-Review mit 320 bestandenen Tests und bestandenem Worker-Grenzcheck. Live-Aufgaben unveraendert offen; Docker-API-Zugriff verweigert, kein Deployment oder Room-Server-Neustart vorgenommen.",
+    "Bereits zugestellte offene Eingaben werden jetzt durch additive Browser-redelivery unter aktuellen Lese-/Quellen-/Lease-Rechten erneut bestaetigt. Echter Python-run()-Loop mit tatsaechlichem TypeScript-Endpoint: 2/3/32 Eingaben, je 50 s Modellrunde, alle einmal beantwortet; 364 Companion-, 47 Endpoint-, 28 Queue-Tests bestanden. 30-s-Erstaufnahme, 120-s-Fenster ab aktueller Zustellung und getrennte Senderechte bleiben erhalten. Gemeinsame Browser-/GPU-/Block-Abnahme und Deployment offen; aeltere Clients ohne redeliver beenden diesen Pfad begrenzt.",
+    "Legacy Companion-run() bereitet Idle-/Sprechclips nun im eigenen bounded Media-Hilfsprozess vor; Browser-Empfang, Hub-Renewal und Widerruf laufen weiter. Geschlossener gemeinsamer Pipe-Transport mit getrennten Modell-/Medienadaptern; HTTP/Renderer/FFmpeg und Prozesse beim Kontrollverlust beendet. Dauerhaft voller Audiopuffer endet nach Sprechdauer plus 30 s Stallbudget. 419 unterschiedliche Tests bestanden, echter CPU-FFmpeg/ffprobe und synthetischer langsamer Lipsync-HTTP-/Fallback-/Widerrufpfad geprueft. Ein bestehender echter GPU-/Service-Live-Gate sichtbar uebersprungen. Produktionsimage-/Browser-/GPU-/Deployment-/Registry-Abnahme bleibt offen.",
+    "Standalone Meet-Worker frisch ueber unveraendertes produktives Dockerfile gebaut und exakt gepackt geprueft: 10 Quellmodule/Dependency-Lock, kein Hub-Paket, Nicht-Root, NoNewPrivs/keine Capabilities, Root read-only, Tmpfs und Netzwerk none. Originaler Modell-Entry lehnt Fremdoperation ab; persistenter Modell-Pipe nur mit synthetischem Executable-Double; originaler Media-Entry rendert via CPU-FFmpeg und beendet Hilfsprozess bei Widerruf. Health-Gate erkennt Listener-STOP und erholt sich ohne Neustart/Task. Beide Containergates bestanden, eigene Container/tempor\u00e4rer Image-Tag bereinigt; kein Deployment oder Registry-Release-Nachweis. Reale Browser-/GPU-/Modell-/TTS- und gepaarte Deployment-Abnahme bleiben offen.",
+    "Reale aktuelle Angular/HTTPS/WebRTC-Browsermatrix lokal bestanden: 4 Chromium/Firefox-Faelle; 9 live Chat-Eingaben paginiert 8+1 ohne ACK, durch 3 Renewals gehalten/bestaetigt und einmal beantwortet; Nur-Lese-redelivery bleibt ohne Senderecht; echte Server-Mitgliedschaftsverluste sperren Port und Audio. 62 Frontend-/28 Queue-Tests sowie Build/Typen bestanden. Git add3f5f verlangt Hub-Capability-basierte Autorisierung ohne separate Publisher-Consent; veraltete Tests darauf ausgerichtet, keine Produktivpolicy geaendert. Python-Worker/Browser-Gesamtloop, GPU/LLM/TTS, Legacy-Consent-UI-Ausrichtung, voller Client-Blockcheck und Deployment/Registry-Abnahme offen.",
+    "Zusatzcheck realer Publisher-Mitgliedschaftsverlust bestanden: Chromium/Chromium und Firefox/Firefox; menschlicher Sender verlaesst den Raum, Maschine bleibt joined mit gueltiger Hub-Lease, redelivery verweigert. Zwei wiederholte Matrixfaelle, keine sechs unterschiedlichen Browserfaelle. Anschliessender Maschinen-Mitgliedschaftsverlust sperrt reopen/redelivery separat. 2 passed, 0 skipped, 9.086 s; Report aktualisiert.",
+    "Legacy-Quellenfreigabe-UI durch passive Hub-Rechteuebersicht ersetzt. Zusaetzliche obsolete Consent-Anforderung in PCM-/Bildexport an bestehende Hub-Capability-Policy add3f5f angeglichen; exakte Lease/Membership/Quelle/Epoch bleiben Pflicht. 139 Frontend-/14 Node-Tests und 22 unterschiedliche echte Browserfaelle lokal bestanden (initial 20/22; zwei Renewal-Testannahmen korrigiert und nachgeprueft, kein behaupteter gruener Gesamtlauf). Voller Clientblock/Worker-Gesamtloop und versionierte Legacy-Protokollbereinigung offen. Multi-Worker selektiver Entzug braucht owning-Hub-Fixture, alter Consent-Bridgepfad verweigert bounded.",
+    "Legacy-Server-Backchannel behoben: aktuelle verifizierte Hub-Receive-Capabilities werden als geschlossene quellen-/membership-/leasegebundene Kompatibilitaetsprojektion geliefert, Revision mindestens 1. 39 Node-/18 Hub-Regressionsfaelle bestanden. Reales produktives Workerimage mit Playwright 1.58.0 gebaut/prueft; Hub + zwei private Worker + aktueller Client bestehen Screen und nach Fix Persona/Speech/2 Chatantworten/gezielten Hub-Stopp (31.79/67.63 s). Synthetische Identitaeten/Inferenz, keine Produktion. Bestehender Hub-Task-Cancel ist selektiver Widerruf; neues Consent-Kommando nicht noetig. Full-Clientblock folgt; Legacy-Companion-Gesamtloop/Liveprovider/Deployment/Registry weiter offen.",
+    "Full-Clientblock npm run check ausgefuehrt, exit 1: Frontend 1694 passed / 19 failed in 4 files, 1 unhandled error. SFrame-Key-ACK-/Overlay-Testdoubles und Avatar-Setup-/Reason-/Clock-Faelle brauchen Untersuchung; kein pauschaler obsolete-Test-Claim. Build/Leakage/Go/Node-/Live-Infrastruktur-Stufen dadurch nicht erreicht. Gekoppelter Persona-Speech-Nachlauf bleibt bestanden. Eigene Container/Netze und eigenes Image-Tag bereinigt, keine Produktion veraendert."
+  ],
+  "local_headless_review_2026_10_10": {
+    "date": "2026-10-10",
+    "classification": "local_headless_technical_observation",
+    "production_release_evidence": false,
+    "deployment_performed": false,
+    "checks": [
+      {
+        "scope": "Meet companion knowledge/scope/chat ledger/public-room plus KnowledgeIndexRetrievalService",
+        "passed": 101,
+        "duration_seconds": 5.31
+      },
+      {
+        "scope": "Meet LLM tools/Hub tools/routes and public-room services/internal endpoints",
+        "passed": 219,
+        "duration_seconds": 6.77
+      },
+      {
+        "scope": "python3 scripts/check_meet_worker_boundaries.py",
+        "result": "meet-worker-boundaries-ok: 146 files"
+      }
+    ],
+    "external_blockers": [
+      "docker info --format: permission denied connecting to unix:///var/run/docker.sock; no deployment, room-server restart or live Meet verification performed",
+      "No completed knowledge-index outputs found in local data directory; live rag-helper index coverage and source lines remain unverified"
+    ],
+    "test_environment": "Isolated /tmp/ananta-todo-venv; missing NumPy supplied offline from cached wheel, production dependencies unchanged"
+  },
+  "chat_diagnostics_review": {
+    "status": "chat_diagnostics_and_closed_port_retry_hardened",
+    "report": "artifacts/test-gates/meet-chat-diagnostics.v1.json",
+    "production_release_evidence": false,
+    "passed": 85,
+    "remaining": [
+      "Live browser renewal gate after deployment",
+      "Polling pause during long model/TTS execution",
+      "All other non-chat diagnostic surfaces"
+    ]
+  },
+  "poll_starvation_review": {
+    "status": "actual_client_queue_starvation_reproduced_fix_pending",
+    "report": "artifacts/test-gates/meet-chat-poll-starvation.v1.json",
+    "production_release_evidence": false,
+    "actual_queue_test": "timely_poll_delivers_1; after_50_seconds_delivers_0",
+    "required_change": "Nonblocking bounded companion execution with timely admission polling; preserve freshness/authority/ACK/replay limits"
+  },
+  "client_poll_pagination_review": {
+    "status": "client_pagination_implemented_companion_composition_pending",
+    "report": "artifacts/test-gates/meet-chat-poll-pagination.v1.json",
+    "production_release_evidence": false,
+    "remaining": [
+      "Bounded Companion inbox and cooperative model/TTS execution",
+      "Production polling/media/renewal integration",
+      "Queue pressure, revoke and recovery matrix",
+      "Browser and live gate",
+      "Full client block verification"
+    ]
+  },
+  "bounded_inbox_review": {
+    "status": "bounded_inbox_implemented_production_composition_pending",
+    "report": "artifacts/test-gates/meet-chat-inbox.v1.json",
+    "production_release_evidence": false,
+    "passed": 91,
+    "remaining": [
+      "Cooperative or cancellable bounded model/TTS execution",
+      "Owner-thread Browser/media/renewal polling composition",
+      "Lease loss and scope rebind matrix",
+      "Actual queue/Browser recovery gate",
+      "Live deployment acceptance"
+    ],
+    "ack_processing_report": "artifacts/test-gates/meet-chat-inbox.v1.json",
+    "ack_processing_checks_passed": 94
+  },
+  "cancellable_execution_review": {
+    "status": "cancellable_local_execution_port_implemented_production_composition_pending",
+    "report": "artifacts/test-gates/meet-companion-cancellable-execution.v1.json",
+    "production_release_evidence": false,
+    "passed": 103,
+    "remaining": [
+      "Browser polling and Hub grant-renewal composition",
+      "Exact scope continuity and generation rebind",
+      "Production Inbox/ACK integration",
+      "Real browser/model/TTS acceptance"
+    ]
+  },
+  "cooperative_composition_review": {
+    "status": "production_companion_polling_execution_renewal_inbox_composed_and_locally_verified",
+    "report": "artifacts/test-gates/meet-companion-cooperative-composition.v1.json",
+    "production_release_evidence": false,
+    "passed": 354,
+    "remaining": [
+      "Full actual Browser/server recovery and revoked-source matrix",
+      "Queue pressure and 120-second delivered reply-window for longer backlogs",
+      "Lipsync/renderer blocking-path and real GPU/FFmpeg/media acceptance",
+      "Coordinated client/Worker deployment and live renewal gate",
+      "Production Hub Evidence Registry admission/release gates"
+    ]
+  },
+  "delivery_revalidation_review": {
+    "status": "implemented_composed_and_locally_verified",
+    "report": "artifacts/test-gates/meet-chat-delivery-revalidation.v1.json",
+    "production_release_evidence": false,
+    "checks": {
+      "companion_regression_passed": 364,
+      "companion_regression_skipped": 0,
+      "duration_seconds": 11.74,
+      "real_endpoint_composition_cases": 3,
+      "real_endpoint_message_counts": [
+        2,
+        3,
+        32
+      ],
+      "model_seconds_per_answer": 50,
+      "client_endpoint_vitest_passed": 47,
+      "client_queue_node_passed": 28,
+      "client_app_types": "passed",
+      "ruff": "passed",
+      "worker_boundary_files": 152,
+      "worker_boundary": "passed"
+    },
+    "remaining": [
+      "Actual Browser/server source-revocation and recovery matrix for exact paired versions",
+      "Blocking renderer/Lipsync and real GPU/FFmpeg/media acceptance",
+      "Coordinated client/Worker deployment: older clients without chat.redeliver stop this path on pending input",
+      "Full client block verification before push; no slice push or deployment performed",
+      "Production Hub Evidence Registry admission/release gates"
+    ]
+  },
+  "media_preparation_review": {
+    "status": "production_companion_media_preparation_composed_and_locally_verified",
+    "report": "artifacts/test-gates/meet-companion-media-preparation.v1.json",
+    "production_release_evidence": false,
+    "checks": {
+      "broad_regression": {
+        "passed": 418,
+        "skipped": 1,
+        "seconds": 21.75
+      },
+      "post_revoked_http_regression": {
+        "passed": 18,
+        "seconds": 5.38,
+        "overlap_with_broad_regression": 17
+      },
+      "unique_tests_passed": 419,
+      "skipped_gate": "Existing live AvatarService GPU/model integration gate requires RUN_INTEGRATION_TESTS=1 and the actual configured service; not claimed passed.",
+      "actual_python_run_composition_cases": 12,
+      "actual_typescript_endpoint_cases": 6,
+      "message_counts": [
+        2,
+        3,
+        32
+      ],
+      "synthetic_model_seconds": 50,
+      "synthetic_idle_and_speaking_preparation_seconds": 50,
+      "real_media_entry_cpu_ffmpeg": "passed; H.264, video-only, 256x256, 12 fps and frame counts verified with ffprobe",
+      "real_lipsync_http": "passed on synthetic loopback service: success, HTTP-500 procedural/CPU fallback, and in-flight revocation",
+      "media_library_versions": {
+        "Pillow": "11.3.0",
+        "numpy": "2.2.6"
+      },
+      "process_timeout_cancellation_output_bounds": "passed",
+      "speech_backpressure_timeout": "passed",
+      "ruff": "passed",
+      "worker_boundary": "passed",
+      "worker_boundary_files": 156,
+      "memory_channel_inventory": "passed"
+    },
+    "remaining": [
+      "Actual browser/server source-generation, media renewal/revocation and cleanup matrix of paired versions",
+      "Actual configured GPU/Lipsync service, portrait/face validation and NVENC acceptance; CPU fallback test is not production GPU evidence",
+      "Standalone production Worker image and coordinated client/Worker rollout/live acceptance",
+      "Production Hub Evidence Registry admission/release evidence"
+    ]
+  },
+  "packaged_worker_review": {
+    "status": "built_and_private_container_verified",
+    "report": "artifacts/test-gates/meet-companion-packaged.v1.json",
+    "production_release_evidence": false,
+    "checks": {
+      "production_dockerfile_build": "passed with normal package-network access; no Dockerfile changes",
+      "offline_build": "failed: missing cached apt layer could not install ffmpeg/libgomp1 without package access; retried after terminal failure with normal build network",
+      "packaged_companion_probe": {
+        "passed": 1,
+        "seconds": 4.27
+      },
+      "packaged_worker_health": {
+        "passed": 1,
+        "seconds": 17.4
+      },
+      "tested_image_for_both_gates": "sha256:53a98fd6088fb02ca5ff61433dce6f3411a9294525bb00c365abb10f061b3712",
+      "runtime_lock": "passed",
+      "exact_source_modules": 10,
+      "hub_package_absent": true,
+      "effective_probe_isolation": {
+        "uid": 11111,
+        "capabilities": 0,
+        "no_new_privileges": true,
+        "root_filesystem": "read-only",
+        "network_interfaces": [
+          "lo"
+        ],
+        "writable_mounts": [
+          "/tmp tmpfs",
+          "/state tmpfs"
+        ],
+        "gpu_devices": 0,
+        "repository_bind_mounts": 0
+      },
+      "default_model_entry": "original packaged entry rejects unknown operation with exit 2 and no result before model invocation",
+      "persistent_model_pipe": "passed with explicit synthetic executable double; no live LLM/TTS call",
+      "real_media_entry": "idle plus speaking clips produced through original packaged procedural renderer/CPU FFmpeg",
+      "media_process_cancellation": "passed; owned helper terminated on synthetic control loss",
+      "worker_health_lifecycle": "healthy -> unhealthy during listener STOP -> healthy after CONT; no restart, no tasks",
+      "ruff": "passed",
+      "worker_boundary": "passed",
+      "worker_boundary_files": 156,
+      "todo_consistency": "passed",
+      "diff_check": "passed",
+      "private_container_cleanup": "passed"
+    },
+    "remaining": [
+      "Actual paired Browser/server media renewal, source revocation and cleanup matrix",
+      "Actual configured GPU/Lipsync portrait/face/NVENC and live model/TTS acceptance",
+      "Coordinated client/Worker deployment/live acceptance",
+      "Production Hub Evidence Registry admission/release evidence"
+    ]
+  },
+  "real_browser_redelivery_review": {
+    "status": "real_browser_client_matrix_verified",
+    "report": "artifacts/test-gates/meet-chat-browser-redelivery.v1.json",
+    "production_release_evidence": false,
+    "checks": {
+      "angular_production_build": {
+        "status": "passed",
+        "seconds": 9.881
+      },
+      "typescript_app": "passed",
+      "vitest_session_endpoint_receive_gate": {
+        "passed": 62
+      },
+      "node_queue": {
+        "passed": 28
+      },
+      "browser_matrix": {
+        "passed": 4,
+        "skipped": 0,
+        "seconds": 32.01977,
+        "dialog_chromium_human_chromium_machine_seconds": 15.25996,
+        "dialog_firefox_human_chromium_machine_seconds": 16.252902,
+        "read_only_chromium_human_chromium_machine_seconds": 4.170905,
+        "read_only_firefox_human_firefox_machine_seconds": 4.830064
+      },
+      "verified_behaviors": [
+        "Nine live human DataChannel inputs paginated 8+1 without ACK, retained/reconfirmed through three real lease renewals, then each replied once",
+        "Answered IDs denied for redelivery; read-only current input redelivery never grants sending",
+        "Read-only retained delivered identity reconfirmed after current renewal; consumed content never replays as new inputs",
+        "Actual private-server socket/membership loss denies reopening/redelivery and closes active audio collection",
+        "16000 synthetic PCM samples with more than 1000 nonzero samples, active SFrame with no transform errors, actual decoded moving screen pixels",
+        "Synthetic capture remains owned by automated fixture; no human/host capture or manual approval",
+        "Departed human publisher cannot be reconfirmed while machine remains joined with a live Hub lease; Chromium and Firefox"
+      ],
+      "node_version": "24.21.0",
+      "playwright_version": "1.62.1",
+      "todo_validator": "passed; 47 documents",
+      "diff_check": "passed",
+      "publisher_membership_loss_recheck": {
+        "passed": 2,
+        "skipped": 0,
+        "seconds": 9.085714071,
+        "chromium_seconds": 3.769220162,
+        "firefox_seconds": 4.817842923,
+        "overlaps_browser_matrix_cases": 2,
+        "scope": "Human publisher leaves while machine remains joined with live Hub lease; redelivery denied. Then independent machine membership loss denies reopen/redelivery."
+      }
+    },
+    "remaining": [
+      "Actual pinned Python Worker/browser control loop with current client under long model/media work and source-generation loss",
+      "Actual configured GPU/Lipsync and live LLM/TTS acceptance",
+      "Legacy receive-consent UI alignment with actual Hub-capability policy",
+      "Full client block verification before push and coordinated client/Worker deployment",
+      "Production Hub Evidence Registry admission/release evidence"
+    ]
+  },
+  "receive_policy_migration_review": {
+    "status": "implemented_and_locally_verified",
+    "report": "artifacts/test-gates/meet-receive-policy-migration.v1.json",
+    "production_release_evidence": false,
+    "checks": {
+      "angular_production_build": {
+        "passed": true,
+        "seconds": 8.958
+      },
+      "typescript_app": "passed",
+      "frontend_tests": {
+        "passed": 139,
+        "suites": 7,
+        "details": "136 session/endpoint/gate/legacy-control regression tests plus 3 passive observation tests"
+      },
+      "node_bridge_diagnostics": {
+        "passed": 14,
+        "seconds": 0.614212105
+      },
+      "browser_matrix": {
+        "initial_batch": {
+          "passed": 20,
+          "failed": 2,
+          "skipped": 0,
+          "seconds": 59.983989721
+        },
+        "corrected_renewal_recheck": {
+          "passed": 2,
+          "failed": 0,
+          "skipped": 0,
+          "seconds": 16.546162175
+        },
+        "unique_current_cases_passed": 22,
+        "complete_batch_repeated": false,
+        "correction": "The initial two renewal cases attempted an illegal same-session capability change. Current cases assert machine_renewal_denied, then explicit Leave and denied subsequent access. Production policy was not relaxed to make renewal succeed.",
+        "cases": "Chromium/Firefox read-only/chat pagination/three renewals/PCM/screen, early audio finish, deferred UI/operator failure, operator observation; all four browser pairings for camera and screen export."
+      }
+    },
+    "remaining": [
+      "Full client block verification before push",
+      "Current pinned Python Worker/browser end-to-end control loop and bridge-consumer acceptance under new source lifecycle",
+      "Owning Hub revocation fixture for multi-Worker selective withdrawal; old bridge denies this bounded instead of fabricating success",
+      "Versioned cleanup of legacy consent transport/service and stale integration-v1 observation field",
+      "Live GPU/Lipsync/LLM/TTS, coordinated deployment and production Hub Registry admission"
+    ]
+  },
+  "hub_receive_projection_review": {
+    "status": "implemented_and_coupled_worker_verified",
+    "report": "artifacts/test-gates/meet-hub-receive-projection.v1.json",
+    "production_release_evidence": false,
+    "checks": {
+      "fresh_worker_build": "passed unmodified production Dockerfile",
+      "current_client_build_seconds": 8.915,
+      "packaged_exact_source_dependency_gate": {
+        "passed": 1,
+        "seconds": 4.34
+      },
+      "node_projection_http_lease_trust_regression": {
+        "passed": 39,
+        "seconds": 3.320665798
+      },
+      "hub_multi_role_terminal_regression": {
+        "passed": 18,
+        "seconds": 5.96
+      },
+      "coupled_screen_only": {
+        "passed": 1,
+        "seconds": 31.79,
+        "scope": "Before backchannel change; current UI/image; independent Hub cancellation and survivor screen"
+      },
+      "coupled_persona_speech": {
+        "initial_failed": 1,
+        "initial_seconds": 45.62,
+        "failure": "Legacy server projection receiveRevision=0/grants=[] kept Worker chat closed despite current Hub capability",
+        "after_projection_fix_passed": 1,
+        "after_projection_fix_seconds": 67.63,
+        "verified": "Current real server/Hub/two pinned Workers; 2 exact Hub-owned reply tasks, simultaneous real browser tone audio, red/blue image avatars, independent image revocation, survivor moving screen/persona after selective Hub task cancellation, final cancellation of remaining task; isolated cleanup"
+      },
+      "full_client_block": {
+        "status": "failed",
+        "command": "npm run check",
+        "exit_code": 1,
+        "stage": "check:prepare -> test:frontend",
+        "frontend": {
+          "files_passed": 187,
+          "files_failed": 4,
+          "tests_passed": 1694,
+          "tests_failed": 19,
+          "unhandled_errors": 1,
+          "seconds": 12.82
+        },
+        "failed_files": [
+          "frontend/src/app/webrtc/peer-mesh-key-ack.spec.ts",
+          "frontend/src/app/webrtc/peer-mesh-overlay-lifecycle.spec.ts",
+          "frontend/src/app/features/machine/machine-avatar-source.spec.ts",
+          "frontend/src/app/features/machine/machine-source-clock.spec.ts"
+        ],
+        "diagnosis": "Missing overlay.hasPeerKey/state Map test doubles; avatar setup tests time out, authority-reason shape assertions mismatch and local activation clock expectation fails. These require specific investigation; no blanket classification as obsolete tests or safe failures.",
+        "completed_prior_stages": [
+          "Todo validator",
+          "Workflow validator",
+          "Production deployment validator",
+          "Broadcast release validator",
+          "License validator",
+          "Broadcast TypeScript check"
+        ],
+        "not_reached": [
+          "Full build/security leakage/Go gate",
+          "Full Node/browser test suite",
+          "Live infrastructure gate"
+        ],
+        "classification": "local_headless_synthetic_technical_observation",
+        "production_release_evidence": false
+      }
+    },
+    "remaining": [
+      "Repair four frontend failing files identified by full block check, then rerun required block",
+      "Legacy Companion.run real pinned Worker/browser loop under long model/media backlog remains unverified by these dialog-runtime scenarios",
+      "Versioned legacy consent transport/integration-v1 cleanup",
+      "Live configured LLM/TTS/GPU/Lipsync acceptance and coordinated production deployment",
+      "Production Hub Registry source/run admission and release evidence"
+    ]
+  },
+  "legacy_companion_live_loop_review": {
+    "status": "backlog_pressure_hub_revocation_and_recovery_verified",
+    "report": "artifacts/test-gates/meet-companion-live-loop.v1.json",
+    "production_release_evidence": false,
+    "deployment": false,
+    "tests_passed": 1,
+    "seconds": 64.48,
+    "scope": "Actual packaged run: 3/32 inputs, 50-second first model, real renewal/media, exact once and no false gaps; current Hub-policy withdrawal kills in-flight model and removes camera; explicit Hub restoration/test-owned restart answers new inputs only.",
+    "remaining": [
+      "Configured providers/GPU/Lipsync",
+      "Legacy companion Hub Task admission migration",
+      "Coordinated deployment and Registry evidence",
+      "Separate multi-human source-isolation continuity case"
+    ],
+    "latest_report": "artifacts/test-gates/meet-companion-pressure-recovery.v1.json",
+    "latest_image": "sha256:ab2776f0d79f3ef32200442b88df177e6594e651de78c18a47524a794728ed47",
+    "latest_matrix_passed": 5,
+    "latest_matrix_seconds": 241.88,
+    "source_withdrawal_review": {
+      "status": "actual_source_withdrawal_verified",
+      "report": "artifacts/test-gates/meet-companion-source-withdrawal.v1.json",
+      "tests_passed": 1,
+      "seconds": 20.24,
+      "scope": "Authenticated single human membership withdrawal during active model; no Hub policy denial, no reply, parent/model stopped and machine departed."
+    }
+  },
+  "companion_task_migration_review": {
+    "status": "in_progress",
+    "report": "artifacts/test-gates/meet-companion-task-grant-foundation.v1.json",
+    "production_release_evidence": false,
+    "grant_port_tests_passed": 14,
+    "runtime_migrated": false,
+    "remaining": [
+      "Actual configured lipsync service acceptance: documented endpoint did not answer bounded health probe; portrait and idle asset are present",
+      "GPU startup latency measurement and tuning",
+      "Productive rollout and release admission"
+    ],
+    "http_report": "artifacts/test-gates/meet-companion-task-grant-http.v1.json",
+    "http_and_compatibility_tests_passed": 37,
+    "http_port": "implemented_default_off",
+    "worker_client_report": "artifacts/test-gates/meet-companion-task-grant-client.v1.json",
+    "worker_client_status": "transport_verified",
+    "combined_tests_passed": 60,
+    "packaged_source_files": 17,
+    "worker_client_image": "sha256:22ffe8af0d4929deb2abf61e19121ad3e80736cae1dbedc6b665718b3c47bbce",
+    "control_report": "artifacts/test-gates/meet-companion-task-controls.v1.json",
+    "control_status": "boundary_verified_not_yet_runtime_composed",
+    "control_regression_tests_passed": 74,
+    "real_http_control_cases_passed": 2,
+    "current_packaged_source_files": 35,
+    "current_control_image": "sha256:a3f355f7ece21b87209373cbe2cd8237004bf968f24f99102091ca4ee344eb59",
+    "assigned_runtime_report": "artifacts/test-gates/meet-companion-assigned-runtime.v1.json",
+    "assigned_runtime_status": "implemented_dispatch_and_full_browser_acceptance_pending",
+    "assigned_runtime_regression_passed": 83,
+    "assigned_runtime_packaged_source_files": 20,
+    "assigned_runtime_image": "sha256:66f996c46066f9b5753b9dce5de3d7207831b977ca0e241e4b237b0efb390708",
+    "runtime_terminal_report": "artifacts/test-gates/meet-companion-runtime-terminal.v1.json",
+    "runtime_terminal_status": "headless_entrypoint_and_callbacks_verified_dispatch_pending",
+    "runtime_terminal_tests_passed": 77,
+    "runtime_terminal_image": "sha256:acb7e8b8498d612942fe6247e48dfeb69ccd3835ff7832728797913c2ddb4522",
+    "profile_dispatch_report": "artifacts/test-gates/meet-companion-profile-dispatch.v1.json",
+    "profile_dispatch_status": "normal_hub_admission_and_signed_executor_selection_implemented_full_runtime_acceptance_pending",
+    "profile_dispatch_regression_passed": 183,
+    "persisted_sql_profile_admission_verified": true,
+    "current_profile_image": "sha256:c90c6ceb6580b55f563a28c815bd751b5cdfcf27e4aa2d7a8ea3fbd9b0ae2cd0",
+    "current_profile_packaged_source_files": 22,
+    "assigned_acceptance_report": "artifacts/test-gates/meet-companion-assigned-acceptance.v1.json",
+    "assigned_acceptance_status": "real_browser_and_parent_process_boundaries_verified_integrated_sql_executor_acceptance_pending",
+    "full_assigned_browser_verified": true,
+    "combined_sql_executor_browser_verified": true,
+    "assigned_browser_cases_passed": 2,
+    "assigned_parent_boundary_cases_passed": 11,
+    "phase_binding_report": "artifacts/test-gates/meet-companion-phase-binding.v1.json",
+    "phase_enabled_sql_admission_status": "fixed_and_verified",
+    "phase_binding_regression_passed": 71,
+    "phase_observation_report": "artifacts/test-gates/meet-companion-phase-observation.v1.json",
+    "phase_observation_status": "hub_verified_observation_callback_and_runtime_polling_implemented_integrated_acceptance_pending",
+    "current_observation_image": "sha256:f3fb30682fe837451736024e08ed4a3704c7cb6d0c228761dec199c045abcefb",
+    "current_observation_browser_verified": true,
+    "phase_atomicity_report": "artifacts/test-gates/meet-companion-phase-atomicity.v1.json",
+    "phase_atomicity_status": "invalid_observation_partial_phase_write_removed_and_verified",
+    "phase_atomicity_unique_tests_passed": 72,
+    "sql_executor_report": "artifacts/test-gates/meet-companion-sql-executor.v1.json",
+    "sql_executor_status": "sql_task_executor_signed_grants_terminal_integration_verified_browser_transport_pending",
+    "sql_executor_cases_passed": 4,
+    "sql_executor_regression_passed": 19,
+    "model_profile_report": "artifacts/test-gates/meet-companion-model-profile.v1.json",
+    "model_profile_status": "assigned_model_legacy_tool_authority_inheritance_removed_and_verified",
+    "model_profile_regression_passed": 14,
+    "current_model_profile_image": "sha256:77432b9d5f84ae1e611ecd621a67038134c1dac4f7bf0ee46025a2e087b5a1ff",
+    "current_model_profile_browser_verified": false,
+    "sql_executor_phase_observation_verified": true,
+    "integrated_report": "artifacts/test-gates/meet-companion-integrated-container.v1.json",
+    "integrated_status": "combined_sql_worker_executor_browser_observation_terminal_verified_feature_parity_pending",
+    "integrated_cases_passed": 3,
+    "integrated_seconds": 188.01,
+    "integrated_regression_passed": 38,
+    "current_integrated_image": "sha256:76123b60834ff56c9999e37f3e9d95557ebbdfc065a60352973ce4ee3af00f57",
+    "integrated_packaged_source_files": 31,
+    "assigned_original_deadline_completion_verified": true,
+    "historical_scope_note": "Earlier acceptance-pending entries record their original narrower checks; the integrated report supersedes that gap. Feature parity and productive rollout remain open.",
+    "speech_report": "artifacts/test-gates/meet-companion-task-speech.v1.json",
+    "speech_status": "synchronized_clips_and_independent_mid_stream_controls_verified",
+    "speech_regression_tests_passed": 66,
+    "current_speech_image": "sha256:cfd7f902991f7889d3dc5e8e98cb534b6e12bd000b57b2044be84398a2285b1d",
+    "speech_actual_container_cases_passed": 7,
+    "task_tools_status": "hub_policy_sql_registry_and_worker_http_verified_runtime_and_full_tool_parity_pending",
+    "task_tools_requirements": [
+      "Closed signed Task/lease/runtime/session scope; no caller-selected evidence identities",
+      "Current Hub chat/assignment and read-only operation policy before and after tool execution",
+      "Immutable scoped input/output admission and Hub Registry run reserved before execution",
+      "Uniform sealed CodeCompass capability including retrieve; no legacy fallback",
+      "Bounded authenticated Worker/model adapter and normal runtime integration with automated revoke/replay tests"
+    ],
+    "task_tools_report": "artifacts/test-gates/meet-companion-task-tools.v1.json",
+    "task_tools_regression_passed": 145,
+    "task_tools_worker_image": "sha256:f4cf3e2bef1142e97fcc9105136794f0b608a889783a76211cc0c09a3d92195c",
+    "task_tools_remaining": [
+      "Actual configured lipsync service acceptance: documented endpoint did not answer bounded health probe; portrait and idle asset are present",
+      "GPU startup latency measurement and tuning",
+      "Productive rollout and release admission"
+    ],
+    "task_scoped_graph_status": "scoped_intelligence_and_graph_boundaries_verified_layers_and_model_integration_pending",
+    "task_scoped_graph_report": "artifacts/test-gates/meet-companion-scoped-graph.v1.json",
+    "task_scoped_graph_regression_passed": 160,
+    "task_scoped_layers_status": "all_eight_scoped_tool_handlers_verified_model_runtime_integration_pending",
+    "task_scoped_layers_report": "artifacts/test-gates/meet-companion-scoped-layers.v1.json",
+    "task_scoped_layers_regression_passed": 138,
+    "task_model_ports_status": "owned_model_pipe_and_cancellable_task_tool_http_verified_dialog_and_model_run_pending",
+    "task_model_ports_report": "artifacts/test-gates/meet-companion-execution-ports.v1.json",
+    "task_model_ports_regression_passed": 62,
+    "task_model_ports_worker_image": "sha256:033f41625b1905de5ac903ea74cbb39d62d0b98f2e7e8cad735da5e1493f14af",
+    "task_model_ports_unique_source_files": 38,
+    "task_model_inputs_status": "exact_tool_input_admission_verified_model_run_reservation_and_runtime_pending",
+    "task_model_inputs_report": "artifacts/test-gates/meet-companion-model-inputs.v1.json",
+    "task_model_inputs_regression_passed": 85,
+    "task_model_runs_status": "hub_model_reservation_and_bound_result_service_verified_transport_and_runtime_pending",
+    "task_model_runs_report": "artifacts/test-gates/meet-companion-model-runs.v1.json",
+    "task_model_runs_regression_passed": 95,
+    "task_model_http_status": "signed_model_http_and_opt_in_bootstrap_verified_owned_runtime_pending",
+    "task_model_http_report": "artifacts/test-gates/meet-companion-model-http.v1.json",
+    "task_model_http_regression_passed": 108,
+    "task_model_http_worker_image": "sha256:b30f7e49a2c593e023262e38c3614812fc06b9f7eabf00910b03dc3dfedeff22",
+    "task_model_http_unique_source_files": 41,
+    "task_model_process_status": "cooperative_owned_model_http_verified_provider_and_dialog_pending",
+    "task_model_process_report": "artifacts/test-gates/meet-companion-model-process.v1.json",
+    "task_model_process_regression_passed": 57,
+    "task_model_process_worker_image": "sha256:694a838aca7fad08337a38d7c6a05e65ded5238a387ac207fbf0013e305372d5",
+    "task_model_process_unique_source_files": 43,
+    "task_assigned_provider_status": "per_request_provider_hub_run_binding_verified_assigned_dialog_pending",
+    "task_assigned_provider_report": "artifacts/test-gates/meet-companion-assigned-provider.v1.json",
+    "task_assigned_provider_regression_passed": 61,
+    "task_assigned_provider_worker_image": "sha256:51a1e8fd3009aabc4de5438d4596b700cecedf88d2c346a7b89fd42775549fc3",
+    "task_assigned_provider_unique_source_files": 44,
+    "task_model_frames_status": "bounded_large_model_frames_verified_assigned_toolbox_and_dialog_pending",
+    "task_model_frames_report": "artifacts/test-gates/meet-companion-model-frames.v1.json",
+    "task_model_frames_regression_passed": 32,
+    "task_model_frames_worker_image": "sha256:1ef8a86205274725a46ba83eb4858fcd96bd7f7a6782bda7cb7199c887746b67",
+    "task_assigned_tools_status": "assigned_eight_tool_box_and_model_source_binding_verified_dialog_pending",
+    "task_assigned_tools_report": "artifacts/test-gates/meet-companion-assigned-tools.v1.json",
+    "task_assigned_tools_regression_passed": 52,
+    "task_assigned_tools_worker_image": "sha256:4d50fd5c5122eec695b596fec9140e497267cd8cda4b8bd0dac1c2e9bee464c1",
+    "task_assigned_tools_unique_source_files": 46,
+    "task_assigned_dialog_status": "assigned_dialog_composition_verified_installed_task_negotiation_pending",
+    "task_assigned_dialog_report": "artifacts/test-gates/meet-companion-assigned-dialog.v1.json",
+    "task_assigned_dialog_regression_passed": 53,
+    "task_assigned_dialog_worker_image": "sha256:2039767eedbe49e5c639f915e945a99c69b8d16eb5e5595a169c2cf415b715de",
+    "task_assigned_dialog_unique_source_files": 52,
+    "task_model_selection_status": "hub_signed_model_selection_verified_worker_activation_pending",
+    "task_model_selection_report": "artifacts/test-gates/meet-companion-model-selection.v1.json",
+    "task_model_selection_regression_passed": 89,
+    "task_model_selection_worker_image": "sha256:463fc993f33580de8e9d9791d3e0b8835d81a0d01e90442104502be949c86452",
+    "task_worker_selection_status": "installed_worker_dialog_selection_verified_combined_task_browser_acceptance_pending",
+    "task_worker_selection_report": "artifacts/test-gates/meet-companion-worker-selection.v1.json",
+    "task_worker_selection_regression_passed": 53,
+    "task_worker_selection_worker_image": "sha256:1c08202e9d6ebda052e72e17c6ae0c70a12c86b5649882405c565ec829d2107c",
+    "task_worker_selection_unique_source_files": 53,
+    "task_run_cleanup_status": "hub_terminal_callbacks_verified_reconciliation_pending",
+    "task_run_cleanup_report": "artifacts/test-gates/meet-companion-run-cleanup.v1.json",
+    "task_run_cleanup_tests_passed": 13,
+    "assigned_integrated_acceptance_status": "current_packaged_all_sixteen_cases_verified_in_two_batches",
+    "assigned_integrated_acceptance_test": "tests/meet/test_meet_companion_integrated_container.py",
+    "assigned_integrated_acceptance_report": "artifacts/test-gates/meet-companion-assigned-integrated.v1.json",
+    "assigned_integrated_model_cancel_passed": 1,
+    "task_run_reconciliation_status": "hub_sql_terminal_recovery_verified_crashed_container_acceptance_pending",
+    "task_run_reconciliation_report": "artifacts/test-gates/meet-companion-run-reconciliation.v1.json",
+    "task_run_reconciliation_tests_passed": 11,
+    "assigned_worker_crash_status": "actual_container_failure_original_deadline_recovery_verified",
+    "task_tools_current_status": "all_eight_handlers_installed_tool_model_ports_and_current_integrated_completion_verified",
+    "historical_reviews_note": "Earlier per-stage status strings and test counts retain their original gate scope; current remaining lists and latest installed/container/reconciliation reports supersede obsolete runtime wiring gaps.",
+    "assigned_worker_crash_report": "artifacts/test-gates/meet-companion-worker-crash.v1.json",
+    "assigned_worker_crash_passed": 1,
+    "model_operator_config_status": "closed_explicit_hub_operator_profile_verified",
+    "model_operator_config_report": "artifacts/test-gates/meet-companion-model-operator-config.v1.json",
+    "model_operator_config_tests_passed": 23,
+    "assigned_integrated_answers_and_completion_passed": 2,
+    "assigned_integrated_mixed_run_passed": 8,
+    "assigned_integrated_mixed_run_failed": 1,
+    "legacy_retirement_status": "hub_retirement_and_terminal_worker_exit_verified_selected_source_controls_passed",
+    "legacy_retirement_report": "artifacts/test-gates/meet-companion-legacy-retirement.v1.json",
+    "legacy_retirement_hub_tests_passed": 91,
+    "legacy_retirement_worker_tests_passed": 24,
+    "assigned_source_control_baseline_passed": 4,
+    "assigned_source_control_baseline_seconds": 301.27,
+    "isolated_tts_status": "current_packaged_preparation_and_mid_publication_source_controls_verified",
+    "isolated_tts_report": "artifacts/test-gates/meet-companion-isolated-tts.v1.json",
+    "isolated_tts_regression_passed": 22,
+    "isolated_tts_final_image": "sha256:6d2ef46776bca29f09abbb5b6c2463cfb090d85d30e24207fca5e5528ba90815",
+    "isolated_tts_preparation_pause_container_passed": 1,
+    "isolated_tts_preparation_pause_seconds": 76.48,
+    "playback_origin_status": "current_packaged_all_sixteen_integrated_cases_verified",
+    "playback_origin_report": "artifacts/test-gates/meet-companion-playback-origin.v1.json",
+    "playback_origin_regression_passed": 43,
+    "playback_origin_final_cases_passed": 2,
+    "playback_origin_image": "sha256:2f278c0c373c04bede75c392ec2fdb33f05ff93a6fe4f6b6f6303e19dd354a59",
+    "companion_compose_status": "hub_operator_policy_and_worker_provider_transport_compose_wiring_verified",
+    "companion_compose_report": "artifacts/test-gates/meet-companion-compose-configuration.v1.json",
+    "companion_compose_tests_passed": 30,
+    "assigned_source_control_current_image_passed": 5,
+    "assigned_source_control_current_image_seconds": 375.62,
+    "companion_final_regression_passed": 584,
+    "companion_final_regression_skipped": 35,
+    "companion_final_regression_seconds": 56.19,
+    "wsl_gpu_report": "artifacts/test-gates/meet-companion-wsl-gpu.v1.json",
+    "wsl_gpu_status": "prepared_fresh_piper_cuda_and_clip_nvenc_verified_hub_readiness_pending",
+    "local_runtime_migration_verified": true,
+    "local_runtime_acceptance_report": "artifacts/test-gates/meet-companion-task-runtime-acceptance.v1.json",
+    "assigned_integrated_current_image_passed": 16,
+    "assigned_integrated_remaining_batch_seconds": 767.29,
+    "wsl_driver_isolation_passed": 57,
+    "wsl_actual_media_failed": 2,
+    "wsl_actual_media_seconds": 95.23,
+    "wsl_gpu_cold_warm_status": "actual_pcm_and_fresh_owned_media_processes_verified",
+    "wsl_gpu_cold_first_pcm_seconds": 43.968950379006856,
+    "wsl_gpu_warm_first_pcm_seconds": 0.0677605599994422,
+    "wsl_prepared_fresh_media_passed": 2,
+    "task_cuda_cache_status": "actual_assigned_gpu_tts_and_optional_source_retirement_verified",
+    "task_cuda_cache_report": "artifacts/test-gates/meet-companion-task-cuda-cache.v1.json",
+    "task_cuda_cache_regression_passed": 22,
+    "task_cuda_cache_worker_image": "sha256:640c1441f2231adbd49e49120cf8481dc239182d20c1b358f46a980dc2f8a8d5",
+    "assigned_actual_gpu_tts_passed": 1,
+    "assigned_actual_gpu_tts_seconds": 197.99,
+    "current_cache_source_preparation_pause_passed": 1,
+    "current_cache_source_preparation_pause_seconds": 76.89,
+    "task_scratch_status": "parent_task_and_helper_death_cleanup_verified",
+    "task_scratch_report": "artifacts/test-gates/meet-companion-owned-task-scratch.v1.json",
+    "task_scratch_current_image": "sha256:26e11efc61f77d36ee00dbde75252e18ae147ee2725fb71e336e159f5dd47d09",
+    "task_scratch_packaged_sources": 57,
+    "task_scratch_installed_cases_passed": 2,
+    "task_scratch_installed_seconds": 96.76,
+    "task_scratch_current_image_gpu_tts_status": "actual_native_gpu_tts_and_task_scratch_cleanup_verified",
+    "task_scratch_current_image_gpu_tts_passed": 1,
+    "task_scratch_current_image_gpu_tts_seconds": 202.12,
+    "real_llm_provider_status": "actual_gpu_provider_with_two_prior_hub_test_runs_verified",
+    "real_llm_provider_report": "artifacts/test-gates/meet-companion-real-llm-provider.v1.json",
+    "real_llm_provider_passed": 1,
+    "real_llm_provider_seconds": 48.08,
+    "real_llm_provider_completed_hub_test_runs": 2,
+    "installed_real_llm_status": "actual_gpu_llm_task_browser_with_three_prior_hub_model_runs_verified",
+    "installed_real_llm_report": "artifacts/test-gates/meet-companion-installed-real-llm.v1.json",
+    "installed_real_llm_seconds": 76.98,
+    "combined_real_llm_gpu_status": "partial_all_model_and_tts_complete_two_multisegment_publications_passed_last_audio_schedule_failed",
+    "combined_real_llm_gpu_report": "artifacts/test-gates/meet-companion-installed-real-llm.v1.json",
+    "combined_real_llm_gpu_current_image": "sha256:c903a600d0d20cb2150f45d6b32caa7f7a117829d28004d7c5723b296495ed3f",
+    "combined_real_llm_gpu_latest_seconds": 241.61,
+    "combined_real_llm_gpu_hub_test_runs_completed": 6,
+    "browser_progress_source_checks": "100ms_browser_progress_only_hub_checks_each_checkpoint",
+    "active_speech_renewal_deferrals_observed": 18,
+    "native_sequence_status": "native_sequence_local_block_verified_productive_acceptance_pending",
+    "native_sequence_report": "artifacts/test-gates/meet-companion-native-sequence-foundation.v1.json",
+    "native_sequence_foundation_tests_passed": 125,
+    "native_sequence_adjacent_track": "todos/active/todo.meet-avatar-speech-sample-clock.json",
+    "native_sequence_decoder_tests_passed": 9,
+    "native_sequence_artwork_tests_passed": 6,
+    "native_sequence_endpoint_tests_passed": 129,
+    "native_sequence_endpoint_milliseconds": 999,
+    "native_sequence_controller_tests_passed": 11,
+    "native_sequence_worker_tests_passed": 65,
+    "native_sequence_packaged_sources": 60,
+    "native_sequence_cpu_installed_passed": true,
+    "native_sequence_cpu_installed_seconds": 83.13,
+    "native_sequence_cpu_scope": "synthetic models/tools and short CPU tone, actual assigned SQL Hub Worker Chromium decoder/publication, no production evidence",
+    "native_sequence_actual_gpu_passed": true,
+    "native_sequence_actual_gpu_seconds": 236.0,
+    "native_sequence_actual_gpu_max_drift_us": 20000,
+    "native_sequence_full_frontend_passed": 1782,
+    "native_sequence_companion_regression_passed": 694,
+    "native_sequence_companion_regression_optional_skips": 38,
+    "native_sequence_companion_regression_seconds": 61.14,
+    "native_sequence_source_withdrawal_passed": 9,
+    "native_sequence_source_withdrawal_seconds": 695.18,
+    "local_native_sequence_migration_verified": true,
+    "native_sequence_current_image_lifecycle_cases": 16,
+    "native_sequence_actual_gpu_withdrawal_passed": true,
+    "native_sequence_actual_gpu_withdrawal_seconds": 123.98,
+    "native_sequence_crash_recovery_passed": true,
+    "native_sequence_crash_recovery_seconds": 106.49,
+    "native_sequence_repository_check_exit_code": 0,
+    "native_sequence_repository_node_passed": 1803,
+    "native_sequence_repository_node_skipped": 5,
+    "native_sequence_repository_node_seconds": 847.964580574,
+    "native_sequence_repository_live_infrastructure_skipped": 14
+  }
 }

@@ -2,7 +2,7 @@
   "$schema": "../todo.track.schema.json",
   "version": "1.0",
   "created": "2026-09-22",
-  "updated_at": "2026-09-27",
+  "updated_at": "2026-10-10",
   "owner": "Peter Stuiber / Ananta",
   "track": "jev_llamacpp_parallel_decision_mode",
   "title": "Jev-Modus fuer llama.cpp: parallele typisierte Entscheidungen als lokaler System-1-Pfad",
@@ -494,7 +494,7 @@
       "blocked": 0,
       "done": 4
     },
-    "progress_percent_done": 33,
+    "progress_percent_done": 33.3,
     "by_priority": {
       "P0": 5,
       "P1": 7,
@@ -562,6 +562,7 @@
   "summary_notes": [
     "Nur Planungsartefakt: keine Implementierung und keine Benchmarkwerte werden in diesem Commit als erledigt behauptet.",
     "Dieser Track behandelt Jev als Inferenzmuster fuer bestehende Open-Weight-Modelle und nicht als nachgebautes proprietaeres TypeSafe-Modell.",
-    "Der bereits vorhandene Jeff/GLiFormer-Track bleibt bestehen und wird spaeter als alternative Specialist-Baseline mitverglichen."
+    "Der bereits vorhandene Jeff/GLiFormer-Track bleibt bestehen und wird spaeter als alternative Specialist-Baseline mitverglichen.",
+    "2026-10-10: Abgeleiteten progress_percent_done-Cache an kanonische Ein-Dezimalstellen-Rundung angepasst (33 -> 33.3); Task-Status und Anforderungen unverändert."
   ]
 }

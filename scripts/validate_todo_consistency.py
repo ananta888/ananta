@@ -19,6 +19,24 @@ def _expect_equal(problems: list[str], label: str, actual: Any, expected: Any) -
         problems.append(f"{label}: expected={expected!r} actual={actual!r}")
 
 
+def _validate_group_counts(problems, label, actual, expected_statuses, status_scale):
+    """Support legacy totals and canonical status maps without hiding drift."""
+    if isinstance(actual, dict):
+        unknown = set(actual) - set(status_scale)
+        if unknown:
+            problems.append(f"{label}: unknown status counters {sorted(unknown)!r}")
+        for status in status_scale:
+            count = actual.get(status, 0)
+            if type(count) is not int or count < 0:
+                problems.append(f"{label}.{status}: nonnegative integer required")
+            else:
+                _expect_equal(problems, f"{label}.{status}", count, expected_statuses.get(status, 0))
+    elif type(actual) is not int or actual < 0:
+        problems.append(f"{label}: nonnegative integer or status map required")
+    else:
+        _expect_equal(problems, label, actual, sum(expected_statuses.values()))
+
+
 def _validate_category_todo_payload(
     todo_payload: dict[str, Any],
 ) -> list[str]:
@@ -106,7 +124,78 @@ def _validate_category_todo_payload(
     return problems
 
 
+def _validate_nested_tracks(todo_payload: dict[str, Any]) -> list[str]:
+    """Validate todo.v2 tracks without pretending that nested tasks are absent."""
+    tracks = todo_payload.get("tracks")
+    if not isinstance(tracks, list) or not tracks:
+        return ["tracks: nonempty list required"]
+    problems = []
+    tasks = []
+    track_ids = set()
+    statuses = {"open", "todo", "in_progress", "partial", "blocked", "done", "completed"}
+    priorities = set(todo_payload.get("priority_scale") or ("P0", "P1", "P2", "P3"))
+    for track in tracks:
+        if not isinstance(track, dict):
+            problems.append("tracks: object required")
+            continue
+        identifier = track.get("id")
+        if not isinstance(identifier, str) or not identifier or identifier in track_ids:
+            problems.append("tracks: unique nonempty id required")
+        else:
+            track_ids.add(identifier)
+        if track.get("status") not in statuses:
+            problems.append(f"{identifier}.status: unsupported status")
+        entries = track.get("tasks")
+        if not isinstance(entries, list) or not entries:
+            problems.append(f"{identifier}.tasks: nonempty list required")
+            continue
+        for task in entries:
+            if not isinstance(task, dict):
+                problems.append(f"{identifier}.tasks: object required")
+                continue
+            tasks.append(task)
+            if task.get("status") not in statuses:
+                problems.append(f"{task.get('id')}.status: unsupported status")
+            if task.get("priority", track.get("priority")) not in priorities:
+                problems.append(f"{task.get('id')}.priority: unsupported priority")
+        if track.get("status") in {"done", "completed"} and any(
+            not isinstance(task, dict) or task.get("status") not in {"done", "completed"} for task in entries
+        ):
+            problems.append(f"{identifier}.status: completed track contains unfinished tasks")
+    known = set()
+    graph = {}
+    for task in tasks:
+        identifier = task.get("id")
+        if not isinstance(identifier, str) or not identifier or identifier in known:
+            problems.append("tasks: unique nonempty id required across tracks")
+            continue
+        known.add(identifier)
+        dependencies = task.get("depends_on", [])
+        if not isinstance(dependencies, list) or any(not isinstance(value, str) for value in dependencies):
+            problems.append(f"{identifier}.depends_on: string list required")
+            graph[identifier] = set()
+        else:
+            graph[identifier] = set(dependencies)
+            if len(dependencies) != len(graph[identifier]):
+                problems.append(f"{identifier}.depends_on: duplicate dependency")
+    for identifier, dependencies in graph.items():
+        for dependency in sorted(dependencies - known):
+            problems.append(f"{identifier}.depends_on: unknown task {dependency}")
+    # Iterative cycle detection also handles self-dependencies without recursion limits.
+    pending = {identifier: dependencies & known for identifier, dependencies in graph.items()}
+    while pending:
+        ready = {identifier for identifier, dependencies in pending.items() if not dependencies}
+        if not ready:
+            problems.append(f"tasks.depends_on: dependency cycle among {sorted(pending)}")
+            break
+        pending = {identifier: dependencies - ready for identifier, dependencies in pending.items()
+                   if identifier not in ready}
+    return problems
+
+
 def validate_todo_payload(todo_payload: dict[str, Any]) -> list[str]:
+    if todo_payload.get("schema_version") == "todo.v2" and "tracks" in todo_payload:
+        return _validate_nested_tracks(todo_payload)
     if "categories" in todo_payload and "tasks" not in todo_payload:
         return _validate_category_todo_payload(todo_payload)
 
@@ -138,22 +227,22 @@ def validate_todo_payload(todo_payload: dict[str, Any]) -> list[str]:
     unknown_status_count = sum(count for key, count in status_counts.items() if key not in status_scale)
     _expect_equal(problems, "by_status.unknown", unknown_status_count, 0)
 
-    priority_counts = Counter(str(task.get("priority")) for task in tasks if task.get("priority"))
     for priority_key in priority_scale:
-        _expect_equal(
+        _validate_group_counts(
             problems,
             f"by_priority.{priority_key}",
             by_priority.get(priority_key, 0),
-            priority_counts.get(priority_key, 0),
+            Counter(str(task.get("status")) for task in tasks if str(task.get("priority")) == priority_key),
+            status_scale,
         )
 
-    risk_counts = Counter(str(task.get("risk", "medium")) for task in tasks)
     for risk_key in risk_scale:
-        _expect_equal(
+        _validate_group_counts(
             problems,
             f"by_risk.{risk_key}",
             by_risk.get(risk_key, 0),
-            risk_counts.get(risk_key, 0),
+            Counter(str(task.get("status")) for task in tasks if str(task.get("risk", "medium")) == risk_key),
+            status_scale,
         )
 
     done_count = status_counts.get("done", 0)

@@ -27,6 +27,19 @@ pytest tests/worker/test_worker_smoke.py -v
 
 ## Configuration
 
+### Zero-trust memory implementation status
+
+The source inventory, Hub SQL policy/lease adapter, scoped result-memory and
+Memory Tree, namespace caches, bounded Worker memory and Vault export are
+documented in [Zero-Trust Agent Memory](security/zero-trust-agent-memory.md).
+These legacy paths now require current Hub authorization by default. Unbound
+old records and flat cache files are excluded; boolean flags grant no access.
+Use the bounded migration preview before admitting old SQL result records.
+Worker memory needs an authenticated authorization transport, and Vault export
+needs a configured Hub-owned export root. External CLI/provider storage and
+production rollout remain separate work. The runbook includes upgrade behavior,
+headless checks and limits; it does not imply a new memory UI or HTTP API.
+
 ### ExecutionEnvelope
 
 All worker tasks require an `ExecutionEnvelope` signed by the Hub. Operators configure:
