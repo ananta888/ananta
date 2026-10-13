@@ -171,7 +171,7 @@
         "SEH-023",
         "SEH-024"
       ],
-      "status": "todo"
+      "status": "partial"
     },
     {
       "id": "SEH-M7",
@@ -384,17 +384,18 @@
     {
       "id": "SEH-010",
       "title": "Isolierten Sandbox Runner für Harness-Kandidaten bauen",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 70,
       "details": "Jeder Kandidat läuft in reproduzierbarer Isolation mit Resource Limits, Netzwerk-/Filesystem-Policy, Tool-Allowlist, Secrets-Scoping und Run-Timeouts. Keine Mutation darf Host oder Baseline-Artefakte verändern.",
       "acceptance_criteria": [
         "Kandidaten sind gegeneinander und vom Host isoliert",
         "CPU/RAM/GPU/Token/API-Kosten-Limits erzwingbar",
         "Netzwerk und Tool-Zugriffe sind deny-by-default",
         "Run kann aus Manifest reproduziert werden"
-      ]
+      ],
+      "implementation_note": "Reproduzierbarer Offline-Sandbox-Manifestvertrag, hardened disposable Docker/Podman-Ausführung mit CPU/RAM/Swap/PIDs/Output/Timeout/Cancellation und garantiert geprüftem Cleanup. HubSandboxService reserviert Evidenz vor Worker-Dispatch und prüft Assignment/Manifest/komplette Suite/Hard-Gates über bestehende Registry. Reale headless Docker-Isolations- und Timeout-Tests bestanden. Offen: produktiver Task-Transport/Handler, Hub-metered LLM/API/Token-Gateway und GPU-Lanes; kein Host-Fallback."
     },
     {
       "id": "SEH-011",
@@ -579,16 +580,17 @@
     {
       "id": "SEH-023",
       "title": "Reproduzierbare Artefakt- und Provenance-Manifeste erzeugen",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 60,
       "details": "Für jeden Run Manifest mit Git SHA, Genome SHA, Container/Image, Modell-ID/Version, Dataset-Version, Seeds, Tool-Versionen, Environment-Fingerprint und relevanten Feature Flags.",
       "acceptance_criteria": [
         "Ein historischer Run kann aus Manifest nachgestellt werden",
         "Unbekannte/volatile Abhängigkeiten werden explizit markiert",
         "Artefakte sind content-addressed und manipulationsdetektierbar"
-      ]
+      ],
+      "implementation_note": "HarnessSandboxManifest bindet Image-Digest, Commit, Genom, Benchmark-Quelltext/Suite/Tasks, Seed und Limits; Registry bindet admitted Sources und pre-reserved Run an dieses Manifest und die exakte Task/Assignment/Lease. Test-Evidenz explizit synthetic/test und niemals Produktionsfreigabe. Offen: Export-/Retention-/Signaturpfad und übergreifende Engine-Provenance."
     },
     {
       "id": "SEH-024",
@@ -929,9 +931,9 @@
   "tasks_status_summary": {
     "total": 44,
     "by_status": {
-      "todo": 30,
+      "todo": 28,
       "in_progress": 0,
-      "partial": 2,
+      "partial": 4,
       "blocked": 0,
       "done": 12
     },
@@ -955,18 +957,18 @@
     },
     "milestones": {
       "total": 9,
-      "todo": 6,
+      "todo": 5,
       "in_progress": 0,
-      "partial": 2,
+      "partial": 3,
       "blocked": 0,
       "done": 1
     }
   },
   "progress_summary": {
     "state": "partial",
-    "todo_remaining": 30,
+    "todo_remaining": 28,
     "in_progress": 0,
-    "partial": 2,
+    "partial": 4,
     "blocked": 0,
     "done": 12,
     "milestones_done": 1,
@@ -1157,15 +1159,15 @@
       "unknown": {
         "total": 44,
         "done": 12,
-        "partial": 2,
+        "partial": 4,
         "blocked": 0,
-        "todo": 30,
+        "todo": 28,
         "in_progress": 0,
-        "progress_percent": 30.6,
+        "progress_percent": 33.5,
         "by_status": {
-          "todo": 30,
+          "todo": 28,
           "in_progress": 0,
-          "partial": 2,
+          "partial": 4,
           "blocked": 0,
           "done": 12
         }

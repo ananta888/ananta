@@ -89,3 +89,49 @@ sie sind keine registrierte Produktions-Release-Evidenz. Es werden keine SRC-/RU
 nutzt einen schmalen, injizierten Benchmark-Port (ISP/DIP). Bestehende Genom-, Suite- und
 Gate-Verträge werden wiederverwendet. Die bisherigen konkreten In-Memory-Gate-/Suite-Objekte
 bleiben bestehen; persistente Registry-/Runtime-Anbindung ist weiterhin offene Integrationsarbeit.
+
+## Offline-Sandbox und Hub-Evidence-Anbindung (SEH-010/023, Teilimplementierung)
+
+`HarnessSandboxManifest` (`ananta_contracts/harness_sandbox.py`) bindet Image-Digest,
+Repository-Commit, Genom, vollständige Benchmark-Suite, Benchmark-Quelltext, Seed und Limits
+content-addressed. Keine Host-Pfade oder freigeformten Docker-Optionen gehören zum Vertrag.
+`worker/harness/sandbox.py` führt genau einen delegierten Offline-Python-Benchmark aus:
+
+- eigener Container mit gepinntem Image, `--pull never`, nicht privilegiertem User,
+  ohne Capabilities, Netzwerk, GPU-Zuweisung, Host-Secrets oder Tool-Gateway;
+- ausschließlich vier vom Manifest abgeleitete, schreibgeschützte Dateien als Inputs;
+  der aktive Host-Arbeitsbaum wird weder kopiert noch gemountet;
+- CPU-Zeit/-Anteil, RAM inklusive Swap, Prozesszahl und temporärer Speicher sind begrenzt;
+- Timeout, Cancellation und Ausgabeüberlauf beenden den CLI-Prozess und erzwingen danach
+  Container-Cleanup. Fehlendes Runtime/Cleanup gibt einen begrenzten Fehler zurück;
+  es existiert kein Host-Ausführungsfallback;
+- Ausgabe wird beim Lesen begrenzt, nicht erst nach unbeschränktem `communicate()`.
+  `worker/core/bounded_process.py` nutzt dazu den bestehenden `ProcessGroupController`.
+
+`agent/services/harness_sandbox_service.py` hält Admission, SOURCE-/RUN-Reservation,
+Assignment-/Manifestprüfung, Vollständigkeitsprüfung und Gate-Auswertung beim Hub.
+Der bestehende `HubEvidenceGateService` und die Registry werden wiederverwendet.
+Der Worker-Port ist für einen bereits autorisierten Hub-Task und dessen exakte Lease;
+der Worker erzeugt keine Tasks und keine Evidenzidentitäten.
+
+Die automatisierten Tests verwenden ausdrücklich synthetische Test-Evidenz und können
+keine Produktionsfreigabe erfüllen. Lokaler Container-Test (kein Image-Pull, bounded):
+
+```sh
+ANANTA_HARNESS_LIVE_SANDBOX=1 python -m pytest tests/harness/test_harness_sandbox.py --timeout=45
+```
+
+Das Testimage ist derselbe gepinnte Python-Basis-Digest wie beim vorhandenen DSPy-Worker.
+Fehlt es lokal oder ist Docker nicht verfügbar, scheitert der explizite Container-Test.
+
+**Offen:** produktiver Task-Transport/Handler, Hub-metered LLM-/API-/Token-Gateway und
+GPU-Lanes. Offline-Runs haben API-/Model-/Tool-Budget null; solche Ressourcen werden
+nicht implizit durch Netzwerkfreigabe aktiviert. Diese Grenzen verhindern ein vorzeitiges
+Done für den gesamten SEH-010-Task.
+
+**SOLID:** Manifestvalidierung, Prozesskontrolle, Container-Infrastruktur und Hub-Admission
+sind getrennte Verantwortlichkeiten. Kleine injizierte Ports erlauben deterministische
+Failure-Tests. Der vorhandene ProcessGroupController liegt noch im Training-Namespace
+(bewahrte DIP-Kopplung); eine spätere gemeinsame Worker-Core-Fassade kann diesen Import
+ersetzen. Der bisherige Research-Code-Sandbox-Adapter bleibt unverändert und benötigt
+separat die Migration auf die begrenzte Prozess-/Cleanup-Infrastruktur.
