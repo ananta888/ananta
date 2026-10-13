@@ -17,22 +17,7 @@ from typing import Protocol
 from agent.services.harness_benchmark import BenchmarkRegistry, BenchmarkSuite
 from agent.services.harness_gates import GateEngine, GateReport
 from ananta_contracts.harness_genome import HarnessGenome
-
-_IMMUTABLE_PATHS = frozenset(
-    {
-        "schema",
-        "code_hash",
-        "config_hash",
-        "secret_refs",
-        "memory.scopes",
-        "gates.gate_refs",
-        "gates.promotion_ref",
-        "verification.require_evidence",
-        "context.evidence_preserving_reduction",
-        "reducer.preserve_evidence",
-        "reducer.verify_fallback",
-    }
-)
+from ananta_contracts.harness_invariants import IMMUTABLE_GENOME_PATHS
 
 
 class CrossoverError(ValueError):
@@ -62,7 +47,7 @@ def compose_genomes(*, base: HarnessGenome, left: HarnessGenome, right: HarnessG
     if conflicts:
         raise CrossoverError(f"crossover_field_conflict:{','.join(conflicts)}")
     changes = left_diff | right_diff
-    forbidden = sorted(changes.keys() & _IMMUTABLE_PATHS)
+    forbidden = sorted(changes.keys() & IMMUTABLE_GENOME_PATHS)
     if forbidden:
         raise CrossoverError(f"crossover_immutable_change:{','.join(forbidden)}")
     for parent in (left, right):

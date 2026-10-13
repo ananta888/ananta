@@ -233,3 +233,19 @@ Auch eine Ein-Candidate-Front benötigt alle Objectives; doppelte Candidate-IDs 
 Verdrahtung des Noise-Gates in die spätere Registry-gebundene Release-Autorität.
 Der kompatible alte Controller bleibt ausschließlich ein technischer Entscheidungshelfer;
 die neue strengere API ist deshalb keine alleinige Produktionsfreigabe.
+
+## Mutationsgrenzen nach dem Suchlauf-Review
+
+Native Mutation und Crossover verwenden dieselben unveränderlichen Genompfade
+aus `ananta_contracts/harness_invariants.py`. Auch ein ausdrücklich registrierter
+Operator darf Gates, Evidenzpflicht, Secret-/Memory-Scope oder Code-/Config-Snapshots
+nicht verändern oder Tool-Rechte erweitern. Code-Patches haben einen eigenen,
+registrierten Pfad; Canonical-Pfadprüfung und der Guard für Governance-/Sandbox-/
+Budget-Module gelten zusätzlich zur Allowlist.
+
+Context-Widening ersetzt ausschließlich `budget_tokens` und bewahrt andere
+Context-Einstellungen (SRP). Ungetypte Budgetwerte werden nicht still konvertiert.
+Engine-Instanzen snapshotten ihre Operator-/Budget-Konfiguration; Registrierungen
+und Caller-Dictionaries können andere Instanzen nicht verändern. Der Suchlauf
+gibt dem Transport eine Kopie des scoped Intents, damit sein persistierter Zustand
+nicht durch Referenzaliasing verändert wird.

@@ -177,6 +177,24 @@ def test_lost_dispatch_ack_retries_same_intent_without_double_charge(runtime):
     assert advance(runtime)["state"]["reason"] == "search_budget"
 
 
+def test_transport_cannot_mutate_the_authoritative_budget_or_scope_intent(runtime):
+    start(runtime)
+    advance(runtime)
+    submit = runtime[1].submit
+
+    def mutate_copy(intent):
+        assert intent["tenant_id"] == "tenant" and intent["project_id"] == "project"
+        receipt = submit(intent)
+        intent["max_cost"] = 999
+        intent["tenant_id"] = "other"
+        return receipt
+
+    runtime[1].submit = mutate_copy
+    state = advance(runtime)["state"]
+    assert state["pending"]["max_cost"] == 0
+    assert state["pending"]["tenant_id"] == "tenant"
+
+
 def test_failed_ideas_are_not_repeated_after_restart(runtime):
     start(runtime)
     runtime[1].fail_quality = True

@@ -14,18 +14,37 @@ from __future__ import annotations
 import random
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
+from pathlib import PurePosixPath
 
 from ananta_contracts.harness_genome import (
-    ContextPolicy,
     HarnessGenome,
     content_digest,
 )
+from ananta_contracts.harness_invariants import IMMUTABLE_GENOME_PATHS
 
 MUTATION_TYPES = ("parametric", "structural", "prompt", "routing", "tool_policy", "context_policy", "code_patch")
-IMMUTABLE_PATCH_MODULES = frozenset({
-    "agent/services/hub_evidence_gate_service.py", "agent/services/mutation_gate_service.py",
-    "agent/services/harness_runtime.py", "agent/services/memory_policy_gateway.py",
-})
+IMMUTABLE_PATCH_MODULES = frozenset(
+    {
+        "agent/services/hub_evidence_gate_service.py",
+        "agent/services/mutation_gate_service.py",
+        "agent/services/harness_runtime.py",
+        "agent/services/memory_policy_gateway.py",
+        "agent/services/harness_gates.py",
+        "agent/services/harness_promotion.py",
+        "agent/services/harness_sandbox_service.py",
+        "agent/services/harness_search_service.py",
+        "agent/services/harness_statistics.py",
+        "agent/services/hub_evidence_registry_service.py",
+        "agent/services/sandbox_backend.py",
+        "agent/services/sandbox_policy_service.py",
+        "agent/auth.py",
+        "agent/common/audit.py",
+        "worker/harness/sandbox.py",
+        "worker/core/bounded_process.py",
+        "ananta_contracts/harness_search.py",
+        "ananta_contracts/harness_sandbox.py",
+    }
+)
 MAX_CONTEXT_TOKENS = 131072
 
 
@@ -43,21 +62,26 @@ class MutationResult:
     operator_id: str
 
     def to_mapping(self) -> dict:
-        return {"parent_genome_id": self.parent_genome_id, "child_genome_id": self.child_genome.genome_id,
-                "mutation_type": self.mutation_type, "operator_id": self.operator_id, "rationale": self.rationale,
-                "diff": self.diff}
+        return {
+            "parent_genome_id": self.parent_genome_id,
+            "child_genome_id": self.child_genome.genome_id,
+            "mutation_type": self.mutation_type,
+            "operator_id": self.operator_id,
+            "rationale": self.rationale,
+            "diff": self.diff,
+        }
 
 
 MutationOperator = Callable[[HarnessGenome, Mapping], HarnessGenome]
 
 
 def _widen_context(genome: HarnessGenome, params: Mapping) -> HarnessGenome:
-    target = int(params.get("budget_tokens", genome.context.budget_tokens * 2))
+    target = params.get("budget_tokens", genome.context.budget_tokens * 2)
+    if type(target) is not int:
+        raise MutationError("mutation_context_budget_invalid")
     if not 1024 <= target <= MAX_CONTEXT_TOKENS:
         raise MutationError("mutation_context_budget_invalid")
-    return replace(genome, context=ContextPolicy(
-        budget_tokens=target, reserved_completion_tokens=genome.context.reserved_completion_tokens,
-        reserved_tool_tokens=genome.context.reserved_tool_tokens))
+    return replace(genome, context=replace(genome.context, budget_tokens=target))
 
 
 def _enable_action_fusion(genome: HarnessGenome, params: Mapping) -> HarnessGenome:
@@ -81,14 +105,21 @@ DEFAULT_OPERATORS: dict[str, tuple[str, MutationOperator]] = {
 
 @dataclass
 class MutationEngine:
-    operators: Mapping[str, tuple[str, MutationOperator]] = field(default_factory=lambda: DEFAULT_OPERATORS)
-    budget: Mapping[str, int] = field(default_factory=lambda: {"context_policy": 3, "tool_policy": 3, "prompt": 3,
-                                                               "code_patch": 2})
+    operators: Mapping[str, tuple[str, MutationOperator]] = field(default_factory=lambda: dict(DEFAULT_OPERATORS))
+    budget: Mapping[str, int] = field(
+        default_factory=lambda: {"context_policy": 3, "tool_policy": 3, "prompt": 3, "code_patch": 2}
+    )
     allowed_patch_modules: frozenset[str] = frozenset()
     _spent: dict[str, int] = field(default_factory=dict)
 
-    def mutate(self, genome: HarnessGenome, *, operator_id: str, params: Mapping | None = None,
-               rationale: str = "") -> MutationResult:
+    def __post_init__(self):
+        self.operators = dict(self.operators)
+        self.budget = dict(self.budget)
+        self.allowed_patch_modules = frozenset(self.allowed_patch_modules)
+
+    def mutate(
+        self, genome: HarnessGenome, *, operator_id: str, params: Mapping | None = None, rationale: str = ""
+    ) -> MutationResult:
         genome.assert_valid()
         entry = self.operators.get(operator_id)
         if entry is None:
@@ -98,18 +129,33 @@ class MutationEngine:
         try:
             child = operator(genome, params or {})
             child.assert_valid()
+            forbidden = sorted(genome.diff(child).keys() & IMMUTABLE_GENOME_PATHS)
+            if forbidden:
+                raise MutationError(f"mutation_immutable_change:{','.join(forbidden)}")
+            if not set(child.tools.allowed_tools) <= set(genome.tools.allowed_tools):
+                raise MutationError("mutation_tool_capability_expansion")
         except MutationError:
             raise
         except (ValueError, TypeError) as exc:
             raise MutationError(f"mutation_invalid:{exc}") from None
         if child.genome_id == genome.genome_id:
             raise MutationError("mutation_produced_no_change")
-        return MutationResult(parent_genome_id=genome.genome_id, child_genome=child, mutation_type=mutation_type,
-                              rationale=rationale, diff=genome.diff(child), operator_id=operator_id)
+        return MutationResult(
+            parent_genome_id=genome.genome_id,
+            child_genome=child,
+            mutation_type=mutation_type,
+            rationale=rationale,
+            diff=genome.diff(child),
+            operator_id=operator_id,
+        )
 
-    def code_patch(self, genome: HarnessGenome, *, module: str, patch_digest: str,
-                   rationale: str = "") -> MutationResult:
+    def code_patch(
+        self, genome: HarnessGenome, *, module: str, patch_digest: str, rationale: str = ""
+    ) -> MutationResult:
         genome.assert_valid()
+        path = PurePosixPath(module)
+        if path.is_absolute() or ".." in path.parts or path.as_posix() != module or "\\" in module:
+            raise MutationError("mutation_patch_module_path_invalid")
         if module not in self.allowed_patch_modules:
             raise MutationError(f"mutation_patch_module_not_allowed:{module}")
         if module in IMMUTABLE_PATCH_MODULES:
@@ -119,8 +165,14 @@ class MutationEngine:
         self._spend("code_patch")
         child = replace(genome, code_hash=patch_digest)
         child.assert_valid()
-        return MutationResult(parent_genome_id=genome.genome_id, child_genome=child, mutation_type="code_patch",
-                              rationale=rationale, diff=genome.diff(child), operator_id=f"code_patch:{module}")
+        return MutationResult(
+            parent_genome_id=genome.genome_id,
+            child_genome=child,
+            mutation_type="code_patch",
+            rationale=rationale,
+            diff=genome.diff(child),
+            operator_id=f"code_patch:{module}",
+        )
 
     def plan(self, genome: HarnessGenome, *, seed: int, count: int) -> list[MutationResult]:
         if type(count) is not int or count < 0:

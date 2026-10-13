@@ -13,7 +13,7 @@ from typing import Protocol
 from agent.services.harness_hypotheses import HarnessHypothesisGenerator, HarnessTelemetry
 from agent.services.harness_mutation import MutationEngine, MutationError
 from agent.services.harness_pareto import Candidate, ParetoSelector
-from ananta_contracts.harness_genome import HarnessGenome, content_digest
+from ananta_contracts.harness_genome import HarnessGenome, canonical_json, content_digest
 from ananta_contracts.harness_search import HarnessSearchPolicy
 from ananta_contracts.hub_evidence import validate_hub_evidence_assignment
 
@@ -220,6 +220,7 @@ class HarnessSearchService:
         state["charged_cost"] += policy.cost_per_run
         state["charged_tokens"] += policy.tokens_per_run
         state["pending"] = {
+            **scope,
             "dispatch_key": "harness-search:"
             + content_digest({"session": session_id, "run": state["runs"], "tenant": tenant_id, "project": project_id}),
             "genome": child.to_mapping(),
@@ -246,7 +247,9 @@ class HarnessSearchService:
         pending = state["pending"]
         pending["dispatch_attempts"] += 1
         try:
-            receipt = self._queue.submit(pending)
+            # A transport cannot mutate the authoritative persisted intent by
+            # retaining a reference to the controller's dictionaries.
+            receipt = self._queue.submit(json.loads(canonical_json(pending)))
             assignment = validate_hub_evidence_assignment(receipt.assignment)
             if (
                 receipt.dispatch_key != pending["dispatch_key"]
