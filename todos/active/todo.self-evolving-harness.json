@@ -428,17 +428,18 @@
     {
       "id": "SEH-013",
       "title": "Kanonische Harness-Benchmark-Suite definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "details": "Repräsentative Coding-, RAG-, Tool-, MCP-, Planning-, Delegation-, Long-Context-, Failure-Recovery- und Security-Aufgaben. Train/Explore- und Holdout-Sets strikt trennen, damit der Evolver den Benchmark nicht überfitten kann.",
       "acceptance_criteria": [
         "Datasets versioniert und immutable referenzierbar",
         "Holdout bleibt der Mutation Engine verborgen",
         "Baselinewerte pro Modell/Harness gespeichert",
         "Benchmarks messen Qualität plus Ressourcenverbrauch"
-      ]
+      ],
+      "implementation_note": "agent/services/harness_benchmark.py: versionierte, content-addressed BenchmarkSuite mit strikter Explore/Holdout-Trennung, Holdout-Leak-Guard, Baseline-Registry pro Modell/Harness und Pflicht auf Qualitaets- plus Ressourcenmetriken. 6 Tests."
     },
     {
       "id": "SEH-014",
@@ -503,17 +504,18 @@
     {
       "id": "SEH-018",
       "title": "Promotion-, Canary- und Rollback-Controller bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "details": "Mehrstufige Promotion: experiment -> validated -> canary -> production. Automatischer Rollback bei Gate-/Runtime-/Kostenregression. Human approval konfigurierbar für produktive Promotion.",
       "acceptance_criteria": [
         "Unvalidierter Kandidat kann nie direkt production werden",
         "Rollback ist atomar und auf letzte zertifizierte Version möglich",
         "Canary-Metriken sind von Offline-Benchmark getrennt",
         "Promotion-Entscheidungen vollständig auditierbar"
-      ]
+      ],
+      "implementation_note": "agent/services/harness_promotion.py: Promotion nur nach bestandenen Hard-Gates und ohne Baseline-Dominanz, Canary fuer nicht-dominierte Trade-offs, Rollback mit Begruendung, kein Promote ohne Gate-Report. 7 Tests."
     },
     {
       "id": "SEH-019",
@@ -926,13 +928,13 @@
   "tasks_status_summary": {
     "total": 44,
     "by_status": {
-      "todo": 33,
+      "todo": 31,
       "in_progress": 0,
       "partial": 1,
       "blocked": 0,
-      "done": 10
+      "done": 12
     },
-    "progress_percent_done": 22.7,
+    "progress_percent_done": 27.3,
     "by_priority": {
       "P0": 29,
       "P1": 12,
@@ -947,8 +949,8 @@
     },
     "critical_path": {
       "total": 22,
-      "done": 5,
-      "remaining": 17
+      "done": 7,
+      "remaining": 15
     },
     "milestones": {
       "total": 9,
@@ -961,11 +963,11 @@
   },
   "progress_summary": {
     "state": "partial",
-    "todo_remaining": 33,
+    "todo_remaining": 31,
     "in_progress": 0,
     "partial": 1,
     "blocked": 0,
-    "done": 10,
+    "done": 12,
     "milestones_done": 1,
     "milestones_total": 9
   },
@@ -1153,18 +1155,18 @@
     "by_type": {
       "unknown": {
         "total": 44,
-        "done": 10,
+        "done": 12,
         "partial": 1,
         "blocked": 0,
-        "todo": 33,
+        "todo": 31,
         "in_progress": 0,
-        "progress_percent": 24.3,
+        "progress_percent": 28.9,
         "by_status": {
-          "todo": 33,
+          "todo": 31,
           "in_progress": 0,
           "partial": 1,
           "blocked": 0,
-          "done": 10
+          "done": 12
         }
       }
     }
