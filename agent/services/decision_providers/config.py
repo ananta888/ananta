@@ -39,7 +39,7 @@ from collections.abc import Mapping
 from typing import Any
 
 SECTION = "decision_providers"
-PROVIDERS = ("jev", "local_decision", "llm")
+PROVIDERS = ("jev", "local_decision", "llm", "jeff")
 EXTERNAL_PROVIDERS = frozenset({"jev"})
 AREAS = ("tool_routing", "companion_route", "companion_knowledge", "retrieval_intent", "rag_needed",
          "chat_intent", "hub_direct", "prompt_injection", "context_strategy")
@@ -57,8 +57,13 @@ DEFAULTS: dict[str, Any] = {
                 "timeout_seconds": 5.0, "max_retries": 2, "price_input_per_million": 0.042,
                 "price_output_per_million": 0.0},
         "local_decision": {"enabled": False, "base_url": "", "base_url_env": "ANANTA_PARALLEL_DECISION_URL",
-                           "timeout_seconds": 5.0},
+                           "timeout_seconds": 5.0, "max_inflight": 4, "require_cache_isolation": False,
+                           "scoped_prefix_cache": False},
         "llm": {"enabled": False, "timeout_seconds": 30.0},
+        "jeff": {"enabled": False, "base_url": "http://jeff:8000", "model": "gliformer-large-v1",
+                 "model_revision": "d0a4e53d09cebe6bc963dd9be319d4279084bb2d",
+                 "allowed_hosts": ["jeff", "localhost", "127.0.0.1"], "api_key_env": "JEFF_API_KEY",
+                 "timeout_seconds": 5.0, "max_retries": 1, "max_inflight": 4, "max_state_chars": 8000},
     },
     "areas": {},
 }
@@ -120,6 +125,31 @@ def _provider(name: str, raw: Any) -> dict[str, Any]:
     if name == "local_decision":
         result["base_url"] = str(result["base_url"] or "").strip().rstrip("/")
         result["base_url_env"] = str(result["base_url_env"] or "").strip()
+        if type(result["max_inflight"]) is not int or not 1 <= result["max_inflight"] <= 64:
+            raise DecisionConfigError("decision_provider_admission_invalid:local_decision")
+        if type(result["require_cache_isolation"]) is not bool:
+            raise DecisionConfigError("decision_provider_cache_policy_invalid:local_decision")
+        if type(result["scoped_prefix_cache"]) is not bool:
+            raise DecisionConfigError("decision_provider_cache_policy_invalid:local_decision")
+    if name == "jeff":
+        from agent.services.decision_providers.jeff import validate_local_endpoint
+        from agent.services.decision_providers.types import DecisionProviderError
+
+        hosts = result["allowed_hosts"]
+        if not isinstance(hosts, list) or not hosts or any(not isinstance(h, str) for h in hosts):
+            raise DecisionConfigError("decision_provider_hosts_invalid:jeff")
+        try:
+            validate_local_endpoint(result["base_url"], hosts)
+        except DecisionProviderError as error:
+            raise DecisionConfigError(error.reason_code) from None
+        revision = result["model_revision"]
+        if not isinstance(revision, str) or len(revision) != 40 or any(c not in "0123456789abcdef" for c in revision):
+            raise DecisionConfigError("decision_provider_revision_invalid:jeff")
+        for key, minimum, maximum in [("max_retries", 0, 5), ("max_inflight", 1, 64), ("max_state_chars", 1, 32000)]:
+            if type(result[key]) is not int or not minimum <= result[key] <= maximum:
+                raise DecisionConfigError("decision_provider_bound_invalid:jeff:" + key)
+        if not isinstance(result["api_key_env"], str) or not result["api_key_env"].replace("_", "").isalnum():
+            raise DecisionConfigError("decision_provider_api_key_env_invalid:jeff")
     return result
 
 

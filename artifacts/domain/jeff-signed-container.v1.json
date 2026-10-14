@@ -1,0 +1,36 @@
+{
+  "schema": "ananta.jeff-signed-container-test.v1",
+  "classification": "synthetic_technical_observation",
+  "production_release_evidence": false,
+  "rows": [
+    {
+      "case": "missing",
+      "status": 403,
+      "error": {
+        "error": "assignment_unverified"
+      }
+    },
+    {
+      "case": "valid",
+      "status": 200,
+      "model": "gliformer-large-v1",
+      "assignment_bound": true,
+      "seconds": 0.6498502779995761
+    },
+    {
+      "case": "replay",
+      "status": 409,
+      "error": {
+        "error": "assignment_replay"
+      }
+    },
+    {
+      "case": "mutated",
+      "status": 403,
+      "error": {
+        "error": "assignment_unverified"
+      }
+    }
+  ],
+  "source_identity": "local technical observation; no production Registry evidence"
+}

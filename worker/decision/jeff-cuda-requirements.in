@@ -1,0 +1,7 @@
+gliformer==0.1.1
+gliner==0.2.29
+transformers==5.16.1
+torch==2.8.0+cu128
+fastapi==0.143.0
+uvicorn==0.54.0
+cryptography==50.0.2

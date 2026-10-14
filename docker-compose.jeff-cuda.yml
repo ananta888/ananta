@@ -1,0 +1,17 @@
+services:
+  jeff:
+    profiles: [jeff-cuda]
+    image: ananta-jeff-cuda:local
+    build:
+      args:
+        RUNTIME_LOCK: worker/decision/jeff-cuda-requirements.lock
+        TORCH_INDEX: https://download.pytorch.org/whl/cu128
+    environment:
+      JEFF_DEVICE: cuda
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

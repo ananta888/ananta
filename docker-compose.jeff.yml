@@ -1,0 +1,40 @@
+services:
+  jeff:
+    profiles: [jeff]
+    build:
+      context: .
+      dockerfile: worker/decision/Jeff.Dockerfile
+    image: ananta-jeff:local
+    read_only: true
+    user: "10001:10001"
+    init: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    mem_limit: 8g
+    cpus: 4
+    tmpfs:
+      - /tmp:size=64m,noexec,nosuid,nodev
+    environment:
+      JEFF_MODEL: /models/gliformer-large-v1
+      JEFF_API_KEY_FILE: /run/secrets/jeff_api_key
+      JEFF_HUB_PUBLIC_KEY_FILE: /run/secrets/jeff_hub_public_key
+      JEFF_REQUIRE_ASSIGNMENT: "1"
+      JEFF_MAX_QUEUE: "32"
+      JEFF_MAX_BATCH: "4"
+      JEFF_ENCODER_TOKEN_LIMIT: "4096"
+      JEFF_RATE_LIMIT_RPS: "10"
+      JEFF_RATE_LIMIT_BURST: "20"
+    volumes:
+      - ${ANANTA_JEFF_MODEL_DIR:?Set a verified local model directory}:/models/gliformer-large-v1:ro
+    secrets: [jeff_api_key, jeff_hub_public_key]
+    networks: [jeff_internal]
+    restart: "no"
+secrets:
+  jeff_api_key:
+    file: ${ANANTA_JEFF_KEY_FILE:?Set a secret file outside the repository}
+  jeff_hub_public_key:
+    file: ${ANANTA_JEFF_HUB_PUBLIC_KEY_FILE:?Set the Hub Ed25519 public key}
+networks:
+  jeff_internal:
+    internal: true

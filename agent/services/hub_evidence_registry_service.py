@@ -438,6 +438,7 @@ class HubEvidenceRegistryService:
         dispatch_lease_id: str,
         input_digest: str | None = None,
         expected_binding_digest: str | None = None,
+        execution_profile_digest: str | None = None,
     ) -> dict[str, Any]:
         """Return only the closed authority a delegated Worker may consume."""
 
@@ -470,6 +471,9 @@ class HubEvidenceRegistryService:
             )
         ):
             raise HubEvidenceRegistryError("evidence_run_assignment_input_binding_mismatch")
+        if execution_profile_digest is not None and run.execution_profile_digest != self._digest(
+                execution_profile_digest, "evidence_run_execution_profile_invalid"):
+            raise HubEvidenceRegistryError("evidence_run_assignment_profile_binding_mismatch")
         self._require_run_sources(run)
         return build_hub_evidence_assignment(
             run_id=run.run_id,

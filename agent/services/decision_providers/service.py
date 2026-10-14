@@ -16,6 +16,8 @@ import hashlib
 import json
 import logging
 import os
+import threading
+from collections import OrderedDict
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any, Protocol
@@ -80,7 +82,23 @@ def build_provider(name: str, settings: Mapping[str, Any], *,
 
         base_url = settings.get("base_url") or env.get(str(settings.get("base_url_env") or ""), "")
         return LlamaCppDecisionProvider(base_url=base_url or "http://127.0.0.1:0",
-                                        timeout_seconds=settings["timeout_seconds"])
+                                        timeout_seconds=settings["timeout_seconds"],
+                                        max_inflight=settings.get("max_inflight", 4),
+                                        require_cache_isolation=settings.get("require_cache_isolation", False),
+                                        scoped_prefix_cache=settings.get("scoped_prefix_cache", False))
+    if name == "jeff":
+        from agent.services.decision_providers.jeff import JeffDecisionProvider
+        from agent.services.decision_providers.typesafe import read_api_key
+
+        key_env = settings["api_key_env"]
+        return JeffDecisionProvider(
+            base_url=settings["base_url"], model=settings["model"],
+            model_revision=settings["model_revision"], allowed_hosts=settings["allowed_hosts"],
+            api_key=lambda: read_api_key({"TYPESAFE_API_KEY": env.get(key_env, ""),
+                                          "TYPESAFE_API_KEY_FILE": env.get(key_env + "_FILE", "")}),
+            timeout_seconds=settings["timeout_seconds"], max_retries=settings["max_retries"],
+            max_inflight=settings["max_inflight"], max_state_chars=settings["max_state_chars"],
+        )
     if name == "llm":
         from agent.services.decision_providers.llm import LLMDecisionProvider
 
@@ -95,6 +113,8 @@ class DecisionService:
         self._section = section
         self._factory = provider_factory
         self._sink = sink or LoggingDecisionSink()
+        self._providers: OrderedDict[str, DecisionProvider] = OrderedDict()
+        self._provider_lock = threading.Lock()
 
     def area_mode(self, area: str) -> str:
         settings = area_settings(self._section(), area)
@@ -127,10 +147,25 @@ class DecisionService:
 
     def _stage(self, entry: Any, settings: Mapping[str, Any], thresholds: Mapping[str, float]) -> Any:
         if isinstance(entry, list):
-            return AgreementStage([self._factory(name, settings["providers"][name]) for name in entry],
+            return AgreementStage([self._provider(name, settings["providers"][name]) for name in entry],
                                   settings["confidence_threshold"], thresholds)
-        return CascadeStage(self._factory(entry, settings["providers"][entry]), settings["confidence_threshold"],
+        return CascadeStage(self._provider(entry, settings["providers"][entry]), settings["confidence_threshold"],
                             thresholds)
+
+    def _provider(self, name: str, settings: Mapping[str, Any]) -> DecisionProvider:
+        if name not in {"jeff", "local_decision"}:
+            return self._factory(name, settings)
+        # Admission and circuit state must survive individual decisions. The
+        # cache is scoped to this injected service, bounded, and config-keyed.
+        environment_url = os.environ.get(str(settings.get("base_url_env") or ""), "") if name == "local_decision" else ""
+        key = name + ":" + json.dumps(settings, sort_keys=True) + environment_url
+        with self._provider_lock:
+            if key not in self._providers:
+                self._providers[key] = self._factory(name, settings)
+            self._providers.move_to_end(key)
+            while len(self._providers) > 8:
+                self._providers.popitem(last=False)
+            return self._providers[key]
 
     def _record(self, decision: AreaDecision, request: DecisionRequest, current: Mapping[str, Any] | None) -> None:
         result = decision.outcome.result

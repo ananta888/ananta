@@ -68,8 +68,11 @@ def read_api_key(environ: Mapping[str, str] | None = None) -> str | None:
     if not path:
         return None
     try:
-        text = Path(path).expanduser().read_text(encoding="utf-8")
-    except OSError:
+        key_path = Path(path).expanduser()
+        if not key_path.is_file() or key_path.stat().st_size > 4096:
+            return None
+        text = key_path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError):
         return None
     for line in text.splitlines():
         line = line.strip()
@@ -191,9 +194,14 @@ class TypeSafeJevProvider:
                  price_output_per_million: float = DEFAULT_PRICE_OUTPUT_PER_MILLION,
                  opener: Callable[..., Any] = urllib.request.urlopen,
                  sleep: Callable[[float], None] = time.sleep,
-                 clock: Callable[[], float] = time.monotonic) -> None:
+                 clock: Callable[[], float] = time.monotonic,
+                 endpoint_validator: Callable[[str], None] | None = None,
+                 response_validator: Callable[[Any, Any], None] | None = None,
+                 headers_for_request: Callable[[DecisionRequest], Mapping[str, str]] | None = None) -> None:
         base_url = str(base_url or DEFAULT_BASE_URL).rstrip("/")
-        if not base_url.startswith("https://") and not base_url.startswith(("http://127.0.0.1", "http://localhost")):
+        if endpoint_validator is not None:
+            endpoint_validator(base_url)
+        elif not base_url.startswith("https://") and not base_url.startswith(("http://127.0.0.1", "http://localhost")):
             raise DecisionProviderError("base_url_invalid")  # the key only travels over TLS (or to localhost)
         self._url = base_url + "/v1/systemone"
         self._model = str(model or DEFAULT_MODEL)
@@ -204,6 +212,8 @@ class TypeSafeJevProvider:
         self._opener = opener
         self._sleep = sleep
         self._clock = clock
+        self._response_validator = response_validator
+        self._headers_for_request = headers_for_request
 
     def __repr__(self) -> str:  # never the key
         return f"TypeSafeJevProvider(url={self._url!r}, model={self._model!r})"
@@ -211,13 +221,17 @@ class TypeSafeJevProvider:
     def is_available(self) -> tuple[bool, str]:
         return (True, "ok") if self._api_key() else (False, "api_key_missing")
 
-    def _post(self, body: bytes, key: str, idempotency_key: str, timeout: float) -> tuple[Any, str | None]:
+    def _post(self, body: bytes, key: str, idempotency_key: str, timeout: float,
+              extra_headers: Mapping[str, str] | None = None) -> tuple[Any, str | None]:
         request = urllib.request.Request(self._url, data=body, method="POST", headers={
             "Authorization": f"Bearer {key}", "Content-Type": "application/json", "Accept": "application/json",
-            "Idempotency-Key": idempotency_key, "User-Agent": "ananta-decision-provider/1"})
+            "Idempotency-Key": idempotency_key, "User-Agent": "ananta-decision-provider/1",
+            **dict(extra_headers or {})})
         with self._opener(request, timeout=timeout) as response:
             raw = response.read(MAX_RESPONSE_BYTES + 1)
             request_id = response.headers.get("x-typesafe-request-id") if response.headers else None
+            if self._response_validator is not None:
+                self._response_validator(response.headers or {}, extra_headers or {})
         if len(raw) > MAX_RESPONSE_BYTES:
             raise DecisionProviderError("response_too_large")
         try:
@@ -230,6 +244,7 @@ class TypeSafeJevProvider:
         if not key:
             raise DecisionProviderError("api_key_missing")
         body = json.dumps(request_body(request, self._model)).encode("utf-8")
+        extra_headers = self._headers_for_request(request) if self._headers_for_request else {}
         idempotency_key = uuid.uuid4().hex
         started = self._clock()
         deadline = started + (float(timeout_seconds) if timeout_seconds else self._timeout)
@@ -241,7 +256,7 @@ class TypeSafeJevProvider:
                 raise DecisionProviderError("timeout", retryable=True)
             retry_after_ms = None
             try:
-                payload, request_id = self._post(body, key, idempotency_key, remaining)
+                payload, request_id = self._post(body, key, idempotency_key, remaining, extra_headers)
                 model, answers, usage = parse_response(request, payload)
                 cost = (usage.input_tokens * self._prices[0] + usage.output_tokens * self._prices[1]) / 1e6
                 return DecisionResult(

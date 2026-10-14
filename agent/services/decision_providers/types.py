@@ -63,8 +63,14 @@ class DecisionQuestion:
     instructions: str
     # choice: (label, description) per option; score: (level name, description) in rubric order
     options: tuple[tuple[str, str], ...] = ()
+    dependency_mode: str = "independent"
+    depends_on: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
+        if self.dependency_mode not in {"independent", "sequential", "grouped", "unknown"}:
+            raise DecisionProviderError("decision_dependency_mode_invalid")
+        if self.depends_on and self.dependency_mode == "independent":
+            raise DecisionProviderError("decision_dependency_mode_invalid")
         if not _KEY.fullmatch(str(self.key or "")) or self.kind not in KINDS:
             raise DecisionProviderError("decision_question_invalid")
         _text(self.instructions, "decision_question_instructions_invalid")
@@ -105,13 +111,28 @@ class DecisionRequest:
     state: str
     questions: tuple[DecisionQuestion, ...]
     purpose: str = "generic"  # decision area, e.g. "tool_routing"; used for config, audit, metrics
+    tenant_id: str = ""
+    subject_id: str = ""
+    assignment_token: str | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
+        if self.assignment_token is not None and (
+            not isinstance(self.assignment_token, str) or not 1 <= len(self.assignment_token) <= 8192
+            or not re.fullmatch(r"[A-Za-z0-9_=-]+\.[A-Za-z0-9_=-]+", self.assignment_token)
+        ):
+            raise DecisionProviderError("decision_assignment_token_invalid")
+        if any(not isinstance(value, str) or len(value) > 128 for value in (self.tenant_id, self.subject_id)):
+            raise DecisionProviderError("decision_scope_invalid")
         if not isinstance(self.state, str) or not self.state.strip() or len(self.state) > MAX_STATE_CHARS:
             raise DecisionProviderError("decision_state_invalid")
         keys = [question.key for question in self.questions]
         if not 1 <= len(keys) <= MAX_QUESTIONS or len(set(keys)) != len(keys):
             raise DecisionProviderError("decision_questions_invalid")
+        seen: set[str] = set()
+        for question in self.questions:
+            if any(key not in seen for key in question.depends_on):
+                raise DecisionProviderError("decision_dependency_order_invalid")
+            seen.add(question.key)
 
     def question(self, key: str) -> DecisionQuestion:
         for question in self.questions:
@@ -164,6 +185,7 @@ class DecisionResult:
     latency_ms: float = 0.0
     request_id: str | None = None
     attempts: int = 1
+    diagnostics: Mapping[str, Any] = field(default_factory=dict)
 
     def answer(self, key: str) -> DecisionAnswer:
         return self.answers[key]
@@ -173,4 +195,5 @@ class DecisionResult:
                 "latency_ms": round(self.latency_ms, 1), "attempts": self.attempts,
                 "usage": {"input_tokens": self.usage.input_tokens, "output_tokens": self.usage.output_tokens,
                           "cost_usd": self.usage.cost_usd},
-                "answers": {key: answer.to_mapping() for key, answer in self.answers.items()}}
+                "answers": {key: answer.to_mapping() for key, answer in self.answers.items()},
+                **({"diagnostics": dict(self.diagnostics)} if self.diagnostics else {})}

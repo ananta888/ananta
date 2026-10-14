@@ -1,0 +1,17 @@
+{
+  "schema": "ananta.jeff-model-manifest.v1",
+  "origin": "https://huggingface.co/knowledgator/gliformer-large-v1",
+  "model_revision": "d0a4e53d09cebe6bc963dd9be319d4279084bb2d",
+  "model_license": "Apache-2.0",
+  "upstream": "https://github.com/logan-markewich/jeff",
+  "upstream_revision": "34b32f99a727c47b679adde33f4702a001e02979",
+  "upstream_license": "MIT",
+  "files": {
+    "gliner_config.json": "80aec1c8824bd58d6733f27d78a8271420f2c7008e4b0c81313d8da09624eea4",
+    "pytorch_model.bin": "f80b29199d66f878669f283703e4dba9fd726755dcc20aba1ed0d24fce4a23f1",
+    "tokenizer.json": "2286c2dd1929d355fabff24926d90011f8c4072c520a8ed3a46edaf7c6228da0",
+    "tokenizer_config.json": "c2043d84b0dee751af5121a7d1f0267ce63a5ea25889fbd524d7789dfff04480"
+  },
+  "classification": "source_inventory",
+  "production_release_evidence": false
+}
