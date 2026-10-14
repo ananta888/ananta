@@ -303,6 +303,20 @@ class TaskExecutionService:
             return None
 
         task = get_local_task_status(request_data.task_id) if request_data.task_id else None
+        if (
+            has_app_context() and current_app.config.get("ROLE") == "hub"
+            and (cfg.get("multi_tool_plan") or {}).get("multi_tool_plan")
+        ):
+            from agent.services.hub_multi_tool_pipeline import get_hub_multi_tool_pipeline
+            from agent.services.lmstudio_request_registry import is_cancelled
+            multi_result = get_hub_multi_tool_pipeline().try_execute(
+                prompt=prompt, task=task, agent_cfg=agent_cfg,
+                cancel_check=lambda: is_cancelled((task or {}).get("goal_id"), request_data.task_id),
+            )
+            if multi_result is not None:
+                response = TaskStepProposeResponse(reason="hub_multi_tool_plan", raw="").model_dump()
+                response["direct_execution"] = multi_result
+                return response
         decision = get_hub_direct_execution_router().classify(prompt, task=task, agent_cfg=agent_cfg)
         audit_enabled = bool(cfg.get("audit_enabled", True))
 

@@ -365,6 +365,7 @@ from .teams import (
 )
 from .temporal_runtime import TemporalHistoryProjectionDB, TemporalProjectedEventDB
 from .text_quality import TextQualityCriteriaSetDB, TextQualityEvaluationDB
+from .tool_plan_receipt import ToolPlanEventDB, ToolPlanReceiptDB
 from .turn_accounting import TurnAccountingLedgerDB, TurnAccountingSourceCursorDB
 from .turn_observations import TurnObservationCursorDB, TurnObservationReplayDB
 from .turn_observer_identities import (
@@ -780,6 +781,8 @@ __all__ = [
     "DiscoveryResultDB",
     "CaseAgentRunDB",
     "CaseBlueprintBindingDB",
+    "ToolPlanReceiptDB",
+    "ToolPlanEventDB",
     "WorkerJobDB",
     "WorkerResultDB",
     "WorkerSlotLeaseDB",

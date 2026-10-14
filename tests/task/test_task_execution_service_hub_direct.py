@@ -139,3 +139,33 @@ def test_existing_execute_direct_step_path_unchanged(tmp_path):
     )
     assert "hub-direct-kompat" in str(response.get("output") or "")
     assert response.get("exit_code") == 0
+
+
+def test_multi_tool_result_is_returned_without_llm_or_classic_dispatch(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+    import agent.services.task_execution_service as module
+    import agent.services.hub_multi_tool_pipeline as pipeline_module
+
+    monkeypatch.setattr(module, "get_local_task_status", lambda _: {"id": "task"})
+    monkeypatch.setattr(
+        pipeline_module,
+        "get_hub_multi_tool_pipeline",
+        lambda: SimpleNamespace(try_execute=lambda **kw: {"status": "blocked", "reason": "policy_denied"}),
+    )
+    llm = FakeLLM()
+    from flask import Flask
+
+    app = Flask(__name__)
+    app.config["ROLE"] = "hub"
+    with app.app_context():
+        response = TaskExecutionService().propose_direct_step(
+            TaskStepProposeRequest(prompt="read two tools", task_id="task"),
+            agent_cfg=_agent_cfg(tmp_path, multi_tool_plan={"multi_tool_plan": True}),
+            provider_urls={},
+            openai_api_key=None,
+            agent_name="test-agent",
+            llm_caller=llm,
+        )
+    assert response["direct_execution"]["reason"] == "policy_denied"
+    assert response["command"] is None and response["tool_calls"] is None
+    assert not llm.calls
