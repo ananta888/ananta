@@ -114,6 +114,7 @@ def ananta_worker_tool_loop_defaults() -> dict:
             "allowed_risk_classes": ["read"],
             "commercial_use": True,
             "allow_research_only": False,
+            "multi_tool_plan": False,
         },
     }
 
@@ -127,6 +128,16 @@ def hub_direct_execution_defaults() -> dict:
         "audit_enabled": True,
         "confidence_threshold": 0.8,
         "max_result_chars": 8000,
+        "multi_tool_plan": {
+            "multi_tool_plan": False,
+            "mode": "disabled",
+            "profile_order": ["bonsai2-27b-multi-tool-plan"],
+            "max_plan_calls": 4,
+            "top_k": 8,
+            "max_total_ms": 1500,
+            "execution_timeout_seconds": 30,
+            "allowed_risk_classes": ["read"],
+        },
         "allowed_tools": [
             "repo.list_files",
             "repo.read_file_range",

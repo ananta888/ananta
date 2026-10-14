@@ -1,4 +1,5 @@
 """Strict normalization and schema validation for untrusted model output."""
+
 from __future__ import annotations
 
 import json
@@ -7,7 +8,10 @@ import re
 from typing import Any, Mapping, Sequence
 
 from agent.services.tiny_router.types import (
-    STATUS_ABSTAIN, ToolCallCandidate, TinyActionModelProfile, ValidationResult,
+    STATUS_ABSTAIN,
+    TinyActionModelProfile,
+    ToolCallCandidate,
+    ValidationResult,
 )
 
 _MARKER = re.escape(chr(96) * 3)
@@ -56,7 +60,10 @@ def _type_matches(value: Any, expected: str) -> bool:
 
 
 def validate_json_value(
-    value: Any, schema: Mapping[str, Any], *, path: str = "$",
+    value: Any,
+    schema: Mapping[str, Any],
+    *,
+    path: str = "$",
 ) -> tuple[str, ...]:
     """Validate the registry schema subset and reject unknown object fields."""
     if not isinstance(schema, Mapping):
@@ -95,11 +102,24 @@ def _value_keyword_issues(value: Any, schema: Mapping[str, Any], path: str) -> l
             issues.append(path + ":" + keyword + "_invalid")
             continue
         matches = sum(
-            not validate_json_value(value, option, path=path)
-            for option in alternatives if isinstance(option, Mapping)
+            not validate_json_value(value, option, path=path) for option in alternatives if isinstance(option, Mapping)
         )
         if (keyword == "oneOf" and matches != 1) or (keyword == "anyOf" and matches < 1):
             issues.append(path + ":" + keyword + "_mismatch")
+    for option in schema.get("allOf", []):
+        issues.extend(validate_json_value(value, {"additionalProperties": True, **option}, path=path))
+    if "if" in schema:
+        condition = {"additionalProperties": True, **schema["if"]}
+        branch = "else" if validate_json_value(value, condition, path=path) else "then"
+        if branch in schema:
+            issues.extend(validate_json_value(value, {"additionalProperties": True, **schema[branch]}, path=path))
+    if isinstance(value, dict):
+        for key, required in schema.get("dependentRequired", {}).items():
+            if key in value:
+                issues.extend(path + ":missing_required:" + str(other) for other in required if other not in value)
+        for key, dependent in schema.get("dependentSchemas", {}).items():
+            if key in value:
+                issues.extend(validate_json_value(value, {"additionalProperties": True, **dependent}, path=path))
     return issues
 
 
@@ -128,7 +148,7 @@ def _object_issues(value: dict, schema: Mapping[str, Any], path: str) -> list[st
             issues.extend(validate_json_value(item, properties[child], path=path + "." + child))
         elif isinstance(additional, Mapping):
             issues.extend(validate_json_value(item, additional, path=path + "." + child))
-        else:
+        elif additional is not True:
             issues.append(path + ":unknown_property:" + child)
     return issues
 
@@ -184,10 +204,30 @@ def _number_issues(value: int | float, schema: Mapping[str, Any], path: str) -> 
     return issues
 
 
+def allowed_argument_schemas(
+    tools: Sequence[Mapping[str, Any]],
+) -> dict[str, Mapping[str, Any]]:
+    """``{authorized tool name: parameter schema}`` from OpenAI-style tool definitions."""
+    result: dict[str, Mapping[str, Any]] = {}
+    for item in tools:
+        function = item.get("function") if isinstance(item, Mapping) else None
+        if not isinstance(function, Mapping):
+            continue
+        name = str(function.get("name") or "").strip()
+        parameters = function.get("parameters")
+        if name and isinstance(parameters, Mapping) and name not in result:
+            result[name] = parameters
+    return result
+
+
 class CandidateValidator:
     def validate(
-        self, payload: Any, *, tools: Sequence[Mapping[str, Any]],
-        profile: TinyActionModelProfile, adapter_id: str,
+        self,
+        payload: Any,
+        *,
+        tools: Sequence[Mapping[str, Any]],
+        profile: TinyActionModelProfile,
+        adapter_id: str,
         min_confidence: float | None = None,
     ) -> ValidationResult:
         try:
@@ -244,7 +284,8 @@ class CandidateValidator:
 
     @staticmethod
     def _normalize_call(
-        raw_call: Any, payload: Mapping[str, Any],
+        raw_call: Any,
+        payload: Mapping[str, Any],
     ) -> tuple[str, Any, Any, str]:
         if not isinstance(raw_call, Mapping):
             return "", None, None, "call_must_be_object"
@@ -272,13 +313,4 @@ class CandidateValidator:
     def _allowed_schemas(
         tools: Sequence[Mapping[str, Any]],
     ) -> dict[str, Mapping[str, Any]]:
-        result: dict[str, Mapping[str, Any]] = {}
-        for item in tools:
-            function = item.get("function") if isinstance(item, Mapping) else None
-            if not isinstance(function, Mapping):
-                continue
-            name = str(function.get("name") or "").strip()
-            parameters = function.get("parameters")
-            if name and isinstance(parameters, Mapping) and name not in result:
-                result[name] = parameters
-        return result
+        return allowed_argument_schemas(tools)

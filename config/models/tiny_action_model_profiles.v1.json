@@ -191,6 +191,34 @@
         "docs": "docs/decision-providers.md",
         "note": "Providers, cascade and threshold come from the Hub config section decision_providers.areas.tool_routing (TypeSafe Jev, local /v1/decision, LLM). local_only is false because the cascade may include TypeSafe Jev, which requires decision_providers.providers.jev.external_calls_allowed."
       }
+    },
+    {
+      "profile_id": "bonsai2-27b-multi-tool-plan",
+      "model_id": "Ternary-Bonsai-2-27B-PQ2_0",
+      "tier": "decision",
+      "adapter": "multi_tool_plan",
+      "dialect": "openai",
+      "license_id": "Apache-2.0",
+      "source_url": "https://huggingface.co/prism-ml/Ternary-Bonsai-2-27B-gguf",
+      "commercial_use_allowed": true,
+      "research_only": false,
+      "supports_confidence": true,
+      "supports_parallel_tools": true,
+      "max_tools": 16,
+      "context_window": 65536,
+      "min_confidence": 0.9,
+      "local_only": true,
+      "enabled_by_default": false,
+      "metadata": {
+        "profile_status": "evaluation",
+        "provider_id": "llamacpp-parallel-decision",
+        "endpoint_env": "ANANTA_PARALLEL_DECISION_URL",
+        "base_model": "Qwen/Qwen3.8-27B (hybrid attention)",
+        "runtime": "ananta888/llama.cpp-vision-decision@vision-decision (PrismML base; open field >= c2a4426ce), llama-server --decision-seqs",
+        "docs": "docs/parallel-decision-multi-tool-use.md",
+        "open_field": false,
+        "calibration": "Uncalibrated multi-tool evaluation profile; default disabled."
+      }
     }
   ]
 }

@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any, Mapping
 
 from agent.services.tiny_router.base import TinyRouterTelemetrySink
-from agent.services.tiny_router.types import RoutingDecision
+from agent.services.tiny_router.types import MultiToolRoutingDecision, RoutingDecision
 
 
 class TinyRouterObserver:
@@ -34,6 +34,26 @@ class TinyRouterObserver:
                 }
             )
         self._sink.emit(event)
+
+    def record_plan(self, decision: MultiToolRoutingDecision, *, prompt_chars: int) -> None:
+        call_names = []
+        if decision.plan is not None:
+            call_names = [step.tool for step in decision.plan.calls()]
+        self._sink.emit(
+            {
+                "schema": "ananta.tiny_multi_tool_router_event.v1",
+                "status": decision.status,
+                "reason_code": decision.reason_code,
+                "shadow": decision.shadow,
+                "escalation_tier": decision.escalation_tier,
+                "elapsed_ms": round(decision.elapsed_ms, 3),
+                "prompt_chars": max(0, int(prompt_chars)),
+                "attempt_count": len(decision.attempts),
+                "attempts": [attempt.as_dict() for attempt in decision.attempts],
+                "call_count": len(call_names),
+                "call_tools": call_names,
+            }
+        )
 
 
 class ListTelemetrySink:

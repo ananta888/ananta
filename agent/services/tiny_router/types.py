@@ -2,16 +2,22 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Mapping
+from typing import TYPE_CHECKING, Any, Mapping
+
+if TYPE_CHECKING:  # pragma: no cover - typing only, avoids an import at module load
+    from ananta_contracts.multi_tool_plan import MultiToolPlan
 
 CAPABILITY_SCHEMA = "ananta.tiny_action_model_capability.v1"
 ROUTING_DECISION_SCHEMA = "ananta.tiny_tool_routing_decision.v1"
+MULTI_TOOL_ROUTING_DECISION_SCHEMA = "ananta.tiny_multi_tool_routing_decision.v1"
 
 STATUS_CANDIDATE = "candidate"
 STATUS_SHADOW_CANDIDATE = "shadow_candidate"
 STATUS_ABSTAIN = "abstain"
 STATUS_ESCALATE = "escalate"
 STATUS_DISABLED = "disabled"
+STATUS_PLAN = "plan"
+STATUS_SHADOW_PLAN = "shadow_plan"
 
 
 @dataclass(frozen=True)
@@ -201,3 +207,35 @@ class SchemaProjection:
     dialect: str
     tools: tuple[Mapping[str, Any], ...]
     losses: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class MultiToolRoutingDecision:
+    """A multi-tool plan (PDT): several calls the tiny router proposes without execution authority.
+
+    Kept separate from ``RoutingDecision`` (which holds exactly one candidate) so
+    the single-candidate path stays unchanged.
+    """
+
+    status: str
+    reason_code: str
+    plan: "MultiToolPlan | None" = None
+    attempts: tuple[RoutingAttempt, ...] = ()
+    escalation_tier: str = "main"
+    elapsed_ms: float = 0.0
+    shadow: bool = False
+
+    def calls(self) -> tuple[Any, ...]:
+        return () if self.plan is None else self.plan.calls()
+
+    def as_dict(self, *, include_arguments: bool = False) -> dict[str, Any]:
+        return {
+            "schema": MULTI_TOOL_ROUTING_DECISION_SCHEMA,
+            "status": self.status,
+            "reason_code": self.reason_code,
+            "plan": None if self.plan is None else self.plan.to_mapping(include_arguments=include_arguments),
+            "attempts": [item.as_dict() for item in self.attempts],
+            "escalation_tier": self.escalation_tier,
+            "elapsed_ms": round(self.elapsed_ms, 3),
+            "shadow": self.shadow,
+        }
