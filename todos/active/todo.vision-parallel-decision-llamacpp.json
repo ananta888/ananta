@@ -741,7 +741,7 @@
       "status": "partial",
       "priority": "P1",
       "risk": "low",
-      "progress_percent": 85,
+      "progress_percent": 70,
       "depends_on": [
         "VDEC-009",
         "VDEC-011",
@@ -757,13 +757,13 @@
         "Reproduzierbare Benchmarkdatei mit Hardware, Modellrevision, Quantisierung und Runtime-Flags vorhanden.",
         "Es gibt keine pauschale Millisekundenbehauptung ohne Bildgroesse/Modell/Hardware-Kontext."
       ],
-      "implemented_solution": "Nicht gemessen: auf dem Dev-Rechner fehlen CUDA-Toolkit (nvcc) und Vulkan-SDK, daher nur CPU-Build (Ryzen 9 7940HS). Alle Zahlen im README sind CPU-Zahlen.",
+      "implemented_solution": "Historical model/runtime timing observations remain technical observations; v1 pilot calibration/holdout evidence invalidated. v2 rerun and current GPU availability required before further capacity claims.",
       "evidence": [
         "vendor/llama.cpp-vision-decision @ a0ae4ad5e (origin/vision-decision)",
         "AGENT.md#environment-notes"
       ],
       "verification": [],
-      "progress_note": "Qwen3-VL2B Q8 actual RTX5060Ti CUDA and CPU, 80 image-case timing/usage reports plus single/batch profiles; declared model/runtime context. Remaining: exhaustive isolated OOM/queue/context limits, peak/resource sweeps and optional 3B/7B/RTX3080 comparison."
+      "progress_note": "Historical CPU/CUDA v1 80-case pilot reports are invalidated for quality/calibration/release claims: validation and holdout shared image content. Corpus v2 now has disjoint original layouts, but no valid rerun is recorded. Remaining: rerun v2 on actual CPU/CUDA, isolated OOM/queue/context limits, peak/resource sweeps and optional 3B/7B/RTX3080 comparison."
     },
     {
       "id": "VDEC-015",
@@ -807,7 +807,7 @@
       "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 85,
+      "progress_percent": 70,
       "depends_on": [
         "VDEC-015"
       ],
@@ -832,7 +832,7 @@
       "verification": [
         "Fork: tools/server/tests/unit/test_decision.py 16 Tests + test_vision_api/test_basic: 42 passed (todos/todo.vision-decision.json VD-021/VD-041)"
       ],
-      "progress_note": "Validation-only temperature fit, DE/EN field metrics/Brier/ECE/risk-coverage and bounded existing System2 fallback. Current quality/sample counts do not yield a production threshold. Remaining: sufficiently representative frozen real tasks and independent calibration/release evidence."
+      "progress_note": "Historical CPU/CUDA v1 80-case pilot reports are invalidated for quality/calibration/release claims: validation and holdout shared image content. Corpus v2 now has disjoint original layouts, but no valid rerun is recorded. Remaining: rerun validation-only calibration and untouched holdout on v2 plus sufficiently representative frozen real tasks; no production threshold is authorized. Bounded existing System2 fallback remains."
     },
     {
       "id": "VDEC-017",
@@ -1380,7 +1380,7 @@
         "blocked": 0,
         "todo": 0,
         "in_progress": 0,
-        "progress_percent": 96.2,
+        "progress_percent": 92.5,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
@@ -1412,7 +1412,7 @@
         "blocked": 0,
         "todo": 0,
         "in_progress": 0,
-        "progress_percent": 92.5,
+        "progress_percent": 85.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,

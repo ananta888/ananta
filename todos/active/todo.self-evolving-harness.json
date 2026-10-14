@@ -7,7 +7,7 @@
   "track": "self-evolving-harness",
   "status": "partial",
   "created_at": "2026-09-26",
-  "updated_at": "2026-10-13",
+  "updated_at": "2026-10-14",
   "purpose": "Ananta soll nicht nur Prompts und Modellparameter optimieren, sondern die komplette Agent-Steuerungsschicht (Harness) inklusive Prompt-Programme, Context-Strategie, Retrieval, Tool-Routing, Agent-Topologie, Delegation, Scaffold-/Code-Struktur und Runtime-Policies reproduzierbar, messbar und sicher weiterentwickeln. Vorhandene Ananta-Fähigkeiten werden explizit wiederverwendet: PlanningPromptOptimizerService, PlanningPromptEvolverService, DSPy Optimization Engine mit LabeledFewShot/BootstrapFewShot und bereits gepinnten GEPA-Abhängigkeiten, EvoMap-Evolver-Adapter/Bridge, Benchmarks, Gates, Worker, MCP, CodeCompass, Tracing und Promotion/Rollback. Referenzen wie NVIDIA SoL-Pi dienen ergänzend für Harness-Effizienzmechanismen; es wird keine parallele zweite Evolutionsarchitektur aufgebaut.",
   "goal": "Ein produktionsreifer Self-Evolving-Harness-Stack, der bestehende native Ananta-Prompt-Evolution, DSPy/GEPA und EvoMap über eine gemeinsame provider-neutrale Evolution-Orchestrierung nutzt; Harness-Varianten als versionierte Genome erzeugt; Prompt-, Context-, Retrieval-, Tool-, Agent-, Scaffold- und kontrollierte Code-Mutationen isoliert evaluiert; 32k/64k/128k und weitere Context-Budgets als konfigurierbaren Suchraum unterstützt; gegen Benchmarks und harte Gates prüft; mehrdimensional auf einer Pareto-Front selektiert; modell-/task-/budget-spezifische Varianten verwaltet; sichere Rollbacks erlaubt; und SoL-Pi-artige Effizienzmechanismen wie Action Fusion, ObservationPack, evidence-preserving reduction und Online Context Compaction integriert.",
   "status_scale": [
@@ -184,7 +184,7 @@
         "SEH-029",
         "SEH-030"
       ],
-      "status": "todo"
+      "status": "partial"
     },
     {
       "id": "SEH-M8",
@@ -494,16 +494,17 @@
     {
       "id": "SEH-017",
       "title": "Modell-/Task-spezifischen Harness Router implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "details": "Harness-Auswahl anhand von Modellfamilie/Version, Taskklasse, Tools, Context-Bedarf, Kosten-/Latenzprofil und Hardware. Kein implizites Übertragen eines auf Modell A optimierten Harness auf Modell B.",
       "acceptance_criteria": [
         "Routingentscheidung ist nachvollziehbar und geloggt",
         "Fallback auf zertifizierte Baseline bei unbekannter Kombination",
         "Model-Version-Änderung invalidiert oder revalidiert abhängige Kandidaten"
-      ]
+      ],
+      "implementation_note": "Model/task/tenant/project/revision/hardware/tool/context/cost/latency router implemented over existing immutable Genome Store. Hub Registry manifest/run binding is mandatory; unknown/revised combinations use only independently certified baseline or bounded blocked. Admin route-preview and deterministic scope/revision/resource/certificate/audit tests. Productive Agent-loop adoption remains SEH-003/011, not authorized by a preview."
     },
     {
       "id": "SEH-018",
@@ -554,32 +555,34 @@
     {
       "id": "SEH-021",
       "title": "Umfassende Unit-, Property-, Integration- und End-to-End-Tests erstellen",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 75,
       "details": "Tests für Genome-Kanonisierung, Lineage, Reducer-Evidenz, Compaction-Invarianten, Sandbox, Mutation-Scopes, Pareto-Selektion, Routing, Promotion/Rollback sowie vollständige Evolutionszyklen.",
       "acceptance_criteria": [
         "Property-Tests decken Context-/Evidence-Invarianten ab",
         "E2E-Test kann aus Baseline mehrere Kandidaten erzeugen und korrekt selektieren",
         "Failure-Injection für Tool-, Modell-, Netzwerk- und Storage-Fehler vorhanden",
         "Tests laufen deterministisch genug für CI"
-      ]
+      ],
+      "implementation_note": "Headless tests/harness covers canonical genomes, evidence/context properties, mutation scopes, sandbox, bounded processes, Pareto, crossover, search/operator, routing, asset lifecycle and engine normalization; portable sys.executable process fixtures. Remaining: full productive Hub queue/metering/release E2E and cross-engine failure injection."
     },
     {
       "id": "SEH-022",
       "title": "Security-/Red-Team-Suite speziell für Self-Modification bauen",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 70,
       "details": "Angriffe auf Gate-Bypass, Prompt-Injection in Benchmarks/Observations, Manipulation von Fitnessdaten, Secret Exfiltration, Sandbox Escape, malicious tool output, reward hacking und Benchmark gaming.",
       "acceptance_criteria": [
         "Evolver kann seine Evaluations- oder Sicherheitslogik nicht verändern",
         "Benchmarkdaten können nicht zur Laufzeit manipuliert werden",
         "Malicious Observation kann keine privilegierte Mutation auslösen",
         "Alle Red-Team-Fälle besitzen reproduzierbare Regressionstests"
-      ]
+      ],
+      "implementation_note": "Existing harness security/invariant/mutation/sandbox regressions supplemented with unknown evidence/model-revision/scope/resource rejection, provider schema/ID/symlink injection and no-activation lifecycle tests. Remaining: full admitted production benchmark tampering, reward-hacking and OS/container escape regression matrix."
     },
     {
       "id": "SEH-023",
@@ -599,24 +602,25 @@
     {
       "id": "SEH-024",
       "title": "Architektur-, Betriebs- und Entwicklerdokumentation fertigstellen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "details": "Dokumentation zu Architektur, Genome, Mutationsflächen, Sicherheitsgrenzen, Benchmarking, Pareto-Selektion, Kostensteuerung, SoL-Pi-Referenzmechanismen, Betrieb, Recovery und Erweiterung um neue Policies.",
       "acceptance_criteria": [
         "Neue Entwickler können einen neuen evolvierbaren Policy-Typ ohne Änderungen am Kernloop hinzufügen",
         "Operator-Runbook enthält Kill-Switch, Rollback, Budgetvorfall und beschädigte Experimentdaten",
         "Abgrenzung zwischen Prompt-Evolver und Harness-Evolver klar dokumentiert"
-      ]
+      ],
+      "implementation_note": "docs/self-evolving-harness-operations.md covers architecture/extension ports, Prompt vs Harness boundaries, operator APIs, budgets, kill-switch, cancellation, rollback, corrupt data, provider ownership, legacy migration and explicit production limitations. Existing inventory/planning docs remain authoritative."
     },
     {
       "id": "SEH-025",
       "title": "Gemeinsame EvolutionEngine-/Capability-Registry für Native, DSPy/GEPA und EvoMap definieren",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 80,
       "details": "Die bereits vorhandenen Evolutionspfade werden unter einem provider-neutralen Capability- und Candidate-Vertrag zusammengeführt. Native Prompt-Evolution, DSPy-Optimierung, GEPA als DSPy-Optimizer und EvoMap-Proposals dürfen unterschiedliche interne Mechanismen behalten, liefern aber normalisierte Candidate-, Metric-, Provenance- und Cost-Daten an denselben Orchestrator. Bestehende EvolutionEngine/EvolutionProposal-Verträge bevorzugt erweitern statt neue Parallelmodelle einzuführen.",
       "acceptance_criteria": [
         "Registry kann Engines dynamisch nach Capability, Modell, Mutationstyp, Kostenlimit und Verfügbarkeit auswählen",
@@ -624,7 +628,8 @@
         "Alle Engine-Ergebnisse werden in denselben versionierten Candidate-/Lineage-Vertrag normalisiert",
         "Bestehende EvoMap-EvolutionProposal- und DSPy-Artefaktverträge werden wiederverwendet oder migrationsfähig erweitert",
         "Capability-Endpoint zeigt enabled/degraded/disabled inklusive Version und begründeter Einschränkungen"
-      ]
+      ],
+      "implementation_note": "Existing EvolutionEngine/Registry/Proposal extended additively: capability/model-revision/surface/resource/availability selection, versioned normalized candidate bindings, optional Hub-only Native Harness and existing DSPy-spec proposal adapters. No independent queue or promotion. Remaining: Native PlanningPrompt adapter, advanced GEPA capability support, normalized measured metrics/cost and productive unified dispatch."
     },
     {
       "id": "SEH-026",
@@ -645,10 +650,10 @@
     {
       "id": "SEH-027",
       "title": "EvoMap Evolver als vollwertige Proposal-Engine in die gemeinsame Orchestrierung einbinden",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 65,
       "details": "Den vorhandenen plugins/evolver_adapter- und evolver_bridge-Pfad aus dem Pilotstatus in den Unified Evolution Orchestrator integrieren. Gene/Capsule/GEP-spezifische Semantik bleibt Provider-Metadaten; Ananta entscheidet über Zulässigkeit, Evaluation und Promotion. Analyze/proposal-only bleibt Default. Apply wird erst nach eigener MutationGate-, Sandbox-, Review- und Rollback-Zulassung ermöglicht.",
       "acceptance_criteria": [
         "EvoMap kann Harness-/Prompt-/Repair-Proposals erzeugen ohne direkten Workspace-Schreibzugriff",
@@ -656,15 +661,16 @@
         "force_analyze_only=true bleibt sicherer Default",
         "Provider-Ausfall degradiert nur diese Engine und blockiert keinen nativen/DSPy-Evolutionslauf",
         "EvoMap-Proposals können reproduzierbar gegen dieselbe Benchmark-Suite wie DSPy-Kandidaten verglichen werden"
-      ]
+      ],
+      "implementation_note": "Evolver now truthfully declares analyze/propose, typed GEP assets retained beside compatibility proposals and common candidate normalization. Failure-isolated eligibility and default proposal-only remain. Remaining: exact Hub source/scope admission before materialization and equivalent frozen cross-engine benchmark/release evidence."
     },
     {
       "id": "SEH-028",
       "title": "Unified Evolution Orchestrator mit Multi-Engine-Budgetierung und Meta-Selektion implementieren",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 25,
       "details": "Orchestrator nimmt Evolutionsziel, zugelassene Mutation Surfaces, Modell/Provider, Dataset/Benchmark, Ressourcenbudget und Betriebsprofil entgegen. Er kann Kandidaten von Native Prompt Evolution, DSPy/GEPA, EvoMap und Native Harness Mutation erzeugen lassen, Ergebnisse normalisieren und anhand Pareto-/Gate-Logik Folgegenerationen planen. Keine Engine darf eigenmächtig andere Engines starten.",
       "acceptance_criteria": [
         "Ein Run kann eine oder mehrere Engines mit getrennten Teilbudgets nutzen",
@@ -672,7 +678,8 @@
         "Engine starvation und runaway search werden durch harte Budgets verhindert",
         "Run ist vollständig aus Manifest/Seed/Engine-Versionen reproduzierbar",
         "A/B-Vergleich kann identische Baseline und Holdouts über verschiedene Engines erzwingen"
-      ]
+      ],
+      "implementation_note": "Common Hub eligibility/engine envelopes and candidate normalization implemented as additive EvolutionService endpoints. Selection grants no execution or promotion. Remaining: multi-engine task dispatch, metered subbudget enforcement, replayable run manifests, noise-aware meta-selection and equal holdout A/B evaluation."
     },
     {
       "id": "SEH-029",
@@ -840,10 +847,10 @@
     {
       "id": "SEH-039",
       "title": "Strukturierten GEP-Ausgabeadapter statt stdout-Prompt-Wrapping implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "details": "Die Bridge soll EvoMap-Ergebnisse nicht länger primär als einen zusammengefassten Prompt behandeln. Soweit die EvoMap-Version strukturierte lokale Artefakte/API-Ausgaben bereitstellt, werden Gene, Capsule, EvolutionEvent, Mutation und GEP Prompt getrennt extrahiert, validiert und in stabile Ananta-Verträge überführt. stdout bleibt höchstens Diagnose-/Fallback-Kanal.",
       "acceptance_criteria": [
         "Gene, Capsule, Event und Prompt bleiben als unterschiedliche Typen erhalten",
@@ -851,15 +858,16 @@
         "Unbekannte EvoMap-Felder bleiben bounded in provider_metadata/raw_payload erhalten",
         "stdout-only Fallback wird explizit als degraded compatibility mode markiert",
         "Schemaänderungen des Upstreams führen fail-closed zu Compatibility-Fehlern statt stiller Fehlinterpretation"
-      ]
+      ],
+      "implementation_note": "Pinned v1.94.0 Bridge extracts bounded Gene/Capsule/EvolutionEvent/GepPrompt separately from per-run GEP artifacts; lossless bounded provider payloads; seeded assets excluded as fresh proposals; stdout fallback explicitly degraded. Unknown schemas/runtime, conflicting IDs, symlinks and malformed/oversized data fail closed. Provider-neutral asset mapper and headless Node/Python tests; local pinned image observation is not release evidence. Real offline/nonroot/read-only pinned container returns 17 seeded genes (schemas legacy/1.6.0/1.8.0); no false fresh candidates; Python mapper verifies interoperability."
     },
     {
       "id": "SEH-040",
       "title": "Genes, Capsules und EvolutionEvents als first-class Ananta-Evolution-Artefakte modellieren",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 70,
       "details": "EvoMap-GEP-Assets sollen nicht auf generische Text-Proposals reduziert werden. Ein provider-neutraler Asset-Vertrag speichert Typ, Version, Herkunft, Scope, Aktivierungsbedingungen, Genealogie, Evidenz, Benchmarkresultate und Lifecycle. Die Core-Domäne bleibt EvoMap-unabhängig; EvoMap-spezifische Semantik lebt im Adapter/Metadata.",
       "acceptance_criteria": [
         "Assets sind content-addressed, versioniert und lineage-fähig",
@@ -867,15 +875,16 @@
         "Ein Asset kann deaktiviert/quarantänisiert werden ohne Historie zu verlieren",
         "Core-Schema enthält keine unnötige harte Abhängigkeit von EvoMap-Terminologie",
         "Migration bestehender EvolutionProposal-Rohdaten ist definiert"
-      ]
+      ],
+      "implementation_note": "Provider-neutral content-addressed scoped assets with immutable snapshots and append-only CAS lifecycle; quarantine/disable/retire without activation or history loss; metadata-only admin API; task scope and asset content validated before run persistence. Legacy proposal migration defined in runbook. Remaining: explicit validated benchmark/source evidence links and structured cross-engine lineage."
     },
     {
       "id": "SEH-041",
       "title": "EvoMap Memory Graph und Ananta Experiment-/Lineage-Store kontrolliert koppeln",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 30,
       "details": "Untersuchen und implementieren, welche EvoMap Memory-Graph-/Outcome-Signale sinnvoll in Anantas Experiment-/Lineage-Modell gespiegelt werden. Kein unkontrolliertes doppeltes Gedächtnis: eine kanonische Ownership-Matrix legt fest, welche Daten Ananta besitzt, welche EvoMap intern hält und welche nur referenziert werden.",
       "acceptance_criteria": [
         "Ownership für Runs, Assets, Outcomes, Genealogie und Audit ist dokumentiert",
@@ -883,7 +892,8 @@
         "Cross-References verwenden stabile IDs/Digests",
         "Retention/Deletion/Privacy-Regeln gelten auch für gespiegelt importierte Metadaten",
         "Ein historischer Evolutionspfad kann engine-übergreifend rekonstruiert werden"
-      ]
+      ],
+      "implementation_note": "Canonical ownership documented in operations runbook: Hub owns scoped runs/assets/audit, provider IDs remain unverified references and per-run provider workspace is temporary. Remaining: validated outcome/lineage mirrors, central retention/privacy deletion and historical cross-engine reconstruction."
     },
     {
       "id": "SEH-042",
@@ -937,13 +947,13 @@
   "tasks_status_summary": {
     "total": 44,
     "by_status": {
-      "todo": 22,
+      "todo": 12,
       "in_progress": 0,
-      "partial": 10,
+      "partial": 17,
       "blocked": 0,
-      "done": 12
+      "done": 15
     },
-    "progress_percent_done": 27.3,
+    "progress_percent_done": 34.1,
     "by_priority": {
       "P0": 29,
       "P1": 12,
@@ -958,25 +968,25 @@
     },
     "critical_path": {
       "total": 22,
-      "done": 7,
-      "remaining": 15
+      "done": 8,
+      "remaining": 14
     },
     "milestones": {
       "total": 9,
-      "todo": 2,
+      "todo": 1,
       "in_progress": 0,
-      "partial": 6,
+      "partial": 7,
       "blocked": 0,
       "done": 1
     }
   },
   "progress_summary": {
     "state": "partial",
-    "todo_remaining": 22,
+    "todo_remaining": 12,
     "in_progress": 0,
-    "partial": 10,
+    "partial": 17,
     "blocked": 0,
-    "done": 12,
+    "done": 15,
     "milestones_done": 1,
     "milestones_total": 9
   },
@@ -989,7 +999,8 @@
     "Scaffold- und Code-Evolution muss produktionsreifen, reviewbaren, wiederverwendbaren Quellcode hervorbringen; keine Benchmark-Hacks oder versteckte Runtime-Selbstmodifikation.",
     "EvoMap ist bereits real angebunden, aber aktuell vor allem als analyze/proposal Provider; GEP-Assets und Memory/Lineage werden noch nicht first-class genutzt.",
     "Der bisherige EvoMap-Bridge-Pfad muss vor tieferer Nutzung insbesondere bei Git-Workspace, Versions-Pinning und strukturiertem Output gehärtet werden.",
-    "EvoMap-Netzwerkfunktionen bleiben optional; lokale/offline Evolution ist der bevorzugte Default."
+    "EvoMap-Netzwerkfunktionen bleiben optional; lokale/offline Evolution ist der bevorzugte Default.",
+    "2026-10-14: Harness routing, typed GEP import and operator/developer runbook completed; common Engine selection/candidate and scoped asset lifecycle added. Productive queue/benchmark/promotion integration remains explicitly partial; no release claims from local tests."
   ],
   "existing_foundation": {
     "native_prompt_optimization": [
@@ -1164,18 +1175,18 @@
     "by_type": {
       "unknown": {
         "total": 44,
-        "done": 12,
-        "partial": 10,
+        "done": 15,
+        "partial": 17,
         "blocked": 0,
-        "todo": 22,
+        "todo": 12,
         "in_progress": 0,
-        "progress_percent": 42.8,
+        "progress_percent": 59.1,
         "by_status": {
-          "todo": 22,
+          "todo": 12,
           "in_progress": 0,
-          "partial": 10,
+          "partial": 17,
           "blocked": 0,
-          "done": 12
+          "done": 15
         }
       }
     }
