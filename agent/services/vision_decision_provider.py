@@ -60,6 +60,7 @@ _ENV_KEYS = (
     "VISION_DECISION_SCHEMAS",
     "VISION_DECISION_MIN_PROBABILITY",
     "VISION_DECISION_MIN_MARGIN",
+    "VISION_DECISION_REQUIRE_CACHE_ISOLATION",
 )
 _FIELD_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,63}$")
 _SCHEMA_ID = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
@@ -139,6 +140,7 @@ class VisionDecisionConfig:
     schemas: tuple[str, ...] = ()  # empty: any schema id
     min_probability: float = 0.8
     min_margin: float = 0.3
+    require_cache_isolation: bool = False
 
     @classmethod
     def from_env(
@@ -169,6 +171,7 @@ class VisionDecisionConfig:
             schemas=_csv(env.get("VISION_DECISION_SCHEMAS")),
             min_probability=_env_float(env, "VISION_DECISION_MIN_PROBABILITY", cls.min_probability),
             min_margin=_env_float(env, "VISION_DECISION_MIN_MARGIN", cls.min_margin),
+            require_cache_isolation=_as_bool(env.get("VISION_DECISION_REQUIRE_CACHE_ISOLATION")),
         )
         config.validate()
         return config
@@ -222,6 +225,8 @@ class VisionField:
     maximum: float | None = None
     step: float | None = None
     temperature: float | None = None
+    dependency_mode: str = "independent"
+    depends_on: tuple[str, ...] = ()
 
     def allowed(self, value: Any) -> bool:
         if self.type == "boolean":
@@ -285,6 +290,8 @@ class VisionDecisionSchema:
                     maximum=raw.get("maximum"),
                     step=raw.get("step"),
                     temperature=raw.get("temperature"),
+                    dependency_mode=raw.get("dependency_mode", "independent"),
+                    depends_on=tuple(raw.get("depends_on", ())),
                 )
             )
         schema = cls(schema_id=schema_id, fields=tuple(fields), instructions=instructions)
@@ -301,6 +308,12 @@ class VisionDecisionSchema:
         if len(self.instructions) > MAX_TEXT_CHARS:
             raise ValueError("instructions are too long")
         for f in self.fields:
+            if f.dependency_mode not in {"independent", "sequential", "grouped", "unknown"}:
+                raise ValueError("field dependency mode is invalid")
+            if f.depends_on and f.dependency_mode == "independent":
+                raise ValueError("independent field cannot depend on another field")
+            if any(name == f.name or not self.field(name) for name in f.depends_on):
+                raise ValueError("field dependency is invalid")
             if not _FIELD_NAME.match(f.name):
                 raise ValueError("schema field name is invalid")
             if f.type not in FIELD_TYPES:
@@ -648,6 +661,7 @@ def parse_decision_response(
     min_probability: float,
     min_margin: float,
     models: tuple[str, ...] = (),
+    require_cache_isolation: bool = False,
 ) -> VisionDecisionOutcome:
     """Map an HTTP answer to a fail-closed :class:`VisionDecisionOutcome`."""
     sid = schema.schema_id
@@ -659,6 +673,13 @@ def parse_decision_response(
         return VisionDecisionOutcome.failure(_error_code(status), _error_message(payload), http_status=status, schema_id=sid)
     if not isinstance(payload, dict) or payload.get("object") != "decision":
         return VisionDecisionOutcome.failure("bad_response", "response is not a decision object", http_status=status, schema_id=sid)
+    if require_cache_isolation:
+        cache_policy = payload.get("cache_policy")
+        if (not isinstance(cache_policy, dict) or any(cache_policy.get(key) is not False
+                for key in ("context", "prompt", "media"))):
+            return VisionDecisionOutcome.failure(
+                "cache_isolation_unverified", http_status=status, schema_id=sid
+            )
     model = payload.get("model") if isinstance(payload.get("model"), str) else None
     if not _model_allowed(model, models):
         return VisionDecisionOutcome.failure("model_not_allowed", "server model is not in VISION_DECISION_MODELS", http_status=status, schema_id=sid)
@@ -793,6 +814,8 @@ class VisionDecisionProvider:
             return VisionDecisionOutcome.failure("invalid_schema", str(exc), schema_id=sid)
         if self._config.schemas and schema.schema_id not in self._config.schemas:
             return VisionDecisionOutcome.failure("schema_not_allowed", "schema is not in VISION_DECISION_SCHEMAS", schema_id=sid)
+        if any(f.dependency_mode != "independent" or f.depends_on for f in schema.fields):
+            return VisionDecisionOutcome.failure("parallel_dependencies_require_system2", schema_id=sid)
         if not contexts or len(contexts) > MAX_CONTEXTS:
             return VisionDecisionOutcome.failure("invalid_request", f"1-{MAX_CONTEXTS} contexts are required", schema_id=sid)
         n_images = sum(len(c.images) for c in contexts)
@@ -831,6 +854,9 @@ class VisionDecisionProvider:
             # Always send thresholds: the server marks and lists uncertain fields, Ananta re-checks them.
             "abstain": {"min_probability": self._config.min_probability, "min_margin": self._config.min_margin},
             "return_probs": bool(return_probs),
+            "cache_context": False,
+            "cache_prompt": False,
+            "cache_media": False,
         }
         if schema.instructions:
             request["instructions"] = schema.instructions
@@ -859,6 +885,7 @@ class VisionDecisionProvider:
             min_probability=self._config.min_probability,
             min_margin=self._config.min_margin,
             models=self._config.models,
+            require_cache_isolation=self._config.require_cache_isolation,
         )
 
 

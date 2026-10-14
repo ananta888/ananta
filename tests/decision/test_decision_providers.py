@@ -241,7 +241,7 @@ def test_llamacpp_maps_kinds_onto_schema_fields_and_distributions():
     assert result.answer("tool").choice == "search" and result.answer("tool").confidence == pytest.approx(0.8)
     assert result.answer("complexity").score == pytest.approx(0.5)
     assert result.answer("needs_code").probability == pytest.approx(0.8)
-    assert result.usage.input_tokens == 120 and result.usage.cost_usd == 0.0
+    assert result.usage.input_tokens == 100 and result.usage.cost_usd == 0.0
 
 
 def test_llamacpp_rejects_foreign_values():

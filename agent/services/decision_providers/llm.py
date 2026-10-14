@@ -45,6 +45,10 @@ def build_prompt(request: DecisionRequest) -> str:
     lines = ["Decide the following questions about the STATE. Answer with one JSON object only, no prose.",
              'Format: {"<question key>": {"value": <answer>, "confidence": <0..1>}}', "", "QUESTIONS:"]
     for question in request.questions:
+        if question.dependency_mode != "independent" or question.depends_on:
+            lines.append(f"- Dependency for {question.key}: {question.dependency_mode}; "
+                         f"depends on {', '.join(question.depends_on) or 'not established'}. "
+                         "Resolve dependencies before answering this field.")
         if question.kind == "choice":
             options = ", ".join(f'"{label}" ({description})' for label, description in question.options)
             lines.append(f'- {question.key} (choose exactly one of: {options}): {question.instructions}')

@@ -1,0 +1,79 @@
+diff --git a/.dockerignore b/.dockerignore
+index 0b81e83bf..8f3270dc6 100644
+--- a/.dockerignore
++++ b/.dockerignore
+@@ -1,22 +1,3 @@
+-*.o
+-*.a
+-.cache/
+-# Do not ignore .git directory, otherwise the reported build number will always be 0
+-.github/
+-.gitignore
+-.vs/
+-.vscode/
+-.DS_Store
+-
+-build*/
+-
+-tools/ui/node_modules/
+-
+-models/*
+-
+-/llama-cli
+-/llama-quantize
+-
+-arm_neon.h
+-compile_commands.json
+-Dockerfile
++.git
++build
++models
+diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
+index 993fd1b2e..0be929443 100644
+--- a/tools/server/server-context.cpp
++++ b/tools/server/server-context.cpp
+@@ -961,6 +961,7 @@ public:
+     server_chat_params chat_params;
+     std::unique_ptr<llama_decision::engine> decision_engine; // created by the first /decision request
+     decision_media_cache decision_media;
++    std::string decision_cache_scope;
+ 
+     server_state_callback_t callback_state = [](server_state, json) -> void {};
+ 
+@@ -2449,6 +2450,17 @@ private:
+         if (!body.contains("schema")) {
+             throw std::invalid_argument("\"schema\" must be provided");
+         }
++        const std::string cache_scope = body.value("cache_scope", std::string());
++        if (!cache_scope.empty() && (cache_scope.size() != 64 || cache_scope.find_first_not_of("0123456789abcdef") != std::string::npos)) {
++            throw std::invalid_argument("cache_scope must be a SHA-256 scope binding");
++        }
++        if (cache_scope != decision_cache_scope) {
++            decision_engine.reset();
++            decision_media.lru.clear();
++            decision_media.index.clear();
++            decision_media.bytes = 0;
++            decision_cache_scope = cache_scope;
++        }
+         if (!decision_engine) {
+             decision_engine = std::make_unique<llama_decision::engine>(ctx_tgt, (llama_seq_id) params_base.n_parallel,
+                                                                         params_base.n_seq_decision, params_base.decision_ctx_cache);
+@@ -2519,7 +2531,8 @@ private:
+         }
+ 
+         // contexts with media are split into chunks by libmtmd and prefilled on their trunk by the engine
+-        decision_media.max_bytes = (size_t) params_base.decision_media_cache * 1024 * 1024;
++        const bool cache_media = body.value("cache_media", true);
++        decision_media.max_bytes = cache_media ? (size_t) params_base.decision_media_cache * 1024 * 1024 : 0;
+         decision_media_encoder enc;
+         enc.mctx   = mctx;
+         enc.cache  = decision_media.max_bytes > 0 ? &decision_media : nullptr;
+@@ -2678,6 +2691,8 @@ private:
+         }
+         json out = json::object();
+         out["object"]  = "decision";
++        out["cache_scope"] = cache_scope;
++        out["cache_policy"] = { { "context", opt.cache_context }, { "prompt", opt.allow_cache }, { "media", cache_media } };
+         out["results"] = results;
+         out["model"]   = model_name;
+         out["created"] = (long long) std::time(nullptr);

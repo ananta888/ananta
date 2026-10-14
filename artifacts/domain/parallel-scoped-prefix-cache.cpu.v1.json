@@ -1,0 +1,42 @@
+{
+  "schema": "ananta.parallel-scoped-prefix-cache.v1",
+  "classification": "synthetic_technical_observation",
+  "production_release_evidence": false,
+  "rows": [
+    {
+      "case": "a-first",
+      "cached_tokens": 0,
+      "cache_policy_verified": true,
+      "input_tokens": 98,
+      "latency_ms": 754.0788099995552
+    },
+    {
+      "case": "a-warm",
+      "cached_tokens": 89,
+      "cache_policy_verified": true,
+      "input_tokens": 99,
+      "latency_ms": 186.4424470004451
+    },
+    {
+      "case": "b-first",
+      "cached_tokens": 0,
+      "cache_policy_verified": true,
+      "input_tokens": 98,
+      "latency_ms": 1053.1878229994618
+    },
+    {
+      "case": "b-warm",
+      "cached_tokens": 89,
+      "cache_policy_verified": true,
+      "input_tokens": 98,
+      "latency_ms": 180.38785299904703
+    },
+    {
+      "case": "a-return",
+      "cached_tokens": 0,
+      "cache_policy_verified": true,
+      "input_tokens": 98,
+      "latency_ms": 766.0804299994197
+    }
+  ]
+}
