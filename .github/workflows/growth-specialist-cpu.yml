@@ -1,9 +1,9 @@
 name: Growth and Specialist CPU Contracts
 on:
   push:
-    paths: ['worker/training/growth/**', 'worker/decision/**', 'ananta_contracts/**', 'agent/services/decision_providers/**', 'agent/services/vision_decision*', 'agent/services/adaptive_growth_policy.py', 'tests/decision/**', 'tests/research_training/**', '.github/workflows/growth-specialist-cpu.yml']
+    paths: ['worker/training/growth/**', 'worker/decision/**', 'ananta_contracts/**', 'agent/services/decision_providers/**', 'agent/services/vision_decision*', 'agent/services/adaptive_growth_policy.py', 'agent/services/hub_multi_tool*', 'agent/services/multi_tool_benchmark.py', 'agent/services/tiny_router/**', 'agent/services/task_execution_service.py', 'agent/db_models/tool_plan_receipt.py', 'agent/repositories/tool_plan_receipts.py', 'scripts/multi_tool_benchmark.py', 'tests/services/tiny_router/**', 'tests/task/test_task_execution_service_hub_direct.py', 'tests/decision/**', 'tests/research_training/**', '.github/workflows/growth-specialist-cpu.yml']
   pull_request:
-    paths: ['worker/training/growth/**', 'worker/decision/**', 'ananta_contracts/**', 'agent/services/decision_providers/**', 'agent/services/vision_decision*', 'agent/services/adaptive_growth_policy.py', 'tests/decision/**', 'tests/research_training/**', '.github/workflows/growth-specialist-cpu.yml']
+    paths: ['worker/training/growth/**', 'worker/decision/**', 'ananta_contracts/**', 'agent/services/decision_providers/**', 'agent/services/vision_decision*', 'agent/services/adaptive_growth_policy.py', 'agent/services/hub_multi_tool*', 'agent/services/multi_tool_benchmark.py', 'agent/services/tiny_router/**', 'agent/services/task_execution_service.py', 'agent/db_models/tool_plan_receipt.py', 'agent/repositories/tool_plan_receipts.py', 'scripts/multi_tool_benchmark.py', 'tests/services/tiny_router/**', 'tests/task/test_task_execution_service_hub_direct.py', 'tests/decision/**', 'tests/research_training/**', '.github/workflows/growth-specialist-cpu.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -28,6 +28,6 @@ jobs:
           pip install --require-hashes --extra-index-url https://download.pytorch.org/whl/cpu -r worker/decision/jeff-requirements.lock
           python -c 'import torch, safetensors; assert not torch.cuda.is_available()'
       - name: Run real CPU growth and headless decision regressions
-        run: python -m pytest -q -o addopts='' --timeout=60 tests/research_training/test_adaptive_growth.py tests/decision/test_jeff_adapter.py tests/decision/test_specialist_inference_assignments.py tests/decision/test_specialist_pilot_benchmarks.py tests/decision/test_decision_providers.py tests/decision/test_decision_provider_config.py tests/decision/test_vision_decision_provider.py
+        run: python -m pytest -q -o addopts='' --timeout=60 tests/research_training/test_adaptive_growth.py tests/decision/test_jeff_adapter.py tests/decision/test_specialist_inference_assignments.py tests/decision/test_specialist_pilot_benchmarks.py tests/decision/test_decision_providers.py tests/decision/test_decision_provider_config.py tests/decision/test_vision_decision_provider.py tests/decision/test_multi_tool_plan.py tests/decision/test_multi_tool_benchmark.py tests/services/tiny_router tests/task/test_task_execution_service_hub_direct.py
       - name: Run bounded comparison observation
         run: python scripts/adaptive_growth_experiment.py --output /tmp/growth-report.json

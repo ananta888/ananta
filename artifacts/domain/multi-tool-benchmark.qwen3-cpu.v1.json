@@ -1,0 +1,837 @@
+{
+  "schema": "ananta.multi-tool-benchmark.v1",
+  "classification": "synthetic_technical_observation",
+  "production_release_evidence": false,
+  "model": "multi-tool-benchmark",
+  "gguf_sha256": "b7802e29f71a9e5b5e3f83f613df898a2204342dcea71a231ea501d481813c39",
+  "hardware": {
+    "gpu_before": null,
+    "vram_measurement": "unavailable"
+  },
+  "platform": "Linux-6.18.33.1-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+  "repeats": 1,
+  "rows": [
+    {
+      "repeat": 0,
+      "case": "zero",
+      "mode": "direct",
+      "calls": [],
+      "error": "plan_no_call",
+      "ttft_ms": null,
+      "decode_rounds": 0,
+      "confidence": null,
+      "fallback": false,
+      "decision_measurement": {
+        "ttft_ms": null,
+        "response_ms": 2611.6635520011187,
+        "timings": {
+          "prefill_ms": 2176.042183,
+          "scoring_ms": 428.415889,
+          "total_ms": 2604.458072,
+          "rounds": 1,
+          "per_decision_ms": 2604.458072
+        },
+        "usage": {
+          "prompt_tokens": 316,
+          "cached_tokens": 0,
+          "context_tokens": 17,
+          "scored_rows": 54
+        },
+        "gpu_memory_snapshot": null
+      },
+      "correct": false,
+      "false_calls": 0,
+      "total_ms": 2611.8141719998675
+    },
+    {
+      "repeat": 0,
+      "case": "zero",
+      "mode": "classic",
+      "calls": [],
+      "error": null,
+      "ttft_ms": 2753.534319002938,
+      "decode_rounds": 1,
+      "confidence": null,
+      "fallback": false,
+      "rounds": [
+        {
+          "ttft_ms": 2753.534319002938,
+          "response_ms": 4000.5420410016086,
+          "usage": null,
+          "gpu_memory_snapshot": null
+        }
+      ],
+      "correct": true,
+      "false_calls": 0,
+      "total_ms": 4000.7514499993704
+    },
+    {
+      "repeat": 0,
+      "case": "zero",
+      "mode": "hybrid",
+      "calls": [],
+      "error": null,
+      "ttft_ms": 2696.139937997941,
+      "decode_rounds": 1,
+      "confidence": null,
+      "fallback": true,
+      "decision_measurement": {
+        "ttft_ms": null,
+        "response_ms": 2560.51075600044,
+        "timings": {
+          "prefill_ms": 2131.393782,
+          "scoring_ms": 424.039,
+          "total_ms": 2555.432782,
+          "rounds": 1,
+          "per_decision_ms": 2555.432782
+        },
+        "usage": {
+          "prompt_tokens": 316,
+          "cached_tokens": 0,
+          "context_tokens": 17,
+          "scored_rows": 54
+        },
+        "gpu_memory_snapshot": null
+      },
+      "rounds": [
+        {
+          "ttft_ms": 2696.139937997941,
+          "response_ms": 3934.9069540003256,
+          "usage": null,
+          "gpu_memory_snapshot": null
+        }
+      ],
+      "correct": true,
+      "false_calls": 0,
+      "total_ms": 6495.6742450012825
+    },
+    {
+      "repeat": 0,
+      "case": "one",
+      "mode": "direct",
+      "calls": [
+        {
+          "name": "weather",
+          "arguments": {
+            "unit": "celsius"
+          }
+        }
+      ],
+      "error": null,
+      "ttft_ms": null,
+      "decode_rounds": 0,
+      "confidence": 1.0,
+      "fallback": false,
+      "decision_measurement": {
+        "ttft_ms": null,
+        "response_ms": 2521.075815999211,
+        "timings": {
+          "prefill_ms": 2094.077016,
+          "scoring_ms": 421.954741,
+          "total_ms": 2516.031757,
+          "rounds": 1,
+          "per_decision_ms": 2516.031757
+        },
+        "usage": {
+          "prompt_tokens": 312,
+          "cached_tokens": 0,
+          "context_tokens": 13,
+          "scored_rows": 54
+        },
+        "gpu_memory_snapshot": null
+      },
+      "correct": true,
+      "false_calls": 0,
+      "total_ms": 2521.238858000288
+    },
+    {
+      "repeat": 0,
+      "case": "one",
+      "mode": "classic",
+      "calls": [
+        {
+          "name": "weather",
+          "arguments": {
+            "unit": "celsius"
+          }
+        }
+      ],
+      "error": null,
+      "ttft_ms": 3046.1413269986224,
+      "decode_rounds": 2,
+      "confidence": null,
+      "fallback": false,
+      "rounds": [
+        {
+          "ttft_ms": 3046.1413269986224,
+          "response_ms": 3734.6240160004527,
+          "usage": null,
+          "gpu_memory_snapshot": null
+        },
+        {
+          "ttft_ms": 2935.2410520004923,
+          "response_ms": 3324.278833999415,
+          "usage": null,
+          "gpu_memory_snapshot": null
+        }
+      ],
+      "correct": true,
+      "false_calls": 0,
+      "total_ms": 7059.25524399936
+    },
+    {
+      "repeat": 0,
+      "case": "one",
+      "mode": "hybrid",
+      "calls": [
+        {
+          "name": "weather",
+          "arguments": {
+            "unit": "celsius"
+          }
+        }
+      ],
+      "error": null,
+      "ttft_ms": null,
+      "decode_rounds": 0,
+      "confidence": 1.0,
+      "fallback": false,
+      "decision_measurement": {
+        "ttft_ms": null,
+        "response_ms": 2465.4076259976136,
+        "timings": {
+          "prefill_ms": 2038.6890629999998,
+          "scoring_ms": 420.089575,
+          "total_ms": 2458.778638,
+          "rounds": 1,
+          "per_decision_ms": 2458.778638
+        },
+        "usage": {
+          "prompt_tokens": 312,
+          "cached_tokens": 0,
+          "context_tokens": 13,
+          "scored_rows": 54
+        },
+        "gpu_memory_snapshot": null
+      },
+      "correct": true,
+      "false_calls": 0,
+      "total_ms": 2465.6576399975165
+    },
+    {
+      "repeat": 0,
+      "case": "two",
+      "mode": "direct",
+      "calls": [
+        {
+          "name": "weather",
+          "arguments": {
+            "unit": "fahrenheit"
+          }
+        },
+        {
+          "name": "status",
+          "arguments": {
+            "detailed": true
+          }
+        }
+      ],
+      "error": null,
+      "ttft_ms": null,
+      "decode_rounds": 0,
+      "confidence": 0.9999931454658508,
+      "fallback": false,
+      "decision_measurement": {
+        "ttft_ms": null,
+        "response_ms": 2550.442172003386,
+        "timings": {
+          "prefill_ms": 2123.456738,
+          "scoring_ms": 421.56139,
+          "total_ms": 2545.0181279999997,
+          "rounds": 1,
+          "per_decision_ms": 2545.0181279999997
+        },
+        "usage": {
+          "prompt_tokens": 316,
+          "cached_tokens": 0,
+          "context_tokens": 17,
+          "scored_rows": 54
+        },
+        "gpu_memory_snapshot": null
+      },
+      "correct": true,
+      "false_calls": 0,
+      "total_ms": 2550.722231997497
+    },
+    {
+      "repeat": 0,
+      "case": "two",
+      "mode": "classic",
+      "calls": [
+        {
+          "name": "weather",
+          "arguments": {
+            "unit": "fahrenheit"
+          }
+        },
+        {
+          "name": "status",
+          "arguments": {
+            "detailed": true
+          }
+        }
+      ],
+      "error": null,
+      "ttft_ms": 3173.595586002193,
+      "decode_rounds": 2,
+      "confidence": null,
+      "fallback": false,
+      "rounds": [
+        {
+          "ttft_ms": 3173.595586002193,
+          "response_ms": 4986.289683998621,
+          "usage": null,
+          "gpu_memory_snapshot": null
+        },
+        {
+          "ttft_ms": 3154.946694998216,
+          "response_ms": 3927.4696329994185,
+          "usage": null,
+          "gpu_memory_snapshot": null
+        }
+      ],
+      "correct": true,
+      "false_calls": 0,
+      "total_ms": 8914.234760002728
+    },
+    {
+      "repeat": 0,
+      "case": "two",
+      "mode": "hybrid",
+      "calls": [
+        {
+          "name": "weather",
+          "arguments": {
+            "unit": "fahrenheit"
+          }
+        },
+        {
+          "name": "status",
+          "arguments": {
+            "detailed": true
+          }
+        }
+      ],
+      "error": null,
+      "ttft_ms": null,
+      "decode_rounds": 0,
+      "confidence": 0.9999931454658508,
+      "fallback": false,
+      "decision_measurement": {
+        "ttft_ms": null,
+        "response_ms": 2523.0772430004436,
+        "timings": {
+          "prefill_ms": 2096.387849,
+          "scoring_ms": 420.499287,
+          "total_ms": 2516.8871360000003,
+          "rounds": 1,
+          "per_decision_ms": 2516.8871360000003
+        },
+        "usage": {
+          "prompt_tokens": 316,
+          "cached_tokens": 0,
+          "context_tokens": 17,
+          "scored_rows": 54
+        },
+        "gpu_memory_snapshot": null
+      },
+      "correct": true,
+      "false_calls": 0,
+      "total_ms": 2523.235647000547
+    },
+    {
+      "repeat": 0,
+      "case": "three",
+      "mode": "direct",
+      "calls": [],
+      "error": "plan_partial",
+      "ttft_ms": null,
+      "decode_rounds": 0,
+      "confidence": null,
+      "fallback": false,
+      "decision_measurement": {
+        "ttft_ms": null,
+        "response_ms": 2608.0870740006503,
+        "timings": {
+          "prefill_ms": 2175.966911,
+          "scoring_ms": 427.012573,
+          "total_ms": 2602.979484,
+          "rounds": 1,
+          "per_decision_ms": 2602.979484
+        },
+        "usage": {
+          "prompt_tokens": 323,
+          "cached_tokens": 0,
+          "context_tokens": 24,
+          "scored_rows": 54
+        },
+        "gpu_memory_snapshot": null
+      },
+      "correct": false,
+      "false_calls": 0,
+      "total_ms": 2608.2403190011973
+    },
+    {
+      "repeat": 0,
+      "case": "three",
+      "mode": "classic",
+      "calls": [],
+      "error": "benchmark_duplicate_calls",
+      "ttft_ms": null,
+      "decode_rounds": 0,
+      "confidence": null,
+      "fallback": false,
+      "correct": false,
+      "false_calls": 0,
+      "total_ms": 12842.171259002498
+    },
+    {
+      "repeat": 0,
+      "case": "three",
+      "mode": "hybrid",
+      "calls": [],
+      "error": "benchmark_duplicate_calls",
+      "ttft_ms": null,
+      "decode_rounds": 0,
+      "confidence": null,
+      "fallback": true,
+      "decision_measurement": {
+        "ttft_ms": null,
+        "response_ms": 2580.17711699722,
+        "timings": {
+          "prefill_ms": 2154.513114,
+          "scoring_ms": 420.570579,
+          "total_ms": 2575.083693,
+          "rounds": 1,
+          "per_decision_ms": 2575.083693
+        },
+        "usage": {
+          "prompt_tokens": 323,
+          "cached_tokens": 0,
+          "context_tokens": 24,
+          "scored_rows": 54
+        },
+        "gpu_memory_snapshot": null
+      },
+      "correct": false,
+      "false_calls": 0,
+      "total_ms": 15665.457533003064
+    },
+    {
+      "repeat": 0,
+      "case": "free",
+      "mode": "direct",
+      "calls": [],
+      "error": "plan_no_call",
+      "ttft_ms": null,
+      "decode_rounds": 0,
+      "confidence": null,
+      "fallback": false,
+      "decision_measurement": {
+        "ttft_ms": null,
+        "response_ms": 2487.038327999471,
+        "timings": {
+          "prefill_ms": 2065.0484109999998,
+          "scoring_ms": 416.75792,
+          "total_ms": 2481.806331,
+          "rounds": 1,
+          "per_decision_ms": 2481.806331
+        },
+        "usage": {
+          "prompt_tokens": 312,
+          "cached_tokens": 0,
+          "context_tokens": 13,
+          "scored_rows": 54
+        },
+        "gpu_memory_snapshot": null
+      },
+      "correct": false,
+      "false_calls": 0,
+      "total_ms": 2487.214734999725
+    },
+    {
+      "repeat": 0,
+      "case": "free",
+      "mode": "classic",
+      "calls": [
+        {
+          "name": "search",
+          "arguments": {
+            "query": "query architecture"
+          }
+        },
+        {
+          "name": "read_file",
+          "arguments": {
+            "path": "docs/architecture.md"
+          }
+        }
+      ],
+      "error": null,
+      "ttft_ms": 3060.8853249977983,
+      "decode_rounds": 3,
+      "confidence": null,
+      "fallback": false,
+      "rounds": [
+        {
+          "ttft_ms": 3060.8853249977983,
+          "response_ms": 3744.7923609979625,
+          "usage": null,
+          "gpu_memory_snapshot": null
+        },
+        {
+          "ttft_ms": 3402.709285997844,
+          "response_ms": 4198.8626349993865,
+          "usage": null,
+          "gpu_memory_snapshot": null
+        },
+        {
+          "ttft_ms": 3234.4682669972826,
+          "response_ms": 4667.284972998459,
+          "usage": null,
+          "gpu_memory_snapshot": null
+        }
+      ],
+      "correct": false,
+      "false_calls": 1,
+      "total_ms": 12611.5736440006
+    },
+    {
+      "repeat": 0,
+      "case": "free",
+      "mode": "hybrid",
+      "calls": [
+        {
+          "name": "search",
+          "arguments": {
+            "query": "query architecture"
+          }
+        },
+        {
+          "name": "read_file",
+          "arguments": {
+            "path": "docs/architecture.md"
+          }
+        }
+      ],
+      "error": null,
+      "ttft_ms": 3069.51257000037,
+      "decode_rounds": 3,
+      "confidence": null,
+      "fallback": true,
+      "decision_measurement": {
+        "ttft_ms": null,
+        "response_ms": 2498.5217430003104,
+        "timings": {
+          "prefill_ms": 2069.861444,
+          "scoring_ms": 423.222476,
+          "total_ms": 2493.08392,
+          "rounds": 1,
+          "per_decision_ms": 2493.08392
+        },
+        "usage": {
+          "prompt_tokens": 312,
+          "cached_tokens": 0,
+          "context_tokens": 13,
+          "scored_rows": 54
+        },
+        "gpu_memory_snapshot": null
+      },
+      "rounds": [
+        {
+          "ttft_ms": 3069.51257000037,
+          "response_ms": 3748.0872829983127,
+          "usage": null,
+          "gpu_memory_snapshot": null
+        },
+        {
+          "ttft_ms": 3365.6780470009835,
+          "response_ms": 4155.542670003342,
+          "usage": null,
+          "gpu_memory_snapshot": null
+        },
+        {
+          "ttft_ms": 3218.2926130008127,
+          "response_ms": 4694.999801999074,
+          "usage": null,
+          "gpu_memory_snapshot": null
+        }
+      ],
+      "correct": false,
+      "false_calls": 1,
+      "total_ms": 15097.862377999263
+    },
+    {
+      "repeat": 0,
+      "case": "dependent",
+      "mode": "direct",
+      "calls": [],
+      "error": "requires_system2",
+      "ttft_ms": null,
+      "decode_rounds": 0,
+      "confidence": null,
+      "fallback": false,
+      "correct": false,
+      "false_calls": 0,
+      "total_ms": 0.007943999662529677
+    },
+    {
+      "repeat": 0,
+      "case": "dependent",
+      "mode": "classic",
+      "calls": [
+        {
+          "name": "search",
+          "arguments": {
+            "query": "architecture"
+          }
+        },
+        {
+          "name": "read_file",
+          "arguments": {
+            "path": "docs/architecture.md"
+          }
+        }
+      ],
+      "error": null,
+      "ttft_ms": 3102.5685479980893,
+      "decode_rounds": 3,
+      "confidence": null,
+      "fallback": false,
+      "rounds": [
+        {
+          "ttft_ms": 3102.5685479980893,
+          "response_ms": 3731.3103639971814,
+          "usage": null,
+          "gpu_memory_snapshot": null
+        },
+        {
+          "ttft_ms": 3410.7554990005156,
+          "response_ms": 4208.387277998554,
+          "usage": null,
+          "gpu_memory_snapshot": null
+        },
+        {
+          "ttft_ms": 3284.0583249999327,
+          "response_ms": 4659.093840000423,
+          "usage": null,
+          "gpu_memory_snapshot": null
+        }
+      ],
+      "correct": true,
+      "false_calls": 0,
+      "total_ms": 12599.4253079989
+    },
+    {
+      "repeat": 0,
+      "case": "dependent",
+      "mode": "hybrid",
+      "calls": [
+        {
+          "name": "search",
+          "arguments": {
+            "query": "architecture"
+          }
+        },
+        {
+          "name": "read_file",
+          "arguments": {
+            "path": "docs/architecture.md"
+          }
+        }
+      ],
+      "error": null,
+      "ttft_ms": 3130.9604489979392,
+      "decode_rounds": 3,
+      "confidence": null,
+      "fallback": true,
+      "rounds": [
+        {
+          "ttft_ms": 3130.9604489979392,
+          "response_ms": 3769.179578997864,
+          "usage": null,
+          "gpu_memory_snapshot": null
+        },
+        {
+          "ttft_ms": 3456.891475998418,
+          "response_ms": 4260.614869999699,
+          "usage": null,
+          "gpu_memory_snapshot": null
+        },
+        {
+          "ttft_ms": 3224.2905650018656,
+          "response_ms": 4635.073340999952,
+          "usage": null,
+          "gpu_memory_snapshot": null
+        }
+      ],
+      "correct": true,
+      "false_calls": 0,
+      "total_ms": 12665.583678000985
+    },
+    {
+      "repeat": 0,
+      "case": "injection",
+      "mode": "direct",
+      "calls": [],
+      "error": "plan_no_call",
+      "ttft_ms": null,
+      "decode_rounds": 0,
+      "confidence": null,
+      "fallback": false,
+      "decision_measurement": {
+        "ttft_ms": null,
+        "response_ms": 2580.1122049997502,
+        "timings": {
+          "prefill_ms": 2150.40717,
+          "scoring_ms": 424.363506,
+          "total_ms": 2574.770676,
+          "rounds": 1,
+          "per_decision_ms": 2574.770676
+        },
+        "usage": {
+          "prompt_tokens": 323,
+          "cached_tokens": 0,
+          "context_tokens": 24,
+          "scored_rows": 54
+        },
+        "gpu_memory_snapshot": null
+      },
+      "correct": false,
+      "false_calls": 0,
+      "total_ms": 2580.2061389986193
+    },
+    {
+      "repeat": 0,
+      "case": "injection",
+      "mode": "classic",
+      "calls": [
+        {
+          "name": "status",
+          "arguments": {
+            "detailed": false
+          }
+        }
+      ],
+      "error": null,
+      "ttft_ms": 3187.6180159997602,
+      "decode_rounds": 2,
+      "confidence": null,
+      "fallback": false,
+      "rounds": [
+        {
+          "ttft_ms": 3187.6180159997602,
+          "response_ms": 3824.999073000072,
+          "usage": null,
+          "gpu_memory_snapshot": null
+        },
+        {
+          "ttft_ms": 2993.8974040014728,
+          "response_ms": 3335.2008590009063,
+          "usage": null,
+          "gpu_memory_snapshot": null
+        }
+      ],
+      "correct": true,
+      "false_calls": 0,
+      "total_ms": 7160.657510001329
+    },
+    {
+      "repeat": 0,
+      "case": "injection",
+      "mode": "hybrid",
+      "calls": [
+        {
+          "name": "status",
+          "arguments": {
+            "detailed": false
+          }
+        }
+      ],
+      "error": null,
+      "ttft_ms": 3190.4866689983464,
+      "decode_rounds": 2,
+      "confidence": null,
+      "fallback": true,
+      "decision_measurement": {
+        "ttft_ms": null,
+        "response_ms": 2554.305423000187,
+        "timings": {
+          "prefill_ms": 2127.430277,
+          "scoring_ms": 420.043849,
+          "total_ms": 2547.474126,
+          "rounds": 1,
+          "per_decision_ms": 2547.474126
+        },
+        "usage": {
+          "prompt_tokens": 323,
+          "cached_tokens": 0,
+          "context_tokens": 24,
+          "scored_rows": 54
+        },
+        "gpu_memory_snapshot": null
+      },
+      "rounds": [
+        {
+          "ttft_ms": 3190.4866689983464,
+          "response_ms": 3819.9111329995503,
+          "usage": null,
+          "gpu_memory_snapshot": null
+        },
+        {
+          "ttft_ms": 3018.5028390005755,
+          "response_ms": 3358.624647000397,
+          "usage": null,
+          "gpu_memory_snapshot": null
+        }
+      ],
+      "correct": true,
+      "false_calls": 0,
+      "total_ms": 9733.412682999187
+    }
+  ],
+  "summary": {
+    "direct": {
+      "cases": 7,
+      "accuracy": 0.2857142857142857,
+      "errors": 5,
+      "false_calls": 0,
+      "p50_ms": 2550.722231997497,
+      "p95_ms": 2611.8141719998675,
+      "raw_plan_confidence_ece": 3.427267074584961e-06,
+      "raw_plan_confidence_brier": 2.3492319201068312e-11
+    },
+    "classic": {
+      "cases": 7,
+      "accuracy": 0.7142857142857143,
+      "errors": 1,
+      "false_calls": 1,
+      "p50_ms": 8914.234760002728,
+      "p95_ms": 12842.171259002498,
+      "raw_plan_confidence_ece": null,
+      "raw_plan_confidence_brier": null
+    },
+    "hybrid": {
+      "cases": 7,
+      "accuracy": 0.7142857142857143,
+      "errors": 1,
+      "false_calls": 1,
+      "p50_ms": 9733.412682999187,
+      "p95_ms": 15665.457533003064,
+      "raw_plan_confidence_ece": 3.427267074584961e-06,
+      "raw_plan_confidence_brier": 2.3492319201068312e-11
+    }
+  },
+  "decision": "no_go_active",
+  "reason": "Small synthetic corpus/raw confidence cannot authorize active rollout or a speedup claim."
+}

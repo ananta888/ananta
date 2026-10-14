@@ -6,7 +6,7 @@
   "owner": "Peter Stuiber / Ananta",
   "track": "parallel_decision_multi_tool_use",
   "title": "Paralleler Tool-Use ohne generierte Tool-Call-JSON: Ananta + optional llama.cpp Fork",
-  "status": "todo",
+  "status": "blocked",
   "priority": "P0",
   "status_scale": [
     "todo",
@@ -63,7 +63,7 @@
         "PDT-001",
         "PDT-002"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "PDT-M2",
@@ -73,7 +73,7 @@
         "PDT-004",
         "PDT-005"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "PDT-M3",
@@ -82,7 +82,7 @@
         "PDT-006",
         "PDT-007"
       ],
-      "status": "todo"
+      "status": "blocked"
     },
     {
       "id": "PDT-M4",
@@ -90,7 +90,7 @@
       "task_ids": [
         "PDT-008"
       ],
-      "status": "todo"
+      "status": "blocked"
     }
   ],
   "tasks": [
@@ -99,10 +99,10 @@
       "milestone_id": "PDT-M1",
       "title": "Bestandsaudit von Ananta Hub und Fork Tool-Router",
       "type": "research",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [],
       "implementation": [
         "Vorhandenes /v1/decision, Tool-Router-Playground, conditional open field, KV-Cache und Ananta Tool-Execution-Pipeline mit Codeverweisen dokumentieren.",
@@ -110,17 +110,18 @@
       ],
       "acceptance_criteria": [
         "Keine Funktion ohne nachgewiesene Luecke doppelt implementiert."
-      ]
+      ],
+      "completion_notes": "Bestandsaudit und Codeverweise in docs/parallel-decision-multi-tool-use.md."
     },
     {
       "id": "PDT-002",
       "milestone_id": "PDT-M1",
       "title": "Backend-neutralen Multi-Tool-Plan-Contract definieren",
       "type": "architecture",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "PDT-001"
       ],
@@ -130,17 +131,18 @@
       ],
       "acceptance_criteria": [
         "Contract unterscheidet unabhängige Entscheidungen, bedingte Argumente und abhaengige Schritte."
-      ]
+      ],
+      "completion_notes": "Contract mit strikter Feldkollision-/Budgetpruefung, getrennte Aktivierung, Closed/Open Fields und Schema-Validierung; DAG-Contract in ananta_contracts/tool_plan_graph.py."
     },
     {
       "id": "PDT-003",
       "milestone_id": "PDT-M2",
       "title": "Parallele Entscheidungsroute in Ananta integrieren",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "PDT-002"
       ],
@@ -151,17 +153,18 @@
       ],
       "acceptance_criteria": [
         "Mindestens zwei unabhaengige Tools werden in einer Decision-Anfrage geplant; ohne unnoetige Freitextgenerierung."
-      ]
+      ],
+      "completion_notes": "Planroute opt-in; unvollstaendige, fehlerhafte und Over-Budget-Plaene eskalieren. Scope/Confidence/Cancellation/Deadline durch Regressionen abgesichert."
     },
     {
       "id": "PDT-004",
       "milestone_id": "PDT-M2",
       "title": "Abhaengigkeiten und freie Argumente kontrollieren",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "PDT-002",
         "PDT-003"
@@ -173,17 +176,18 @@
       ],
       "acceptance_criteria": [
         "Abhaengigkeiten bleiben korrekt; mehrere offene Felder werden ohne falsches Scoring behandelt."
-      ]
+      ],
+      "completion_notes": "Hub-konfigurierte DAG-Wellen, Ergebnisbindungen und Bedingungen; mehrfacher Freitext und abhaengiges Scoring werden an System 2 eskaliert."
     },
     {
       "id": "PDT-005",
       "milestone_id": "PDT-M2",
       "title": "Tool Execution mit Policy und Grenzen verdrahten",
       "type": "security",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "PDT-003",
         "PDT-004"
@@ -195,17 +199,18 @@
       ],
       "acceptance_criteria": [
         "Keine schreibende Aktion allein wegen Confidence; Tests fuer Rechte- und Tenant-Grenzen bestehen."
-      ]
+      ],
+      "completion_notes": "Hub-Task-Pipeline mit Scope-Revalidierung, bestehendem Policy/Runtime-Gateway, Read-only-Parallelitaet, dauerhaften Receipts/Audit, Admission und begrenzten Deadlines; Writes behalten bestehenden Einzelcall-/Approval-Pfad."
     },
     {
       "id": "PDT-006",
       "milestone_id": "PDT-M3",
       "title": "Fork nur bei belegter Notwendigkeit erweitern",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "PDT-001",
         "PDT-002"
@@ -217,17 +222,18 @@
       ],
       "acceptance_criteria": [
         "Fork bleibt Chat-/Decision-kompatibel; No-Op oder getestete Aenderung ist dokumentiert."
-      ]
+      ],
+      "completion_notes": "Begruendeter No-Op: vorhandenes /v1/decision und ein bedingtes Open Field genuegen; System-2-Fallback fuer weitere Freitext-/Ergebnisabhaengigkeiten. Keine Fork-/Submodule-Aenderung."
     },
     {
       "id": "PDT-007",
       "milestone_id": "PDT-M3",
       "title": "Benchmark gegen klassisches Function Calling",
       "type": "test",
-      "status": "todo",
+      "status": "blocked",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 80,
       "depends_on": [
         "PDT-003",
         "PDT-005",
@@ -240,17 +246,19 @@
       ],
       "acceptance_criteria": [
         "Benchmarkscript, Rohdaten und sachliche Go/No-Go-Auswertung sind versioniert."
-      ]
+      ],
+      "completion_notes": "Vergleichsscript und reale CPU-Rohdaten fuer TinyGemma/Qwen3, Direct/native FC/hybrid, 0/1/2/3 Calls, freie/dependente Argumente und Injection vorhanden. No-Go active; verpflichtender RTX-5060-Ti-GPU-Lauf fehlt.",
+      "blocked_reason": "CUDA cuInit=100, NVML unavailable; mandatory RTX 5060 Ti run pending."
     },
     {
       "id": "PDT-008",
       "milestone_id": "PDT-M4",
       "title": "Integration, Dokumentation und TDD abschliessen",
       "type": "test",
-      "status": "todo",
+      "status": "blocked",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 90,
       "depends_on": [
         "PDT-005",
         "PDT-007"
@@ -261,7 +269,9 @@
       ],
       "acceptance_criteria": [
         "CI erfolgreich, Status aktuell, keine Regression bei normaler Tool-Ausfuehrung."
-      ]
+      ],
+      "completion_notes": "Unit/Integration/Security/Regression, CI-Workflow, Default-off Profil, Migration und Bedienungsdoku umgesetzt. Abschluss erst nach PDT-007 und gruenem Gesamtgate; 18 vorbestehende Import-Gate-Verstoesse ausserhalb dieses Tracks.",
+      "blocked_reason": "PDT-007 hardware run pending; existing unrelated repository architecture gate fails."
     }
   ],
   "critical_path_tasks": [
@@ -274,17 +284,18 @@
   "tasks_status_summary": {
     "total": 8,
     "by_status": {
-      "todo": 8,
+      "todo": 0,
       "in_progress": 0,
       "partial": 0,
-      "blocked": 0,
-      "done": 0
+      "blocked": 2,
+      "done": 6
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 75.0,
     "by_priority": {
       "P0": 4,
       "P1": 4,
-      "P2": 0
+      "P2": 0,
+      "P3": 0
     },
     "by_risk": {
       "low": 0,
@@ -294,15 +305,115 @@
     },
     "critical_path": {
       "total": 5,
-      "done": 0,
-      "remaining": 5
+      "done": 4,
+      "remaining": 1
     },
     "milestones": {
       "total": 4,
-      "todo": 4,
+      "todo": 0,
       "in_progress": 0,
-      "blocked": 0,
-      "done": 0
+      "partial": 0,
+      "blocked": 2,
+      "done": 2
     }
-  }
+  },
+  "tasks_type_summary": {
+    "total": 8,
+    "by_type": {
+      "research": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "architecture": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "implementation": {
+        "total": 3,
+        "done": 3,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 3
+        }
+      },
+      "security": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "test": {
+        "total": 2,
+        "done": 0,
+        "partial": 0,
+        "blocked": 2,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 85.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 2,
+          "done": 0
+        }
+      }
+    }
+  },
+  "progress_summary": {
+    "state": "blocked",
+    "todo_remaining": 0,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 2,
+    "done": 6,
+    "milestones_done": 2,
+    "milestones_total": 4
+  },
+  "summary_notes": [
+    "All local command/test/benchmark outputs are technical observations, not Hub-grounded production release evidence.",
+    "No active rollout or speedup claim; required GPU measurement and repository-wide gates remain explicitly open."
+  ]
 }
