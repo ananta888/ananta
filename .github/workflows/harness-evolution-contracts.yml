@@ -1,0 +1,39 @@
+name: Harness and Evolution Contracts
+on:
+  push:
+    paths: ['agent/services/harness*', 'agent/services/evolution*', 'agent/services/evolution/**', 'agent/repositories/harness*', 'agent/repositories/evolution*', 'agent/db_models/harness*', 'agent/db_models/evolution*', 'agent/routes/harness.py', 'agent/routes/evolution.py', 'agent/bootstrap/harness_evolution.py', 'ananta_contracts/**', 'plugins/evolver_adapter/**', 'services/evolver_bridge/**', 'tests/harness/**', 'tests/evolver_bridge/**', 'tests/test_evolver_adapter.py', 'migrations/versions/**', '.github/workflows/harness-evolution-contracts.yml']
+  pull_request:
+    paths: ['agent/services/harness*', 'agent/services/evolution*', 'agent/services/evolution/**', 'agent/repositories/harness*', 'agent/repositories/evolution*', 'agent/db_models/harness*', 'agent/db_models/evolution*', 'agent/routes/harness.py', 'agent/routes/evolution.py', 'agent/bootstrap/harness_evolution.py', 'ananta_contracts/**', 'plugins/evolver_adapter/**', 'services/evolver_bridge/**', 'tests/harness/**', 'tests/evolver_bridge/**', 'tests/test_evolver_adapter.py', 'migrations/versions/**', '.github/workflows/harness-evolution-contracts.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHONPATH: .
+      HF_HUB_OFFLINE: '1'
+      TRANSFORMERS_OFFLINE: '1'
+      DEFAULT_PROVIDER: mock
+      DEFAULT_MODEL: mock
+      AGENT_TOKEN_FILE: ''
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12.12'
+      - name: Install locked test dependencies
+        run: pip install -r requirements.lock -r requirements-dev.lock
+      - name: Run bounded headless contracts
+        run: python -m pytest -q -o addopts='' --timeout=60 tests/harness tests/test_evolution_registry_service.py tests/test_evolution_engine_contract.py tests/test_evolver_adapter.py
+      - name: Build pinned runtime and Git test environment
+        run: docker build -f docker/old_way/Dockerfile.evolver-bridge -t ananta-evolver-contracts:local .
+      - name: Run offline nonroot GEP and workspace contracts
+        run: >-
+          docker run --rm --network none --read-only --user 1000:1000
+          --tmpfs /tmp:rw,size=64m,uid=1000,gid=1000
+          --mount type=bind,source="$GITHUB_WORKSPACE",target=/workspace,readonly
+          --workdir /workspace --entrypoint node
+          ananta-evolver-contracts:local
+          --test tests/evolver_bridge/gep_artifacts.test.mjs tests/evolver_bridge/workspace.test.mjs tests/evolver_bridge/runtime.test.mjs

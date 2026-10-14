@@ -193,6 +193,7 @@ scripts/dyndns.conf
 /.github/*
 !/.github/workflows/
 /.github/workflows/*
+!/.github/workflows/harness-evolution-contracts.yml
 !/.github/workflows/memory-channel-security.yml
 !/.github/workflows/growth-specialist-cpu.yml
 /frontend-angular/out-tsc/

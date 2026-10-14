@@ -3,6 +3,7 @@
 import json
 import os
 import subprocess
+import sys
 from dataclasses import replace
 
 import pytest
@@ -223,7 +224,7 @@ def test_mutated_or_stale_worker_assignment_is_rejected(runtime):
 @pytest.mark.parametrize("reason", ["output_limit", "timed_out", "cancelled"])
 def test_real_process_runner_is_bounded(tmp_path, reason):
     command = [
-        "/usr/bin/python3",
+        sys.executable,
         "-c",
         "print('x'*2000)" if reason == "output_limit" else "import time;time.sleep(10)",
     ]
