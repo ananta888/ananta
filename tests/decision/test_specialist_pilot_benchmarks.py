@@ -38,6 +38,7 @@ def test_calibration_does_not_accept_any_holdout_or_duplicate_identity():
 
 
 def test_vision_corpus_has_original_labels_and_frozen_groups():
+    import hashlib
     cases = image_corpus()
     assert len(cases) == 120
     group_splits = {}
@@ -46,6 +47,13 @@ def test_vision_corpus_has_original_labels_and_frozen_groups():
         assert case.image.startswith(b"\x89PNG")
     assert all(len(splits) == 1 for splits in group_splits.values())
     assert any(c.variant == "injection" for c in cases if c.split == "holdout")
+    digests = {
+        split: {hashlib.sha256(c.image).hexdigest() for c in cases if c.split == split}
+        for split in ("train", "validation", "holdout")
+    }
+    assert not digests["train"] & digests["validation"]
+    assert not digests["train"] & digests["holdout"]
+    assert not digests["validation"] & digests["holdout"]
 
 
 def test_strict_vision_profile_rejects_old_or_unverified_cache_behavior():

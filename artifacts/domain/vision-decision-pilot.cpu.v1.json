@@ -1,6 +1,8 @@
 {
   "schema": "ananta.vision-pilot-report.v1",
   "dataset_version": "document-ui-pilot-v1",
+  "evaluation_validity": "invalidated",
+  "invalidation_reason": "Validation/holdout share byte-identical images. Corpus v2 requires a fresh run; v1 metrics must not justify rollout.",
   "dataset_rights": "CC0-1.0 original generated images",
   "cases": 80,
   "holdout_digest": "6098ab5f8e415ecc1aee0a31a3bf96ddeb5d72cb20b97b0e72ff2bdf268c171c",
