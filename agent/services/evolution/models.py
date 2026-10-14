@@ -86,6 +86,7 @@ class EvolutionProposal(SQLModel):
     requires_review: bool = True
     provider_metadata: dict[str, Any] = Field(default_factory=dict)
     raw_payload: dict[str, Any] | None = None
+    candidate_binding: dict[str, Any] | None = None
 
 
 class ValidationResult(SQLModel):
@@ -115,6 +116,7 @@ class EvolutionResult(SQLModel):
     status: str = "completed"
     summary: str = ""
     proposals: list[EvolutionProposal] = Field(default_factory=list)
+    assets: list[dict[str, Any]] = Field(default_factory=list)
     validation_results: list[ValidationResult] = Field(default_factory=list)
     provider_metadata: dict[str, Any] = Field(default_factory=dict)
     raw_payload: dict[str, Any] | None = None

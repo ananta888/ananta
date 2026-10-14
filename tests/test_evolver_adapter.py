@@ -151,7 +151,7 @@ def test_evolver_adapter_exposes_only_truthful_current_capabilities():
     adapter = EvolverAdapter(transport=FakeEvolverTransport())
 
     assert adapter.supports(EvolutionCapability.ANALYZE) is True
-    assert adapter.supports(EvolutionCapability.PROPOSE) is False
+    assert adapter.supports(EvolutionCapability.PROPOSE) is True
     assert adapter.supports(EvolutionCapability.VALIDATE) is False
     assert adapter.supports(EvolutionCapability.APPLY) is False
 

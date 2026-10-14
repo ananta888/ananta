@@ -38,8 +38,9 @@ from agent.services.evolution_run_service import (
     failure_metric_status,
     metric_label,
 )
-from agent.services.mutation_gate_service import get_mutation_gate_service
 from agent.services.repository_registry import get_repository_registry
+
+
 class EvolutionService:
     """Hub-side facade that selects providers and invokes the EvolutionEngine SPI."""
     def __init__(
@@ -79,12 +80,26 @@ class EvolutionService:
             _with_capability_matrix(item, policy=policy, config=config, provider_config_fn=_provider_config)
             for item in self._registry.list_descriptors()
         ]
+
+    def select_providers(self, selection, *, config: dict[str, Any] | None = None) -> dict:
+        cfg = (config or {}).get("evolution") or {}
+        result = self._registry.select(selection, envelopes=cfg.get("selection_envelopes") or {})
+        self._audit("evolution_engine_selection", {
+            "model_id": selection.model_id, "model_revision": selection.model_revision,
+            "task_class": selection.task_class, "status": result["status"],
+            "providers": [item["provider_name"] for item in result["candidates"]],
+            "rejected": result["rejected"], "grants_permission": False,
+        })
+        return result
+
     def provider_health(self, provider_name: str | None = None) -> dict[str, Any]:
         policy = self.resolve_policy(None)
         return _with_health_capability_matrix(
             self._registry.health(provider_name), policy=policy, provider_config_fn=_provider_config,
         )
-    def provider_health_with_config(self, provider_name: str | None = None, config: dict[str, Any] | None = None) -> dict[str, Any]:
+    def provider_health_with_config(
+        self, provider_name: str | None = None, config: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         policy = self.resolve_policy(config)
         return _with_health_capability_matrix(
             self._registry.health(provider_name), config=config, policy=policy, provider_config_fn=_provider_config,
@@ -206,6 +221,11 @@ class EvolutionService:
             result = engine.analyze(context)
             if not result.provider_name:
                 result.provider_name = engine.provider_name
+            if result.provider_name != engine.provider_name:
+                raise ValueError("evolution_result_provider_binding_mismatch")
+            from agent.services.evolution.candidates import EvolutionCandidateNormalizer
+
+            result = EvolutionCandidateNormalizer().normalize(context, result, engine_version=engine.version)
             persisted = self._run_service.persist_analysis(
                 context, result, resolved_trigger, policy=policy, proposal_service=self._proposal_service,
             ) if persist else None

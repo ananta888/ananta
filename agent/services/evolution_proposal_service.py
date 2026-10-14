@@ -472,6 +472,7 @@ class EvolutionProposalService:
                 "context_id": context.context_id,
                 "review_context": review_context,
                 "workflow_state": workflow_state,
+                **({"candidate_binding": proposal.candidate_binding} if proposal.candidate_binding is not None else {}),
             },
             provider_metadata=_bounded_payload(proposal.provider_metadata or {}, policy=policy),
             raw_payload=_bounded_payload(proposal.raw_payload, policy=policy),

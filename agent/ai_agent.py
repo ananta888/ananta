@@ -833,6 +833,8 @@ def create_app(agent: str = "default", *, testing: bool = False) -> Flask:
         app,
     )
     run_startup_phase("core_services", initialize_core_services, app)
+    from agent.bootstrap.harness_evolution import initialize_harness_evolution
+    run_startup_phase("harness_evolution", initialize_harness_evolution, app)
     from agent.bootstrap.scrum_continuous_improvement import initialize_scrum_continuous_improvement
 
     run_startup_phase(

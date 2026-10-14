@@ -137,6 +137,25 @@ def get_evolution_provider(provider_name: str):
         return api_response(status="error", message=str(exc), code=404)
 
 
+@evolution_bp.post("/evolution/providers/select")
+@check_auth
+def select_evolution_providers():
+    from agent.services.evolution.selection import EvolutionSelectionRequest
+
+    try:
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            raise ValueError("selection_request_invalid")
+        values = dict(data)
+        values["mutation_surfaces"] = tuple(values["mutation_surfaces"])
+        result = _services().evolution_service.select_providers(
+            EvolutionSelectionRequest(**values), config={"evolution": _evolution_config()}
+        )
+        return api_response(data=result)
+    except (TypeError, ValueError, KeyError):
+        return api_response(status="error", message="evolution_selection_request_invalid", code=422)
+
+
 @evolution_bp.route("/tasks/<task_id>/evolution", methods=["GET"])
 @check_auth
 def task_evolution_read_model(task_id: str):
@@ -205,7 +224,10 @@ def analyze_task_evolution(task_id: str):
             "status": result.status,
             "proposal_ids": result.proposal_ids,
             "summary": result.result.summary,
-            "trace_id": (_repos().evolution_run_repo.get_by_id(result.run_id).trace_id if _repos().evolution_run_repo.get_by_id(result.run_id) else None),
+            "trace_id": (
+                _repos().evolution_run_repo.get_by_id(result.run_id).trace_id
+                if _repos().evolution_run_repo.get_by_id(result.run_id) else None
+            ),
             "provider_metadata": result.result.provider_metadata,
             "review_status": _analysis_review_status(result),
             "proposals": _analysis_proposal_links(task_id, result),
@@ -237,7 +259,9 @@ def _analysis_proposal_links(task_id: str, result) -> list[dict]:
                 "requires_review": bool(proposal.requires_review) if proposal is not None else True,
                 "review_context": {
                     "operation_class": "patch_apply",
-                    "affected_targets": _proposal_affected_targets(proposal.target_refs if proposal is not None else []),
+                    "affected_targets": _proposal_affected_targets(
+                        proposal.target_refs if proposal is not None else []
+                    ),
                 },
                 "links": {
                     "read_model": f"/tasks/{task_id}/evolution",
@@ -256,7 +280,9 @@ def _proposal_affected_targets(target_refs) -> list[dict]:
     for item in target_refs:
         if not isinstance(item, dict):
             continue
-        path = str(item.get("path") or item.get("file") or item.get("file_path") or item.get("target_path") or "").strip()
+        path = str(
+            item.get("path") or item.get("file") or item.get("file_path") or item.get("target_path") or ""
+        ).strip()
         artifact_id = str(item.get("artifact_id") or "").strip()
         entry = {
             "path": path or None,

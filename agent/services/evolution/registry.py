@@ -70,9 +70,7 @@ class EvolutionProviderRegistry:
         if isinstance(config, dict):
             evolution_cfg = config.get("evolution") if isinstance(config.get("evolution"), dict) else {}
             configured_value = (
-                evolution_cfg.get("default_provider")
-                if "evolution" in config
-                else config.get("default_provider") or ""
+                evolution_cfg.get("default_provider") if "evolution" in config else config.get("default_provider") or ""
             )
             configured = str(configured_value or "").strip()
         selected = self._normalize_name(provider_name or configured or self._default_provider_name or "")
@@ -128,9 +126,7 @@ class EvolutionProviderRegistry:
                 }
             )
         overall_status = (
-            "available"
-            if providers and all(item["status"] != "unavailable" for item in providers)
-            else "degraded"
+            "available" if providers and all(item["status"] != "unavailable" for item in providers) else "degraded"
         )
         return {
             "status": overall_status,
@@ -140,6 +136,30 @@ class EvolutionProviderRegistry:
 
     def describe(self, provider_name: str) -> EvolutionProviderDescriptor:
         return self.get(provider_name).describe()
+
+    def select(self, request, *, envelopes: dict[str, dict]) -> dict[str, Any]:
+        """Select proposals only; this grants neither dispatch nor promotion."""
+        from agent.services.evolution.selection import rejection
+
+        request.validate()
+        candidates, rejected = [], []
+        for name in sorted(self._providers):
+            try:
+                descriptor = self._providers[name].describe()
+                reason = rejection(descriptor, request, envelopes.get(name, {}))
+            except Exception:
+                reason = "engine_descriptor_unavailable"
+            if reason:
+                rejected.append({"provider_name": name, "reason": reason})
+            else:
+                candidates.append(descriptor.model_dump(mode="json"))
+        return {
+            "schema": "ananta.evolution-engine-selection.v1",
+            "candidates": candidates,
+            "rejected": rejected,
+            "status": "available" if candidates else "blocked",
+            "grants_permission": False,
+        }
 
     def clear(self) -> None:
         self._providers.clear()

@@ -346,6 +346,7 @@ class EvolverAdapter(EvolutionEngine):
     def capabilities(self):
         return [
             EvolutionCapability.ANALYZE,
+            EvolutionCapability.PROPOSE,
             EvolutionCapability.RISK_SCORING,
             EvolutionCapability.REVIEW_HINTS,
         ]
