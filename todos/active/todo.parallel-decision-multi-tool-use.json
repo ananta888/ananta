@@ -1,0 +1,308 @@
+{
+  "$schema": "../todo.track.schema.json",
+  "version": "1.0",
+  "created": "2026-10-14",
+  "updated_at": "2026-10-14",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "parallel_decision_multi_tool_use",
+  "title": "Paralleler Tool-Use ohne generierte Tool-Call-JSON: Ananta + optional llama.cpp Fork",
+  "status": "todo",
+  "priority": "P0",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "purpose": "Mehrere unabhaengige Tool-Aufrufe in einem gemeinsamen Entscheidungs-Prefill bestimmen, typisierte Argumente als Kandidaten bewerten und die Tool-Calls deterministisch ausserhalb des Modells aufbauen.",
+  "goal": "Latenzarmes, zuverlaessiges Multi-Tool-Planning in Ananta mit optionalem llama.cpp-Fork-Upgrade nur bei belegter technischer Notwendigkeit.",
+  "related_todos": [
+    "todos/active/todo.jev-llamacpp-parallel-decision-mode.json",
+    "todos/active/todo.clef-jev-vision-whisper-decision-integration.json"
+  ],
+  "repositories": {
+    "main": "ananta888/ananta",
+    "fork": "ananta888/llama.cpp-vision-decision",
+    "fork_branch": "vision-decision",
+    "fork_paths": [
+      "tools/parallel-decision/decision-engine.h",
+      "tools/parallel-decision/decision-engine.cpp",
+      "tools/parallel-decision/README.md",
+      "tools/parallel-decision/playground/index.html"
+    ]
+  },
+  "verified_baseline": [
+    "Die Engine bewertet endliche Kandidatenwerte je Feld ueber verzweigte Sequenzen und gemeinsamen KV-Trunk; JSON entsteht ausserhalb des LLM.",
+    "Im Fork ist Tool-Routing bereits dokumentiert; fuer offene String-Felder ist hoechstens ein Feld pro Request implementiert.",
+    "Abhaengige Felder werden nicht durch isolierte parallele Feldbewertungen automatisch semantisch konsistent."
+  ],
+  "architecture_principles": [
+    "Ananta Hub besitzt Tool-Berechtigungen, Policies, Side-Effect-Freigabe, Scheduling, Audit und Fallbacks.",
+    "Keine Fork-API bauen, wenn die existierende /v1/decision API und ein Ananta-Adapter genuegen.",
+    "Confidence wird nur nach Kalibrierung als Unsicherheitsindikator verwendet, niemals als Autorisierung.",
+    "Tool-Argumente werden gegen echte Schemas validiert; keine unkontrollierte Freitextausfuehrung.",
+    "Feature-Flag und klassischer Agent Loop bleiben erhalten."
+  ],
+  "milestones": [
+    {
+      "id": "PDT-M1",
+      "title": "Bestand und Contract",
+      "task_ids": [
+        "PDT-001",
+        "PDT-002"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "PDT-M2",
+      "title": "Ananta Routing und Execution",
+      "task_ids": [
+        "PDT-003",
+        "PDT-004",
+        "PDT-005"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "PDT-M3",
+      "title": "Bedingte Fork-Erweiterung und Benchmark",
+      "task_ids": [
+        "PDT-006",
+        "PDT-007"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "PDT-M4",
+      "title": "Tests und Rollout",
+      "task_ids": [
+        "PDT-008"
+      ],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "PDT-001",
+      "milestone_id": "PDT-M1",
+      "title": "Bestandsaudit von Ananta Hub und Fork Tool-Router",
+      "type": "research",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [],
+      "implementation": [
+        "Vorhandenes /v1/decision, Tool-Router-Playground, conditional open field, KV-Cache und Ananta Tool-Execution-Pipeline mit Codeverweisen dokumentieren.",
+        "Gaps von schon implementierten Funktionen trennen; konkrete Go/No-Go Entscheidung fuer Fork-Aenderungen festhalten."
+      ],
+      "acceptance_criteria": [
+        "Keine Funktion ohne nachgewiesene Luecke doppelt implementiert."
+      ]
+    },
+    {
+      "id": "PDT-002",
+      "milestone_id": "PDT-M1",
+      "title": "Backend-neutralen Multi-Tool-Plan-Contract definieren",
+      "type": "architecture",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "PDT-001"
+      ],
+      "implementation": [
+        "Schema fuer mehrere unabhaengige tool_enabled booleans, closed args, optional free text, probabilities, abstain, errors und dependencies entwerfen.",
+        "Tool-ID und Schema versionieren; Ergebnis deterministisch zusammenbauen und gegen registrierte Tool-Schemas validieren."
+      ],
+      "acceptance_criteria": [
+        "Contract unterscheidet unabhängige Entscheidungen, bedingte Argumente und abhaengige Schritte."
+      ]
+    },
+    {
+      "id": "PDT-003",
+      "milestone_id": "PDT-M2",
+      "title": "Parallele Entscheidungsroute in Ananta integrieren",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "PDT-002"
+      ],
+      "implementation": [
+        "Bestehenden /v1/decision Adapter wiederverwenden; pro Tool boolean/enum und typisierte Argumente als geschlossene Kandidaten abfragen.",
+        "Unsichere, widerspruechliche oder unvollstaendige Ergebnisse an System-2 bzw. Rueckfrage eskalieren; Feature-Flag mit deaktiviertem Default.",
+        "Sicherstellen, dass ein negatives tool_enabled nicht dennoch Argumente ausloest."
+      ],
+      "acceptance_criteria": [
+        "Mindestens zwei unabhaengige Tools werden in einer Decision-Anfrage geplant; ohne unnoetige Freitextgenerierung."
+      ]
+    },
+    {
+      "id": "PDT-004",
+      "milestone_id": "PDT-M2",
+      "title": "Abhaengigkeiten und freie Argumente kontrollieren",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "PDT-002",
+        "PDT-003"
+      ],
+      "implementation": [
+        "DAG fuer tool-Abhaengigkeiten und bedingte Parameter implementieren; nur unabhaengige Nodes parallelisieren.",
+        "Vorhandene Begrenzung auf hoechstens ein offenes Freitextfeld pro Decision-Request beachten; mehrere freie Argumente mittels separater gezielter Generierung oder System-2-Fallback behandeln.",
+        "Keine scheinbare Parallelitaet fuer Argumente, die vom gewaehlten Tool oder fremden Tool-Ergebnissen abhaengen."
+      ],
+      "acceptance_criteria": [
+        "Abhaengigkeiten bleiben korrekt; mehrere offene Felder werden ohne falsches Scoring behandelt."
+      ]
+    },
+    {
+      "id": "PDT-005",
+      "milestone_id": "PDT-M2",
+      "title": "Tool Execution mit Policy und Grenzen verdrahten",
+      "type": "security",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "PDT-003",
+        "PDT-004"
+      ],
+      "implementation": [
+        "Parallel-Ausfuehrung nur fuer autorisierte, nebenwirkungsarme und voneinander unabhaengige Tools; erlaubte Tool-IDs und Schema-Pruefung ausserhalb des Modells.",
+        "Tenant-/Credential-Isolation, Timeouts, Rate-Limits, Idempotenz, Audit-Trail, Prompt-Injection-Tests und explizite Freigabe fuer schreibende oder irreversible Aktionen.",
+        "Tool-Ergebnisse aggregieren und nur bei Bedarf einen weiteren Decision-/Reasoning-Schritt ausloesen."
+      ],
+      "acceptance_criteria": [
+        "Keine schreibende Aktion allein wegen Confidence; Tests fuer Rechte- und Tenant-Grenzen bestehen."
+      ]
+    },
+    {
+      "id": "PDT-006",
+      "milestone_id": "PDT-M3",
+      "title": "Fork nur bei belegter Notwendigkeit erweitern",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "PDT-001",
+        "PDT-002"
+      ],
+      "implementation": [
+        "Bei nachgewiesener Luecke ananta888/llama.cpp-vision-decision (Branch vision-decision) gezielt anpassen: moeglicher /v1/decision/tools Adapter, mehrere offene Felder oder bessere conditional scoring Semantik.",
+        "Erst vorhandene tools/parallel-decision/decision-engine.*, tools/server und Playground nutzen; Breaking Changes vermeiden; Tests, Dokumentation und Benchmarks aktualisieren.",
+        "Falls kein Fork-Eingriff notwendig, diesen Task mit begruendeter No-Op-Entscheidung abschliessen; bei Aenderungen Fork committen und Ananta Submodule-Pointer nachvollziehbar aktualisieren."
+      ],
+      "acceptance_criteria": [
+        "Fork bleibt Chat-/Decision-kompatibel; No-Op oder getestete Aenderung ist dokumentiert."
+      ]
+    },
+    {
+      "id": "PDT-007",
+      "milestone_id": "PDT-M3",
+      "title": "Benchmark gegen klassisches Function Calling",
+      "type": "test",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "PDT-003",
+        "PDT-005",
+        "PDT-006"
+      ],
+      "implementation": [
+        "Auf gleicher Hardware und gleichen GGUF-Modellen direktes ParallelDecision Routing, normales autoregressives Function Calling und hybriden Fallback vergleichen.",
+        "Mindestens 0/1/2/3 parallele Tools, bool/enum/numeric und freie Argumente sowie abhaengige Tools abdecken; p50/p95, TTFT, Gesamtzeit, decode rounds, VRAM, Accuracy, Calibration, Tool-Fehlaufrufe erfassen.",
+        "Auf RTX 5060 Ti 16 GB und optional RTX 3080 10 GB reproduzierbar pruefen; keine unbewiesene Speedup-Behauptung."
+      ],
+      "acceptance_criteria": [
+        "Benchmarkscript, Rohdaten und sachliche Go/No-Go-Auswertung sind versioniert."
+      ]
+    },
+    {
+      "id": "PDT-008",
+      "milestone_id": "PDT-M4",
+      "title": "Integration, Dokumentation und TDD abschliessen",
+      "type": "test",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "PDT-005",
+        "PDT-007"
+      ],
+      "implementation": [
+        "AGENTS.md, vorhandene Todo-Tracks, SOLID/DDD/TDD-Regeln befolgen; Unit-, Integrations-, Security- und Regressionstests schreiben.",
+        "Feature-Flag, API-Kontrakt, Monitoring, Fallbacks und Bedienung dokumentieren; Schema-Validator und todo_status_sync ausfuehren."
+      ],
+      "acceptance_criteria": [
+        "CI erfolgreich, Status aktuell, keine Regression bei normaler Tool-Ausfuehrung."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "PDT-001",
+    "PDT-002",
+    "PDT-003",
+    "PDT-005",
+    "PDT-007"
+  ],
+  "tasks_status_summary": {
+    "total": 8,
+    "by_status": {
+      "todo": 8,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P0": 4,
+      "P1": 4,
+      "P2": 0
+    },
+    "by_risk": {
+      "low": 0,
+      "medium": 6,
+      "high": 2,
+      "critical": 0
+    },
+    "critical_path": {
+      "total": 5,
+      "done": 0,
+      "remaining": 5
+    },
+    "milestones": {
+      "total": 4,
+      "todo": 4,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  }
+}
