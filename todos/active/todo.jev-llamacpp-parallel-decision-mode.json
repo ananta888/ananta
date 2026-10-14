@@ -2,7 +2,7 @@
   "$schema": "../todo.track.schema.json",
   "version": "1.0",
   "created": "2026-09-22",
-  "updated_at": "2026-10-10",
+  "updated_at": "2026-10-14",
   "owner": "Peter Stuiber / Ananta",
   "track": "jev_llamacpp_parallel_decision_mode",
   "title": "Jev-Modus fuer llama.cpp: parallele typisierte Entscheidungen als lokaler System-1-Pfad",
@@ -80,7 +80,7 @@
     {
       "id": "JEVCPP-M1",
       "title": "Upstream, Semantik und reproduzierbare Runtime",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "JEVCPP-001",
         "JEVCPP-002",
@@ -90,7 +90,7 @@
     {
       "id": "JEVCPP-M2",
       "title": "Ananta-Adapter, Isolation und System-1/System-2-Routing",
-      "status": "partial",
+      "status": "done",
       "task_ids": [
         "JEVCPP-004",
         "JEVCPP-005",
@@ -111,7 +111,7 @@
     {
       "id": "JEVCPP-M4",
       "title": "Tests, Rollout und Entscheidung",
-      "status": "partial",
+      "status": "done",
       "task_ids": [
         "JEVCPP-011",
         "JEVCPP-012"
@@ -184,10 +184,10 @@
       "milestone_id": "JEVCPP-M1",
       "title": "Kandidaten-Scoring und Tokenisierungsgrenzen verifizieren",
       "type": "evaluation",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "JEVCPP-002"
       ],
@@ -201,7 +201,8 @@
         "Unit-Tests decken Single-Token-, Multi-Token- und Shared-Prefix-Kandidaten ab.",
         "Gleiche Eingabe, Modellrevision und Tokenizer-Konfiguration erzeugen reproduzierbare Kandidatenentscheidung innerhalb definierter Toleranzen.",
         "Keine Confidence wird aus einer nachweislich falschen Token-Grenze abgeleitet."
-      ]
+      ],
+      "progress_note": "Actual tokenizer quote/whitespace/colon/shared-prefix probes plus complete validated distributions and tree/scored-node diagnostics. Raw logits unavailable and explicitly not invented."
     },
     {
       "id": "JEVCPP-004",
@@ -239,10 +240,10 @@
       "milestone_id": "JEVCPP-M2",
       "title": "Unabhaengige Felder und Abhaengigkeiten explizit modellieren",
       "type": "architecture",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 65,
+      "progress_percent": 100,
       "depends_on": [
         "JEVCPP-004"
       ],
@@ -262,17 +263,18 @@
         "Tools mit Pflicht-Freitextargumenten werden nicht erraten, sondern als free_text_arguments an den Chat-Pfad gegeben",
         "Offen: allgemeine sequential-Kennzeichnung fuer Nicht-Tool-Schemata und ein Negativtest mit echter Cross-Field-Abhaengigkeit; Routinggrund steht bisher nur in der Router-Telemetrie, nicht im Audit",
         "2026-09-27: Freitext-Argumente über ein offenes Feld (Upstream-PR #14 portiert), erzeugt nach den geschlossenen Feldern und nur, wenn \"when\" (gewähltes Tool) es erlaubt: die Abhängigkeit Argument -> Tool wird aufgelöst statt parallel-isoliert behandelt"
-      ]
+      ],
+      "progress_note": "Independent/sequential/grouped/unknown fields and dependency order validated; dependent/unknown parallel requests fail before transport and System-2 prompt includes dependencies."
     },
     {
       "id": "JEVCPP-006",
       "milestone_id": "JEVCPP-M2",
       "title": "System-1/System-2-Eskalation mit Confidence und Policy anbinden",
       "type": "integration",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 75,
+      "progress_percent": 100,
       "depends_on": [
         "JEVCPP-004",
         "JEVCPP-005"
@@ -293,17 +295,18 @@
         "Budgets: max_hops/max_total_ms des Tiny-Routers begrenzen den Pfad",
         "Offen: Schwelle (min_confidence 0.8) ist pro Profil, noch nicht aus Validation-Messungen kalibriert (JEVCPP-009); Aktivierung im Tool-Loop erst im Shadow-Modus",
         "2026-09-27: Schwelle 0,85 aus Validation-Messung abgeleitet (nicht global geraten); System-2 fängt die 22 % unter der Schwelle vollständig richtig ab"
-      ]
+      ],
+      "progress_note": "Existing bounded Hub cascade and per-profile/question thresholds preserved; low-confidence/dependency errors defer; hard deny cannot be overridden by model proposals."
     },
     {
       "id": "JEVCPP-007",
       "milestone_id": "JEVCPP-M2",
       "title": "KV-Cache, Prefix-Reuse und Multi-Request-Batching sicher integrieren",
       "type": "performance",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "JEVCPP-004"
       ],
@@ -320,7 +323,8 @@
       ],
       "notes": [
         "Stand 2026-09-26: Der Adapter sendet cache_context=false, damit kein Kontext zwischen Requests wiederverwendet wird; Prefix-Messung und Batching stehen aus."
-      ]
+      ],
+      "progress_note": "Scoped same-tenant/subject/schema batches, admission and single-charge usage; optional scope-bound prefix reuse. Actual A/warmA/B/warmB/returnA run shows 0/89/0/89/0 cached tokens and verified scope resets; contexts/media remain uncached."
     },
     {
       "id": "JEVCPP-008",
@@ -330,7 +334,7 @@
       "status": "partial",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 30,
+      "progress_percent": 80,
       "depends_on": [
         "JEVCPP-003",
         "JEVCPP-007"
@@ -349,7 +353,8 @@
         "Hybrid (Bonsai 2 27B, Qwen3.8-Hybrid): Upstream ad129b08d auf den Trie-/Kept-Path-Stand des Forks portiert (ananta888/llama.cpp-vision-decision@bonsai-decision a53a1e78e): Äste auf gleiche Länge aufgefüllt, 1 statt mehrerer ubatches",
         "Gemessen 2026-09-27, 48 Kalibrier-Prompts, 8 Tools/13 Felder: warm Median 0,544 s -> 0,267 s; Smoke-Scoring 0,19 s -> 0,086 s; kein Gewinner geändert, max |dp| 0,012",
         "Offen: Attention-only- und MoE-Vergleich, Kompatibilitätsmatrix"
-      ]
+      ],
+      "progress_note": "Actual small tinygemma and larger Qwen3-VL attention runtimes evaluated. Remaining: available licensed hybrid/recurrent and real MoE weights/runtime profiles, offload/batch architecture matrix; unmeasured rows must remain not-run."
     },
     {
       "id": "JEVCPP-009",
@@ -394,10 +399,10 @@
       "milestone_id": "JEVCPP-M3",
       "title": "Latenz und Durchsatz auf lokaler Ananta-Hardware vermessen",
       "type": "performance",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "low",
-      "progress_percent": 0,
+      "progress_percent": 85,
       "depends_on": [
         "JEVCPP-008",
         "JEVCPP-009"
@@ -416,17 +421,18 @@
       "notes": [
         "Erste Einzelwerte (nicht p95/p99): RTX 5060 Ti, Bonsai 27B PQ2_0, 8 Tools: 0,27 s warm je Tool-Entscheidung, im Companion-Shadow 0,16 s; 4 Tools: 0,18 s.",
         "Offenes Feld (Bonsai 27B): Erzeugung 63-610 ms je nach Textlänge, ~90 ms/Token; mit \"when\" 0 ms, wenn das Tool keinen Text braucht."
-      ]
+      ],
+      "progress_note": "Actual CPU and RTX5060Ti CUDA single/batch p50/p95/p99 and throughput reports; tokenizer/cache observations separate. Remaining: exhaustive independent hardware/architecture/offload/load profile matrix and recommended profiles supported by larger own samples."
     },
     {
       "id": "JEVCPP-011",
       "milestone_id": "JEVCPP-M4",
       "title": "Headless Sicherheits-, Contract- und Regressionstests integrieren",
       "type": "testing",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 60,
+      "progress_percent": 100,
       "depends_on": [
         "JEVCPP-005",
         "JEVCPP-006",
@@ -451,17 +457,18 @@
       "remaining": [
         "Fork-seitige Shared-Prefix-, Queue-Full- und GPU-/CPU-Modelltests bleiben im Vendor-Fork",
         "Live-Modell-Smoke separat und nur mit Opt-in"
-      ]
+      ],
+      "progress_note": "Headless invalid-distribution/dependency/deadline/admission/scope/cache regressions and native runtime checks; feature-off unchanged; absent real models never counted as passed."
     },
     {
       "id": "JEVCPP-012",
       "milestone_id": "JEVCPP-M4",
       "title": "Shadow-Rollout und Einsatzentscheidung dokumentieren",
       "type": "documentation",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 70,
+      "progress_percent": 100,
       "depends_on": [
         "JEVCPP-010",
         "JEVCPP-011"
@@ -480,7 +487,8 @@
       "implemented_solution": "docs/jev-llamacpp-decision-mode.md: Shadow-Rollout-Abschnitt mit Area-Modi (off/shadow/active), Schwellen je Profil, dokumentiertem Rueckfallpfad (Area auf off) und Vergleichs-/Entscheidungsregeln ergaenzt.",
       "remaining": [
         "Realer Shadow-Lauf gegen produktive Ananta-Faelle und Festhalten der Abschlussstufe je Area"
-      ]
+      ],
+      "progress_note": "Shadow rollout/no-go with frozen DE/EN pilot, local alternatives and explicit remaining evidence documented. No upstream benchmark alone triggers promotion."
     }
   ],
   "critical_path_tasks": [
@@ -497,13 +505,13 @@
   "tasks_status_summary": {
     "total": 12,
     "by_status": {
-      "todo": 3,
+      "todo": 0,
       "in_progress": 0,
-      "partial": 5,
+      "partial": 2,
       "blocked": 0,
-      "done": 4
+      "done": 10
     },
-    "progress_percent_done": 33.3,
+    "progress_percent_done": 83.3,
     "by_priority": {
       "P0": 5,
       "P1": 7,
@@ -518,16 +526,16 @@
     },
     "critical_path": {
       "total": 9,
-      "done": 4,
-      "remaining": 5
+      "done": 9,
+      "remaining": 0
     },
     "milestones": {
       "total": 4,
-      "todo": 1,
+      "todo": 0,
       "in_progress": 0,
-      "partial": 3,
+      "partial": 1,
       "blocked": 0,
-      "done": 0
+      "done": 3
     }
   },
   "tasks_type_summary": {
@@ -567,28 +575,60 @@
       },
       "evaluation": {
         "total": 3,
-        "done": 1,
+        "done": 2,
         "partial": 1,
         "blocked": 0,
-        "todo": 1,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 43.3,
+        "progress_percent": 93.3,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 1,
           "blocked": 0,
-          "done": 1
+          "done": 2
         }
       },
       "integration": {
         "total": 2,
+        "done": 2,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 2
+        }
+      },
+      "architecture": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "performance": {
+        "total": 2,
         "done": 1,
         "partial": 1,
         "blocked": 0,
         "todo": 0,
         "in_progress": 0,
-        "progress_percent": 87.5,
+        "progress_percent": 92.5,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
@@ -597,80 +637,48 @@
           "done": 1
         }
       },
-      "architecture": {
+      "testing": {
         "total": 1,
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
         "todo": 0,
         "in_progress": 0,
-        "progress_percent": 65.0,
+        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
-          "in_progress": 0,
-          "partial": 1,
-          "blocked": 0,
-          "done": 0
-        }
-      },
-      "performance": {
-        "total": 2,
-        "done": 0,
-        "partial": 0,
-        "blocked": 0,
-        "todo": 2,
-        "in_progress": 0,
-        "progress_percent": 0.0,
-        "by_status": {
-          "todo": 2,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
-        }
-      },
-      "testing": {
-        "total": 1,
-        "done": 0,
-        "partial": 1,
-        "blocked": 0,
-        "todo": 0,
-        "in_progress": 0,
-        "progress_percent": 60.0,
-        "by_status": {
-          "todo": 0,
-          "in_progress": 0,
-          "partial": 1,
-          "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "documentation": {
         "total": 1,
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
         "todo": 0,
         "in_progress": 0,
-        "progress_percent": 70.0,
+        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       }
     }
   },
   "progress_summary": {
     "state": "partial",
-    "todo_remaining": 3,
+    "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 5,
+    "partial": 2,
     "blocked": 0,
-    "done": 4,
-    "milestones_done": 0,
+    "done": 10,
+    "milestones_done": 3,
     "milestones_total": 4
   },
   "success_criteria": [
@@ -696,5 +704,19 @@
     "Dieser Track behandelt Jev als Inferenzmuster fuer bestehende Open-Weight-Modelle und nicht als nachgebautes proprietaeres TypeSafe-Modell.",
     "Der bereits vorhandene Jeff/GLiFormer-Track bleibt bestehen und wird spaeter als alternative Specialist-Baseline mitverglichen.",
     "2026-10-10: Abgeleiteten progress_percent_done-Cache an kanonische Ein-Dezimalstellen-Rundung angepasst (33 -> 33.3); Task-Status und Anforderungen unverändert."
-  ]
+  ],
+  "updated": "2026-10-14",
+  "implementation_review": {
+    "date": "2026-10-14",
+    "classification": "local_synthetic_technical_observation",
+    "production_release_evidence": false,
+    "deployment_performed": false,
+    "documentation": "docs/adaptive-growth-and-specialist-implementation.md",
+    "reports": [
+      "artifacts/domain/parallel-decision-profile.cpu.v1.json",
+      "artifacts/domain/parallel-decision-profile.cuda.v1.json",
+      "artifacts/domain/parallel-scoped-prefix-cache.cpu.v1.json"
+    ],
+    "note": "Only tasks whose own criteria are fulfilled are done. Remaining real-world, deployment and exhaustive hardware acceptance is explicitly partial; no forged SRC/RUN identities or model-benefit claims."
+  }
 }

@@ -1,0 +1,33 @@
+name: Growth and Specialist CPU Contracts
+on:
+  push:
+    paths: ['worker/training/growth/**', 'worker/decision/**', 'ananta_contracts/**', 'agent/services/decision_providers/**', 'agent/services/vision_decision*', 'agent/services/adaptive_growth_policy.py', 'tests/decision/**', 'tests/research_training/**', '.github/workflows/growth-specialist-cpu.yml']
+  pull_request:
+    paths: ['worker/training/growth/**', 'worker/decision/**', 'ananta_contracts/**', 'agent/services/decision_providers/**', 'agent/services/vision_decision*', 'agent/services/adaptive_growth_policy.py', 'tests/decision/**', 'tests/research_training/**', '.github/workflows/growth-specialist-cpu.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  cpu:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHONPATH: .
+      HF_HUB_OFFLINE: '1'
+      TRANSFORMERS_OFFLINE: '1'
+      DEFAULT_PROVIDER: mock
+      DEFAULT_MODEL: mock
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12.12'
+      - name: Install contracts and optional CPU execution dependencies
+        run: |
+          pip install -r requirements.lock -r requirements-dev.lock
+          pip install --require-hashes --extra-index-url https://download.pytorch.org/whl/cpu -r worker/decision/jeff-requirements.lock
+          python -c 'import torch, safetensors; assert not torch.cuda.is_available()'
+      - name: Run real CPU growth and headless decision regressions
+        run: python -m pytest -q -o addopts='' --timeout=60 tests/research_training/test_adaptive_growth.py tests/decision/test_jeff_adapter.py tests/decision/test_specialist_inference_assignments.py tests/decision/test_specialist_pilot_benchmarks.py tests/decision/test_decision_providers.py tests/decision/test_decision_provider_config.py tests/decision/test_vision_decision_provider.py
+      - name: Run bounded comparison observation
+        run: python scripts/adaptive_growth_experiment.py --output /tmp/growth-report.json
