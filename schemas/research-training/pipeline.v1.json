@@ -19,7 +19,7 @@
       "required": ["stage_id", "kind", "dependencies", "required_capability", "max_attempts", "timeout_seconds"],
       "properties": {
         "stage_id": {"$ref": "#/$defs/id"},
-        "kind": {"enum": ["tokenizer_train", "tokenizer_eval", "pretrain", "base_eval", "sft", "chat_eval", "rl", "rl_eval", "inference_benchmark", "export"]},
+        "kind": {"enum": ["tokenizer_train", "tokenizer_eval", "pretrain", "base_eval", "sft", "chat_eval", "rl", "rl_eval", "inference_benchmark", "export", "adaptive_growth"]},
         "dependencies": {"type": "array", "maxItems": 64, "uniqueItems": true, "items": {"$ref": "#/$defs/id"}},
         "required_capability": {"$ref": "#/$defs/id"},
         "max_attempts": {"type": "integer", "minimum": 1, "maximum": 10},

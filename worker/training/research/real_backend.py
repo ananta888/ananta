@@ -38,6 +38,7 @@ _CAPABILITIES = frozenset(
         "rl_training",
         "inference_benchmark",
         "model_export",
+        "adaptive_growth",
     }
 )
 
@@ -68,6 +69,7 @@ class LocalResearchBackend:
 
     def execute(self, assignment: ResearchStageAssignmentV1) -> ResearchStageOutput:
         handlers = {
+            "adaptive_growth": self._adaptive_growth,
             "tokenizer_train": self._tokenizer_train,
             "tokenizer_eval": self._tokenizer_eval,
             "pretrain": lambda value: self._train(value, supervised=False),
@@ -80,6 +82,13 @@ class LocalResearchBackend:
             "export": self._export,
         }
         return handlers[assignment.stage.kind](assignment)
+
+    def _adaptive_growth(self, assignment: ResearchStageAssignmentV1) -> ResearchStageOutput:
+        from worker.training.growth.assignment_adapter import execute_growth_assignment
+
+        return execute_growth_assignment(
+            assignment, workspace=self._workspace, checkpoint_manager=self._checkpoint_manager
+        )
 
     def _tokenizer_train(self, assignment: ResearchStageAssignmentV1) -> ResearchStageOutput:
         records = self._workspace.read_dataset(assignment.dataset_manifest)["train"]

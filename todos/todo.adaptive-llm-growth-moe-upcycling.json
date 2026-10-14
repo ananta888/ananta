@@ -1,14 +1,14 @@
 {
   "$schema": "./todo.track.schema.json",
   "created": "2026-10-10",
-  "updated": "2026-10-10",
+  "updated": "2026-10-14",
   "project": "Ananta",
   "owner": "Ananta",
   "title": "Adaptive LLM Growth and MoE Upcycling",
   "goal": "Evaluate and prototype controlled growth of transformer LLMs from small dense baselines through depth/width expansion and MoE upcycling, with optional evidence-driven growth and pruning.",
   "purpose": "Research-to-MVP track; prioritize reproducible compute-normalized evidence over claims of automatic intelligence improvement.",
   "priority": "P1",
-  "status": "todo",
+  "status": "partial",
   "status_scale": [
     "todo",
     "in_progress",
@@ -52,7 +52,7 @@
         "DLM-001",
         "DLM-002"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "DLM-M2",
@@ -63,7 +63,7 @@
         "DLM-005",
         "DLM-006"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "DLM-M3",
@@ -73,7 +73,7 @@
         "DLM-008",
         "DLM-009"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "DLM-M4",
@@ -82,7 +82,7 @@
         "DLM-010",
         "DLM-011"
       ],
-      "status": "todo"
+      "status": "partial"
     }
   ],
   "tasks": [
@@ -90,20 +90,22 @@
       "id": "DLM-001",
       "title": "Research and baseline",
       "description": "Inventory Ananta training integrations and licenses; compare progressive depth/width growth, Net2Net, MoE upcycling and expert addition; record reproducible references.",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "milestone_id": "DLM-M1",
       "depends_on": [],
       "acceptance_criteria": [
         "Define fixed-size and train-from-scratch baselines plus matched token and FLOP budgets."
-      ]
+      ],
+      "progress_percent": 100,
+      "progress_note": "Inventory/references and explicit tiny-reference architecture documented; Torch port reuses Research infrastructure."
     },
     {
       "id": "DLM-002",
       "title": "Experiment contract",
       "description": "Define model configs, dataset provenance, split contamination checks, seeds, compute budget and success thresholds.",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "milestone_id": "DLM-M1",
@@ -112,13 +114,15 @@
       ],
       "acceptance_criteria": [
         "Track active/total parameters, step FLOPs, tokens/sec, quality, VRAM/RAM, optimizer memory and regressions."
-      ]
+      ],
+      "progress_percent": 100,
+      "progress_note": "Closed model/budget contract; bilingual splits, contamination checks, seeded token/FLOP-controlled baselines and resource metrics."
     },
     {
       "id": "DLM-003",
       "title": "Small-scale prototype",
       "description": "Implement a framework-agnostic trainer adapter with PyTorch/Transformers optional backends and checkpoint/resume.",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "milestone_id": "DLM-M2",
@@ -128,13 +132,15 @@
       ],
       "acceptance_criteria": [
         "Train a tiny reference model first, no claims of 3B training on local hardware."
-      ]
+      ],
+      "progress_percent": 100,
+      "progress_note": "Real CPU/CUDA tiny-transformer training, injected trainer port and safetensors checkpoint/resume tested. General HF surgery explicitly unsupported."
     },
     {
       "id": "DLM-004",
       "title": "Depth growth",
       "description": "Implement function-preserving or approximately preserving layer insertion with shape checks.",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "milestone_id": "DLM-M2",
@@ -143,13 +149,15 @@
       ],
       "acceptance_criteria": [
         "Measure immediate loss perturbation and recovery vs scratch baseline."
-      ]
+      ],
+      "progress_percent": 100,
+      "progress_note": "Identity residual insertion preserves logits; immediate perturbation/recovery and scratch arms measured."
     },
     {
       "id": "DLM-005",
       "title": "Width growth",
       "description": "Implement widening for embeddings, attention projections and MLP with optimizer-state migration.",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "milestone_id": "DLM-M2",
@@ -158,13 +166,15 @@
       ],
       "acceptance_criteria": [
         "Document unsupported architectures and deterministic failure instead of silent corruption."
-      ]
+      ],
+      "progress_percent": 100,
+      "progress_note": "Reference embedding/attention/MLP widening preserves function and migrates Adam moments; unsupported architectures fail explicitly."
     },
     {
       "id": "DLM-006",
       "title": "MoE upcycling",
       "description": "Prototype dense-to-MoE expert cloning and specialization with load-balancing and router initialization.",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "milestone_id": "DLM-M2",
@@ -173,13 +183,15 @@
       ],
       "acceptance_criteria": [
         "Measure expert collapse, utilization, active parameters, memory and throughput."
-      ]
+      ],
+      "progress_percent": 100,
+      "progress_note": "Sparse selected-token experts, seeded router, load-balancing loss, utilization/collapse and throughput metrics implemented."
     },
     {
       "id": "DLM-007",
       "title": "Adaptive controller",
       "description": "Implement opt-in budget-aware growth policy driven by validation plateau, gradient signals and expert utilization.",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "high",
       "milestone_id": "DLM-M3",
@@ -188,13 +200,15 @@
       ],
       "acceptance_criteria": [
         "Use cooldown, hysteresis, audit logs, bounded changes and reproducible decisions; do not claim autonomous growth is proven."
-      ]
+      ],
+      "progress_percent": 100,
+      "progress_note": "Hub-owned opt-in plateau/gradient/utilization/cooldown/budget proposals and content-free audited decision service; no Worker scheduling."
     },
     {
       "id": "DLM-008",
       "title": "Pruning and rollback",
       "description": "Evaluate selective expert pruning and checkpoint rollback under quality regressions.",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "milestone_id": "DLM-M3",
@@ -203,13 +217,15 @@
       ],
       "acceptance_criteria": [
         "Preserve model/tokenizer compatibility, optimizer state and immutable experiment lineage."
-      ]
+      ],
+      "progress_percent": 100,
+      "progress_note": "Selective pruning plus Adam migration, immutable parent checkpoints, exact resume and verified-checkpoint regression rollback policy tested."
     },
     {
       "id": "DLM-009",
       "title": "Ananta integration",
       "description": "Integrate experiments with existing Ananta todo/agent workflows via adapters, avoiding a new monolithic training stack.",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "milestone_id": "DLM-M3",
@@ -218,13 +234,15 @@
       ],
       "acceptance_criteria": [
         "Provide CLI dry-run, isolated sandbox execution, configurable GPU/CPU offload, no uncontrolled cloud spend."
-      ]
+      ],
+      "progress_percent": 100,
+      "progress_note": "Additive adaptive_growth Research stage uses existing Registry admission, closed assignment/result paths and checkpoint manager. CPU/CUDA CLI observations run in bounded sandbox; automatic release denied."
     },
     {
       "id": "DLM-010",
       "title": "Evaluation and gate",
       "description": "Run multilingual German/English benchmarks, retention, safety regressions, data-efficiency and held-out tasks.",
-      "status": "todo",
+      "status": "partial",
       "priority": "P2",
       "risk": "medium",
       "milestone_id": "DLM-M4",
@@ -237,13 +255,15 @@
       ],
       "acceptance_criteria": [
         "Publish matched-compute ablations and a go/no-go report; no benefit claims without measured confidence."
-      ]
+      ],
+      "progress_percent": 85,
+      "progress_note": "42 CPU and 42 CUDA reference arms, bilingual loss/retention, authored safety/grounding/tasks and confidence intervals recorded. Remaining: substantive real-world frozen multilingual datasets and evidence-grounded scaling/benefit evaluation; tiny synthetic probes do not establish intelligence or release eligibility."
     },
     {
       "id": "DLM-011",
       "title": "Documentation and CI",
       "description": "Add unit/property tests for tensor shapes, deterministic expansion, resume and regression; document licensing.",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "milestone_id": "DLM-M4",
@@ -252,7 +272,9 @@
       ],
       "acceptance_criteria": [
         "CI smoke tests on CPU, optional GPU jobs, usage guide and architecture decision record."
-      ]
+      ],
+      "progress_percent": 100,
+      "progress_note": "CPU CI job, real tensor invariance/causality/optimizer/resume tests, Hub-issued evidence integration, usage and architecture guide."
     }
   ],
   "meta": {
@@ -280,5 +302,84 @@
       "DLM-010",
       "DLM-011"
     ]
+  },
+  "implementation_review": {
+    "date": "2026-10-14",
+    "classification": "local_synthetic_technical_observation",
+    "production_release_evidence": false,
+    "deployment_performed": false,
+    "documentation": "docs/adaptive-growth-and-specialist-implementation.md",
+    "reports": [
+      "artifacts/domain/adaptive-growth.cpu.v1.json",
+      "artifacts/domain/adaptive-growth.cuda.v1.json"
+    ],
+    "note": "Only tasks whose own criteria are fulfilled are done. Remaining real-world, deployment and exhaustive hardware acceptance is explicitly partial; no forged SRC/RUN identities or model-benefit claims."
+  },
+  "tasks_status_summary": {
+    "total": 11,
+    "by_status": {
+      "todo": 0,
+      "in_progress": 0,
+      "partial": 1,
+      "blocked": 0,
+      "done": 10
+    },
+    "progress_percent_done": 90.9,
+    "by_priority": {
+      "P0": 0,
+      "P1": 6,
+      "P2": 5,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 0,
+      "medium": 8,
+      "high": 3,
+      "critical": 0
+    },
+    "critical_path": {
+      "total": 0,
+      "done": 0,
+      "remaining": 0
+    },
+    "milestones": {
+      "total": 4,
+      "todo": 0,
+      "in_progress": 0,
+      "partial": 1,
+      "blocked": 0,
+      "done": 3
+    }
+  },
+  "tasks_type_summary": {
+    "total": 11,
+    "by_type": {
+      "unknown": {
+        "total": 11,
+        "done": 10,
+        "partial": 1,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 98.6,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 1,
+          "blocked": 0,
+          "done": 10
+        }
+      }
+    }
+  },
+  "progress_summary": {
+    "state": "partial",
+    "todo_remaining": 0,
+    "in_progress": 0,
+    "partial": 1,
+    "blocked": 0,
+    "done": 10,
+    "milestones_done": 3,
+    "milestones_total": 4
   }
 }

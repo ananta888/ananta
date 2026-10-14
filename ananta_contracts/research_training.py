@@ -25,6 +25,7 @@ RESEARCH_STAGE_KINDS = frozenset(
         "rl_eval",
         "inference_benchmark",
         "export",
+        "adaptive_growth",
     }
 )
 RESEARCH_ARTIFACT_KINDS = frozenset(
@@ -39,6 +40,7 @@ RESEARCH_ARTIFACT_KINDS = frozenset(
         "rl_evaluation",
         "inference_benchmark",
         "model_export",
+        "adaptive_growth_report",
     }
 )
 STAGE_CAPABILITIES = {
@@ -52,6 +54,7 @@ STAGE_CAPABILITIES = {
     "rl_eval": "model_evaluation",
     "inference_benchmark": "inference_benchmark",
     "export": "model_export",
+    "adaptive_growth": "adaptive_growth",
 }
 
 
@@ -372,6 +375,8 @@ class ResearchRunSpecV1:
                 raise ResearchTrainingContractError(f"research_run_{field}_invalid")
         recipe = ResearchTrainingRecipeV1.from_mapping(value["recipe"])
         pipeline = ResearchPipelineV1.from_mapping(value["pipeline"])
+        if any(stage.kind == "adaptive_growth" for stage in pipeline.stages) and pipeline.automatic_release:
+            raise ResearchTrainingContractError("research_growth_experimental_no_automatic_release")
         if any(stage.kind == "rl" for stage in pipeline.stages) and not recipe.allow_rl:
             raise ResearchTrainingContractError("research_run_rl_not_enabled")
         return cls(

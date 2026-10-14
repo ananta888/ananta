@@ -21,6 +21,7 @@ from ananta_contracts.research_training_data import ResearchDatasetManifestV1
 
 _VERSION = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._+:-]{0,63}$")
 _INPUT_RULES: dict[str, tuple[frozenset[str], tuple[frozenset[str], ...]]] = {
+    "adaptive_growth": (frozenset(), ()),
     "tokenizer_train": (frozenset(), ()),
     "tokenizer_eval": (frozenset({"tokenizer"}), (frozenset({"tokenizer"}),)),
     "pretrain": (

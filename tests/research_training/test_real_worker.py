@@ -233,14 +233,23 @@ def test_worker_verifies_scheduler_runtime_identity_before_execution(tmp_path: P
         image_digest="c" * 64,
         hardware_profile_digest="d" * 64,
     )
-    verifier.configure_and_verify(parsed.runtime)
+    # The positive contract binds the installed optional runtime, rather than
+    # assuming the old fixture's Torch release is installed in every test image.
+    from dataclasses import replace
+    import torch
+
+    runtime = replace(parsed.runtime, torch_version=str(torch.__version__),
+                      cuda_version=str(torch.version.cuda or "none"))
+    verifier.configure_and_verify(runtime)
+    with pytest.raises(PermissionError, match="torch_version"):
+        verifier.configure_and_verify(replace(runtime, torch_version="0.0.0-mismatched"))
     mismatched = EnvironmentResearchRuntimeVerifier(
         repository_revision="a" * 64,
         image_digest="e" * 64,
         hardware_profile_digest="d" * 64,
     )
     with pytest.raises(PermissionError, match="image_digest"):
-        mismatched.configure_and_verify(parsed.runtime)
+        mismatched.configure_and_verify(runtime)
     with pytest.raises(RuntimeError, match="runtime_identity_missing"):
         EnvironmentResearchRuntimeVerifier.from_environment({})
 

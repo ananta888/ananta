@@ -76,8 +76,11 @@ class ResearchWorkspaceReader:
                     "prompt",
                     "response",
                     "expected",
+                    "language",
                 }:
                     raise ValueError("research_dataset_record_invalid")
+                if "language" in value and value["language"] not in {"de", "en"}:
+                    raise ValueError("research_dataset_language_invalid")
                 records.append(value)
         else:
             raise ValueError("research_dataset_media_type_unsupported")
