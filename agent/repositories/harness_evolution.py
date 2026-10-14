@@ -42,6 +42,11 @@ class HarnessEvolutionStore:
             if existing is not None:
                 if existing.content_hash != content_hash:
                     raise ValueError("harness_genome_content_conflict")
+                if (
+                    model_requirements is not None and existing.model_requirements != dict(model_requirements)
+                    or runtime_requirements is not None and existing.runtime_requirements != dict(runtime_requirements)
+                ):
+                    raise ValueError("harness_genome_requirements_immutable")
                 return genome.genome_id
             session.add(HarnessGenomeDB(
                 genome_id=genome.genome_id, schema_version=genome.schema, canonical_json=canonical,
