@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from .access_roles import AccessPolicyRevisionDB, AccessRoleBindingDB, AccessRoleDB
 from .agents import AgentInfoDB
+from .evolution_assets import EvolutionAssetDB, EvolutionAssetStateDB
 from .auth import (
     BannedIPDB,
     InstructionOverlayDB,
@@ -490,6 +491,8 @@ __all__ = [
     "DecisionTraceDB",
     "EvolutionProposalDB",
     "EvolutionRunDB",
+    "EvolutionAssetDB",
+    "EvolutionAssetStateDB",
     "ExtractedDocumentDB",
     "GoalDB",
     "HarnessBenchmarkRunDB",

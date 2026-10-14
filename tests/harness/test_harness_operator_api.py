@@ -1,6 +1,7 @@
 """The operator API is read-only, scoped, authenticated and allowlist-redacted."""
 
 import json
+from types import SimpleNamespace
 
 import pytest
 from flask import Flask, g, request
@@ -51,6 +52,42 @@ def test_admin_can_inspect_snapshot_and_list_without_advancing(client, runtime):
 def test_non_admin_and_unauthenticated_requests_are_denied(client):
     assert client.get(path(), headers={"X-Test-Role": "viewer"}).status_code == 403
     assert client.get(path()).status_code == 401
+
+
+@pytest.mark.parametrize("endpoint,method", [("/assets", "get"), ("/route-preview", "post")])
+def test_added_operator_endpoints_require_admin(client, endpoint, method):
+    call = getattr(client, method)
+    assert call("/api/harness" + endpoint).status_code == 401
+    assert call("/api/harness" + endpoint, headers={"X-Test-Role": "viewer"}).status_code == 403
+
+
+def test_asset_api_uses_scoped_metadata_port(client):
+    calls = []
+
+    def listing(**scope):
+        calls.append(scope)
+        return [{"state": "quarantined", "evidence_status": "unverified"}]
+
+    client.application.extensions["evolution_asset_operator"] = SimpleNamespace(list=listing)
+    response = client.get(
+        "/api/harness/assets?tenant_id=tenant&project_id=project&limit=2", headers={"X-Test-Role": "admin"}
+    )
+    assert response.status_code == 200
+    assert calls == [{"tenant_id": "tenant", "project_id": "project", "limit": 2}]
+    assert response.get_json()["data"]["items"][0]["state"] == "quarantined"
+
+
+def test_route_preview_validates_contract_before_router_call(client):
+    def route(*args, **kwargs):
+        raise AssertionError("malformed request must not reach routing")
+
+    client.application.extensions["harness_router"] = SimpleNamespace(route=route)
+    assert (
+        client.post(
+            "/api/harness/route-preview", json={"task_id": "fixture"}, headers={"X-Test-Role": "admin"}
+        ).status_code
+        == 422
+    )
 
 
 @pytest.mark.parametrize(

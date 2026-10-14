@@ -58,11 +58,13 @@ def map_evolver_result(raw: dict[str, Any], *, provider_name: str = "evolver") -
     proposal_source, proposal_items = _proposal_items(raw)
     proposals = [_map_proposal(item, source_field=proposal_source) for item in proposal_items]
     validations = [_map_validation(item) for item in _validation_items(raw)]
+    assets = _map_assets(raw, provider_name)
     return EvolutionResult(
         provider_name=provider_name,
         status=_map_status(raw.get("status"), default="completed"),
         summary=str(raw.get("summary") or raw.get("message") or ""),
         proposals=proposals,
+        assets=assets,
         validation_results=validations,
         provider_metadata={
             "evolver_run_id": raw.get("run_id") or raw.get("id"),
@@ -72,6 +74,7 @@ def map_evolver_result(raw: dict[str, Any], *, provider_name: str = "evolver") -
             "evolver_validation_count": len(validations),
             "evolver_response_keys": sorted(str(key) for key in raw.keys())[:20],
             "source": "evolver",
+            "output_mode": (raw.get("provider_metadata") or {}).get("output_mode", "legacy_json_proposals"),
         },
         raw_payload=raw,
     )
@@ -80,6 +83,8 @@ def map_evolver_result(raw: dict[str, Any], *, provider_name: str = "evolver") -
 def validate_evolver_response(raw: dict[str, Any]) -> None:
     if not isinstance(raw, dict):
         raise EvolverResponseSchemaError("evolver_response_must_be_object")
+    if "assets" in raw and (not isinstance(raw["assets"], list) or len(raw["assets"]) > 65):
+        raise EvolverResponseSchemaError("evolver_assets_invalid")
 
     for key in _PROPOSAL_SOURCE_FIELDS:
         if key in raw and raw[key] is not None and not isinstance(raw[key], list):
@@ -180,3 +185,45 @@ def _map_status(value: Any, *, default: str) -> str:
 def _normalized_text(value: Any, default: str) -> str:
     text = str(value or default).strip().lower()
     return text or default
+
+
+def _map_assets(raw, provider_name):
+    from ananta_contracts.evolution_assets import EvolutionAsset
+
+    type_map = {"Gene": "strategy", "Capsule": "experience", "EvolutionEvent": "event", "GepPrompt": "prompt"}
+    version = (raw.get("provider_metadata") or {}).get("runtime", {}).get("version", "unknown")
+    if raw.get("assets") and version != "1.94.0":
+        raise EvolverResponseSchemaError("evolver_asset_runtime_incompatible")
+    output = []
+    for row in raw.get("assets", []):
+        if not isinstance(row, dict) or row.get("kind") not in type_map or not isinstance(row.get("raw_payload"), dict):
+            raise EvolverResponseSchemaError("evolver_asset_schema_incompatible")
+        if row.get("provider_schema_version") not in {
+            "1.6.0",
+            "1.8.0",
+            "1.12.1",
+            "legacy-pinned-v1.94.0",
+            "pinned-text-v1.94.0",
+        }:
+            raise EvolverResponseSchemaError("evolver_asset_schema_incompatible")
+        upstream = row["raw_payload"]
+        if row["kind"] != "GepPrompt" and (
+            upstream.get("type") != row["kind"]
+            or upstream.get("id") != row.get("provider_asset_id")
+            or upstream.get("schema_version", row["provider_schema_version"]) != row["provider_schema_version"]
+        ):
+            raise EvolverResponseSchemaError("evolver_asset_schema_incompatible")
+        asset = EvolutionAsset(
+            type_map[row["kind"]],
+            provider_name,
+            version,
+            str(row.get("provider_asset_id") or ""),
+            row["raw_payload"],
+            str(row.get("provider_schema_version") or ""),
+            row.get("proposal_candidate") is True,
+        )
+        try:
+            output.append(asset.to_mapping())
+        except (ValueError, TypeError) as exc:
+            raise EvolverResponseSchemaError("evolver_asset_schema_incompatible") from exc
+    return output

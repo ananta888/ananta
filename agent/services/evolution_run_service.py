@@ -46,10 +46,10 @@ def failure_audit_details(exc: Exception) -> dict[str, Any]:
 
 
 class EvolutionRunService:
-
-    def __init__(self, *, repositories=None, audit_fn=None):
+    def __init__(self, *, repositories=None, audit_fn=None, asset_store=None):
         self._repositories = repositories
         self._audit_fn = audit_fn
+        self._asset_store = asset_store
 
     def _audit(self, action: str, details: dict[str, Any]) -> None:
         if self._audit_fn is not None:
@@ -83,6 +83,18 @@ class EvolutionRunService:
         proposal_service=None,
     ) -> PersistedEvolutionAnalysis:
         repos = self._repositories or get_repository_registry()
+        assets = []
+        tenant = project = None
+        if result.assets:
+            from ananta_contracts.evolution_assets import EvolutionAsset
+
+            task = repos.task_repo.get_by_id(context.task_id) if context.task_id else None
+            task = task.model_dump() if hasattr(task, "model_dump") else task
+            tenant = task.get("tenant_id") if isinstance(task, dict) else getattr(task, "tenant_id", None)
+            project = task.get("project_id") if isinstance(task, dict) else getattr(task, "project_id", None)
+            if not tenant or not project:
+                raise ValueError("evolution_asset_task_scope_required")
+            assets = [EvolutionAsset.from_mapping(snapshot) for snapshot in result.assets]
         run = repos.evolution_run_repo.save(
             EvolutionRunDB(
                 id=result.run_id,
@@ -107,9 +119,17 @@ class EvolutionRunService:
             )
         )
         proposal_ids: list[str] = []
+        if assets:
+            from agent.repositories.evolution_assets import EvolutionAssetStore
+
+            asset_store = self._asset_store or EvolutionAssetStore()
+            for asset in assets:
+                asset_store.append(tenant_id=tenant, project_id=project, asset=asset, run_ref=run.id)
         for proposal in result.proposals:
             saved = repos.evolution_proposal_repo.save(
-                proposal_service._proposal_db(run, context, result, proposal, policy=policy) if proposal_service else None
+                proposal_service._proposal_db(run, context, result, proposal, policy=policy)
+                if proposal_service
+                else None
             )
             proposal_ids.append(saved.id)
         return PersistedEvolutionAnalysis(
