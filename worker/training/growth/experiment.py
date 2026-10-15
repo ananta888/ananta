@@ -18,11 +18,11 @@ from worker.training.research.modeling import require_torch
 
 
 def validate_splits(splits: dict) -> None:
-    if set(splits) != {"train", "validation", "holdout"}:
+    if not isinstance(splits, dict) or set(splits) != {"train", "validation", "holdout"}:
         raise ValueError("growth_dataset_splits_invalid")
     seen = set()
     for split, languages in splits.items():
-        if set(languages) != {"de", "en"}:
+        if not isinstance(languages, dict) or set(languages) != {"de", "en"}:
             raise ValueError("growth_dataset_languages_invalid")
         for texts in languages.values():
             if (
@@ -72,8 +72,17 @@ def run_experiment(
     steps: int = 8,
     device: str = "cpu",
     checkpoint_sink=None,
+    dataset_license_ids: tuple[str, ...] = (),
 ) -> dict:
     validate_splits(splits)
+    if (
+        not isinstance(dataset_license_ids, tuple)
+        or len(dataset_license_ids) > 64
+        or any(not isinstance(value, str) or not value.strip() or len(value) > 200 for value in dataset_license_ids)
+    ):
+        raise ValueError("growth_dataset_license_invalid")
+    reference_dataset = splits == reference_splits()
+    licenses = sorted(set(dataset_license_ids or (("CC0-1.0",) if reference_dataset else ())))
     if (
         not 2 <= len(seeds) <= 8
         or len(set(seeds)) != len(seeds)
@@ -244,9 +253,11 @@ def run_experiment(
             )
     return {
         "schema": "ananta.adaptive-growth-report.v1",
-        "classification": "synthetic_technical_observation",
+        "classification": "synthetic_technical_observation" if reference_dataset else "technical_observation",
         "production_release_evidence": False,
-        "dataset_license": "CC0-1.0 (original reference corpus)",
+        "dataset_license": ", ".join(licenses) if licenses else None,
+        "dataset_license_ids": licenses,
+        "dataset_kind": "original_synthetic_reference" if reference_dataset else "provided_split_corpus",
         "dataset_digest": hashlib.sha256(__import__("json").dumps(splits, sort_keys=True).encode()).hexdigest(),
         "device": device,
         "torch_version": torch.__version__,
@@ -257,5 +268,5 @@ def run_experiment(
         "rows": rows,
         "comparisons": comparisons,
         "decision": "experimental_only",
-        "reason": "Synthetic tiny corpus is insufficient for production promotion.",
+        "reason": "A tiny reference-model observation is insufficient for production promotion.",
     }

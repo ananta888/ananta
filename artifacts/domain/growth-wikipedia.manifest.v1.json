@@ -1,0 +1,1830 @@
+{
+  "schema": "ananta.growth-corpus-freeze.v1",
+  "classification": "external_dataset_technical_observation",
+  "production_release_evidence": false,
+  "grouping": "Wikidata entity; translations share the same split",
+  "maximum_chars_per_article": 2000,
+  "dataset_sha256": "c55f378939e7e9df8c15efebe6b373d9a7e178500e3f382995561ee1e43dcd86",
+  "records": [
+    {
+      "language": "de",
+      "article_id": "40560",
+      "url": "https://de.wikipedia.org/wiki/Haushalt",
+      "title": "Haushalt",
+      "group": "Q1591158",
+      "split": "train",
+      "content_sha256": "8ad451debb84004d09799ecae01a58969d6e3f56b56020626a2c500aaeff9928"
+    },
+    {
+      "language": "de",
+      "article_id": "40564",
+      "url": "https://de.wikipedia.org/wiki/Nationalhymne%20Finnlands",
+      "title": "Nationalhymne Finnlands",
+      "group": "Q162483",
+      "split": "holdout",
+      "content_sha256": "205c9c93cdce20850a5aa0018349994735195920f374c7efcff6c047cd12f8b6"
+    },
+    {
+      "language": "de",
+      "article_id": "40568",
+      "url": "https://de.wikipedia.org/wiki/Kompression",
+      "title": "Kompression",
+      "group": "Q101541508",
+      "split": "validation",
+      "content_sha256": "73ea17c0e49143618389ae43c3f61bc6c40c9bfdf29abdfc4e207c000bba13aa"
+    },
+    {
+      "language": "de",
+      "article_id": "40576",
+      "url": "https://de.wikipedia.org/wiki/Der%20Graf%20von%20Monte%20Christo",
+      "title": "Der Graf von Monte Christo",
+      "group": "Q191838",
+      "split": "validation",
+      "content_sha256": "a698d62239f96562178d3cef1ea8bb8739b505acf17c13da253c611d4ba133be"
+    },
+    {
+      "language": "de",
+      "article_id": "40581",
+      "url": "https://de.wikipedia.org/wiki/Twin%20Peaks",
+      "title": "Twin Peaks",
+      "group": "Q2085",
+      "split": "validation",
+      "content_sha256": "3a13a3546a266b0428a3397588d0e06c61ef0a03a1e97e2b510f30d400a121b1"
+    },
+    {
+      "language": "de",
+      "article_id": "40583",
+      "url": "https://de.wikipedia.org/wiki/Liste%20der%20bemannten%20Raumfl%C3%BCge",
+      "title": "Liste der bemannten Raumflüge",
+      "group": "Q1129350",
+      "split": "validation",
+      "content_sha256": "46e6d52691f39ce9eec25e527ddfad9eec117e8317a5e85aaa424646eebd2533"
+    },
+    {
+      "language": "de",
+      "article_id": "40585",
+      "url": "https://de.wikipedia.org/wiki/Liste%20der%20Raumsonden",
+      "title": "Liste der Raumsonden",
+      "group": "Q604626",
+      "split": "train",
+      "content_sha256": "bc33b6fefb424b1cd6a8ca122c48aa570e8db257f7ea2110f72cd1dc905ba311"
+    },
+    {
+      "language": "de",
+      "article_id": "40586",
+      "url": "https://de.wikipedia.org/wiki/Johannistag",
+      "title": "Johannistag",
+      "group": "Q3870479",
+      "split": "train",
+      "content_sha256": "6729a9947f6b321a141c3e3763d293501a67b5f4b354b8f35258aa4faa463268"
+    },
+    {
+      "language": "de",
+      "article_id": "40590",
+      "url": "https://de.wikipedia.org/wiki/Meinradsbrunnen",
+      "title": "Meinradsbrunnen",
+      "group": "Q1796484",
+      "split": "train",
+      "content_sha256": "852fe5b1fdab608817b8e24d83055e412820775480f27208b4b70bced7b610f2"
+    },
+    {
+      "language": "de",
+      "article_id": "40591",
+      "url": "https://de.wikipedia.org/wiki/M%C3%BCnster%20%28Kirche%29",
+      "title": "Münster (Kirche)",
+      "group": "Q618351",
+      "split": "holdout",
+      "content_sha256": "945e627354e2cdc0ed47e9853b31e47ab38d94fcc135d07757eb8fca08d0c033"
+    },
+    {
+      "language": "de",
+      "article_id": "40593",
+      "url": "https://de.wikipedia.org/wiki/Philip%20Glass",
+      "title": "Philip Glass",
+      "group": "Q189729",
+      "split": "holdout",
+      "content_sha256": "14b3a678f20c78238db515d5f9818f134255da73650bb1e99978bee976e4418b"
+    },
+    {
+      "language": "de",
+      "article_id": "40596",
+      "url": "https://de.wikipedia.org/wiki/NATO-Doppelbeschluss",
+      "title": "NATO-Doppelbeschluss",
+      "group": "Q1638236",
+      "split": "validation",
+      "content_sha256": "ac7827c67ae41ba903acede74acc83ba0b0f9b61baa437e66b7deac8f16d844b"
+    },
+    {
+      "language": "de",
+      "article_id": "40597",
+      "url": "https://de.wikipedia.org/wiki/Pantheon%20%28Rom%29",
+      "title": "Pantheon (Rom)",
+      "group": "Q99309",
+      "split": "holdout",
+      "content_sha256": "6f63a92ce64ce6e5fb7237c4288ec56644cffb9736933d75db39e8c8e06afa0a"
+    },
+    {
+      "language": "de",
+      "article_id": "40599",
+      "url": "https://de.wikipedia.org/wiki/S%C3%A4ulenordnung",
+      "title": "Säulenordnung",
+      "group": "Q217175",
+      "split": "train",
+      "content_sha256": "bdeb2f5e2533f2dfbfd977619a6ba39b1b1230814ed126029a928b92c3da5c2d"
+    },
+    {
+      "language": "de",
+      "article_id": "40601",
+      "url": "https://de.wikipedia.org/wiki/S%C3%A4ule",
+      "title": "Säule",
+      "group": "Q4817",
+      "split": "validation",
+      "content_sha256": "603079a2d033801d701a84f6b07b84f8fedd996cb17fe675ff146acc2018a2c3"
+    },
+    {
+      "language": "de",
+      "article_id": "40602",
+      "url": "https://de.wikipedia.org/wiki/Leben",
+      "title": "Leben",
+      "group": "Q3",
+      "split": "validation",
+      "content_sha256": "d0e62ef5a9363e80f267314e97f4188ad029dfd07650d739cae0d2f011b908dc"
+    },
+    {
+      "language": "de",
+      "article_id": "40609",
+      "url": "https://de.wikipedia.org/wiki/Hexosen",
+      "title": "Hexosen",
+      "group": "Q339725",
+      "split": "train",
+      "content_sha256": "28deeb43f4db3c62e0f04f424fe8275dd343906bd237c98eaf344a5cfbb7fa9c"
+    },
+    {
+      "language": "de",
+      "article_id": "40613",
+      "url": "https://de.wikipedia.org/wiki/Nekrolog%202005",
+      "title": "Nekrolog 2005",
+      "group": "Q847466",
+      "split": "validation",
+      "content_sha256": "b3480cde641c547f5d882619f7262b9a78b37dae5242765ff44d81d4cef9eebd"
+    },
+    {
+      "language": "de",
+      "article_id": "40620",
+      "url": "https://de.wikipedia.org/wiki/John%20Barry%20%28Filmkomponist%29",
+      "title": "John Barry (Filmkomponist)",
+      "group": "Q111074",
+      "split": "train",
+      "content_sha256": "782980505df2c9fe96bcc9a1e2c1be9caf1dd346b72d8ef35854f5693f210ebb"
+    },
+    {
+      "language": "de",
+      "article_id": "40624",
+      "url": "https://de.wikipedia.org/wiki/Relegatio",
+      "title": "Relegatio",
+      "group": "Q639430",
+      "split": "train",
+      "content_sha256": "6f93d06892c3bf83e7e45aae02b0a52ccaa6404fd9372dcbffce5439a4fde04f"
+    },
+    {
+      "language": "de",
+      "article_id": "40625",
+      "url": "https://de.wikipedia.org/wiki/Turing-Test",
+      "title": "Turing-Test",
+      "group": "Q189223",
+      "split": "train",
+      "content_sha256": "fe99a328752bbe93ab6ad5b4286413971563a5e8db626dadabe54c77dd34d44c"
+    },
+    {
+      "language": "de",
+      "article_id": "40628",
+      "url": "https://de.wikipedia.org/wiki/Juan%20Bosch",
+      "title": "Juan Bosch",
+      "group": "Q439980",
+      "split": "holdout",
+      "content_sha256": "97eaf0b84625fc09cc2169a693f9e0ef775150302df80f678d70d1fecb51658f"
+    },
+    {
+      "language": "de",
+      "article_id": "40632",
+      "url": "https://de.wikipedia.org/wiki/Gewinnschwelle",
+      "title": "Gewinnschwelle",
+      "group": "Q626990",
+      "split": "holdout",
+      "content_sha256": "2617d431b99c568f9c412ebe28f47ba323c3096af92b27d10505bdac38b97ccc"
+    },
+    {
+      "language": "de",
+      "article_id": "40638",
+      "url": "https://de.wikipedia.org/wiki/Sepp%20Kerschbaumer",
+      "title": "Sepp Kerschbaumer",
+      "group": "Q78228",
+      "split": "train",
+      "content_sha256": "d6fc6dbafb051edfd58116d09f292ac8a95e10f9c2ebab35dd365ddc1df98394"
+    },
+    {
+      "language": "de",
+      "article_id": "40639",
+      "url": "https://de.wikipedia.org/wiki/Schlern",
+      "title": "Schlern",
+      "group": "Q264772",
+      "split": "train",
+      "content_sha256": "87281ba53efbcfceb4a2c3658f70a6807bb04c8c222109709ff8496aea252260"
+    },
+    {
+      "language": "de",
+      "article_id": "40642",
+      "url": "https://de.wikipedia.org/wiki/Aminogruppe",
+      "title": "Aminogruppe",
+      "group": "Q1210630",
+      "split": "validation",
+      "content_sha256": "25916358b409e434a0888df8fa1194e3f1136a9d7f1b29ca942a1e3272a5ed84"
+    },
+    {
+      "language": "de",
+      "article_id": "40644",
+      "url": "https://de.wikipedia.org/wiki/Bogen%20%28Waffe%29",
+      "title": "Bogen (Waffe)",
+      "group": "Q46311",
+      "split": "validation",
+      "content_sha256": "dfac6da810aef638d13a134eed7fc1250d9228d5147cd01953a64c0e038745dc"
+    },
+    {
+      "language": "de",
+      "article_id": "40645",
+      "url": "https://de.wikipedia.org/wiki/Soldaten%20sind%20M%C3%B6rder",
+      "title": "Soldaten sind Mörder",
+      "group": "Q1277088",
+      "split": "holdout",
+      "content_sha256": "2fa8483c71655ecb1c869cbd31485030071a197764e62f78365ac4d113b6a750"
+    },
+    {
+      "language": "de",
+      "article_id": "40646",
+      "url": "https://de.wikipedia.org/wiki/Substrat",
+      "title": "Substrat",
+      "group": "Q2362549",
+      "split": "train",
+      "content_sha256": "9ceaeb67a77c8bbc1671d3ba10b3dc9528c34657462cf8b9fcd9d1aa3ef4493f"
+    },
+    {
+      "language": "de",
+      "article_id": "40649",
+      "url": "https://de.wikipedia.org/wiki/Christian%20Doppler",
+      "title": "Christian Doppler",
+      "group": "Q84284",
+      "split": "train",
+      "content_sha256": "15cb5b198519d8911a601319a45c234b586236c703e3bc3ae8a41d3e3df90797"
+    },
+    {
+      "language": "de",
+      "article_id": "40650",
+      "url": "https://de.wikipedia.org/wiki/Schwerte",
+      "title": "Schwerte",
+      "group": "Q6863",
+      "split": "holdout",
+      "content_sha256": "3d57aeef686367e4f18f0cec838f08cf19d7a1534d355a8bf76a272d371a349f"
+    },
+    {
+      "language": "de",
+      "article_id": "40651",
+      "url": "https://de.wikipedia.org/wiki/Gedanke",
+      "title": "Gedanke",
+      "group": "Q349047",
+      "split": "train",
+      "content_sha256": "a02baeefaa8b8407535ea6d721f883bf89810c26776386fdbfe32a2c7e269320"
+    },
+    {
+      "language": "de",
+      "article_id": "40658",
+      "url": "https://de.wikipedia.org/wiki/Ping",
+      "title": "Ping",
+      "group": "Q299816",
+      "split": "holdout",
+      "content_sha256": "41833d156df33242e2d9850c83b16afa67c39d7ddd0a2fcc7d463b43ca18be90"
+    },
+    {
+      "language": "de",
+      "article_id": "40660",
+      "url": "https://de.wikipedia.org/wiki/Rhein-Hunsr%C3%BCck-Kreis",
+      "title": "Rhein-Hunsrück-Kreis",
+      "group": "Q8574",
+      "split": "holdout",
+      "content_sha256": "0e4adb8bf2d957c500b51ff6dd6bec587d6ebffd12b15f8d941114544f38c3cf"
+    },
+    {
+      "language": "de",
+      "article_id": "40661",
+      "url": "https://de.wikipedia.org/wiki/Friedrich%20Wilhelm%20Bessel",
+      "title": "Friedrich Wilhelm Bessel",
+      "group": "Q75845",
+      "split": "validation",
+      "content_sha256": "43fbff7db0278ab35c7eb77dee9832f50c786861626d2acc4853184da8bbbfef"
+    },
+    {
+      "language": "de",
+      "article_id": "40664",
+      "url": "https://de.wikipedia.org/wiki/Westerwaldkreis",
+      "title": "Westerwaldkreis",
+      "group": "Q8602",
+      "split": "holdout",
+      "content_sha256": "d1b7b907fe578796129dd1fa5a2d2d69881bdb2b8a95241df406c13438788435"
+    },
+    {
+      "language": "de",
+      "article_id": "40671",
+      "url": "https://de.wikipedia.org/wiki/Landkreis%20Aschaffenburg",
+      "title": "Landkreis Aschaffenburg",
+      "group": "Q10471",
+      "split": "train",
+      "content_sha256": "e11b8e0a214dcc9abe8a55ff2dd2608da8c91298f21c8065515c8d5b1c6dd4fe"
+    },
+    {
+      "language": "de",
+      "article_id": "40676",
+      "url": "https://de.wikipedia.org/wiki/Longan",
+      "title": "Longan",
+      "group": "Q193449",
+      "split": "holdout",
+      "content_sha256": "22c46bebe57c63e7644e287f442bb93030df26880cb6b1599017473a99fae8d3"
+    },
+    {
+      "language": "de",
+      "article_id": "40680",
+      "url": "https://de.wikipedia.org/wiki/Pampelmuse",
+      "title": "Pampelmuse",
+      "group": "Q80024",
+      "split": "holdout",
+      "content_sha256": "e6d9c688d7e3ca568e96da2cfdc336311d2024f5865374802a99026a155a9051"
+    },
+    {
+      "language": "de",
+      "article_id": "40690",
+      "url": "https://de.wikipedia.org/wiki/Fehmarnbelt",
+      "title": "Fehmarnbelt",
+      "group": "Q506241",
+      "split": "train",
+      "content_sha256": "e38fa720603cbb07ba873e5c539c6c892f61f69b04995904e66afc8ae80ae22e"
+    },
+    {
+      "language": "de",
+      "article_id": "40692",
+      "url": "https://de.wikipedia.org/wiki/Unterscheidbarkeit",
+      "title": "Unterscheidbarkeit",
+      "group": "Q2498875",
+      "split": "train",
+      "content_sha256": "49e7dd0772143a09b385d6083a2ecde030ae6b443438fd440ac23e4ff62792c4"
+    },
+    {
+      "language": "de",
+      "article_id": "40693",
+      "url": "https://de.wikipedia.org/wiki/Karpfenfische",
+      "title": "Karpfenfische",
+      "group": "Q35047",
+      "split": "validation",
+      "content_sha256": "beb63246ff9562add7c590f6e9db5063e38f0fc43195036e8d89547d29fd3dc3"
+    },
+    {
+      "language": "de",
+      "article_id": "40697",
+      "url": "https://de.wikipedia.org/wiki/Kanchanaburi%20%28Provinz%29",
+      "title": "Kanchanaburi (Provinz)",
+      "group": "Q275740",
+      "split": "holdout",
+      "content_sha256": "9e4a12864e4cde6ae6ab85f6a36ef2360cf90a7d5daab5e7273fa996b79e0610"
+    },
+    {
+      "language": "de",
+      "article_id": "40698",
+      "url": "https://de.wikipedia.org/wiki/Korrelationskoeffizient",
+      "title": "Korrelationskoeffizient",
+      "group": "Q1136628",
+      "split": "validation",
+      "content_sha256": "36067eda2cc9741f9ce1307a5ba7c8a563cfe2599d0a36b92f2d0ae07bb355a1"
+    },
+    {
+      "language": "de",
+      "article_id": "40700",
+      "url": "https://de.wikipedia.org/wiki/Genf",
+      "title": "Genf",
+      "group": "Q71",
+      "split": "train",
+      "content_sha256": "699ad750856c3cf987f9b98824e3bb6178fab517165847f6b1e522434978ddef"
+    },
+    {
+      "language": "de",
+      "article_id": "40703",
+      "url": "https://de.wikipedia.org/wiki/Keltisches%20Baumhoroskop",
+      "title": "Keltisches Baumhoroskop",
+      "group": "Q1738390",
+      "split": "train",
+      "content_sha256": "bdb7c62718379d7105e88cf4554ababc18ddf5b4680847e4b2126ba03a917b0d"
+    },
+    {
+      "language": "de",
+      "article_id": "40706",
+      "url": "https://de.wikipedia.org/wiki/Friedensreich%20Hundertwasser",
+      "title": "Friedensreich Hundertwasser",
+      "group": "Q151836",
+      "split": "train",
+      "content_sha256": "d9a78dd899fce97ec76998c459826d0e24e33146036a474cca6ac705ff73ebb6"
+    },
+    {
+      "language": "de",
+      "article_id": "40713",
+      "url": "https://de.wikipedia.org/wiki/Elena",
+      "title": "Elena",
+      "group": "Q294925",
+      "split": "train",
+      "content_sha256": "ff6e2efb8c9b53ad3d020e3dc4965e767a72e62d357dd9ec6e55a1ff919281b9"
+    },
+    {
+      "language": "de",
+      "article_id": "40723",
+      "url": "https://de.wikipedia.org/wiki/Object%20Management%20Group",
+      "title": "Object Management Group",
+      "group": "Q252733",
+      "split": "validation",
+      "content_sha256": "8c4e87aa0dab7fd6aff999aa77592ad233c7b54b049cb55176638a178b5cb733"
+    },
+    {
+      "language": "de",
+      "article_id": "40725",
+      "url": "https://de.wikipedia.org/wiki/OMG",
+      "title": "OMG",
+      "group": "Q226011",
+      "split": "train",
+      "content_sha256": "af08fa0da3d341190be2667cdc1c19dd35d8de2786f5b31afec65d7d574d6195"
+    },
+    {
+      "language": "de",
+      "article_id": "40730",
+      "url": "https://de.wikipedia.org/wiki/Fachinformation",
+      "title": "Fachinformation",
+      "group": "Q1391314",
+      "split": "validation",
+      "content_sha256": "fd7c3bfb028dc5939b7801ca22a234941386f119c75c81d52be3b06f3e37f7f9"
+    },
+    {
+      "language": "de",
+      "article_id": "40734",
+      "url": "https://de.wikipedia.org/wiki/Reflexion%20%28Philosophie%29",
+      "title": "Reflexion (Philosophie)",
+      "group": "Q65244366",
+      "split": "train",
+      "content_sha256": "db6fc994561df2a184e6003f967facc18c0963cdc2c4814fd834c640ceb2680a"
+    },
+    {
+      "language": "de",
+      "article_id": "40735",
+      "url": "https://de.wikipedia.org/wiki/Fachinformationszentrum",
+      "title": "Fachinformationszentrum",
+      "group": "Q1391306",
+      "split": "train",
+      "content_sha256": "fb927d98e1673c6333f9ea108699ff614f557dfb2eab0d739c4404deabb5a54b"
+    },
+    {
+      "language": "de",
+      "article_id": "40742",
+      "url": "https://de.wikipedia.org/wiki/Martin%20Niem%C3%B6ller",
+      "title": "Martin Niemöller",
+      "group": "Q153839",
+      "split": "train",
+      "content_sha256": "33c8afac1f209466c5d046d070c286ab4e83742571730a15906f265ac3e8e04a"
+    },
+    {
+      "language": "de",
+      "article_id": "40744",
+      "url": "https://de.wikipedia.org/wiki/%C3%96stliche%20Philosophie",
+      "title": "Östliche Philosophie",
+      "group": "Q307043",
+      "split": "train",
+      "content_sha256": "fa4098c22de9d909a49748c457f9204861c90df0a4155a68cc7bbcc1d6cccc7e"
+    },
+    {
+      "language": "de",
+      "article_id": "40746",
+      "url": "https://de.wikipedia.org/wiki/Acetylcholin",
+      "title": "Acetylcholin",
+      "group": "Q180623",
+      "split": "holdout",
+      "content_sha256": "b23c7bba515c6c5cad0f7472107d74d357e94d6f0fb4ffa2b1bce1ff1f24ac81"
+    },
+    {
+      "language": "de",
+      "article_id": "40749",
+      "url": "https://de.wikipedia.org/wiki/Peri%C3%B6ken",
+      "title": "Periöken",
+      "group": "Q288216",
+      "split": "train",
+      "content_sha256": "751cd564c290586470adf35e7ad18530fe00fcd488c92d92063ea6870dc7c54d"
+    },
+    {
+      "language": "de",
+      "article_id": "40752",
+      "url": "https://de.wikipedia.org/wiki/Ideographie",
+      "title": "Ideographie",
+      "group": "Q3400227",
+      "split": "train",
+      "content_sha256": "4deae350bf5fda7c80165c2e184a6baaa32fd82ea93cf1c38e78816d801469ee"
+    },
+    {
+      "language": "de",
+      "article_id": "40753",
+      "url": "https://de.wikipedia.org/wiki/Statutarstadt",
+      "title": "Statutarstadt",
+      "group": "Q2334241",
+      "split": "train",
+      "content_sha256": "4e1d3f80158cde95b0c260e9b51b8f675e5d188a9044dc87045272b8e8531990"
+    },
+    {
+      "language": "de",
+      "article_id": "40754",
+      "url": "https://de.wikipedia.org/wiki/Lakonien",
+      "title": "Lakonien",
+      "group": "Q11723836",
+      "split": "holdout",
+      "content_sha256": "52931d71c81121b8f92574d5c0014fd05cfc0191fa9a9665b7ca50f80f720776"
+    },
+    {
+      "language": "de",
+      "article_id": "40756",
+      "url": "https://de.wikipedia.org/wiki/Lakedaimonier",
+      "title": "Lakedaimonier",
+      "group": "Q1260575",
+      "split": "train",
+      "content_sha256": "fb91f5a48ef24f9fbb7d55747044c92d059e7c243917f7bb6dcd630ed839a290"
+    },
+    {
+      "language": "de",
+      "article_id": "40757",
+      "url": "https://de.wikipedia.org/wiki/Hochwanner",
+      "title": "Hochwanner",
+      "group": "Q255743",
+      "split": "train",
+      "content_sha256": "f8659665ff0dc95008c2dda7df6c9d00acbca885c205b1e2a6fc8e50c195f8b1"
+    },
+    {
+      "language": "de",
+      "article_id": "40761",
+      "url": "https://de.wikipedia.org/wiki/Schwaz",
+      "title": "Schwaz",
+      "group": "Q583485",
+      "split": "holdout",
+      "content_sha256": "e4a94537b577129464bfc0f44772b13974855ffeef99105a05eb45efe3a275f0"
+    },
+    {
+      "language": "de",
+      "article_id": "40764",
+      "url": "https://de.wikipedia.org/wiki/Industrieviertel",
+      "title": "Industrieviertel",
+      "group": "Q700465",
+      "split": "validation",
+      "content_sha256": "dc75684a64250f50d4763ca352c49489c7bd18dc11503507ac55b19d0b8e4647"
+    },
+    {
+      "language": "de",
+      "article_id": "40765",
+      "url": "https://de.wikipedia.org/wiki/Dienstprogramm",
+      "title": "Dienstprogramm",
+      "group": "Q312466",
+      "split": "train",
+      "content_sha256": "b447d841109777a1a9ef3cb69f1e8634f124a8ef4f3256ad3ee2206481152c00"
+    },
+    {
+      "language": "de",
+      "article_id": "40769",
+      "url": "https://de.wikipedia.org/wiki/Wortstamm",
+      "title": "Wortstamm",
+      "group": "Q210523",
+      "split": "train",
+      "content_sha256": "7df6f465cda5ec396a8397481646ee3800d07ab8f9ed569794a0c12f101c57ff"
+    },
+    {
+      "language": "de",
+      "article_id": "40771",
+      "url": "https://de.wikipedia.org/wiki/Infrastruktur",
+      "title": "Infrastruktur",
+      "group": "Q121359",
+      "split": "train",
+      "content_sha256": "e08863bce83920d64e8cdc8b23a6194fb72c0598db75bfbc79075295f86f1322"
+    },
+    {
+      "language": "de",
+      "article_id": "40774",
+      "url": "https://de.wikipedia.org/wiki/Augenheilkunde",
+      "title": "Augenheilkunde",
+      "group": "Q161437",
+      "split": "train",
+      "content_sha256": "f44ed53c51e599c793c409994648d5976c0c371d23645d588ca472d12ef2a911"
+    },
+    {
+      "language": "de",
+      "article_id": "40775",
+      "url": "https://de.wikipedia.org/wiki/Emme",
+      "title": "Emme",
+      "group": "Q688240",
+      "split": "holdout",
+      "content_sha256": "296ca1326c8c949224c434ede73b7637257039c423722a265985f943c3dabcfc"
+    },
+    {
+      "language": "de",
+      "article_id": "40777",
+      "url": "https://de.wikipedia.org/wiki/Katarakt%20%28Medizin%29",
+      "title": "Katarakt (Medizin)",
+      "group": "Q127724",
+      "split": "holdout",
+      "content_sha256": "a94060b08317e05061ac575a98db195f2867fce234eb0774925cf6d994807a35"
+    },
+    {
+      "language": "de",
+      "article_id": "40781",
+      "url": "https://de.wikipedia.org/wiki/Blindheit",
+      "title": "Blindheit",
+      "group": "Q10874",
+      "split": "validation",
+      "content_sha256": "8d85a06cc415a56ab3cb3e0ff2af88df9c0cdcc0f9cae422d00343ec57204fc7"
+    },
+    {
+      "language": "de",
+      "article_id": "40783",
+      "url": "https://de.wikipedia.org/wiki/Virtuelles%20Klassenzimmer",
+      "title": "Virtuelles Klassenzimmer",
+      "group": "Q16473858",
+      "split": "train",
+      "content_sha256": "b2200730077e88d11a91e7dcc30f165857c174a77115c90ebe68f15891795c0d"
+    },
+    {
+      "language": "de",
+      "article_id": "40784",
+      "url": "https://de.wikipedia.org/wiki/Embolie",
+      "title": "Embolie",
+      "group": "Q275466",
+      "split": "train",
+      "content_sha256": "944de79ff62f9ef5daaff5d8980547bf28768a54a07a4b8a4844bc5a5f005567"
+    },
+    {
+      "language": "de",
+      "article_id": "40785",
+      "url": "https://de.wikipedia.org/wiki/Blind%20%28Begriffskl%C3%A4rung%29",
+      "title": "Blind (Begriffsklärung)",
+      "group": "Q352269",
+      "split": "holdout",
+      "content_sha256": "22f4f5cec9e8f34eaf68666b57f50d78157ea8399683e187ce9a579cdda1d8d6"
+    },
+    {
+      "language": "de",
+      "article_id": "40787",
+      "url": "https://de.wikipedia.org/wiki/Orthop%C3%A4die",
+      "title": "Orthopädie",
+      "group": "Q216685",
+      "split": "train",
+      "content_sha256": "f259fdc5000b0865971b19ea239f6eb0cc342a2688383a3fa5da1df714a6eb62"
+    },
+    {
+      "language": "de",
+      "article_id": "40788",
+      "url": "https://de.wikipedia.org/wiki/Eugeen%20Van%20Mieghem",
+      "title": "Eugeen Van Mieghem",
+      "group": "Q320235",
+      "split": "train",
+      "content_sha256": "74538209887370e4c7d4e2c740e88cf56feb3cd06a16d131acd2c3e08fc4f83d"
+    },
+    {
+      "language": "de",
+      "article_id": "40789",
+      "url": "https://de.wikipedia.org/wiki/Boh%C3%A8me",
+      "title": "Bohème",
+      "group": "Q207175",
+      "split": "train",
+      "content_sha256": "113c4165532dee4e4b1b420fadf5c3ab4c14e6731f3d55a50906b3c7fdee38db"
+    },
+    {
+      "language": "de",
+      "article_id": "40791",
+      "url": "https://de.wikipedia.org/wiki/Al-Aqsa-Moschee",
+      "title": "Al-Aqsa-Moschee",
+      "group": "Q12192963",
+      "split": "validation",
+      "content_sha256": "d2f2c3e9f3f60c47aa2ff8fe770fd00252e6de0d7c3c9026269d19e63f65d166"
+    },
+    {
+      "language": "de",
+      "article_id": "40795",
+      "url": "https://de.wikipedia.org/wiki/Landkreis%20Rh%C3%B6n-Grabfeld",
+      "title": "Landkreis Rhön-Grabfeld",
+      "group": "Q10465",
+      "split": "holdout",
+      "content_sha256": "20c04a2453fde74f75de919acd21e0c3e16d6281c39564c6b7b566dae7805510"
+    },
+    {
+      "language": "de",
+      "article_id": "40796",
+      "url": "https://de.wikipedia.org/wiki/Pius%20IX.",
+      "title": "Pius IX.",
+      "group": "Q43720",
+      "split": "train",
+      "content_sha256": "60ece79822c05c75e427d58a5dcf4850409669fd427c4f423a89c0e877ab30a1"
+    },
+    {
+      "language": "de",
+      "article_id": "40799",
+      "url": "https://de.wikipedia.org/wiki/Eusebius%20%28Bischof%20von%20Rom%29",
+      "title": "Eusebius (Bischof von Rom)",
+      "group": "Q160514",
+      "split": "validation",
+      "content_sha256": "93fab9c346a7fb627b459f2d3fc93eb1136dc3f28ee3484c75dca1c9cc157df0"
+    },
+    {
+      "language": "de",
+      "article_id": "40802",
+      "url": "https://de.wikipedia.org/wiki/Fl%C3%A4chenma%C3%9F",
+      "title": "Flächenmaß",
+      "group": "Q1371562",
+      "split": "validation",
+      "content_sha256": "d33d2590fb6a0621a57d2039725e9de4d432d3d6109cd08a00b795ebf23b6837"
+    },
+    {
+      "language": "de",
+      "article_id": "40803",
+      "url": "https://de.wikipedia.org/wiki/Alltagskultur",
+      "title": "Alltagskultur",
+      "group": "Q2649476",
+      "split": "train",
+      "content_sha256": "ed560b4c30eaa3d7aac226a1f67b6afee5a67a77ed4cd1e6dda3e75059e61cb1"
+    },
+    {
+      "language": "de",
+      "article_id": "40804",
+      "url": "https://de.wikipedia.org/wiki/Landkreis%20Ha%C3%9Fberge",
+      "title": "Landkreis Haßberge",
+      "group": "Q10462",
+      "split": "validation",
+      "content_sha256": "fdf142a432f8c7eaf873160a86a5332abc5e0d145196d23d9d75038e22b39e54"
+    },
+    {
+      "language": "de",
+      "article_id": "40805",
+      "url": "https://de.wikipedia.org/wiki/It%C5%8D%20Hirobumi",
+      "title": "Itō Hirobumi",
+      "group": "Q174971",
+      "split": "train",
+      "content_sha256": "d0238e978ecd4360327600503e0a8d4a73b0125fe39a6e136daea448c20fa643"
+    },
+    {
+      "language": "de",
+      "article_id": "40806",
+      "url": "https://de.wikipedia.org/wiki/Online-Zusammenarbeit",
+      "title": "Online-Zusammenarbeit",
+      "group": "Q5275814",
+      "split": "train",
+      "content_sha256": "475837142a77519b4b3a0c55b723a25138051a8d175df8512f0f5bc8a6fc4aa0"
+    },
+    {
+      "language": "de",
+      "article_id": "40807",
+      "url": "https://de.wikipedia.org/wiki/Frankenthal%20%28Begriffskl%C3%A4rung%29",
+      "title": "Frankenthal (Begriffsklärung)",
+      "group": "Q298517",
+      "split": "train",
+      "content_sha256": "528fc6d993a3724449308931d36241260a7417e48858bb654eb55f7522a73055"
+    },
+    {
+      "language": "de",
+      "article_id": "40809",
+      "url": "https://de.wikipedia.org/wiki/Landkreis%20Kitzingen",
+      "title": "Landkreis Kitzingen",
+      "group": "Q10459",
+      "split": "train",
+      "content_sha256": "0bee675005a2790444e3166182342692eb6c83486a3478e8948782aed312e99d"
+    },
+    {
+      "language": "de",
+      "article_id": "40810",
+      "url": "https://de.wikipedia.org/wiki/Stummheit",
+      "title": "Stummheit",
+      "group": "Q56296531",
+      "split": "train",
+      "content_sha256": "ca182058a6655428b8bf5e834fbf42537551adb522c3533ecc04e2c1c57dd3bb"
+    },
+    {
+      "language": "de",
+      "article_id": "40815",
+      "url": "https://de.wikipedia.org/wiki/Trajanss%C3%A4ule",
+      "title": "Trajanssäule",
+      "group": "Q192784",
+      "split": "train",
+      "content_sha256": "bac25824600b5d100090aac0f21d610c7ffc09d8da73255db6d22313bc52aeec"
+    },
+    {
+      "language": "de",
+      "article_id": "40817",
+      "url": "https://de.wikipedia.org/wiki/Landkreis%20Miltenberg",
+      "title": "Landkreis Miltenberg",
+      "group": "Q10472",
+      "split": "holdout",
+      "content_sha256": "4a43cf59a6a701dfa9d0cb315b403fd2638f0ea79e0004bbecc22ba3ef4a2154"
+    },
+    {
+      "language": "de",
+      "article_id": "40818",
+      "url": "https://de.wikipedia.org/wiki/Zwergschwan",
+      "title": "Zwergschwan",
+      "group": "Q244325",
+      "split": "validation",
+      "content_sha256": "3be77f8205f757f6fc4ea937f62b1603ac08ced4b98a17d4178e649ba2399f06"
+    },
+    {
+      "language": "de",
+      "article_id": "40820",
+      "url": "https://de.wikipedia.org/wiki/Wortfamilie",
+      "title": "Wortfamilie",
+      "group": "Q4331688",
+      "split": "holdout",
+      "content_sha256": "f622163f47cc6a6178f23800c3425f6dae5e46d4d76355fa09b07945e41bf805"
+    },
+    {
+      "language": "de",
+      "article_id": "40821",
+      "url": "https://de.wikipedia.org/wiki/Unbemanntes%20Luftfahrzeug",
+      "title": "Unbemanntes Luftfahrzeug",
+      "group": "Q484000",
+      "split": "validation",
+      "content_sha256": "32f638eec89eff1674b62c242d17ba337298a7d59026c515b70e99ae4ff22ea4"
+    },
+    {
+      "language": "de",
+      "article_id": "40823",
+      "url": "https://de.wikipedia.org/wiki/Alanin",
+      "title": "Alanin",
+      "group": "Q218642",
+      "split": "train",
+      "content_sha256": "bc826ba2f8f79a02efd25d16631ed1ea7034b1b95a8f92f677b76f423471e7d3"
+    },
+    {
+      "language": "de",
+      "article_id": "40825",
+      "url": "https://de.wikipedia.org/wiki/Heringsartige",
+      "title": "Heringsartige",
+      "group": "Q193389",
+      "split": "train",
+      "content_sha256": "d7dd2cdfff3fd11879b54f7b71888e4e0847530e38177096eb9ae25406db788a"
+    },
+    {
+      "language": "de",
+      "article_id": "40828",
+      "url": "https://de.wikipedia.org/wiki/Heringe",
+      "title": "Heringe",
+      "group": "Q27141",
+      "split": "train",
+      "content_sha256": "7a94d34a907a15aebb181ec8b27ef918f2ce8f9575046be9eb527207e428183b"
+    },
+    {
+      "language": "de",
+      "article_id": "40841",
+      "url": "https://de.wikipedia.org/wiki/El%20Mariachi",
+      "title": "El Mariachi",
+      "group": "Q840297",
+      "split": "validation",
+      "content_sha256": "b94a45219061165a55bf5d0d20a685c48fcd2b3d3e28daf79777c751cd4a89e6"
+    },
+    {
+      "language": "de",
+      "article_id": "40842",
+      "url": "https://de.wikipedia.org/wiki/Inkunabel",
+      "title": "Inkunabel",
+      "group": "Q216665",
+      "split": "holdout",
+      "content_sha256": "74fd903d0d83e8f0a454541488b469a62764a3fbf0cb713bf611f98e4c65d1b3"
+    },
+    {
+      "language": "de",
+      "article_id": "40854",
+      "url": "https://de.wikipedia.org/wiki/Pfeifschwan",
+      "title": "Pfeifschwan",
+      "group": "Q26603",
+      "split": "holdout",
+      "content_sha256": "ce1f32fe5bfb8980a28f336d0cde7c698e3a682de1bc658f18582059e1557765"
+    },
+    {
+      "language": "en",
+      "article_id": "4173525",
+      "url": "https://en.wikipedia.org/wiki/Regis%20College%20%28Massachusetts%29",
+      "title": "Regis College (Massachusetts)",
+      "group": "Q7309324",
+      "split": "train",
+      "content_sha256": "431da17d5795ee883fc0a640ec8b3969d79c34da19563d1175098735521dca78"
+    },
+    {
+      "language": "en",
+      "article_id": "4173531",
+      "url": "https://en.wikipedia.org/wiki/Harold%20Thorby",
+      "title": "Harold Thorby",
+      "group": "Q5662549",
+      "split": "holdout",
+      "content_sha256": "bf7c1efa1bf81627ff36139a3355b83b16241b2717cffeb72bf3619a7b14b561"
+    },
+    {
+      "language": "en",
+      "article_id": "4173537",
+      "url": "https://en.wikipedia.org/wiki/Pietro%20Scalia",
+      "title": "Pietro Scalia",
+      "group": "Q1970454",
+      "split": "validation",
+      "content_sha256": "08b9e9b08bb6d8ca4527655f3f1c3f7f600458df3a6b7bfb6d0ebc1ff91da64f"
+    },
+    {
+      "language": "en",
+      "article_id": "4173540",
+      "url": "https://en.wikipedia.org/wiki/Friday%20on%20My%20Mind",
+      "title": "Friday on My Mind",
+      "group": "Q919655",
+      "split": "validation",
+      "content_sha256": "6bc9a6f79de18ec8006894157ccff28565ed6b9ec7ee5b60ee5db05937e25201"
+    },
+    {
+      "language": "en",
+      "article_id": "4173541",
+      "url": "https://en.wikipedia.org/wiki/IIHF%20World%20Championship%20Division%20I",
+      "title": "IIHF World Championship Division I",
+      "group": "Q2539625",
+      "split": "validation",
+      "content_sha256": "07d4c7a2313c406ad33795d2e45423bde21ce035ddfe348664565515a17114db"
+    },
+    {
+      "language": "en",
+      "article_id": "4173552",
+      "url": "https://en.wikipedia.org/wiki/Charles%20de%20Lannoy%2C%201st%20Prince%20of%20Sulmona",
+      "title": "Charles de Lannoy, 1st Prince of Sulmona",
+      "group": "Q695489",
+      "split": "train",
+      "content_sha256": "b133deca6811867a715edc15f2db48aea270caecca788b578ac7ba6d19e62cda"
+    },
+    {
+      "language": "en",
+      "article_id": "4173558",
+      "url": "https://en.wikipedia.org/wiki/United%20Democratic%20Forces%20of%20Belarus",
+      "title": "United Democratic Forces of Belarus",
+      "group": "Q1938040",
+      "split": "train",
+      "content_sha256": "bea9445d12018a8e0aa477f323353b065ef46860c05f776ba4982e7550c25a32"
+    },
+    {
+      "language": "en",
+      "article_id": "4173560",
+      "url": "https://en.wikipedia.org/wiki/Ruck%20Zuck%20%28EP%29",
+      "title": "Ruck Zuck (EP)",
+      "group": "Q7376616",
+      "split": "train",
+      "content_sha256": "0b2a1fcce340cb93ea47612f3b83b22e94059fa109459519759bcb89e0e4086e"
+    },
+    {
+      "language": "en",
+      "article_id": "4173565",
+      "url": "https://en.wikipedia.org/wiki/Francisco%20Fern%C3%A1ndez",
+      "title": "Francisco Fernández",
+      "group": "Q413956",
+      "split": "validation",
+      "content_sha256": "71a601a91455cea8b585843bbf5065007846992bb87390c048d43e0fe78cb667"
+    },
+    {
+      "language": "en",
+      "article_id": "4173575",
+      "url": "https://en.wikipedia.org/wiki/Legacy%3A%20A%20Mormon%20Journey",
+      "title": "Legacy: A Mormon Journey",
+      "group": "Q5685578",
+      "split": "validation",
+      "content_sha256": "0450c9eb8b89f15135de0137a5847e34d849ffc8e771c593fa7a80d72d2b7d07"
+    },
+    {
+      "language": "en",
+      "article_id": "4173586",
+      "url": "https://en.wikipedia.org/wiki/Anthony%20Lerew",
+      "title": "Anthony Lerew",
+      "group": "Q486948",
+      "split": "train",
+      "content_sha256": "27c637a96fdf94a328e6cb5d4b1b6c21bf8a8760d050d288b13be39b252683d4"
+    },
+    {
+      "language": "en",
+      "article_id": "4173593",
+      "url": "https://en.wikipedia.org/wiki/WALF",
+      "title": "WALF",
+      "group": "Q7946536",
+      "split": "train",
+      "content_sha256": "2bc29033a6474c1aaa9ff29a76ec86e22eac9b46f07ca8085c8c86ce2d12ef3a"
+    },
+    {
+      "language": "en",
+      "article_id": "4173594",
+      "url": "https://en.wikipedia.org/wiki/The%20Dust%20Factory",
+      "title": "The Dust Factory",
+      "group": "Q2411007",
+      "split": "validation",
+      "content_sha256": "38ed85d642ae5bf5a65e82f20a3ae2dfce5865a588c8e66fcf906d7ba8b2a7a7"
+    },
+    {
+      "language": "en",
+      "article_id": "4173609",
+      "url": "https://en.wikipedia.org/wiki/Tiller%20%28botany%29",
+      "title": "Tiller (botany)",
+      "group": "Q2032673",
+      "split": "validation",
+      "content_sha256": "3e3eca1e7b60f2fbcbb1f9e776d4d6fd4d31da11faf416bc6fb806242114dec4"
+    },
+    {
+      "language": "en",
+      "article_id": "4173615",
+      "url": "https://en.wikipedia.org/wiki/Carlo%20Caffarra",
+      "title": "Carlo Caffarra",
+      "group": "Q472267",
+      "split": "validation",
+      "content_sha256": "d9b2a6f5d82173e56eb96925d5ea1168a4ea50f955a1137136613cf69e58384c"
+    },
+    {
+      "language": "en",
+      "article_id": "4173616",
+      "url": "https://en.wikipedia.org/wiki/Moen%2C%20Troms",
+      "title": "Moen, Troms",
+      "group": "Q1782739",
+      "split": "holdout",
+      "content_sha256": "e5a6c70e99258df65f6484811bc7f830b0ddfc91a037e8445fdbbcf930260323"
+    },
+    {
+      "language": "en",
+      "article_id": "4173628",
+      "url": "https://en.wikipedia.org/wiki/2006%20Memorial%20Cup",
+      "title": "2006 Memorial Cup",
+      "group": "Q1920066",
+      "split": "train",
+      "content_sha256": "427f35bee150862d844a6b8d731bcf6ae4812d4f7519d554f54f2001ccc780e2"
+    },
+    {
+      "language": "en",
+      "article_id": "4173646",
+      "url": "https://en.wikipedia.org/wiki/Josimar%20Melo",
+      "title": "Josimar Melo",
+      "group": "Q6290811",
+      "split": "holdout",
+      "content_sha256": "57b82324da1ff77478203cc0e76efefffabe3af5268d564d7d81c9ff582ba43c"
+    },
+    {
+      "language": "en",
+      "article_id": "4173662",
+      "url": "https://en.wikipedia.org/wiki/Wine%20of%20the%20United%20States",
+      "title": "Wine of the United States",
+      "group": "Q1968496",
+      "split": "train",
+      "content_sha256": "dbb1abc9e7590f428b466d56963bce454f57a48dbd9ac37b9a07402ec0f627e8"
+    },
+    {
+      "language": "en",
+      "article_id": "4173672",
+      "url": "https://en.wikipedia.org/wiki/Stuart%20Milner-Barry",
+      "title": "Stuart Milner-Barry",
+      "group": "Q571435",
+      "split": "holdout",
+      "content_sha256": "76ecb8079b21a4b89db2cb8ecbfdfd91faab284b0d93033d968394709c1ab692"
+    },
+    {
+      "language": "en",
+      "article_id": "4173674",
+      "url": "https://en.wikipedia.org/wiki/Josh%20Caterer",
+      "title": "Josh Caterer",
+      "group": "Q6288748",
+      "split": "train",
+      "content_sha256": "3d5e0565c8b9fe7523ff40135751017d07fdb393ede1d3757e417c58533d44b9"
+    },
+    {
+      "language": "en",
+      "article_id": "4173692",
+      "url": "https://en.wikipedia.org/wiki/Dreaming%20No.%2011",
+      "title": "Dreaming No. 11",
+      "group": "Q909804",
+      "split": "train",
+      "content_sha256": "b1ed196931c8c1a7411bd422a64e27af3b46e652a254997874df50401e2102fa"
+    },
+    {
+      "language": "en",
+      "article_id": "4173700",
+      "url": "https://en.wikipedia.org/wiki/Tithing",
+      "title": "Tithing",
+      "group": "Q5394548",
+      "split": "holdout",
+      "content_sha256": "509247864c8609908784567dd3a3985b83d44c4e64c37cf8177e731e0339f28c"
+    },
+    {
+      "language": "en",
+      "article_id": "4173705",
+      "url": "https://en.wikipedia.org/wiki/XML%20Professional%20Publisher",
+      "title": "XML Professional Publisher",
+      "group": "Q2597549",
+      "split": "train",
+      "content_sha256": "3e0fbaf135cc50c44c8f22e02e7f7cd55e29571a934e15a28e760ead6830ca40"
+    },
+    {
+      "language": "en",
+      "article_id": "4173706",
+      "url": "https://en.wikipedia.org/wiki/Shaligram",
+      "title": "Shaligram",
+      "group": "Q1916552",
+      "split": "train",
+      "content_sha256": "15b1d532e3f34e720a14574239beccbfd37164f15886f9d25e61ac9bfac16184"
+    },
+    {
+      "language": "en",
+      "article_id": "4173711",
+      "url": "https://en.wikipedia.org/wiki/History%20of%20molecular%20biology",
+      "title": "History of molecular biology",
+      "group": "Q866982",
+      "split": "holdout",
+      "content_sha256": "cb0536118d60dfaf735cf009956393095a7ebff564407c7d8f96ad2c86d34442"
+    },
+    {
+      "language": "en",
+      "article_id": "4173712",
+      "url": "https://en.wikipedia.org/wiki/Rongbuk%20Monastery",
+      "title": "Rongbuk Monastery",
+      "group": "Q785488",
+      "split": "holdout",
+      "content_sha256": "c9c34c1a327a3ac7edea75c50bb9ab829446e53d086a3c29a3728502c32ca198"
+    },
+    {
+      "language": "en",
+      "article_id": "4173713",
+      "url": "https://en.wikipedia.org/wiki/Don%27t%20Bring%20Me%20Down%20%28Pretty%20Things%20song%29",
+      "title": "Don't Bring Me Down (Pretty Things song)",
+      "group": "Q5291489",
+      "split": "train",
+      "content_sha256": "0b3cda1037df4d944f9f1a4030d442e8727131874282afef0abcffd4c872042b"
+    },
+    {
+      "language": "en",
+      "article_id": "4173717",
+      "url": "https://en.wikipedia.org/wiki/Georgia%20State%20Route%2074",
+      "title": "Georgia State Route 74",
+      "group": "Q2427860",
+      "split": "train",
+      "content_sha256": "5e8a1250c3ed7e1f2d092dbff67095cba74488c6b57284fabdee0c7576431b1a"
+    },
+    {
+      "language": "en",
+      "article_id": "4173720",
+      "url": "https://en.wikipedia.org/wiki/Jes%C3%BAs%20Guti%C3%A9rrez%20Rebollo",
+      "title": "Jesús Gutiérrez Rebollo",
+      "group": "Q3186319",
+      "split": "train",
+      "content_sha256": "c0ace7f6c2e8216c959f54415c49b7bc82bb550c84e138f4bb0bf0bf3448773c"
+    },
+    {
+      "language": "en",
+      "article_id": "4173726",
+      "url": "https://en.wikipedia.org/wiki/Diego%20de%20Enzinas",
+      "title": "Diego de Enzinas",
+      "group": "Q382863",
+      "split": "train",
+      "content_sha256": "3e1184e2c7fdec8cc777f91addc2d55def7cff1c843596362a290bcb7d7e3689"
+    },
+    {
+      "language": "en",
+      "article_id": "4173756",
+      "url": "https://en.wikipedia.org/wiki/San%20Storm",
+      "title": "San Storm",
+      "group": "Q7415341",
+      "split": "validation",
+      "content_sha256": "77911066ae640359efa6884ff3dacf890a5b2cfd8e7209aab431faa7a9843423"
+    },
+    {
+      "language": "en",
+      "article_id": "4173770",
+      "url": "https://en.wikipedia.org/wiki/Debbie%20Googe",
+      "title": "Debbie Googe",
+      "group": "Q5247930",
+      "split": "validation",
+      "content_sha256": "c003afec8eaafa5dd24b378904a63fc3070962eb63541651032dbc4d03476bda"
+    },
+    {
+      "language": "en",
+      "article_id": "4173786",
+      "url": "https://en.wikipedia.org/wiki/Mark%20Bryan",
+      "title": "Mark Bryan",
+      "group": "Q6766895",
+      "split": "validation",
+      "content_sha256": "25c9c32e11414ae21876f9f8e412d3e279bc050e59d802dd9dd08f57eb58d2f7"
+    },
+    {
+      "language": "en",
+      "article_id": "4173788",
+      "url": "https://en.wikipedia.org/wiki/HMS%20Buzzard%20%281887%29",
+      "title": "HMS Buzzard (1887)",
+      "group": "Q5631723",
+      "split": "holdout",
+      "content_sha256": "12c2fee2b338e0b10c2eb3de8119145cd7c7069ae026173c4190d4a88d2d9434"
+    },
+    {
+      "language": "en",
+      "article_id": "4173789",
+      "url": "https://en.wikipedia.org/wiki/Cornelius%20Stirk",
+      "title": "Cornelius Stirk",
+      "group": "Q3545673",
+      "split": "validation",
+      "content_sha256": "735f9451ef69555a196b09a320afcf5bd4bd45c745cf136728781a7eefe7b5ba"
+    },
+    {
+      "language": "en",
+      "article_id": "4173809",
+      "url": "https://en.wikipedia.org/wiki/Mandarinquat",
+      "title": "Mandarinquat",
+      "group": "Q7099806",
+      "split": "holdout",
+      "content_sha256": "634ff5bc52035e631876ae7674250e961b254e8e2c0efe44742ae037132618af"
+    },
+    {
+      "language": "en",
+      "article_id": "4173810",
+      "url": "https://en.wikipedia.org/wiki/Super%20Colossal",
+      "title": "Super Colossal",
+      "group": "Q1072035",
+      "split": "validation",
+      "content_sha256": "ff896f47ecc0c199c78a71e45b38d92d011c9047116d566f0cb7b729dca7f8fa"
+    },
+    {
+      "language": "en",
+      "article_id": "4173813",
+      "url": "https://en.wikipedia.org/wiki/Recept",
+      "title": "Recept",
+      "group": "Q7302352",
+      "split": "train",
+      "content_sha256": "25d981c0b1041a301a088cb385faf38f1309987da907aabece4c5dd6477252ba"
+    },
+    {
+      "language": "en",
+      "article_id": "4173825",
+      "url": "https://en.wikipedia.org/wiki/RAF%20Geilenkirchen",
+      "title": "RAF Geilenkirchen",
+      "group": "Q730550",
+      "split": "holdout",
+      "content_sha256": "bf072b8b1f719c0e69bb423c194704db8e46981b22193d27b4ed8939f538faf5"
+    },
+    {
+      "language": "en",
+      "article_id": "4173832",
+      "url": "https://en.wikipedia.org/wiki/Georgia%20State%20Route%2016",
+      "title": "Georgia State Route 16",
+      "group": "Q2427673",
+      "split": "holdout",
+      "content_sha256": "1f58d14fb2de3ad543e1b5f2987c0dae184f77ec8750a51240984de84a46f4c4"
+    },
+    {
+      "language": "en",
+      "article_id": "4173866",
+      "url": "https://en.wikipedia.org/wiki/Marco%20Uccellini",
+      "title": "Marco Uccellini",
+      "group": "Q713218",
+      "split": "holdout",
+      "content_sha256": "fe68afc0d7c9fa165d95a8decc206950ce4ae2c192b5dadbed2a8b461721dec9"
+    },
+    {
+      "language": "en",
+      "article_id": "4173885",
+      "url": "https://en.wikipedia.org/wiki/The%20Woman%20Chaser",
+      "title": "The Woman Chaser",
+      "group": "Q7775471",
+      "split": "train",
+      "content_sha256": "b82c1f89e556b1b12b27a5b33eeac6a411ab794d56b30d6be079494812af1668"
+    },
+    {
+      "language": "en",
+      "article_id": "4173913",
+      "url": "https://en.wikipedia.org/wiki/Spotted%20bat",
+      "title": "Spotted bat",
+      "group": "Q301631",
+      "split": "train",
+      "content_sha256": "dca550ba32430c5e91918f0bc268eeee01a100f407d3e2768013d63f089b239f"
+    },
+    {
+      "language": "en",
+      "article_id": "4173915",
+      "url": "https://en.wikipedia.org/wiki/Dickey%20Simpkins",
+      "title": "Dickey Simpkins",
+      "group": "Q2737145",
+      "split": "holdout",
+      "content_sha256": "62660f55ad90fd35f2d1bfb747a038b04d6a170f5f86f028865a8cf005b0ef71"
+    },
+    {
+      "language": "en",
+      "article_id": "4173927",
+      "url": "https://en.wikipedia.org/wiki/Evelyne%20Leu",
+      "title": "Evelyne Leu",
+      "group": "Q449882",
+      "split": "train",
+      "content_sha256": "e41c369cbae6d4a772d0e99f2495c48ffb7a43510da1f558e5de01adbf0de379"
+    },
+    {
+      "language": "en",
+      "article_id": "4173939",
+      "url": "https://en.wikipedia.org/wiki/Cockfighter",
+      "title": "Cockfighter",
+      "group": "Q2202472",
+      "split": "train",
+      "content_sha256": "b448b6659e7fbd21259046f56694b44661aefe34f6dd2a8ff1f91bd7923a3db5"
+    },
+    {
+      "language": "en",
+      "article_id": "4173948",
+      "url": "https://en.wikipedia.org/wiki/M.A.D.E.",
+      "title": "M.A.D.E.",
+      "group": "Q6712130",
+      "split": "holdout",
+      "content_sha256": "91e0902e8d402b64bba841f3aa180be2e2fc739f0e9ffd5f43e9c337dd10a839"
+    },
+    {
+      "language": "en",
+      "article_id": "4173973",
+      "url": "https://en.wikipedia.org/wiki/Great%20White%20Shark%20%28character%29",
+      "title": "Great White Shark (character)",
+      "group": "Q3115994",
+      "split": "validation",
+      "content_sha256": "9a62f375e112439c42b49e6823c9c5775d323c78b79b68fdfb19fec9ec8eee09"
+    },
+    {
+      "language": "en",
+      "article_id": "4173975",
+      "url": "https://en.wikipedia.org/wiki/Haldan",
+      "title": "Haldan",
+      "group": "Q16064980",
+      "split": "holdout",
+      "content_sha256": "f33dbf5e0021f66c6c7e63593ff561c75e045bfbc0a8f1f76528c6fc996d426a"
+    },
+    {
+      "language": "en",
+      "article_id": "4173981",
+      "url": "https://en.wikipedia.org/wiki/Jim%20Duquette",
+      "title": "Jim Duquette",
+      "group": "Q6194777",
+      "split": "train",
+      "content_sha256": "6eab4d4cdec413ad4244d38d3736d633f75e73c91494d4bac6db02901a14327b"
+    },
+    {
+      "language": "en",
+      "article_id": "4173987",
+      "url": "https://en.wikipedia.org/wiki/Video%20Soul",
+      "title": "Video Soul",
+      "group": "Q3557802",
+      "split": "validation",
+      "content_sha256": "0fa3c548d84a1e12171431c42c216987fe6d82f35525fe536f519ad044207546"
+    },
+    {
+      "language": "en",
+      "article_id": "4173996",
+      "url": "https://en.wikipedia.org/wiki/Henry%20Raper",
+      "title": "Henry Raper",
+      "group": "Q5727387",
+      "split": "validation",
+      "content_sha256": "1c9d3bc1174e98fcd8042fb3cf505df04ad52aeb8fd9bf2badb33567c8746d2d"
+    },
+    {
+      "language": "en",
+      "article_id": "4173997",
+      "url": "https://en.wikipedia.org/wiki/Kubitzki%20system",
+      "title": "Kubitzki system",
+      "group": "Q3489024",
+      "split": "train",
+      "content_sha256": "e3f89c705963b954ae036ba63f0a04c9568463c2ed4dac452605ccb05818d412"
+    },
+    {
+      "language": "en",
+      "article_id": "4174010",
+      "url": "https://en.wikipedia.org/wiki/Port%20security",
+      "title": "Port security",
+      "group": "Q7231309",
+      "split": "train",
+      "content_sha256": "1b7b5da25526ea9f5a3d38477f512d74d31152bd5c90f564f8ce690b88fc258e"
+    },
+    {
+      "language": "en",
+      "article_id": "4174031",
+      "url": "https://en.wikipedia.org/wiki/N%C3%ADjar",
+      "title": "Níjar",
+      "group": "Q1110355",
+      "split": "train",
+      "content_sha256": "ea5e412cfeb49aca084d2ba77ff9f8ba677914566003d34086bbb54cd983daf9"
+    },
+    {
+      "language": "en",
+      "article_id": "4174043",
+      "url": "https://en.wikipedia.org/wiki/United%20Christian%20Democrats",
+      "title": "United Christian Democrats",
+      "group": "Q1140350",
+      "split": "train",
+      "content_sha256": "01b020505ade7829171a4fa6d2b068d9d7a4a06be2cf4043f31cd2ea445efca3"
+    },
+    {
+      "language": "en",
+      "article_id": "4174053",
+      "url": "https://en.wikipedia.org/wiki/Sub-Terrania",
+      "title": "Sub-Terrania",
+      "group": "Q2356527",
+      "split": "validation",
+      "content_sha256": "830190de21c3788d7162eae02d41d7b6c9ace85d64163f7d192e02a236096417"
+    },
+    {
+      "language": "en",
+      "article_id": "4174089",
+      "url": "https://en.wikipedia.org/wiki/Jean-Pierre%20Ricard",
+      "title": "Jean-Pierre Ricard",
+      "group": "Q534446",
+      "split": "train",
+      "content_sha256": "956d525942292c44ddfcee50a2c44545a177333e3c6e85b1a302ae53f558a105"
+    },
+    {
+      "language": "en",
+      "article_id": "4174096",
+      "url": "https://en.wikipedia.org/wiki/Saligramam",
+      "title": "Saligramam",
+      "group": "Q7404488",
+      "split": "validation",
+      "content_sha256": "2a6dc8a6b3ca8650b506c6b6bdb3e98ad0a2bfdf398fcce4d86d30f7cce4760f"
+    },
+    {
+      "language": "en",
+      "article_id": "4174098",
+      "url": "https://en.wikipedia.org/wiki/Hellenic%20College%20Holy%20Cross%20Greek%20Orthodox%20School%20of%20Theology",
+      "title": "Hellenic College Holy Cross Greek Orthodox School of Theology",
+      "group": "Q5707189",
+      "split": "train",
+      "content_sha256": "6a891bde5098a9a2ef930ffda0d83d52f56a5ad2f41f6769c42af3fdb817c9e1"
+    },
+    {
+      "language": "en",
+      "article_id": "4174108",
+      "url": "https://en.wikipedia.org/wiki/Georgy%20Demidov",
+      "title": "Georgy Demidov",
+      "group": "Q4157482",
+      "split": "train",
+      "content_sha256": "beb7c27d051196577a12090e3d070f97a8b75f7e1850d0c8454816a3a82381c1"
+    },
+    {
+      "language": "en",
+      "article_id": "4174125",
+      "url": "https://en.wikipedia.org/wiki/Cita%27s%20World",
+      "title": "Cita's World",
+      "group": "Q5122356",
+      "split": "holdout",
+      "content_sha256": "7f092eed6da4b5d1cfe183bbd34b315591a2d5ded15355de30ea29473c4d64fa"
+    },
+    {
+      "language": "en",
+      "article_id": "4174138",
+      "url": "https://en.wikipedia.org/wiki/Jams",
+      "title": "Jams",
+      "group": "Q1455108",
+      "split": "train",
+      "content_sha256": "7d54e880982dfecfa09ca19457bfe3775e70b4b70f30d014d3ccbde9762ec025"
+    },
+    {
+      "language": "en",
+      "article_id": "4174148",
+      "url": "https://en.wikipedia.org/wiki/R.%20C.%20Sproul%20Jr.",
+      "title": "R. C. Sproul Jr.",
+      "group": "Q7273528",
+      "split": "train",
+      "content_sha256": "09a05fdbec06c2fb76cae0858123bed75d226e864ee2836ba2dfbded2c16b641"
+    },
+    {
+      "language": "en",
+      "article_id": "4174154",
+      "url": "https://en.wikipedia.org/wiki/Growin%27%20Up%20%28song%29",
+      "title": "Growin' Up (song)",
+      "group": "Q3513607",
+      "split": "validation",
+      "content_sha256": "70e0ba101907269d697c8c5085995b2810a21c23e4cb940bb66d4b3e1cd67057"
+    },
+    {
+      "language": "en",
+      "article_id": "4174159",
+      "url": "https://en.wikipedia.org/wiki/Mike%20Felumlee",
+      "title": "Mike Felumlee",
+      "group": "Q6846784",
+      "split": "train",
+      "content_sha256": "d30c8d06262b41eff8cac6b8c6da3009f438dfa43cdc36f1255ef37c9235c604"
+    },
+    {
+      "language": "en",
+      "article_id": "4174166",
+      "url": "https://en.wikipedia.org/wiki/The%20Arrows%20%28Canadian%20band%29",
+      "title": "The Arrows (Canadian band)",
+      "group": "Q7714339",
+      "split": "validation",
+      "content_sha256": "206d00245ff97f4f572bccc516ecdd305b1aaa509b035b37cae29ba6a22128ca"
+    },
+    {
+      "language": "en",
+      "article_id": "4174226",
+      "url": "https://en.wikipedia.org/wiki/Teen%20Summit",
+      "title": "Teen Summit",
+      "group": "Q7694321",
+      "split": "train",
+      "content_sha256": "db3a62451f11d12f4a694125a95ca328fee7237ab96070afce18c5407596fdd0"
+    },
+    {
+      "language": "en",
+      "article_id": "4174231",
+      "url": "https://en.wikipedia.org/wiki/University%20of%20the%20Basque%20Country",
+      "title": "University of the Basque Country",
+      "group": "Q1232428",
+      "split": "validation",
+      "content_sha256": "383e4e91d2ea8d94e2710bfc85bd168d9625349aac32d5f957a48883e62b1c16"
+    },
+    {
+      "language": "en",
+      "article_id": "4174240",
+      "url": "https://en.wikipedia.org/wiki/Alexander%20Asboth",
+      "title": "Alexander Asboth",
+      "group": "Q240287",
+      "split": "train",
+      "content_sha256": "d92d3f97d5a1b7408f7c195fa2aff0e278d97ccfd9dd66870495f06a509f02ec"
+    },
+    {
+      "language": "en",
+      "article_id": "4174252",
+      "url": "https://en.wikipedia.org/wiki/KNWS-FM",
+      "title": "KNWS-FM",
+      "group": "Q6334684",
+      "split": "train",
+      "content_sha256": "389737afbb5d8b5b6363fafa0d50fb31c590bebae7547b89f0f8a05e1030b2a0"
+    },
+    {
+      "language": "en",
+      "article_id": "4174267",
+      "url": "https://en.wikipedia.org/wiki/Josiah%20Gorgas",
+      "title": "Josiah Gorgas",
+      "group": "Q2640611",
+      "split": "train",
+      "content_sha256": "0749c90c6205b7e00ead98bde9b03de324514666ee66a2efb4f881503dd904f5"
+    },
+    {
+      "language": "en",
+      "article_id": "4174279",
+      "url": "https://en.wikipedia.org/wiki/Smith%20Micro%20Software",
+      "title": "Smith Micro Software",
+      "group": "Q7545224",
+      "split": "train",
+      "content_sha256": "402d849662d57b7593138567beacb6efa7aa21ad8f5f468e8144af4de2136228"
+    },
+    {
+      "language": "en",
+      "article_id": "4174280",
+      "url": "https://en.wikipedia.org/wiki/Alyeska",
+      "title": "Alyeska",
+      "group": "Q4738651",
+      "split": "train",
+      "content_sha256": "1901a2e683a3fa63110c1a7ab3a1b9a8072e34b24c22a2c10eee64d6717cf8e7"
+    },
+    {
+      "language": "en",
+      "article_id": "4174284",
+      "url": "https://en.wikipedia.org/wiki/Kenny%20Kramer",
+      "title": "Kenny Kramer",
+      "group": "Q6391118",
+      "split": "train",
+      "content_sha256": "ec890e971a2882f5ec590e31e4dc2991126ba5128fd6aaf86b0fb957a807c4b6"
+    },
+    {
+      "language": "en",
+      "article_id": "4174285",
+      "url": "https://en.wikipedia.org/wiki/The%20Real",
+      "title": "The Real",
+      "group": "Q489544",
+      "split": "holdout",
+      "content_sha256": "a5f682a605e7f804537a82af4023bb3415fa2c0f4c81dba5a5af5236a0af7cdc"
+    },
+    {
+      "language": "en",
+      "article_id": "4174289",
+      "url": "https://en.wikipedia.org/wiki/Tr%C3%AAs%20Ranchos",
+      "title": "Três Ranchos",
+      "group": "Q991098",
+      "split": "train",
+      "content_sha256": "01ac6f4a2d57980c6637bab685467f8f242de3ae45a22f379c99697117180023"
+    },
+    {
+      "language": "en",
+      "article_id": "4174292",
+      "url": "https://en.wikipedia.org/wiki/The%20Imaginary%20%28psychoanalysis%29",
+      "title": "The Imaginary (psychoanalysis)",
+      "group": "Q1169049",
+      "split": "holdout",
+      "content_sha256": "a712a6f1e6578ffd0cbb88f4d141ee0f13de14be449ef75a675f9973785a9c8a"
+    },
+    {
+      "language": "en",
+      "article_id": "4174297",
+      "url": "https://en.wikipedia.org/wiki/Daniel%20Taylor",
+      "title": "Daniel Taylor",
+      "group": "Q5218901",
+      "split": "train",
+      "content_sha256": "8fe5fd9451ac520e7838b6749234d7a1931eff8468cee6574bb7e8748a4ccfb6"
+    },
+    {
+      "language": "en",
+      "article_id": "4174306",
+      "url": "https://en.wikipedia.org/wiki/The%20Hill%2C%20Knoxville",
+      "title": "The Hill, Knoxville",
+      "group": "Q7739679",
+      "split": "train",
+      "content_sha256": "99c6ea4a3079f21ac3029a0950cf9c5a68d5bb1746c64304174e198ee055af63"
+    },
+    {
+      "language": "en",
+      "article_id": "4174309",
+      "url": "https://en.wikipedia.org/wiki/Annular%20dark-field%20imaging",
+      "title": "Annular dark-field imaging",
+      "group": "Q4769713",
+      "split": "train",
+      "content_sha256": "916e002cf2eb39442eda51f3e600fd4931a60b1b2c977d3e406b5605d585c4d5"
+    },
+    {
+      "language": "en",
+      "article_id": "4174311",
+      "url": "https://en.wikipedia.org/wiki/Cambodian%20campaign",
+      "title": "Cambodian campaign",
+      "group": "Q2994973",
+      "split": "train",
+      "content_sha256": "2b36f98a8859f74a1d19dbfc6dc61d9c98305856e776e116bf7becb1e88b9de6"
+    },
+    {
+      "language": "en",
+      "article_id": "4174317",
+      "url": "https://en.wikipedia.org/wiki/No%20One%20Needs%20to%20Know",
+      "title": "No One Needs to Know",
+      "group": "Q3034842",
+      "split": "validation",
+      "content_sha256": "be06e4eca25ecd621cb689a50814694220b03496ffc6b804d8b409f07cc4199a"
+    },
+    {
+      "language": "en",
+      "article_id": "4174321",
+      "url": "https://en.wikipedia.org/wiki/Carbajales%20de%20Alba",
+      "title": "Carbajales de Alba",
+      "group": "Q1650438",
+      "split": "train",
+      "content_sha256": "269e047eac0b2eabd9ae6657fb29143208c41d9b415c01ac807059bba7f5d950"
+    },
+    {
+      "language": "en",
+      "article_id": "4174322",
+      "url": "https://en.wikipedia.org/wiki/Second%20New%20Deal",
+      "title": "Second New Deal",
+      "group": "Q7443448",
+      "split": "train",
+      "content_sha256": "d2c60fff800edf15307023b6596ed0ea86413c73572e4a9286737dae35c2ad82"
+    },
+    {
+      "language": "en",
+      "article_id": "4174330",
+      "url": "https://en.wikipedia.org/wiki/MV%20Horizon",
+      "title": "MV Horizon",
+      "group": "Q905649",
+      "split": "validation",
+      "content_sha256": "5169a18f0d5a4e27cf35d3fa508c9fa80d83bbbc5f7336b5b4898fab8eaf5db5"
+    },
+    {
+      "language": "en",
+      "article_id": "4174331",
+      "url": "https://en.wikipedia.org/wiki/Vanspor%20FK",
+      "title": "Vanspor FK",
+      "group": "Q815349",
+      "split": "train",
+      "content_sha256": "18663ec1a312a35feda056e488ac317eb6f4dc0c9f5f4de0e68417478fc3366e"
+    },
+    {
+      "language": "en",
+      "article_id": "4174332",
+      "url": "https://en.wikipedia.org/wiki/Enicocephaloidea",
+      "title": "Enicocephaloidea",
+      "group": "Q1935978",
+      "split": "train",
+      "content_sha256": "9a3671538d6ffd3e73f02b0981bdc39fdb59202fd25077985025fc38d60c6975"
+    },
+    {
+      "language": "en",
+      "article_id": "4174333",
+      "url": "https://en.wikipedia.org/wiki/Bhit%20Shah",
+      "title": "Bhit Shah",
+      "group": "Q4901834",
+      "split": "train",
+      "content_sha256": "18bdc42233912f51d950c09abc153bb510650df234f7f0a25d999f93ab214ebb"
+    },
+    {
+      "language": "en",
+      "article_id": "4174336",
+      "url": "https://en.wikipedia.org/wiki/Resources%20of%20a%20Resource",
+      "title": "Resources of a Resource",
+      "group": "Q7315845",
+      "split": "train",
+      "content_sha256": "35eba0192f8de6efeed0d6ed0b10b4c74151074d86b8723ed8f38ac479feee62"
+    },
+    {
+      "language": "en",
+      "article_id": "4174355",
+      "url": "https://en.wikipedia.org/wiki/The%20Symbolic",
+      "title": "The Symbolic",
+      "group": "Q489538",
+      "split": "validation",
+      "content_sha256": "0e25ec84675c675c4304fa4254197a99fb4ceb6613305f103b10463c993acc0a"
+    },
+    {
+      "language": "en",
+      "article_id": "4174356",
+      "url": "https://en.wikipedia.org/wiki/Dipsocoromorpha",
+      "title": "Dipsocoromorpha",
+      "group": "Q137382",
+      "split": "train",
+      "content_sha256": "cea379004a83cd0b7c2082a3c52ab1137f3dc862810edf27dc38bbbe57868746"
+    },
+    {
+      "language": "en",
+      "article_id": "4174361",
+      "url": "https://en.wikipedia.org/wiki/El%20Degas%20guitars",
+      "title": "El Degas guitars",
+      "group": "Q5351114",
+      "split": "holdout",
+      "content_sha256": "33231ef9fd9566c5a24ea0374e9560690c1e9d087881667aac1b843c61f0a06e"
+    },
+    {
+      "language": "en",
+      "article_id": "4174363",
+      "url": "https://en.wikipedia.org/wiki/Baba%20and%20Bhit%20Islands",
+      "title": "Baba and Bhit Islands",
+      "group": "Q4284472",
+      "split": "holdout",
+      "content_sha256": "c401d97ef4f91ce66f7b2673f59c0af62303198a4a1a80680e78e92b42dbfb9d"
+    },
+    {
+      "language": "en",
+      "article_id": "4174379",
+      "url": "https://en.wikipedia.org/wiki/Chirundu%2C%20Zambia",
+      "title": "Chirundu, Zambia",
+      "group": "Q489790",
+      "split": "train",
+      "content_sha256": "7b7ae821c58f66f331ef338c252d7bd6c904bbd0ca211b78d94fea84017aa8e7"
+    },
+    {
+      "language": "en",
+      "article_id": "4174385",
+      "url": "https://en.wikipedia.org/wiki/Hans%20Beck",
+      "title": "Hans Beck",
+      "group": "Q71008",
+      "split": "holdout",
+      "content_sha256": "a70802201dc5283b5f5eca666dee5439f5451a317f1140c2e26616cabd6de7f3"
+    }
+  ],
+  "split_counts": {
+    "train": {
+      "de": 51,
+      "en": 52
+    },
+    "validation": {
+      "de": 24,
+      "en": 24
+    },
+    "holdout": {
+      "de": 25,
+      "en": 21
+    }
+  },
+  "source_dataset": "wikimedia/wikipedia",
+  "source_revision": "b04c8d1ceb2f5cd4588862100d08de323dccfbaa",
+  "sources": [
+    {
+      "url": "https://datasets-server.huggingface.co/rows?dataset=wikimedia%2Fwikipedia&config=20231101.de&split=train&offset=20000&length=100",
+      "revision": "b04c8d1ceb2f5cd4588862100d08de323dccfbaa",
+      "response_sha256": "13dc2d5752ef3ad53c00a1751ba755c84d3d97190b687d3c35642dc9833edb6f"
+    },
+    {
+      "url": "https://de.wikipedia.org/w/api.php?action=query&prop=pageprops&ppprop=wikibase_item&pageids=40560%7C40564%7C40568%7C40576%7C40581%7C40583%7C40585%7C40586%7C40590%7C40591%7C40593%7C40596%7C40597%7C40599%7C40601%7C40602%7C40609%7C40613%7C40620%7C40624%7C40625%7C40628%7C40632%7C40638%7C40639%7C40642%7C40644%7C40645%7C40646%7C40649%7C40650%7C40651%7C40658%7C40660%7C40661%7C40664%7C40671%7C40676%7C40680%7C40690%7C40692%7C40693%7C40697%7C40698%7C40700%7C40703%7C40706%7C40713%7C40723%7C40725&format=json",
+      "response_sha256": "38abba40c51f877720f7578af1f4bf8490a33b504ee79cfc848b94062fab2dc7"
+    },
+    {
+      "url": "https://de.wikipedia.org/w/api.php?action=query&prop=pageprops&ppprop=wikibase_item&pageids=40730%7C40734%7C40735%7C40742%7C40744%7C40746%7C40749%7C40752%7C40753%7C40754%7C40756%7C40757%7C40761%7C40764%7C40765%7C40769%7C40771%7C40774%7C40775%7C40777%7C40781%7C40783%7C40784%7C40785%7C40787%7C40788%7C40789%7C40791%7C40795%7C40796%7C40799%7C40802%7C40803%7C40804%7C40805%7C40806%7C40807%7C40809%7C40810%7C40815%7C40817%7C40818%7C40820%7C40821%7C40823%7C40825%7C40828%7C40841%7C40842%7C40854&format=json",
+      "response_sha256": "eae989c345a7b7f1fe681a0bf977e0d065355aa9ffc6506f8734cad1a263bdf6"
+    },
+    {
+      "url": "https://datasets-server.huggingface.co/rows?dataset=wikimedia%2Fwikipedia&config=20231101.en&split=train&offset=20000&length=100",
+      "revision": "b04c8d1ceb2f5cd4588862100d08de323dccfbaa",
+      "response_sha256": "393dbd39b9895d228fe9c6f3e415a8cfa749c17de98886422b57f22a3dc2d82d"
+    },
+    {
+      "url": "https://en.wikipedia.org/w/api.php?action=query&prop=pageprops&ppprop=wikibase_item&pageids=4173525%7C4173531%7C4173537%7C4173540%7C4173541%7C4173552%7C4173558%7C4173560%7C4173565%7C4173575%7C4173586%7C4173593%7C4173594%7C4173598%7C4173609%7C4173615%7C4173616%7C4173628%7C4173646%7C4173662%7C4173672%7C4173674%7C4173692%7C4173700%7C4173705%7C4173706%7C4173711%7C4173712%7C4173713%7C4173717%7C4173720%7C4173726%7C4173756%7C4173770%7C4173786%7C4173788%7C4173789%7C4173809%7C4173810%7C4173813%7C4173825%7C4173832%7C4173866%7C4173885%7C4173913%7C4173915%7C4173927%7C4173939%7C4173948%7C4173973&format=json",
+      "response_sha256": "444d8ee1e47e319070686aed9a262555b4489f69e3e390043cfcbfa7e42d0fd8"
+    },
+    {
+      "url": "https://en.wikipedia.org/w/api.php?action=query&prop=pageprops&ppprop=wikibase_item&pageids=4173975%7C4173981%7C4173987%7C4173996%7C4173997%7C4174010%7C4174031%7C4174043%7C4174053%7C4174089%7C4174096%7C4174098%7C4174108%7C4174125%7C4174138%7C4174148%7C4174154%7C4174159%7C4174166%7C4174226%7C4174231%7C4174240%7C4174252%7C4174267%7C4174279%7C4174280%7C4174284%7C4174285%7C4174289%7C4174292%7C4174297%7C4174306%7C4174309%7C4174311%7C4174317%7C4174321%7C4174322%7C4174330%7C4174331%7C4174332%7C4174333%7C4174336%7C4174337%7C4174344%7C4174355%7C4174356%7C4174361%7C4174363%7C4174379%7C4174385&format=json",
+      "response_sha256": "254b66e288dd4013f3da87785c23739202a36f787ff778b836b653af4b4424b1"
+    }
+  ],
+  "declared_license": "CC-BY-SA-3.0",
+  "attribution": "Wikipedia contributors; article URLs are retained per record",
+  "license_reference": "https://huggingface.co/datasets/wikimedia/wikipedia/blob/b04c8d1ceb2f5cd4588862100d08de323dccfbaa/README.md"
+}

@@ -35,6 +35,16 @@ def windows(tokens: tuple[int, ...], context: int):
     return [tokens[i : i + context + 1] for i in range(0, len(tokens) - context, context)]
 
 
+def window_index(step: int, count: int) -> int:
+    """Stable full-corpus traversal, independent of arm, run length and resume."""
+    if type(step) is not int or step < 0 or type(count) is not int or count < 1:
+        raise ValueError("growth_window_schedule_invalid")
+    stride = max(1, int(count * 0.6180339887498949))
+    while math.gcd(stride, count) != 1:
+        stride += 1
+    return step * stride % count
+
+
 class TorchGrowthTrainer:
     def train(
         self, model, optimizer, *, tokens: tuple[int, ...], steps: int, budget: GrowthBudget, start_step: int = 0
@@ -58,7 +68,7 @@ class TorchGrowthTrainer:
                 or time.monotonic() - started >= budget.max_seconds
             ):
                 break
-            chunk = chunks[step % len(chunks)]
+            chunk = chunks[window_index(step, len(chunks))]
             x = torch.tensor([chunk[:-1]], device=device)
             y = torch.tensor(chunk[1:], device=device)
             optimizer.zero_grad(set_to_none=True)
@@ -82,6 +92,8 @@ class TorchGrowthTrainer:
         utilization = [b.last_utilization.cpu().tolist() for b in model.blocks]
         return {
             "steps": completed,
+            "sampling_policy": "coprime_full_corpus_stride.v1",
+            "available_windows": len(chunks),
             "tokens": used_tokens,
             "estimated_training_flops": used_flops,
             "flops_kind": "analytical_estimate",
@@ -111,7 +123,8 @@ def evaluate(model, tokens: tuple[int, ...]) -> float:
     model.eval()
     values = []
     with torch.inference_mode():
-        for chunk in chunks[:32]:
+        for index in range(min(32, len(chunks))):
+            chunk = chunks[window_index(index, len(chunks))]
             x = torch.tensor([chunk[:-1]], device=device)
             y = torch.tensor(chunk[1:], device=device)
             values.append(float(torch.nn.functional.cross_entropy(model(x).reshape(-1, 256), y)))

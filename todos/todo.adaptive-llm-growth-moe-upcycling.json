@@ -1,14 +1,14 @@
 {
   "$schema": "./todo.track.schema.json",
   "created": "2026-10-10",
-  "updated": "2026-10-14",
+  "updated": "2026-10-15",
   "project": "Ananta",
   "owner": "Ananta",
   "title": "Adaptive LLM Growth and MoE Upcycling",
   "goal": "Evaluate and prototype controlled growth of transformer LLMs from small dense baselines through depth/width expansion and MoE upcycling, with optional evidence-driven growth and pruning.",
   "purpose": "Research-to-MVP track; prioritize reproducible compute-normalized evidence over claims of automatic intelligence improvement.",
   "priority": "P1",
-  "status": "partial",
+  "status": "done",
   "status_scale": [
     "todo",
     "in_progress",
@@ -82,7 +82,7 @@
         "DLM-010",
         "DLM-011"
       ],
-      "status": "partial"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -242,7 +242,7 @@
       "id": "DLM-010",
       "title": "Evaluation and gate",
       "description": "Run multilingual German/English benchmarks, retention, safety regressions, data-efficiency and held-out tasks.",
-      "status": "partial",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "milestone_id": "DLM-M4",
@@ -256,8 +256,8 @@
       "acceptance_criteria": [
         "Publish matched-compute ablations and a go/no-go report; no benefit claims without measured confidence."
       ],
-      "progress_percent": 85,
-      "progress_note": "42 CPU and 42 CUDA reference arms, bilingual loss/retention, authored safety/grounding/tasks and confidence intervals recorded. Remaining: substantive real-world frozen multilingual datasets and evidence-grounded scaling/benefit evaluation; tiny synthetic probes do not establish intelligence or release eligibility."
+      "progress_percent": 100,
+      "progress_note": "2026-10-15: Reference-MVP evaluation complete. Frozen external Wikipedia DE/EN corpus: 197 articles, QID-grouped disjoint splits, source revision/license/attribution manifest retained. CPU and RTX5060Ti CUDA each completed 70 matched-token/FLOP arms across five seeds. Full-corpus coprime sampling removes prefix bias. No comparison establishes a statistically supported growth benefit: No-Go for activation. Reports: artifacts/domain/adaptive-growth.wikipedia.{cpu,cuda}.v1.json and growth-wikipedia.manifest.v1.json. This closes the scoped research-MVP ablation/report criterion, not 3B-to-30B feasibility or a production release; local runs are technical observations without production evidence authority."
     },
     {
       "id": "DLM-011",
@@ -304,27 +304,30 @@
     ]
   },
   "implementation_review": {
-    "date": "2026-10-14",
-    "classification": "local_synthetic_technical_observation",
+    "date": "2026-10-15",
+    "classification": "external_dataset_reference_mvp_technical_observation",
     "production_release_evidence": false,
     "deployment_performed": false,
     "documentation": "docs/adaptive-growth-and-specialist-implementation.md",
     "reports": [
       "artifacts/domain/adaptive-growth.cpu.v1.json",
-      "artifacts/domain/adaptive-growth.cuda.v1.json"
+      "artifacts/domain/adaptive-growth.cuda.v1.json",
+      "artifacts/domain/adaptive-growth.wikipedia.cpu.v1.json",
+      "artifacts/domain/adaptive-growth.wikipedia.cuda.v1.json",
+      "artifacts/domain/growth-wikipedia.manifest.v1.json"
     ],
-    "note": "Only tasks whose own criteria are fulfilled are done. Remaining real-world, deployment and exhaustive hardware acceptance is explicitly partial; no forged SRC/RUN identities or model-benefit claims."
+    "note": "All scoped research-MVP criteria fulfilled, with a measured No-Go for activation. No production promotion, scale feasibility or model-benefit claim."
   },
   "tasks_status_summary": {
     "total": 11,
     "by_status": {
       "todo": 0,
       "in_progress": 0,
-      "partial": 1,
+      "partial": 0,
       "blocked": 0,
-      "done": 10
+      "done": 11
     },
-    "progress_percent_done": 90.9,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 0,
       "P1": 6,
@@ -346,9 +349,9 @@
       "total": 4,
       "todo": 0,
       "in_progress": 0,
-      "partial": 1,
+      "partial": 0,
       "blocked": 0,
-      "done": 3
+      "done": 4
     }
   },
   "tasks_type_summary": {
@@ -356,30 +359,30 @@
     "by_type": {
       "unknown": {
         "total": 11,
-        "done": 10,
-        "partial": 1,
+        "done": 11,
+        "partial": 0,
         "blocked": 0,
         "todo": 0,
         "in_progress": 0,
-        "progress_percent": 98.6,
+        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 10
+          "done": 11
         }
       }
     }
   },
   "progress_summary": {
-    "state": "partial",
+    "state": "done",
     "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 1,
+    "partial": 0,
     "blocked": 0,
-    "done": 10,
-    "milestones_done": 3,
+    "done": 11,
+    "milestones_done": 4,
     "milestones_total": 4
   }
 }

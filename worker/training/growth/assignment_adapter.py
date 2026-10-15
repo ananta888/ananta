@@ -61,6 +61,7 @@ def execute_growth_assignment(assignment, *, workspace, checkpoint_manager=None)
         steps=parameters.get("steps", 8),
         device=parameters.get("device", "cpu"),
         checkpoint_sink=publish if checkpoint_manager is not None else None,
+        dataset_license_ids=tuple(sorted({shard.license_id for shard in assignment.dataset_manifest.shards})),
     )
     report["dataset_manifest_digest"] = assignment.dataset_manifest.digest
     report["classification"] = "research_technical_observation"

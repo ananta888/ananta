@@ -141,10 +141,10 @@ def test_split_contamination_and_insufficient_budget_fail_explicitly():
 
 
 def test_growth_assignment_uses_real_hub_issued_evidence_and_existing_runner(tmp_path):
-    from tests.research_training.test_governed_execution import registry
-    from tests.research_training.real_helpers import pipeline_spec, stage
     from agent.services.research_training_dataset_service import ResearchTrainingDatasetService
     from agent.services.research_training_evidence_service import ResearchTrainingEvidenceService
+    from tests.research_training.real_helpers import pipeline_spec, stage
+    from tests.research_training.test_governed_execution import registry
     from worker.training.research.assignment_runner import ResearchAssignmentRunner
     from worker.training.research.real_backend import LocalResearchBackend
     from worker.training.research.workspace import ResearchWorkspaceReader
@@ -221,6 +221,8 @@ def test_growth_assignment_uses_real_hub_issued_evidence_and_existing_runner(tmp
     assert result["follow_up_stage_created"] is False
     report = json.loads(result["content"])
     assert report["production_release_evidence"] is False
+    assert report["dataset_license_ids"] == ["synthetic-test"]
+    assert report["dataset_license"] == "synthetic-test"
     from ananta_contracts.research_training import canonical_digest
 
     assert report["dataset_manifest_digest"] == canonical_digest(raw["dataset_manifest"])
@@ -229,6 +231,62 @@ def test_growth_assignment_uses_real_hub_issued_evidence_and_existing_runner(tmp
         ResearchAssignmentRunner(
             LocalResearchBackend(ResearchWorkspaceReader(tmp_path, maximum_input_bytes=100000))
         ).execute(changed)
+
+
+def test_custom_corpus_never_inherits_reference_corpus_license():
+    splits = reference_splits()
+    splits["train"]["de"] = [splits["train"]["de"][0] + " Ein weiterer Satz im eigenen Korpus."]
+    report = run_experiment(splits=splits, seeds=(11, 23), steps=4)
+    assert report["dataset_license"] is None
+    assert report["dataset_license_ids"] == []
+    assert report["dataset_kind"] == "provided_split_corpus"
+    assert report["production_release_evidence"] is False
+
+
+@pytest.mark.parametrize("splits", [None, [], {"train": [], "validation": {}, "holdout": {}}])
+def test_invalid_dataset_shapes_have_bounded_diagnostics(splits):
+    with pytest.raises(ValueError, match="growth_dataset_"):
+        validate_splits(splits)
+
+
+@pytest.mark.parametrize("count", [1, 2, 16, 32, 1000, 1024])
+def test_sampling_traverses_every_window_and_resumes_without_prefix_bias(count):
+    from worker.training.growth.trainer import window_index
+
+    order = [window_index(step, count) for step in range(count)]
+    assert set(order) == set(range(count))
+    if count >= 16:
+        assert max(order[:4]) > count // 2
+
+
+def test_growth_cli_accepts_frozen_custom_splits_without_training_on_dry_run(tmp_path, monkeypatch, capsys):
+    from scripts.adaptive_growth_experiment import main
+
+    dataset = tmp_path / "corpus.json"
+    dataset.write_text(json.dumps(reference_splits()))
+    monkeypatch.setattr(
+        "sys.argv", ["growth", "--dry-run", "--dataset", str(dataset), "--dataset-license", "synthetic-test"]
+    )
+    assert main() == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["execution"] == "not_run"
+    assert result["dataset"] == "provided_split_corpus"
+
+
+def test_growth_cli_rejects_contaminated_frozen_data_before_training(tmp_path, monkeypatch, capsys):
+    from scripts.adaptive_growth_experiment import main
+
+    splits = reference_splits()
+    splits["holdout"]["de"] = splits["train"]["de"]
+    dataset = tmp_path / "contaminated.json"
+    dataset.write_text(json.dumps(splits))
+    monkeypatch.setattr(
+        "sys.argv", ["growth", "--dry-run", "--dataset", str(dataset), "--dataset-license", "synthetic-test"]
+    )
+    with pytest.raises(SystemExit) as error:
+        main()
+    assert error.value.code == 2
+    assert "growth_dataset_file_invalid" in capsys.readouterr().err
 
 
 def test_checkpoint_sink_persists_recoverable_lineage(tmp_path):
