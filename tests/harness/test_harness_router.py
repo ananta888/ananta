@@ -118,13 +118,87 @@ def test_catalog_metadata_is_scope_filtered_and_reconstructs_genome(tmp_path):
     from sqlmodel import SQLModel, create_engine
 
     from agent.db_models.harness_evolution import HarnessGenomeDB
+    from agent.db_models.harness_routing import HarnessRouteBindingDB
     from agent.repositories.harness_evolution import HarnessEvolutionStore
     from agent.repositories.harness_routing import SqlHarnessRoutingCatalog
 
     db = create_engine("sqlite:///" + str(tmp_path / "catalog.db"))
-    SQLModel.metadata.create_all(db, tables=[HarnessGenomeDB.__table__])
+    SQLModel.metadata.create_all(db, tables=[HarnessGenomeDB.__table__, HarnessRouteBindingDB.__table__])
     e = entry()
     c = SqlHarnessRoutingCatalog(lambda: db)
     HarnessEvolutionStore(engine=lambda: db).append_genome(e.genome, model_requirements=c.requirements(e))
     assert c.entries(tenant_id="tenant", project_id="project")[0].manifest_digest == e.manifest_digest
     assert c.entries(tenant_id="other", project_id="project") == []
+
+
+def test_routes_attach_after_genome_creation_and_are_revision_and_scope_bound(tmp_path):
+    from sqlmodel import SQLModel, create_engine
+
+    from agent.db_models.harness_evolution import HarnessGenomeDB
+    from agent.db_models.harness_routing import HarnessRouteBindingDB
+    from agent.repositories.harness_evolution import HarnessEvolutionStore
+    from agent.repositories.harness_routing import SqlHarnessRoutingCatalog
+
+    db = create_engine("sqlite:///" + str(tmp_path / "routes.db"))
+    SQLModel.metadata.create_all(db, tables=[HarnessGenomeDB.__table__, HarnessRouteBindingDB.__table__])
+    store = HarnessEvolutionStore(engine=lambda: db)
+    catalog = SqlHarnessRoutingCatalog(lambda: db)
+    original = entry()
+    with pytest.raises(ValueError, match="genome_unknown"):
+        catalog.append(original)
+    store.append_genome(original.genome)
+    before = store.get_genome(original.genome.genome_id)
+    digest = catalog.append(original)
+    assert catalog.append(original) == digest
+    assert catalog.append(replace(original, model_revision="v2")) != digest
+    catalog.append(replace(original, tenant_id="other"))
+    assert {e.model_revision for e in catalog.entries(tenant_id="tenant", project_id="project")} == {"v1", "v2"}
+    assert len(catalog.entries(tenant_id="other", project_id="project")) == 1
+    assert catalog.entries(tenant_id="tenant", project_id="other") == []
+    assert store.get_genome(original.genome.genome_id) == before
+    # A persisted binding is still only a reference, never certification authority.
+    r = HarnessRouter(catalog=catalog, evidence=SimpleNamespace(), audit=Audit())
+    assert r.route(REQUEST, task_id="task").status == "blocked"
+
+
+def test_legacy_route_import_is_idempotent_and_deduplicates_new_binding(tmp_path):
+    from sqlmodel import SQLModel, create_engine
+
+    from agent.db_models.harness_evolution import HarnessGenomeDB
+    from agent.db_models.harness_routing import HarnessRouteBindingDB
+    from agent.repositories.harness_evolution import HarnessEvolutionStore
+    from agent.repositories.harness_routing import SqlHarnessRoutingCatalog
+
+    db = create_engine("sqlite:///" + str(tmp_path / "legacy.db"))
+    SQLModel.metadata.create_all(db, tables=[HarnessGenomeDB.__table__, HarnessRouteBindingDB.__table__])
+    store = HarnessEvolutionStore(engine=lambda: db)
+    catalog = SqlHarnessRoutingCatalog(lambda: db)
+    e = entry()
+    requirements = catalog.requirements(e)
+    # Exercise both the original tuple representation and JSON-list round trips.
+    requirements["certified_route"]["task_classes"] = e.task_classes
+    for _ in range(2):
+        store.append_genome(e.genome, model_requirements=requirements)
+    catalog.append(e)
+    assert len(catalog.entries(tenant_id="tenant", project_id="project")) == 1
+
+
+def test_route_binding_migration_round_trip(monkeypatch):
+    import importlib
+
+    from alembic.migration import MigrationContext
+    from alembic.operations import Operations
+    from sqlalchemy import inspect
+    from sqlmodel import SQLModel, create_engine
+
+    from agent.db_models.harness_evolution import HarnessGenomeDB
+
+    migration = importlib.import_module("migrations.versions.a2c4e6f8b0d3_add_harness_route_bindings")
+    db = create_engine("sqlite://")
+    SQLModel.metadata.create_all(db, tables=[HarnessGenomeDB.__table__])
+    with db.begin() as connection:
+        monkeypatch.setattr(migration, "op", Operations(MigrationContext.configure(connection)))
+        migration.upgrade()
+        assert "harness_route_bindings" in inspect(connection).get_table_names()
+        migration.downgrade()
+        assert inspect(connection).get_table_names() == ["harness_genomes"]

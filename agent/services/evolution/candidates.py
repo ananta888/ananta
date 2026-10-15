@@ -65,6 +65,10 @@ class EvolutionCandidateNormalizer:
                         "proposal_type": proposal.proposal_type,
                         "target_refs": proposal.target_refs,
                         "rationale": proposal.rationale,
+                        "provider_metadata": proposal.provider_metadata,
+                        "raw_payload": proposal.raw_payload,
+                        "risk_level": proposal.risk_level,
+                        "requires_review": proposal.requires_review,
                     },
                 }
             )

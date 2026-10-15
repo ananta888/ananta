@@ -11,8 +11,9 @@ export class GepCompatibilityError extends Error {}
 
 function readFile(root, relative) {
   const target = path.join(root, relative);
-  if (!fs.existsSync(target)) return null;
-  const stat = fs.lstatSync(target);
+  let stat;
+  try { stat = fs.lstatSync(target); }
+  catch (error) { if (error.code === 'ENOENT') return null; throw error; }
   if (stat.isSymbolicLink() || !stat.isFile() || stat.size > MAX_BYTES ||
       !fs.realpathSync(target).startsWith(fs.realpathSync(root) + path.sep)) {
     throw new GepCompatibilityError('evolver_gep_artifact_path_or_size');
@@ -20,7 +21,32 @@ function readFile(root, relative) {
   return fs.readFileSync(target, 'utf8');
 }
 
-export function collectGepArtifacts(root, { baselineIds = [] } = {}) {
+function promptArtifacts(root, memoryDir) {
+  const prompts = [];
+  const legacy = readFile(root, 'gep_prompt.txt');
+  if (legacy !== null) prompts.push({id: 'gep-prompt', text: legacy});
+  if (memoryDir !== undefined) {
+    const evolution = path.join(memoryDir, 'evolution');
+    for (const directory of [memoryDir, evolution]) {
+      let stat;
+      try { stat = fs.lstatSync(directory); }
+      catch (error) { if (error.code === 'ENOENT') return prompts; throw error; }
+      if (stat.isSymbolicLink() || !stat.isDirectory()) {
+        throw new GepCompatibilityError('evolver_gep_prompt_directory_invalid');
+      }
+    }
+    const names = fs.readdirSync(evolution);
+    if (names.length > 128) throw new GepCompatibilityError('evolver_gep_prompt_directory_budget');
+    for (const name of names.sort()) {
+      if (!/^gep_prompt_[A-Za-z0-9_#-]+\.txt$/.test(name) || name.length > 190) continue;
+      prompts.push({id: name.slice(0, -4), text: readFile(evolution, name)});
+    }
+  }
+  if (prompts.length > 1) throw new GepCompatibilityError('evolver_gep_prompt_budget');
+  return prompts;
+}
+
+export function collectGepArtifacts(root, { baselineIds = [], memoryDir } = {}) {
   if (fs.lstatSync(root).isSymbolicLink() || !fs.lstatSync(root).isDirectory()) {
     throw new GepCompatibilityError('evolver_gep_root_invalid');
   }
@@ -69,13 +95,14 @@ export function collectGepArtifacts(root, { baselineIds = [] } = {}) {
       if (Buffer.byteLength(JSON.stringify(rows)) > 512 * 1024) throw new GepCompatibilityError('evolver_gep_total_budget');
     }
   }
-  const prompt = readFile(root, 'gep_prompt.txt');
-  if (prompt !== null && Buffer.byteLength(prompt) > 30000) {
-    throw new GepCompatibilityError('evolver_gep_asset_too_large');
+  for (const prompt of promptArtifacts(root, memoryDir)) {
+    if (prompt.text === null || Buffer.byteLength(prompt.text) > 30000) {
+      throw new GepCompatibilityError('evolver_gep_asset_too_large');
+    }
+    rows.push({kind: 'GepPrompt', provider_asset_id: prompt.id,
+      provider_schema_version: 'pinned-text-v1.94.0', proposal_candidate: true,
+      raw_payload: {text: prompt.text}, evidence_status: 'unverified', grants_permission: false});
   }
-  if (prompt !== null) rows.push({kind: 'GepPrompt', provider_asset_id: 'gep-prompt',
-    provider_schema_version: 'pinned-text-v1.94.0', proposal_candidate: true,
-    raw_payload: {text: prompt}, evidence_status: 'unverified', grants_permission: false});
   if (Buffer.byteLength(JSON.stringify(rows)) > 512 * 1024) {
     throw new GepCompatibilityError('evolver_gep_total_budget');
   }

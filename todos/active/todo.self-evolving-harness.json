@@ -914,11 +914,11 @@
     {
       "id": "SEH-043",
       "title": "Verpflichtenden EvoMap Live-Compatibility- und Release-Gate etablieren",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
-      "details": "Den vorhandenen opt-in Live-Compose-Test zu einem kontrollierten Compatibility-Gate für EvoMap-Upgrades ausbauen. Getestet werden reale aktuelle/pinned Runtime, Git-Kontext, strukturierte Outputs, Health, Timeout, Failure, Version-Mismatch und mindestens ein vollständiger Analyze->Proposal->Review-Pfad.",
+      "progress_percent": 20,
+      "details": "Den vorhandenen opt-in Live-Compose-Test zu einem kontrollierten Compatibility-Gate für EvoMap-Upgrades ausbauen. Getestet werden reale aktuelle/pinned Runtime, Git-Kontext, strukturierte Outputs, Health, Timeout, Failure, Version-Mismatch und mindestens ein vollständiger Analyze->Proposal->Review-Pfad. Implementiert: verpflichtender Offline-CI-Test gegen die reale gepinnte Runtime inklusive Versions-/Commit-/Lock-Prüfung, Git-Workspace und vollständigem Import des generierten GEP-Prompts. Fehlende Runtime darf in CI nicht übersprungen werden. Offen bleiben HTTP-Health/Timeout/Failure, der echte Ananta-Adapter mit Review-Pfad sowie registrierte Release-Evidenz und Image-Promotion-Gate.",
       "acceptance_criteria": [
         "EvoMap-Image wird vor Promotion gegen den realen Ananta-Adapter getestet",
         "Test schlägt bei fehlendem Git-Kontext oder inkompatiblem Output-Schema fehl",
@@ -947,9 +947,9 @@
   "tasks_status_summary": {
     "total": 44,
     "by_status": {
-      "todo": 12,
+      "todo": 11,
       "in_progress": 0,
-      "partial": 17,
+      "partial": 18,
       "blocked": 0,
       "done": 15
     },
@@ -982,9 +982,9 @@
   },
   "progress_summary": {
     "state": "partial",
-    "todo_remaining": 12,
+    "todo_remaining": 11,
     "in_progress": 0,
-    "partial": 17,
+    "partial": 18,
     "blocked": 0,
     "done": 15,
     "milestones_done": 1,
@@ -1000,7 +1000,8 @@
     "EvoMap ist bereits real angebunden, aber aktuell vor allem als analyze/proposal Provider; GEP-Assets und Memory/Lineage werden noch nicht first-class genutzt.",
     "Der bisherige EvoMap-Bridge-Pfad muss vor tieferer Nutzung insbesondere bei Git-Workspace, Versions-Pinning und strukturiertem Output gehärtet werden.",
     "EvoMap-Netzwerkfunktionen bleiben optional; lokale/offline Evolution ist der bevorzugte Default.",
-    "2026-10-14: Harness routing, typed GEP import and operator/developer runbook completed; common Engine selection/candidate and scoped asset lifecycle added. Productive queue/benchmark/promotion integration remains explicitly partial; no release claims from local tests."
+    "2026-10-14: Harness routing, typed GEP import and operator/developer runbook completed; common Engine selection/candidate and scoped asset lifecycle added. Productive queue/benchmark/promotion integration remains explicitly partial; no release claims from local tests.",
+    "2026-10-15: Candidate-Digests binden den tatsächlichen Änderungspayload; Routing-Zertifikate liegen getrennt und append-only vor, Legacy-Imports sind idempotent. Reale gepinnte Evolver-Runtime erzeugt im verpflichtenden Offline-CI-Test einen vollständig importierten GEP-Prompt. SEH-043 bleibt partial; produktive Release-/Promotion-Integration ist offen."
   ],
   "existing_foundation": {
     "native_prompt_optimization": [
@@ -1176,15 +1177,15 @@
       "unknown": {
         "total": 44,
         "done": 15,
-        "partial": 17,
+        "partial": 18,
         "blocked": 0,
-        "todo": 12,
+        "todo": 11,
         "in_progress": 0,
-        "progress_percent": 59.1,
+        "progress_percent": 59.5,
         "by_status": {
-          "todo": 12,
+          "todo": 11,
           "in_progress": 0,
-          "partial": 17,
+          "partial": 18,
           "blocked": 0,
           "done": 15
         }

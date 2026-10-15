@@ -31,7 +31,10 @@ durchgesetzt werden; sie sind noch kein produktiver Kostenbeleg.
 
 Candidate-Bindings ergänzen den bestehenden EvolutionProposal-Vertrag.
 Modell-, Dataset-, Benchmark- und Parent-Bindungen werden content-addressed
-gespeichert. Providerbehauptungen erhalten weder Evidenzstatus noch Rechte.
+gespeichert. Der Candidate-Digest bindet außerdem Provider-Metadaten und
+Rohpayload (einschließlich tatsächlichem Genom beziehungsweise DSPy-Spec) sowie
+Risiko und Review-Pflicht. Bereits gespeicherte Legacy-Digests werden nicht
+nachträglich umgeschrieben. Providerbehauptungen erhalten weder Evidenzstatus noch Rechte.
 Nur der Hub Evidence Registry darf SRC_/RUN_-Identitäten ausstellen. Eine lokale
 Analyse-ID, ein Git-Hash oder ein Asset-Digest ersetzt diese Identitäten nicht.
 
@@ -45,9 +48,15 @@ Adminpflichtige Read-APIs unter `/api/harness`:
 - `POST /route-preview`: zertifizierte Auswahl ohne Aktivierung oder Tool-Ausführung.
 
 Routing bindet Tenant/Projekt, Provider/Modellrevision, Taskklasse, Hardware,
-Tool-Allowlist, Kontext und Kosten/Latenz. Zertifizierte Einträge werden im
-bestehenden Genome-Store als immutable `model_requirements.certified_route`
-gespeichert. Ihr Manifest muss als Hub-zugelassene Quelle im exakt gebundenen,
+Tool-Allowlist, Kontext und Kosten/Latenz. Routing-Bindungen werden unabhängig vom
+unveränderlichen Genom in `harness_route_bindings` append-only gespeichert.
+Migration `a2c4e6f8b0d3` vor Nutzung des Routers anwenden. Der interne Hub-Katalog-Port
+`SqlHarnessRoutingCatalog.append(entry)` setzt ein bereits gespeichertes Genom
+voraus und dedupliziert identische Bindungen. Weitere Modellrevisionen und
+Tenant-/Projekt-Bindungen verändern das Genom nicht. Legacy-Einträge unter
+`model_requirements.certified_route` bleiben über einen Leseadapter verfügbar;
+identische neue und alte Bindungen erscheinen nur einmal. Die Speicherung ist
+keine Freigabe: Ihr Manifest muss als Hub-zugelassene Quelle im exakt gebundenen,
 erfolgreich verifizierten Run enthalten sein. Test/synthetische Evidenz genügt
 nicht. Ohne passende zertifizierte Baseline ist das Ergebnis `blocked`; eine
 Modellrevision übernimmt niemals die Zertifizierung ihrer Vorgängerversion.
@@ -108,6 +117,16 @@ Neue Schemas, ID-Konflikte, Symlinks und
 frisch erzeugten Vorschläge. stdout-only ist als `degraded_stdout_compatibility`
 markiert. Die Docker-Bridge wird aus dem gepinnten Source gebaut; lokale Container-
 Tests sind technische Beobachtungen, keine registrierte Release-Evidenz.
+
+Runtime-Prompts werden aus dem expliziten temporären
+`memory/evolution/gep_prompt_<cycle>_<run>.txt` übernommen, bevor das Workspace-
+Cleanup läuft. Der ältere Pfad `gep-assets/gep_prompt.txt` bleibt kompatibel.
+Pro Analyse ist höchstens ein Prompt mit maximal 30.000 UTF-8-Bytes zugelassen;
+Symlinks, übergroße Verzeichnisse und mehrdeutige Promptmengen scheitern geschlossen.
+Die Offline-CI startet die echte gepinnte Runtime und prüft den vollständigen
+Promptimport. `ANANTA_REQUIRE_PINNED_EVOLVER=1` verhindert, dass dieser Test bei
+fehlender Runtime übersprungen wird. Ein produktiver Release-Nachweis mit
+Hub-reservierter Evidenz bleibt separat erforderlich (SEH-043).
 
 Alte EvolutionProposal-Rohdaten bleiben lesbar. Sie werden nicht automatisch als
 Gene/Capsule reinterpretiert. Eine spätere Migration muss Runtime/Schema und

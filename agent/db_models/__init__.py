@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from .access_roles import AccessPolicyRevisionDB, AccessRoleBindingDB, AccessRoleDB
 from .agents import AgentInfoDB
-from .evolution_assets import EvolutionAssetDB, EvolutionAssetStateDB
 from .auth import (
     BannedIPDB,
     InstructionOverlayDB,
@@ -47,6 +46,7 @@ from .evidence_identity import (
     HubRunEvidenceIdentityDB,
     HubSourceEvidenceIdentityDB,
 )
+from .evolution_assets import EvolutionAssetDB, EvolutionAssetStateDB
 from .governance import (
     ActionPackDB,
     AgentSessionDB,
@@ -74,6 +74,7 @@ from .harness_evolution import (
     HarnessGenomeDB,
     HarnessMutationDB,
 )
+from .harness_routing import HarnessRouteBindingDB
 from .harness_search import HarnessSearchRevisionDB
 from .hrm_experiment_idempotency import HrmIdempotencyReceiptDB
 from .hrm_experiments import (
@@ -498,6 +499,7 @@ __all__ = [
     "HarnessBenchmarkRunDB",
     "HarnessExperimentDB",
     "HarnessGenomeDB",
+    "HarnessRouteBindingDB",
     "HarnessSearchRevisionDB",
     "HarnessMutationDB",
     "HeuristicDecisionLeaseDB",

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import time
 from collections.abc import Callable, Mapping, Sequence
 
@@ -13,7 +14,7 @@ from agent.db_models import (
     HarnessGenomeDB,
     HarnessMutationDB,
 )
-from ananta_contracts.harness_genome import HarnessGenome, content_digest
+from ananta_contracts.harness_genome import HarnessGenome, canonical_json, content_digest
 
 MAX_LINEAGE_DEPTH = 128
 
@@ -37,6 +38,11 @@ class HarnessEvolutionStore:
         genome.assert_valid()
         canonical = genome.to_json()
         content_hash = content_digest(genome.semantic_mapping())
+        # Compare the JSON representation that survives database round trips.
+        model_requirements = json.loads(canonical_json(model_requirements)) if model_requirements is not None else None
+        runtime_requirements = (
+            json.loads(canonical_json(runtime_requirements)) if runtime_requirements is not None else None
+        )
         with Session(self._engine()) as session:
             existing = session.get(HarnessGenomeDB, genome.genome_id)
             if existing is not None:

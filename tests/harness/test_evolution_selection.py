@@ -158,3 +158,63 @@ def test_candidate_normalization_is_content_addressed_and_never_promotes_provide
     assert binding["model_revision"] == "v1" and out.proposals[0].provider_metadata == raw.provider_metadata
     assert raw.candidate_binding == {"evidence_status": "verified"}
     assert binding == normalizer.normalize(ctx, result, engine_version="pinned-v1").proposals[0].candidate_binding
+
+
+def test_native_candidate_digest_binds_actual_genome_not_only_proposal_text():
+    from agent.services.evolution.harness_engines import NativeHarnessEvolutionEngine
+    from agent.services.harness_runtime import baseline_genome
+
+    genome = baseline_genome(
+        code_hash="a" * 64,
+        config_hash="b" * 64,
+        provider_id="offline",
+        model_id="synthetic",
+        gate_refs=("gate://security",),
+        promotion_ref="gate://promotion",
+    )
+    engine = NativeHarnessEvolutionEngine()
+    candidates = []
+    for budget in (65536, 131072):
+        ctx = EvolutionContext(
+            context_id="same-context",
+            objective="compare mutations",
+            constraints={
+                "native_harness": {
+                    "baseline": genome.to_mapping(),
+                    "operator": "widen_context",
+                    "parameters": {"budget_tokens": budget},
+                },
+            },
+        )
+        candidates.append(
+            EvolutionCandidateNormalizer()
+            .normalize(
+                ctx,
+                engine.analyze(ctx),
+                engine_version=engine.version,
+            )
+            .proposals[0]
+        )
+    assert candidates[0].title == candidates[1].title
+    assert candidates[0].description == candidates[1].description
+    assert candidates[0].candidate_binding["candidate_digest"] != candidates[1].candidate_binding["candidate_digest"]
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"provider_metadata": {"optimization_spec": {"optimizer_id": "different"}}},
+        {"raw_payload": {"patch": "different"}},
+        {"requires_review": False},
+        {"risk_level": "high"},
+    ],
+)
+def test_candidate_digest_changes_when_executable_payload_or_review_policy_changes(change):
+    ctx = EvolutionContext(context_id="same-context", objective="test")
+    original = EvolutionProposal(title="same", description="same")
+    digests = []
+    for proposal in (original, original.model_copy(update=change)):
+        result = EvolutionResult(provider_name="synthetic", proposals=[proposal])
+        normalized = EvolutionCandidateNormalizer().normalize(ctx, result, engine_version="v1")
+        digests.append(normalized.proposals[0].candidate_binding["candidate_digest"])
+    assert digests[0] != digests[1]

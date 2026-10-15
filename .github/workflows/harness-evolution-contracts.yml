@@ -32,6 +32,7 @@ jobs:
       - name: Run offline nonroot GEP and workspace contracts
         run: >-
           docker run --rm --network none --read-only --user 1000:1000
+          --env ANANTA_REQUIRE_PINNED_EVOLVER=1
           --tmpfs /tmp:rw,size=64m,uid=1000,gid=1000
           --mount type=bind,source="$GITHUB_WORKSPACE",target=/workspace,readonly
           --workdir /workspace --entrypoint node

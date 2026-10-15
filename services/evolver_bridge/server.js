@@ -105,7 +105,7 @@ app.post("/evolution/analyze", async (req, res) => {
     );
 
     const combined = [stdout || "", stderr || ""].join("\n").trim();
-    const assets = collectGepArtifacts(gepDir, {baselineIds});
+    const assets = collectGepArtifacts(gepDir, {baselineIds, memoryDir});
     const structured = assets.filter(a => a.proposal_candidate);
 
     return res.json({
