@@ -232,7 +232,9 @@ def _base_propose_payload(task_id: str, loop: Any, context_window: Any) -> dict[
     strategy_mode_override = str(
         autopilot_cfg.get("strategy_mode_override") or "autopilot_no_human_review"
     ).strip().lower()
-    if strategy_mode_override:
+    # A coding task may explicitly use its existing backend strategy instead
+    # of the Autopilot-wide proposal mode. Admission and tool gates still apply.
+    if strategy_mode_override and strategy_mode_override != "task_default":
         propose_payload["strategy_mode"] = strategy_mode_override
     return propose_payload
 
