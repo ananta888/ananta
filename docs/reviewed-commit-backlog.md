@@ -1,6 +1,6 @@
 # Offene Arbeit aus den analysierten Commit-Tracks
 
-Stand: 2026-10-14. Diese Liste ergänzt den separaten Multi-Tool-Track.
+Stand: 2026-10-15. Diese Liste ergänzt den separaten Multi-Tool-Track.
 Status stammt aus den tatsächlichen Tasks. Lokale Tests sind technische
 Beobachtungen; keine registrierte Produktionsfreigabe.
 
@@ -11,7 +11,7 @@ SEH-039 (strukturierter GEP-Import). Engine-/Asset-Integrationen sind Teilständ
 
 | Track | Offen | Gesamt |
 |---|---:|---:|
-| [todo.adaptive-llm-growth-moe-upcycling](../todos/todo.adaptive-llm-growth-moe-upcycling.json) | 1 | 11 |
+| [todo.adaptive-llm-growth-moe-upcycling](../todos/todo.adaptive-llm-growth-moe-upcycling.json) | 0 | 11 |
 | [jeff_local_specialist_gate_adapter](../todos/active/todo.jeff-local-specialist-gate-adapter.json) | 5 | 12 |
 | [jev_llamacpp_parallel_decision_mode](../todos/active/todo.jev-llamacpp-parallel-decision-mode.json) | 2 | 12 |
 | [vision_parallel_decision_llamacpp](../todos/active/todo.vision-parallel-decision-llamacpp.json) | 2 | 27 |
@@ -19,25 +19,26 @@ SEH-039 (strukturierter GEP-Import). Engine-/Asset-Integrationen sind Teilständ
 
 ## todo.adaptive-llm-growth-moe-upcycling
 
-- **DLM-010 (partial)** — Evaluation and gate. 42 CPU and 42 CUDA reference arms, bilingual loss/retention, authored safety/grounding/tasks and confidence intervals recorded. Remaining: substantive real-world frozen multilingual datasets and evidence-grounded scaling/benefit evaluation; tiny synthetic probes do not establish intelligence or release eligibility.
+Alle 11 Kriterien des Research-MVP erfüllt. Die reale DE/EN-Referenzevaluation ergibt ein No-Go für Aktivierung; keine Aussage über 3B–30B-Skalierung oder Produktionsfreigabe. Siehe [Auswertung](adaptive-growth-and-specialist-implementation.md).
+
 
 ## jeff_local_specialist_gate_adapter
 
-- **JEFF-002 (partial)** — Optionale lokale Jeff-Laufzeit bereitstellen. Pinned hashed CPU image built; actual offline nonroot readonly CPU service verified. CUDA observation succeeds on existing pinned training runtime. Remaining: complete build/attestation of the separate CUDA dependency-lock image; upstream NVIDIA wheel download stalled.
+- **JEFF-002 (partial)** — Optionale lokale Jeff-Laufzeit bereitstellen. 2026-10-15: Real offline CPU and CUDA-fixture signed inference pass: missing403, valid200 with grant digest, replay409, mutated403 (jeff-signed-container.{cpu,cuda}.v2.json). CPU image matches every current lock version and Python3.12 (jeff-cpu-runtime-inventory.v1.json). Wrapper executes exactly the verified model path and rejects unverified alternate backends. The old CUDA image remains incompatible with current lock; test fixture is explicitly not certified. A separate hash-locked Python3.12 CUDA rebuild has not completed its large NVIDIA wheel downloads. Remaining: complete and attest the current CUDA-lock image.
 - **JEFF-004 (partial)** — Fragen-Isolation und Wahrscheinlichkeiten kalibrieren. All questions isolated; validation-only temperature fit and DE/EN calibration/risk reports implemented. Remaining: sufficiently large independent validation and isolation/stability sweeps to establish reliable per-profile calibration; current pilot cannot authorize thresholds.
-- **JEFF-005 (partial)** — Hub-Gates und begrenzten Fallback anschliessen. Existing Hub cascade/abstention and Specialist contracts reused; signed Registry-bound task/assignment/lease input/model grants, expiry and replay rejection tested in real Worker. Remaining: productive task callers must supply current Hub dispatch-lease authority and bound tokens before enabling the optional provider; no productive rollout performed.
-- **JEFF-009 (partial)** — Speicher- und Lastprofile fuer lokale Hardware vermessen. Actual CPU/CUDA RTX5060Ti inference and container/device memory sampled with bounded queue/admission. Remaining: dedicated exhaustive batch/text/label/RAM/VRAM/OOM/queue/ONNX profiles and optional 10GB hardware; current measurements are not universal capacity limits.
+- **JEFF-005 (partial)** — Hub-Gates und begrenzten Fallback anschliessen. 2026-10-15: Admin-only Hub POST /api/specialist-inference/assignments signs only existing Registry-reserved runs after exact tenant/project/task/current WorkerJob/active slot-lease checks. Missing signing configuration and audit failure fail closed. Worker timeout/OOM/failure consumes the one-shot grant; the transport never retries signed requests. Exact binding, stale/cancelled lease, audit, API auth, replay and failure paths tested headlessly. Remaining: configure deployment issuer key, wire productive task reservation/callers and Registry result acceptance before enabling provider.
+- **JEFF-009 (partial)** — Speicher- und Lastprofile fuer lokale Hardware vermessen. 2026-10-15: Actual CPU/CUDA inference observations retained. Added deterministic bounded memory-error response (529), generic inference-failure redaction, consumed-grant replay rejection and no automatic signed-request retry. Remaining: exhaustive actual batch/text/label/RAM/VRAM/queue/soak/ONNX profiles and optional 10GB hardware; injected OOM tests are not physical capacity measurements.
 - **JEFF-010 (partial)** — Jeff an Model-Factory und ML-Intern anschliessen. Registered optional decision provider and frozen SpecialistDecisionBaseline bridge reuse existing contracts/lifecycle; encoder training/GGUF export explicitly unsupported. Remaining: productive Model-Factory registry/approved error-data admission through the configured deployment and full release/rollback evidence.
 
 ## jev_llamacpp_parallel_decision_mode
 
-- **JEVCPP-008 (partial)** — Modellarchitekturen fuer ParallelDecision vergleichen. Actual small tinygemma and larger Qwen3-VL attention runtimes evaluated. Remaining: available licensed hybrid/recurrent and real MoE weights/runtime profiles, offload/batch architecture matrix; unmeasured rows must remain not-run.
-- **JEVCPP-010 (partial)** — Latenz und Durchsatz auf lokaler Ananta-Hardware vermessen. Actual CPU and RTX5060Ti CUDA single/batch p50/p95/p99 and throughput reports; tokenizer/cache observations separate. Remaining: exhaustive independent hardware/architecture/offload/load profile matrix and recommended profiles supported by larger own samples.
+- **JEVCPP-008 (partial)** — Modellarchitekturen fuer ParallelDecision vergleichen. 2026-10-15: Attention model coverage now includes tinygemma, Qwen3-VL-2B Q8 CPU/CUDA and actual Qwen2.5-VL-3B Q4 CUDA. Exact model/projector/runtime digests retained. No actual licensed hybrid/recurrent or MoE model weights available locally; a 66KB Bonsai KV-bias file is not a model. Those architecture rows remain not-run.
+- **JEVCPP-010 (partial)** — Latenz und Durchsatz auf lokaler Ananta-Hardware vermessen. 2026-10-15: Matched Qwen3-VL-2B CPU/CUDA and Qwen2.5-VL-3B CUDA single/two-context profiles, 20 repeats per batch size. New 3B CUDA p50 approximately 70.7/73.0 ms, report artifacts/domain/parallel-decision-profile.qwen25-3b.cuda.v2.json. First inference retained, not a controlled cold-start/soak study. Remaining: hybrid/MoE/offload matrix and independent sustained load/resource sweeps.
 
 ## vision_parallel_decision_llamacpp
 
-- **VDEC-014 (partial)** — RTX 5060 Ti 16 GB Performance- und Speicherprofil erstellen. Historical CPU/CUDA v1 80-case pilot reports are invalidated for quality/calibration/release claims: validation and holdout shared image content. Corpus v2 now has disjoint original layouts, but no valid rerun is recorded. Remaining: rerun v2 on actual CPU/CUDA, isolated OOM/queue/context limits, peak/resource sweeps and optional 3B/7B/RTX3080 comparison.
-- **VDEC-016 (partial)** — Probability/Confidence kalibrieren und System-2-Abstain definieren. Historical CPU/CUDA v1 80-case pilot reports are invalidated for quality/calibration/release claims: validation and holdout shared image content. Corpus v2 now has disjoint original layouts, but no valid rerun is recorded. Remaining: rerun validation-only calibration and untouched holdout on v2 plus sufficiently representative frozen real tasks; no production threshold is authorized. Bounded existing System2 fallback remains.
+- **VDEC-014 (partial)** — RTX 5060 Ti 16 GB Performance- und Speicherprofil erstellen. 2026-10-15: Disjoint v2 pilot completed on Qwen3-VL-2B Q8 CPU/CUDA and Qwen2.5-VL-3B Q4 CUDA, 80 requests each, zero inference errors. Image/binary/model/projector digests and server arguments retained. New report vision-decision-pilot.qwen25-3b.cuda.v2.json; 3B CUDA holdout p50 around 123 ms. Remaining: isolated physical OOM/queue/context/peak-resource sweeps, optional 7B/RTX3080 comparison.
+- **VDEC-016 (partial)** — Probability/Confidence kalibrieren und System-2-Abstain definieren. 2026-10-15: Validation-only calibration with untouched disjoint v2 holdout on 2B CPU/CUDA and 3B CUDA. 3B document/rotation accuracy .70/.80; warning DE .80, EN .85, versus 2B .95/1.00. Only 20 cases per field/language from four groups. All profile thresholds remain null, no activation justified. Representative independently labeled real tasks remain necessary.
 
 ## self-evolving-harness
 
@@ -73,7 +74,7 @@ SEH-039 (strukturierter GEP-Import). Engine-/Asset-Integrationen sind Teilständ
 
 ## Voraussetzungen und nächste Implementierungsschritte
 
-- Reale GPU-Messungen: aktuelle CUDA/NVML-Verfügbarkeit herstellen; historische Messungen ersetzen keinen neuen v2-Run.
+- Reale GPU-Messungen: aktuelle 2B-/3B-CUDA-Läufe liegen vor; weitere Architektur-, Last- und Speicherprofile bleiben offen.
 - Kalibrierung: repräsentative, eingefrorene und unabhängig zugelassene DE/EN-Daten; synthetische Piloten geben keine Produktionsschwellen frei.
 - Integration: Hub-Queue, aktuelle Assignment-/Dispatch-Leases, echte Kostenmessung, eingefrorene Benchmarkport-Anbindung und Registry-verifizierte Release-/Rollback-Bindung implementieren.
 - EvoMap: Import mit exakter Source-/Scope-Zulassung, Retention, Egress-Policy und zertifizierter Compatibility-Suite verbinden.
