@@ -286,6 +286,18 @@ def normalize_worker_runtime(new_cfg: dict, ctx: ConfigUpdateContext) -> dict:
         )
     if "todo_contract" in worker_runtime_cfg:
         todo_contract = _normalize_todo_contract(worker_runtime_cfg.get("todo_contract"))
+    native_runtime = None
+    if "native_worker_runtime" in worker_runtime_cfg:
+        native_runtime = require_dict(
+            worker_runtime_cfg["native_worker_runtime"], "invalid_native_worker_runtime"
+        )
+        enabled = native_runtime.get("enabled", True)
+        if not isinstance(enabled, bool):
+            raise ConfigUpdateRejected("invalid_native_worker_runtime_enabled")
+        fallback = native_runtime.get("fallback_backend", "sgpt")
+        if fallback != "sgpt":
+            raise ConfigUpdateRejected("invalid_native_worker_runtime_fallback_backend")
+        native_runtime = {"enabled": enabled, "fallback_backend": fallback}
     new_cfg["worker_runtime"] = {
         "workspace_root": workspace_root or None,
         "workspace_reuse_mode": workspace_reuse_mode,
@@ -295,6 +307,8 @@ def normalize_worker_runtime(new_cfg: dict, ctx: ConfigUpdateContext) -> dict:
         new_cfg["worker_runtime"]["semantic_output_correction"] = semantic_output_correction
     if todo_contract is not None:
         new_cfg["worker_runtime"]["todo_contract"] = todo_contract
+    if native_runtime is not None:
+        new_cfg["worker_runtime"]["native_worker_runtime"] = native_runtime
     return new_cfg
 
 
