@@ -110,6 +110,7 @@ from agent.routes.share_sessions import share_sessions_bp
 from agent.routes.snakes import snakes_bp
 from agent.routes.snapshot_diff_api import snapshot_diff_bp
 from agent.routes.sources import sources_bp
+from agent.routes.specialist_inference import specialist_inference_bp
 from agent.routes.speech_adaptation_control import speech_adaptation_control_bp
 from agent.routes.speech_evidence_consents import speech_evidence_consents_bp
 from agent.routes.speech_evidence_sync import speech_evidence_sync_bp
@@ -161,6 +162,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(memory_audit_bp)
     app.register_blueprint(dspy_optimization_bp)
     app.register_blueprint(harness_bp)
+    app.register_blueprint(specialist_inference_bp)
     configure_project_lifecycle(app)
     configure_persona_media(app)
     configure_meet(app)

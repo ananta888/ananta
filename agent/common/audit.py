@@ -1,7 +1,6 @@
-import logging
 import hashlib
 import json
-import re
+import logging
 import threading
 from typing import Any
 
@@ -284,7 +283,7 @@ def audit_workspace_mutation_event(
     log_audit(action, details)
 
 
-def log_audit(action: str, details: dict = None):
+def log_audit(action: str, details: dict = None, *, raise_errors: bool = False):
     """
     Protokolliert eine administrative Aktion.
     """
@@ -314,7 +313,9 @@ def log_audit(action: str, details: dict = None):
 
     # Extra Felder für strukturiertes Logging (JSON) - maskiert
     sanitized_details = _sanitize_details(details)
-    extra = {"extra_fields": {"audit": True, "user": username, "ip": ip, "action": action, "details": sanitized_details}}
+    extra = {
+        "extra_fields": {"audit": True, "user": username, "ip": ip, "action": action, "details": sanitized_details}
+    }
 
     event_context = build_hub_event(
         channel="audit",
@@ -375,3 +376,5 @@ def log_audit(action: str, details: dict = None):
                 session.commit()
     except Exception as e:
         audit_logger.error(f"Failed to save audit log to database: {e}")
+        if raise_errors:
+            raise

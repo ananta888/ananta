@@ -1,0 +1,59 @@
+{
+  "health": {
+    "ok": true,
+    "model": "gliformer-large-v1"
+  },
+  "rows": [
+    {
+      "case": "missing",
+      "status": 403,
+      "seconds": 0.0017749959997672704,
+      "model": null,
+      "assignment_bound": false,
+      "error": "assignment_unverified"
+    },
+    {
+      "case": "valid",
+      "status": 200,
+      "seconds": 0.5724774770005752,
+      "model": "gliformer-large-v1",
+      "assignment_bound": true,
+      "error": null
+    },
+    {
+      "case": "replay",
+      "status": 409,
+      "seconds": 0.001159891000497737,
+      "model": null,
+      "assignment_bound": false,
+      "error": "assignment_replay"
+    },
+    {
+      "case": "mutated",
+      "status": 403,
+      "seconds": 0.0007075240000631311,
+      "model": null,
+      "assignment_bound": false,
+      "error": "assignment_unverified"
+    }
+  ],
+  "schema": "ananta.jeff-signed-container-test.v2",
+  "classification": "synthetic_technical_observation",
+  "production_release_evidence": false,
+  "device": "cpu",
+  "image_id": "sha256:8037ebf11d7dde6077757016308244b9ac0eb60570439e9600f37d1a95ef6fbb",
+  "code_sha256": {
+    "worker/decision/jeff_runtime.py": "97295f5fd39195df0b4fdf609e88d4f6438a5806d036f5730bb5ec29f4758189",
+    "ananta_contracts/specialist_inference_assignment.py": "2d9253abe98040d7f896c0ca5caf9bfc834f223ef5fb20fbc710b8ec1dd48b23"
+  },
+  "execution_limits": {
+    "network": "none",
+    "read_only": true,
+    "memory_bytes": 6442450944,
+    "cpu_limit": 4,
+    "capabilities": "ALL dropped",
+    "pids_limit": 256
+  },
+  "runtime_scope": "CPU lock versions compatible; source mounted read-only",
+  "source_identity": "Hub Registry-issued test identity; not production release evidence"
+}

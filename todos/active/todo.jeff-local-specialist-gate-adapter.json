@@ -164,7 +164,7 @@
         "CPU-Smoke-Test funktioniert mit bereitgestellten Gewichten; fehlende GPU/Weights liefern begrenzte klare Diagnosen.",
         "Feature deaktiviert startet weder Jeff noch Modelldownloads; nach Modellbereitstellung sind lokale Requests ohne Internet moeglich."
       ],
-      "progress_note": "Pinned hashed CPU image built; actual offline nonroot readonly CPU service verified. CUDA observation succeeds on existing pinned training runtime. Remaining: complete build/attestation of the separate CUDA dependency-lock image; upstream NVIDIA wheel download stalled."
+      "progress_note": "2026-10-15: Real offline CPU and CUDA-fixture signed inference pass: missing403, valid200 with grant digest, replay409, mutated403 (jeff-signed-container.{cpu,cuda}.v2.json). CPU image matches every current lock version and Python3.12 (jeff-cpu-runtime-inventory.v1.json). Wrapper executes exactly the verified model path and rejects unverified alternate backends. The old CUDA image remains incompatible with current lock; test fixture is explicitly not certified. A separate hash-locked Python3.12 CUDA rebuild has not completed its large NVIDIA wheel downloads. Remaining: complete and attest the current CUDA-lock image."
     },
     {
       "id": "JEFF-003",
@@ -236,7 +236,7 @@
         "Ein noch so sicherer Jeff-allow-Vorschlag kann ein deterministisches deny niemals ueberschreiben.",
         "Headless-Tests fuer allow/deny/escalate, Timeout und fehlende Auto-Freigabe enden deterministisch; kein Worker disponiert Folgeauftraege."
       ],
-      "progress_note": "Existing Hub cascade/abstention and Specialist contracts reused; signed Registry-bound task/assignment/lease input/model grants, expiry and replay rejection tested in real Worker. Remaining: productive task callers must supply current Hub dispatch-lease authority and bound tokens before enabling the optional provider; no productive rollout performed."
+      "progress_note": "2026-10-15: Admin-only Hub POST /api/specialist-inference/assignments signs only existing Registry-reserved runs after exact tenant/project/task/current WorkerJob/active slot-lease checks. Missing signing configuration and audit failure fail closed. Worker timeout/OOM/failure consumes the one-shot grant; the transport never retries signed requests. Exact binding, stale/cancelled lease, audit, API auth, replay and failure paths tested headlessly. Remaining: configure deployment issuer key, wire productive task reservation/callers and Registry result acceptance before enabling provider."
     },
     {
       "id": "JEFF-006",
@@ -334,7 +334,7 @@
         "Keine pauschale VRAM-/Geschwindigkeitszusage aus Parameterzahl; Profilgrenzen stammen aus eigenen Messungen.",
         "OOM/volle Queue fuehren zu kontrolliertem Fehler oder konfiguriertem Fallback, nicht zum Hub-Ausfall."
       ],
-      "progress_note": "Actual CPU/CUDA RTX5060Ti inference and container/device memory sampled with bounded queue/admission. Remaining: dedicated exhaustive batch/text/label/RAM/VRAM/OOM/queue/ONNX profiles and optional 10GB hardware; current measurements are not universal capacity limits."
+      "progress_note": "2026-10-15: Actual CPU/CUDA inference observations retained. Added deterministic bounded memory-error response (529), generic inference-failure redaction, consumed-grant replay rejection and no automatic signed-request retry. Remaining: exhaustive actual batch/text/label/RAM/VRAM/queue/soak/ONNX profiles and optional 10GB hardware; injected OOM tests are not physical capacity measurements."
     },
     {
       "id": "JEFF-010",
@@ -591,7 +591,7 @@
     "Nur Planungsartefakt: keine Implementierung, kein Modelldownload und kein echter Modell-Benchmark in diesem Commit.",
     "Alle Performance-/Qualitaetsschwellen vor Evaluation festlegen; fehlende lokale Evidenz bleibt offen."
   ],
-  "updated": "2026-10-14",
+  "updated": "2026-10-15",
   "implementation_review": {
     "date": "2026-10-14",
     "classification": "local_synthetic_technical_observation",

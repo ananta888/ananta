@@ -73,6 +73,11 @@ def create_app():
     if os.environ.get("HF_HUB_OFFLINE") != "1" or os.environ.get("TRANSFORMERS_OFFLINE") != "1":
         raise ValueError("jeff_offline_policy_required")
     settings = Settings()
+    # The executed path must be exactly the inventory verified above, including
+    # when JEFF_MODEL was omitted and upstream defaults differ from this wrapper.
+    settings.model_path = str(root)
+    if getattr(settings, "backend", "torch") != "torch":
+        raise ValueError("jeff_backend_not_verified")
     settings.api_keys = [key]
     settings.isolate = "all"
     settings.max_questions = 32
@@ -85,8 +90,8 @@ def create_app():
     require_assignment = os.environ.get("JEFF_REQUIRE_ASSIGNMENT", "1") == "1"
     public_key = None
     if require_assignment:
-        from cryptography.hazmat.primitives.serialization import load_pem_public_key
         from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+        from cryptography.hazmat.primitives.serialization import load_pem_public_key
 
         public_key_path = Path(os.environ.get("JEFF_HUB_PUBLIC_KEY_FILE", "/run/secrets/jeff_hub_public_key"))
         if not public_key_path.is_file() or public_key_path.stat().st_size > 4096:
@@ -149,6 +154,14 @@ def create_app():
             response = await asyncio.wait_for(call_next(request), timeout=deadline_seconds)
         except asyncio.TimeoutError:
             return JSONResponse({"error": "deadline_exceeded"}, status_code=504)
+        except Exception as error:
+            # A failed one-shot assignment is never replayed implicitly. Keep
+            # allocator failures bounded and never echo model/input diagnostics.
+            exhausted = isinstance(error, MemoryError) or type(error).__name__ == "OutOfMemoryError"
+            return JSONResponse(
+                {"error": "runtime_memory_exhausted" if exhausted else "inference_failed"},
+                status_code=529 if exhausted else 500,
+            )
         if response.status_code == 422:
             # Upstream validation echoes input. Never return prompts/PII in an
             # error envelope, which is commonly logged by clients and proxies.

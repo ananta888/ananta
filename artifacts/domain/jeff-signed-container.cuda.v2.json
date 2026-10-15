@@ -1,0 +1,59 @@
+{
+  "health": {
+    "ok": true,
+    "model": "gliformer-large-v1"
+  },
+  "rows": [
+    {
+      "case": "missing",
+      "status": 403,
+      "seconds": 0.0015121350006666034,
+      "model": null,
+      "assignment_bound": false,
+      "error": "assignment_unverified"
+    },
+    {
+      "case": "valid",
+      "status": 200,
+      "seconds": 0.9387423690004653,
+      "model": "gliformer-large-v1",
+      "assignment_bound": true,
+      "error": null
+    },
+    {
+      "case": "replay",
+      "status": 409,
+      "seconds": 0.0010436069997012964,
+      "model": null,
+      "assignment_bound": false,
+      "error": "assignment_replay"
+    },
+    {
+      "case": "mutated",
+      "status": 403,
+      "seconds": 0.0006920559999343823,
+      "model": null,
+      "assignment_bound": false,
+      "error": "assignment_unverified"
+    }
+  ],
+  "schema": "ananta.jeff-signed-container-test.v2",
+  "classification": "synthetic_technical_observation",
+  "production_release_evidence": false,
+  "device": "cuda",
+  "image_id": "sha256:e322f9003bac123b4edd38f43df38010fe77a2c233f0e1baa7857384631911bb",
+  "code_sha256": {
+    "worker/decision/jeff_runtime.py": "97295f5fd39195df0b4fdf609e88d4f6438a5806d036f5730bb5ec29f4758189",
+    "ananta_contracts/specialist_inference_assignment.py": "2d9253abe98040d7f896c0ca5caf9bfc834f223ef5fb20fbc710b8ec1dd48b23"
+  },
+  "execution_limits": {
+    "network": "none",
+    "read_only": true,
+    "memory_bytes": 6442450944,
+    "cpu_limit": 4,
+    "capabilities": "ALL dropped",
+    "pids_limit": 256
+  },
+  "runtime_scope": "CUDA integration test fixture: existing Python3.11 CUDA image plus cryptography/cffi/pycparser copied from backend test image; NOT compatible with current CUDA lock",
+  "source_identity": "Hub Registry-issued test identity; not production release evidence"
+}

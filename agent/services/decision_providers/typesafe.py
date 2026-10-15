@@ -281,7 +281,10 @@ class TypeSafeJevProvider:
                 failure = DecisionProviderError("timeout", retryable=True)
             except (urllib.error.URLError, OSError):
                 failure = DecisionProviderError("transport_error", retryable=True)
-            if attempt > self._retry.max_retries:
+            # Assignment capabilities are single-use. Even a transport failure
+            # can mean the Worker already consumed the grant.
+            maximum_retries = 0 if request.assignment_token else self._retry.max_retries
+            if attempt > maximum_retries:
                 raise failure
             delay = self._retry.delay(attempt, retry_after_ms)
             if self._clock() + delay >= deadline:

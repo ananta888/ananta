@@ -39,6 +39,7 @@ def test_calibration_does_not_accept_any_holdout_or_duplicate_identity():
 
 def test_vision_corpus_has_original_labels_and_frozen_groups():
     import hashlib
+
     cases = image_corpus()
     assert len(cases) == 120
     group_splits = {}
@@ -71,17 +72,26 @@ def test_pinned_model_manifest_cannot_be_replaced_by_an_empty_inventory(tmp_path
 
 
 def test_specialist_baseline_uses_existing_contract_and_never_claims_training():
-    from agent.services.decision_providers.specialist_baseline import SpecialistDecisionBaseline
     from agent.services.decision_providers.simple import StaticDecisionProvider
+    from agent.services.decision_providers.specialist_baseline import SpecialistDecisionBaseline
     from agent.services.decision_providers.types import DecisionAnswer
 
+    seen = []
+
+    def decide(request):
+        seen.append(request)
+        return {"decision": DecisionAnswer("decision", "choice", choice="search", confidence=0.98)}
+
     baseline = SpecialistDecisionBaseline(
-        StaticDecisionProvider(
-            lambda request: {"decision": DecisionAnswer("decision", "choice", choice="search", confidence=0.98)}
-        ),
+        StaticDecisionProvider(decide),
         contract("tool_routing"),
     )
     output = baseline.predict({"text": "find code", "language": "en"}, tenant_id="a", subject_id="b")
     assert output["label"] == "search"
+    assert seen[-1].assignment_token is None
+    baseline.predict(
+        {"text": "find code", "language": "en"}, tenant_id="a", subject_id="b", assignment_token="fixture.signature"
+    )
+    assert seen[-1].assignment_token == "fixture.signature"
     assert baseline.descriptor["training"] == "unsupported"
     assert baseline.descriptor["grants_permission"] is False

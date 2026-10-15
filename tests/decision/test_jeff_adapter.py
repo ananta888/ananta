@@ -107,6 +107,25 @@ def test_client_errors_are_not_retried(status):
     assert len(calls) == 1 and "secret" not in str(exc.value)
 
 
+def test_signed_one_shot_assignment_is_not_replayed_after_uncertain_failure():
+    calls = []
+
+    def opener(req, timeout):
+        calls.append(req)
+        raise urllib.error.HTTPError(req.full_url, 529, "busy", {}, io.BytesIO(b"private model input"))
+
+    adapter = JeffDecisionProvider(
+        base_url="http://127.0.0.1:8000",
+        model_revision=REVISION,
+        api_key=lambda: "synthetic-service-key",
+        opener=opener,
+        max_retries=2,
+    )
+    with pytest.raises(DecisionProviderError, match="upstream_busy"):
+        adapter.decide(replace(REQUEST, assignment_token="synthetic.signature"))
+    assert len(calls) == 1
+
+
 def test_circuit_breaker_and_admission_are_bounded():
     def failing(req, timeout):
         raise urllib.error.URLError("sensitive details")

@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-
-import pytest
 import sys
 import time
 import types
 from pathlib import Path
+
+import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from agent.services.specialist_inference_assignment_service import SpecialistInferenceAssignmentService
@@ -18,9 +18,9 @@ MODEL = "d0a4e53d09cebe6bc963dd9be319d4279084bb2d"
 
 
 def issued_token(tmp_path, *, clock=lambda: 100.0):
-    from tests.hub.test_hub_evidence_registry_service import service as registry_fixture
     from agent.services.research_training_dataset_service import ResearchTrainingDatasetService
     from agent.services.research_training_evidence_service import ResearchTrainingEvidenceService
+    from tests.hub.test_hub_evidence_registry_service import service as registry_fixture
 
     identities = registry_fixture.__wrapped__()
     (tmp_path / "input.txt").write_text("Original synthetic inference input")
@@ -109,10 +109,12 @@ def test_worker_refuses_tampered_expired_wrong_model_or_wrong_issuer_tokens(tmp_
             verify_assignment(candidate, public_key, body=request, model_revision=model, now=now)
 
 
-def test_headless_worker_requires_signed_assignment_and_rejects_replay(tmp_path, monkeypatch):
+@pytest.fixture
+def runtime_harness(tmp_path, monkeypatch):
+    from cryptography.hazmat.primitives import serialization
     from fastapi import FastAPI, Request
     from fastapi.testclient import TestClient
-    from cryptography.hazmat.primitives import serialization
+
     from worker.decision import jeff_runtime
 
     token, key, body, _, _ = issued_token(tmp_path, clock=time.time)
@@ -122,13 +124,16 @@ def test_headless_worker_requires_signed_assignment_and_rejects_replay(tmp_path,
     public_file.write_bytes(
         key.public_key().public_bytes(serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo)
     )
-    calls = []
+    calls, faults = [], []
 
     def fake_upstream(settings):
+        assert settings.model_path == "/models/gliformer-large-v1"
         app = FastAPI()
 
         async def infer(request):
             calls.append(await request.json())
+            if faults:
+                raise faults.pop(0)
             return {"model": "gliformer-large-v1", "answers": {"needed": {"type": "noul", "noul": 0.9}}}
 
         infer.__annotations__["request"] = Request
@@ -147,6 +152,7 @@ def test_headless_worker_requires_signed_assignment_and_rejects_replay(tmp_path,
     }.items():
         monkeypatch.setitem(sys.modules, name, module)
     monkeypatch.setattr(jeff_runtime, "verify_weights", lambda root, manifest: None)  # model port double only
+    monkeypatch.delenv("JEFF_MODEL", raising=False)
     monkeypatch.setenv(
         "JEFF_MODEL_MANIFEST", str(Path(__file__).resolve().parents[2] / "worker/decision/jeff-model-manifest.json")
     )
@@ -160,10 +166,43 @@ def test_headless_worker_requires_signed_assignment_and_rejects_replay(tmp_path,
         monkeypatch.setenv(name, value)
     client = TestClient(jeff_runtime.create_app())
     headers = {"Authorization": "Bearer " + key_file.read_text()}
+    return client, headers, token, body, calls, faults
+
+
+def test_unverified_backend_cannot_replace_pinned_torch_execution(runtime_harness, monkeypatch):
+    from worker.decision import jeff_runtime
+
+    monkeypatch.setattr(
+        sys.modules["jeff.server.config"], "Settings", lambda: types.SimpleNamespace(max_queue=32, backend="onnx")
+    )
+    with pytest.raises(ValueError, match="backend_not_verified"):
+        jeff_runtime.create_app()
+
+
+def test_headless_worker_requires_signed_assignment_and_rejects_replay(runtime_harness):
+    client, headers, token, body, calls, _ = runtime_harness
     assert client.post("/v1/systemone", json=body, headers=headers).status_code == 403
     headers["X-Ananta-Assignment"] = token
     response = client.post("/v1/systemone", json=body, headers=headers)
     assert response.status_code == 200
     assert response.headers["x-ananta-assignment-digest"]
+    assert client.post("/v1/systemone", json=body, headers=headers).status_code == 409
+    assert len(calls) == 1
+
+
+@pytest.mark.parametrize(
+    "fault,status,code",
+    [
+        (MemoryError("sensitive allocator input"), 529, "runtime_memory_exhausted"),
+        (RuntimeError("sensitive model input"), 500, "inference_failed"),
+    ],
+)
+def test_worker_resource_failure_is_bounded_redacted_and_not_replayed(runtime_harness, fault, status, code):
+    client, headers, token, body, calls, faults = runtime_harness
+    faults.append(fault)
+    headers["X-Ananta-Assignment"] = token
+    response = client.post("/v1/systemone", json=body, headers=headers)
+    assert response.status_code == status
+    assert response.json() == {"error": code}
     assert client.post("/v1/systemone", json=body, headers=headers).status_code == 409
     assert len(calls) == 1
