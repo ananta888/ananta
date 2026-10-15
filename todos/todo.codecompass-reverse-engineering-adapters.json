@@ -1,0 +1,515 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "version": 1,
+  "created": "2026-10-15",
+  "updated": "2026-10-15",
+  "project": "Ananta",
+  "owner": "Ananta",
+  "track": "codecompass-reverse-engineering-adapters",
+  "title": "CodeCompass Universal Reverse Engineering & Analysis Adapter Ecosystem",
+  "goal": "Extend Ananta CodeCompass with reusable tool adapters for source, binary, decompilation, static/dynamic analysis, and agentic investigation while preserving existing trust and evidence architecture.",
+  "purpose": "Research and implementation track; CodeCompass remains the canonical source/graph intelligence layer, adapters provide evidence, Ananta orchestrates.",
+  "priority": "P1",
+  "status": "todo",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high"
+  ],
+  "source_review": {
+    "kind": "Repository docs and schemas inspected; implementation not yet audited",
+    "observed_files": [
+      "docs/codecompass.md",
+      "todos/todo.track.schema.json",
+      "todos/todo.adaptive-llm-growth-moe-upcycling.json"
+    ],
+    "references": [
+      "https://github.com/NationalSecurityAgency/ghidra",
+      "https://github.com/lief-project/LIEF",
+      "https://github.com/rizinorg/rizin",
+      "https://github.com/angr/angr",
+      "https://github.com/frida/frida",
+      "https://github.com/skylot/jadx",
+      "https://github.com/icsharpcode/ILSpy"
+    ]
+  },
+  "architecture_principles": [
+    "Reuse Hub-owned snapshot/revision/idempotency and authoritative source catalog.",
+    "Do not vendor floating upstream tools; pin versions and verify licenses.",
+    "No implicit trusted evidence from decompiled or tool-generated output.",
+    "Plugins declare capabilities; unavailable tooling must degrade explicitly.",
+    "Retain contradictions and exact/heuristic mapping distinctions.",
+    "Sandbox untrusted binary processing; authorization for dynamic instrumentation."
+  ],
+  "milestones": [
+    {
+      "id": "CCRE-M1",
+      "title": "Bestandsaufnahme & Verträge",
+      "task_ids": [
+        "CCRE-001",
+        "CCRE-002",
+        "CCRE-003",
+        "CCRE-004"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "CCRE-M2",
+      "title": "Adapter Runtime und MVP",
+      "task_ids": [
+        "CCRE-005",
+        "CCRE-006",
+        "CCRE-007",
+        "CCRE-008",
+        "CCRE-009"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "CCRE-M3",
+      "title": "Erweiterte Integrationen",
+      "task_ids": [
+        "CCRE-010",
+        "CCRE-011",
+        "CCRE-012",
+        "CCRE-013",
+        "CCRE-014",
+        "CCRE-015"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "CCRE-M4",
+      "title": "Agenten, Security & E2E",
+      "task_ids": [
+        "CCRE-016",
+        "CCRE-017",
+        "CCRE-018",
+        "CCRE-019",
+        "CCRE-020"
+      ],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "CCRE-001",
+      "title": "Bestehende Ananta-CodeCompass-Verträge, Source-Katalog, Evidence-Gates, File-Type-Registry, Plugin- und W",
+      "description": "Bestehende Ananta-CodeCompass-Verträge, Source-Katalog, Evidence-Gates, File-Type-Registry, Plugin- und Worker-Grenzen untersuchen; keine parallele CodeCompass-Architektur aufbauen.",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "milestone_id": "CCRE-M1",
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Mapping vorhandener Schnittstellen und Lücken inklusive konkreter Dateien dokumentiert.",
+        "Bestehende Tenant-/Revision-/Evidence-Mechanismen werden wiederverwendet."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "CCRE-002",
+      "title": "Adapter-Capability-Vertrag für statische Analyse, Decompilation, Disassembly, symbolische Ausführung, Run",
+      "description": "Adapter-Capability-Vertrag für statische Analyse, Decompilation, Disassembly, symbolische Ausführung, Runtime-Traces, Debugger, Profiling und Coverage entwerfen.",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "milestone_id": "CCRE-M1",
+      "depends_on": [
+        "CCRE-001"
+      ],
+      "acceptance_criteria": [
+        "Versioniertes JSON-Schema mit supported_formats, operations, tool_version, resource_limits und failure_reasons.",
+        "Capability Discovery verhindert hardcodierte Tool-Namen."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "CCRE-003",
+      "title": "Gemeinsames Binary/Source-Analysemodell definieren: Artefakte, Funktionen, Symbole, Sections, Addresses, ",
+      "description": "Gemeinsames Binary/Source-Analysemodell definieren: Artefakte, Funktionen, Symbole, Sections, Addresses, CFG, Call-Graph, Xrefs, Dataflow, Runtime-Trace und Confidence.",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "milestone_id": "CCRE-M1",
+      "depends_on": [
+        "CCRE-001",
+        "CCRE-002"
+      ],
+      "acceptance_criteria": [
+        "Versionierte Knoten/Kanten samt Architektur, Base-Address, Offsets, Build-ID, Binary-Hash, Source-Mapping.",
+        "Unsichere Zuordnungen bleiben unverified und konkurrierende Hypothesen erhalten."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "CCRE-004",
+      "title": "Tool-Lizenz-, API-, Wartungs- und Plattformmatrix für Ghidra, LIEF, Rizin/Cutter, angr, Frida, REA, RetDe",
+      "description": "Tool-Lizenz-, API-, Wartungs- und Plattformmatrix für Ghidra, LIEF, Rizin/Cutter, angr, Frida, REA, RetDec, ILSpy, JADX, radare2, IDA und Binary Ninja prüfen.",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "milestone_id": "CCRE-M1",
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Lizenz, externe Prozesskopplung, Redistribution und optionale proprietäre Adapter pro Tool aktuell verifiziert.",
+        "REA-Paketidentität und API erst nach Repository-Verifizierung verbindlich festlegen."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "CCRE-005",
+      "title": "Isolierte Adapter-Runtime mit Registry, Version-Pinning, Job-Queues, Timeouts, CPU/RAM-Limits, Read-only ",
+      "description": "Isolierte Adapter-Runtime mit Registry, Version-Pinning, Job-Queues, Timeouts, CPU/RAM-Limits, Read-only Artefakten und reproduzierbaren Ergebnissen implementieren.",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "milestone_id": "CCRE-M2",
+      "depends_on": [
+        "CCRE-002",
+        "CCRE-003"
+      ],
+      "acceptance_criteria": [
+        "Untrusted Binaries werden nicht auf dem Host ausgeführt; Sandbox ohne Netzwerk und mit Minimalrechten.",
+        "Timeout, Tool-Crash, partial coverage und unsupported format sind strukturiert sichtbar."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "CCRE-006",
+      "title": "LIEF-Adapter für ELF/PE/Mach-O Metadaten, Architektur, Imports/Exports, Sections und Hashes implementiere",
+      "description": "LIEF-Adapter für ELF/PE/Mach-O Metadaten, Architektur, Imports/Exports, Sections und Hashes implementieren.",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "milestone_id": "CCRE-M2",
+      "depends_on": [
+        "CCRE-005"
+      ],
+      "acceptance_criteria": [
+        "Deterministische Fixture-Tests für ELF, PE, Mach-O und beschädigte Dateien.",
+        "Provenienz und Tool-Version jeder Aussage gespeichert."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "CCRE-007",
+      "title": "Ghidra-Headless-Adapter für Funktionen, Pseudocode, Xrefs, CFG und Call-Graph implementieren.",
+      "description": "Ghidra-Headless-Adapter für Funktionen, Pseudocode, Xrefs, CFG und Call-Graph implementieren.",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "milestone_id": "CCRE-M2",
+      "depends_on": [
+        "CCRE-005",
+        "CCRE-006"
+      ],
+      "acceptance_criteria": [
+        "Reproduzierbare Headless-Analyse; Decompiler-Ausgabe explizit als Rekonstruktion markiert.",
+        "Pseudocode mit RVA/Address-Spans zugeordnet und Budgets eingehalten."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "CCRE-008",
+      "title": "Rizin-Adapter implementieren",
+      "description": "Rizin-Adapter implementieren; Cutter lediglich als optionale UI-Anbindung evaluieren.",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "milestone_id": "CCRE-M2",
+      "depends_on": [
+        "CCRE-005"
+      ],
+      "acceptance_criteria": [
+        "Funktionen, Xrefs und Call-Graph im gemeinsamen Modell.",
+        "Ghidra-/Rizin-Unterschiede bleiben mit Provenienz erhalten."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "CCRE-009",
+      "title": "Source/Binary Matching inklusive Debug-Symbolen, Demangling, Build-ID, Fingerprints und Heuristik entwick",
+      "description": "Source/Binary Matching inklusive Debug-Symbolen, Demangling, Build-ID, Fingerprints und Heuristik entwickeln.",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "milestone_id": "CCRE-M2",
+      "depends_on": [
+        "CCRE-003",
+        "CCRE-007"
+      ],
+      "acceptance_criteria": [
+        "Exact/heuristic/unknown Matching getrennt; False-Positive-Tests und Confidence-Metriken.",
+        "Unterschiedliche Builds oder compileroptimierte Funktionen werden nicht fälschlich gleichgesetzt."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "CCRE-010",
+      "title": "angr-Adapter für CFG, Reachability und begrenzte symbolische Ausführung mit Ressourcenbudget.",
+      "description": "angr-Adapter für CFG, Reachability und begrenzte symbolische Ausführung mit Ressourcenbudget.",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "milestone_id": "CCRE-M3",
+      "depends_on": [
+        "CCRE-005",
+        "CCRE-003"
+      ],
+      "acceptance_criteria": [
+        "Ergebnisse sind vom normalen Call-Graph getrennt und reproduzierbar.",
+        "State explosion wird begrenzt und als unvollständige Abdeckung ausgewiesen."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "CCRE-011",
+      "title": "Frida-Adapter für ausdrücklich autorisierte dynamische Instrumentierung und Trace-Import implementieren.",
+      "description": "Frida-Adapter für ausdrücklich autorisierte dynamische Instrumentierung und Trace-Import implementieren.",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "milestone_id": "CCRE-M3",
+      "depends_on": [
+        "CCRE-005",
+        "CCRE-003"
+      ],
+      "acceptance_criteria": [
+        "Explizite Freigabe und Zielprozess-Scoping; keine unautorisierte Live-Attach-Funktion.",
+        "Statische und dynamische Evidenz werden verknüpft ohne sie gleichzusetzen."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "CCRE-012",
+      "title": "JADX- und ILSpy-Adapter für APK/DEX sowie .NET-Assemblies entwickeln",
+      "description": "JADX- und ILSpy-Adapter für APK/DEX sowie .NET-Assemblies entwickeln; RetDec als zusätzliche Engine evaluieren.",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "milestone_id": "CCRE-M3",
+      "depends_on": [
+        "CCRE-005"
+      ],
+      "acceptance_criteria": [
+        "Je Format reproduzierbares Fixture mit Symbolen, Methoden und Beziehungen.",
+        "Unsupported Features und Tool-Fehler sichtbar."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "CCRE-013",
+      "title": "REA als optionalen Agenten-Orchestrierungsadapter prüfen, vorhandene MCP/CLI-Funktionen kapseln, nicht al",
+      "description": "REA als optionalen Agenten-Orchestrierungsadapter prüfen, vorhandene MCP/CLI-Funktionen kapseln, nicht als Pflichtabhängigkeit nutzen.",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "milestone_id": "CCRE-M3",
+      "depends_on": [
+        "CCRE-002",
+        "CCRE-005"
+      ],
+      "acceptance_criteria": [
+        "Tool-Identität/API/Lizenz geprüft; Capability Mapping dokumentiert.",
+        "Schreibende oder ausführende Aktionen benötigen explizite Genehmigung."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "CCRE-014",
+      "title": "Optionale IDA-/Binary-Ninja-Adapter evaluieren, Lizenz- und Seat-Abhängigkeiten abstrahieren.",
+      "description": "Optionale IDA-/Binary-Ninja-Adapter evaluieren, Lizenz- und Seat-Abhängigkeiten abstrahieren.",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "milestone_id": "CCRE-M3",
+      "depends_on": [
+        "CCRE-004",
+        "CCRE-005"
+      ],
+      "acceptance_criteria": [
+        "Keine proprietären Komponenten in Core/CI erforderlich."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "CCRE-015",
+      "title": "Universellen Adaptervertrag für Compiler, Debugger, Profiler, SAST und Test-Coverage ergänzen",
+      "description": "Universellen Adaptervertrag für Compiler, Debugger, Profiler, SAST und Test-Coverage ergänzen; Proof-of-Concept mit einem Quellcode-Tool.",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "milestone_id": "CCRE-M3",
+      "depends_on": [
+        "CCRE-002",
+        "CCRE-003"
+      ],
+      "acceptance_criteria": [
+        "Gleiches Capability-/Provenienzmodell ohne Binäranalyse-spezifische Sonderannahmen."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "CCRE-016",
+      "title": "Vorhandene CodeCompass-MCP-/Retrieval-Tools um binary_search, decompile, cross_reference, trace_lookup un",
+      "description": "Vorhandene CodeCompass-MCP-/Retrieval-Tools um binary_search, decompile, cross_reference, trace_lookup und evidence_compare erweitern.",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "milestone_id": "CCRE-M4",
+      "depends_on": [
+        "CCRE-007",
+        "CCRE-009"
+      ],
+      "acceptance_criteria": [
+        "Tenant-, Scope-, Revision-, Source-Allowlist- und Budgetkontrollen gelten durchgängig.",
+        "Keine freie Graph-Abfrage, keine fingierten verifizierten Source-IDs."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "CCRE-017",
+      "title": "Multi-Tool-Fusion implementieren: deduplizierte Entitäten, konkurrierende Ergebnisse, Graph-Verknüpfung u",
+      "description": "Multi-Tool-Fusion implementieren: deduplizierte Entitäten, konkurrierende Ergebnisse, Graph-Verknüpfung und explizite Evidence-Konflikte.",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "milestone_id": "CCRE-M4",
+      "depends_on": [
+        "CCRE-008",
+        "CCRE-009",
+        "CCRE-016"
+      ],
+      "acceptance_criteria": [
+        "Widersprüche erscheinen nebeneinander statt heuristisch überschrieben.",
+        "Jede Kante hat Herkunft, Analyse-Version, Confidence und Nachvollziehbarkeit."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "CCRE-018",
+      "title": "Sicherheits- und Missbrauchstests: bösartige Binärdateien, Prompt-Injection in Strings/Pseudocode, Secret",
+      "description": "Sicherheits- und Missbrauchstests: bösartige Binärdateien, Prompt-Injection in Strings/Pseudocode, Secrets, RBAC, Tenant-Isolation und Sandbox-Escape.",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "milestone_id": "CCRE-M4",
+      "depends_on": [
+        "CCRE-005",
+        "CCRE-016"
+      ],
+      "acceptance_criteria": [
+        "Keine Tool-Output-Prompt-Injection erreicht Agenten als Instruktion.",
+        "Untrusted Code wird nie ohne ausdrückliche Autorisierung gestartet."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "CCRE-019",
+      "title": "E2E-Benchmark mit Open-Source-Fixtures für native Binaries, .NET, APK und Source-Matching plus Performanc",
+      "description": "E2E-Benchmark mit Open-Source-Fixtures für native Binaries, .NET, APK und Source-Matching plus Performance- und Coverage-Gates.",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "milestone_id": "CCRE-M4",
+      "depends_on": [
+        "CCRE-006",
+        "CCRE-007",
+        "CCRE-009",
+        "CCRE-017",
+        "CCRE-018"
+      ],
+      "acceptance_criteria": [
+        "Laufzeit, Speicher, Graph-Qualität, False-Positive-Rate und Reproduzierbarkeit automatisiert geprüft.",
+        "Fail-closed Evidence-Release mit source catalog testbar."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "CCRE-020",
+      "title": "Architektur, ADR, Adapter-SDK-Doku, Beispielkonfigurationen und Prioritäten für weitere Adapter dokumenti",
+      "description": "Architektur, ADR, Adapter-SDK-Doku, Beispielkonfigurationen und Prioritäten für weitere Adapter dokumentieren.",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "milestone_id": "CCRE-M4",
+      "depends_on": [
+        "CCRE-019"
+      ],
+      "acceptance_criteria": [
+        "Contributor kann neuen Adapter ohne Core-Änderung registrieren.",
+        "Migrationspfad für bestehende CodeCompass-Indexe dokumentiert."
+      ],
+      "progress_percent": 0
+    }
+  ],
+  "critical_path_tasks": [
+    "CCRE-001",
+    "CCRE-002",
+    "CCRE-003",
+    "CCRE-005",
+    "CCRE-006",
+    "CCRE-007",
+    "CCRE-009",
+    "CCRE-016",
+    "CCRE-018"
+  ],
+  "tasks_status_summary": {
+    "total": 20,
+    "by_status": {
+      "todo": 20,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P0": 10,
+      "P1": 8,
+      "P2": 2
+    },
+    "by_risk": {
+      "low": 1,
+      "medium": 10,
+      "high": 9
+    },
+    "critical_path": {
+      "total": 9,
+      "done": 0,
+      "remaining": 9
+    },
+    "milestones": {
+      "total": 4,
+      "todo": 4,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "progress_summary": {
+    "state": "todo",
+    "todo_remaining": 20,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "summary_notes": [
+    "Plans only; no adapter implementation claimed.",
+    "MVP is LIEF + Ghidra plus source/binary mapping; subsequent tools remain optional."
+  ]
+}
