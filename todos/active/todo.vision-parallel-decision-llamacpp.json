@@ -757,13 +757,13 @@
         "Reproduzierbare Benchmarkdatei mit Hardware, Modellrevision, Quantisierung und Runtime-Flags vorhanden.",
         "Es gibt keine pauschale Millisekundenbehauptung ohne Bildgroesse/Modell/Hardware-Kontext."
       ],
-      "implemented_solution": "Historical model/runtime timing observations remain technical observations; v1 pilot calibration/holdout evidence invalidated. v2 rerun and current GPU availability required before further capacity claims.",
+      "implemented_solution": "2026-10-15: Fresh disjoint corpus-v2 runs completed on CPU and RTX 5060 Ti CUDA: 80 validation/holdout requests each, no transport/parser errors. Exact image/binary/model/projector digests, server arguments and split manifest recorded in artifacts/domain/vision-decision-pilot.{cpu,cuda}.v2.json. v1 remains invalidated. Remaining: isolated OOM/queue/context/peak-resource sweeps and optional 3B/7B/RTX3080 comparison; no universal capacity claim.",
       "evidence": [
         "vendor/llama.cpp-vision-decision @ a0ae4ad5e (origin/vision-decision)",
         "AGENT.md#environment-notes"
       ],
       "verification": [],
-      "progress_note": "Historical CPU/CUDA v1 80-case pilot reports are invalidated for quality/calibration/release claims: validation and holdout shared image content. Corpus v2 now has disjoint original layouts, but no valid rerun is recorded. Remaining: rerun v2 on actual CPU/CUDA, isolated OOM/queue/context limits, peak/resource sweeps and optional 3B/7B/RTX3080 comparison."
+      "progress_note": "2026-10-15: Disjoint v2 pilot completed on Qwen3-VL-2B Q8 CPU/CUDA and Qwen2.5-VL-3B Q4 CUDA, 80 requests each, zero inference errors. Image/binary/model/projector digests and server arguments retained. New report vision-decision-pilot.qwen25-3b.cuda.v2.json; 3B CUDA holdout p50 around 123 ms. Remaining: isolated physical OOM/queue/context/peak-resource sweeps, optional 7B/RTX3080 comparison."
     },
     {
       "id": "VDEC-015",
@@ -822,7 +822,7 @@
         "Holdout bleibt bei Threshold-Wahl unangetastet.",
         "Fallback ist bounded und erzeugt keine rekursiven Schleifen."
       ],
-      "implemented_solution": "Kalibrierung (evaluate.py: Accuracy/NLL/ECE/fitted T) und Abstain (min_probability/min_margin, abstained-Liste) im Fork; Ananta sendet immer Schwellen (Default 0.8/0.3) und eskaliert typisiert, ohne Rekursion. Offen: task-spezifische Schwellen auf einem Holdout.",
+      "implemented_solution": "2026-10-15: Validation-only temperature fitting and untouched holdout rerun on disjoint corpus v2, CPU/CUDA. Runtime guard rejects split/group/image leakage before inference. Holdout accuracy: document type 0.70, rotation 0.80, warning banner 0.95 DE / 1.00 EN. Only 20 cases per language/field from four layout groups; no threshold meets the admission bound, all selections remain null and profiles remain shadow. Remaining: representative independent real tasks and task-specific calibration sufficient for production thresholds.",
       "evidence": [
         "vendor/llama.cpp-vision-decision @ a0ae4ad5e (origin/vision-decision)",
         "bench/results/eval-*.json",
@@ -832,7 +832,7 @@
       "verification": [
         "Fork: tools/server/tests/unit/test_decision.py 16 Tests + test_vision_api/test_basic: 42 passed (todos/todo.vision-decision.json VD-021/VD-041)"
       ],
-      "progress_note": "Historical CPU/CUDA v1 80-case pilot reports are invalidated for quality/calibration/release claims: validation and holdout shared image content. Corpus v2 now has disjoint original layouts, but no valid rerun is recorded. Remaining: rerun validation-only calibration and untouched holdout on v2 plus sufficiently representative frozen real tasks; no production threshold is authorized. Bounded existing System2 fallback remains."
+      "progress_note": "2026-10-15: Validation-only calibration with untouched disjoint v2 holdout on 2B CPU/CUDA and 3B CUDA. 3B document/rotation accuracy .70/.80; warning DE .80, EN .85, versus 2B .95/1.00. Only 20 cases per field/language from four groups. All profile thresholds remain null, no activation justified. Representative independently labeled real tasks remain necessary."
     },
     {
       "id": "VDEC-017",
@@ -1533,7 +1533,7 @@
     "Fork-CI: Python Type-Check rot (test_decision.py:128); Fix nur im Fork durch den Nutzer.",
     "VDEC-027-Folge: Review-Tickets und Bestaetigungen sind prozesslokal im Speicher (kein Multi-Worker-/Neustart-Bestand); exposure_policy.vision_decision wird beim Speichern ueber die Settings-API noch nicht normalisiert; document-intake-v1 ist auf echten Scans nicht gemessen (experimentell, alles confirm)."
   ],
-  "updated": "2026-10-14",
+  "updated": "2026-10-15",
   "implementation_review": {
     "date": "2026-10-14",
     "classification": "local_synthetic_technical_observation",

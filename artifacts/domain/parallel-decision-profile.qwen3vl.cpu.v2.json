@@ -1,0 +1,2938 @@
+{
+  "schema": "ananta.parallel-decision-profile.v1",
+  "classification": "synthetic_technical_observation",
+  "production_release_evidence": false,
+  "hardware": "Linux-6.18.33.1-microsoft-standard-WSL2-x86_64-with-glibc2.36",
+  "tokenizer_cases": [
+    {
+      "candidate": "read_only",
+      "rendering": "\"read_only\"",
+      "tokens": [
+        1,
+        878,
+        18410,
+        1
+      ]
+    },
+    {
+      "candidate": "read_only",
+      "rendering": " \"read_only\"",
+      "tokens": [
+        330,
+        878,
+        18410,
+        1
+      ]
+    },
+    {
+      "candidate": "read_only",
+      "rendering": ": \"read_only\"",
+      "tokens": [
+        25,
+        330,
+        878,
+        18410,
+        1
+      ]
+    },
+    {
+      "candidate": "read_write",
+      "rendering": "\"read_write\"",
+      "tokens": [
+        1,
+        878,
+        9165,
+        1
+      ]
+    },
+    {
+      "candidate": "read_write",
+      "rendering": " \"read_write\"",
+      "tokens": [
+        330,
+        878,
+        9165,
+        1
+      ]
+    },
+    {
+      "candidate": "read_write",
+      "rendering": ": \"read_write\"",
+      "tokens": [
+        25,
+        330,
+        878,
+        9165,
+        1
+      ]
+    },
+    {
+      "candidate": "read_only_metadata",
+      "rendering": "\"read_only_metadata\"",
+      "tokens": [
+        1,
+        878,
+        18410,
+        22220,
+        1
+      ]
+    },
+    {
+      "candidate": "read_only_metadata",
+      "rendering": " \"read_only_metadata\"",
+      "tokens": [
+        330,
+        878,
+        18410,
+        22220,
+        1
+      ]
+    },
+    {
+      "candidate": "read_only_metadata",
+      "rendering": ": \"read_only_metadata\"",
+      "tokens": [
+        25,
+        330,
+        878,
+        18410,
+        22220,
+        1
+      ]
+    }
+  ],
+  "tokenizer_cases_digest": "f3b016ccb1a430eed5dcffedcf561d1c20447fafb489f8284157b384551ebb85",
+  "summaries": {
+    "1": {
+      "p50_ms": 907.6035260000026,
+      "p95_ms": 980.8105969998451,
+      "p99_ms": 998.063405000039,
+      "decisions_per_second": 1.0925811654439992
+    },
+    "2": {
+      "p50_ms": 1066.6950730000053,
+      "p95_ms": 1188.9112339999883,
+      "p99_ms": 1196.3347180001165,
+      "decisions_per_second": 1.8473739834086758
+    }
+  },
+  "raw": [
+    {
+      "batch_size": 1,
+      "phase": "first_inference",
+      "latency_ms": 936.9955259999188,
+      "results": [
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 936.9,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 117,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 0.999999955606987,
+                "read_write": 2.377871824532886e-10,
+                "read_only_metadata": 4.415522592558986e-08
+              },
+              "confidence": 0.9999999334104803
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 0.9999998807907104,
+                "entropy": 8.126671722230583e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime",
+            "cached_tokens": 0
+          }
+        }
+      ]
+    },
+    {
+      "batch_size": 1,
+      "phase": "warm",
+      "latency_ms": 894.835908999994,
+      "results": [
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 894.8,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 117,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 0.999999955606987,
+                "read_write": 2.377871824532886e-10,
+                "read_only_metadata": 4.415522592558986e-08
+              },
+              "confidence": 0.9999999334104803
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 0.9999998807907104,
+                "entropy": 8.126671722230583e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime",
+            "cached_tokens": 0
+          }
+        }
+      ]
+    },
+    {
+      "batch_size": 1,
+      "phase": "warm",
+      "latency_ms": 973.318436999989,
+      "results": [
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 973.3,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 117,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 0.999999955606987,
+                "read_write": 2.377871824532886e-10,
+                "read_only_metadata": 4.415522592558986e-08
+              },
+              "confidence": 0.9999999334104803
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 0.9999998807907104,
+                "entropy": 8.126671722230583e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime",
+            "cached_tokens": 0
+          }
+        }
+      ]
+    },
+    {
+      "batch_size": 1,
+      "phase": "warm",
+      "latency_ms": 933.8010540000141,
+      "results": [
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 933.7,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 117,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 0.999999955606987,
+                "read_write": 2.377871824532886e-10,
+                "read_only_metadata": 4.415522592558986e-08
+              },
+              "confidence": 0.9999999334104803
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 0.9999998807907104,
+                "entropy": 8.126671722230583e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime",
+            "cached_tokens": 0
+          }
+        }
+      ]
+    },
+    {
+      "batch_size": 1,
+      "phase": "warm",
+      "latency_ms": 920.7562359999883,
+      "results": [
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 920.7,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 117,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 0.999999955606987,
+                "read_write": 2.377871824532886e-10,
+                "read_only_metadata": 4.415522592558986e-08
+              },
+              "confidence": 0.9999999334104803
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 0.9999998807907104,
+                "entropy": 8.126671722230583e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime",
+            "cached_tokens": 0
+          }
+        }
+      ]
+    },
+    {
+      "batch_size": 1,
+      "phase": "warm",
+      "latency_ms": 863.0932969999776,
+      "results": [
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 863.0,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 117,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 0.999999955606987,
+                "read_write": 2.377871824532886e-10,
+                "read_only_metadata": 4.415522592558986e-08
+              },
+              "confidence": 0.9999999334104803
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 0.9999998807907104,
+                "entropy": 8.126671722230583e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime",
+            "cached_tokens": 0
+          }
+        }
+      ]
+    },
+    {
+      "batch_size": 1,
+      "phase": "warm",
+      "latency_ms": 890.2698940000846,
+      "results": [
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 890.2,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 117,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 0.999999955606987,
+                "read_write": 2.377871824532886e-10,
+                "read_only_metadata": 4.415522592558986e-08
+              },
+              "confidence": 0.9999999334104803
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 0.9999998807907104,
+                "entropy": 8.126671722230583e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime",
+            "cached_tokens": 0
+          }
+        }
+      ]
+    },
+    {
+      "batch_size": 1,
+      "phase": "warm",
+      "latency_ms": 891.7310260001159,
+      "results": [
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 891.7,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 117,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 0.999999955606987,
+                "read_write": 2.377871824532886e-10,
+                "read_only_metadata": 4.415522592558986e-08
+              },
+              "confidence": 0.9999999334104803
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 0.9999998807907104,
+                "entropy": 8.126671722230583e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime",
+            "cached_tokens": 0
+          }
+        }
+      ]
+    },
+    {
+      "batch_size": 1,
+      "phase": "warm",
+      "latency_ms": 899.3366540000807,
+      "results": [
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 899.3,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 117,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 0.999999955606987,
+                "read_write": 2.377871824532886e-10,
+                "read_only_metadata": 4.415522592558986e-08
+              },
+              "confidence": 0.9999999334104803
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 0.9999998807907104,
+                "entropy": 8.126671722230583e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime",
+            "cached_tokens": 0
+          }
+        }
+      ]
+    },
+    {
+      "batch_size": 1,
+      "phase": "warm",
+      "latency_ms": 870.5618440001217,
+      "results": [
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 870.5,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 117,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 0.999999955606987,
+                "read_write": 2.377871824532886e-10,
+                "read_only_metadata": 4.415522592558986e-08
+              },
+              "confidence": 0.9999999334104803
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 0.9999998807907104,
+                "entropy": 8.126671722230583e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime",
+            "cached_tokens": 0
+          }
+        }
+      ]
+    },
+    {
+      "batch_size": 1,
+      "phase": "warm",
+      "latency_ms": 941.0938009998517,
+      "results": [
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 941.0,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 117,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 0.999999955606987,
+                "read_write": 2.377871824532886e-10,
+                "read_only_metadata": 4.415522592558986e-08
+              },
+              "confidence": 0.9999999334104803
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 0.9999998807907104,
+                "entropy": 8.126671722230583e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime",
+            "cached_tokens": 0
+          }
+        }
+      ]
+    },
+    {
+      "batch_size": 1,
+      "phase": "warm",
+      "latency_ms": 886.8558159999793,
+      "results": [
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 886.8,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 117,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 0.999999955606987,
+                "read_write": 2.377871824532886e-10,
+                "read_only_metadata": 4.415522592558986e-08
+              },
+              "confidence": 0.9999999334104803
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 0.9999998807907104,
+                "entropy": 8.126671722230583e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime",
+            "cached_tokens": 0
+          }
+        }
+      ]
+    },
+    {
+      "batch_size": 1,
+      "phase": "warm",
+      "latency_ms": 998.063405000039,
+      "results": [
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 998.0,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 117,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 0.999999955606987,
+                "read_write": 2.377871824532886e-10,
+                "read_only_metadata": 4.415522592558986e-08
+              },
+              "confidence": 0.9999999334104803
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 0.9999998807907104,
+                "entropy": 8.126671722230583e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime",
+            "cached_tokens": 0
+          }
+        }
+      ]
+    },
+    {
+      "batch_size": 1,
+      "phase": "warm",
+      "latency_ms": 873.0632920000971,
+      "results": [
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 873.0,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 117,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 0.999999955606987,
+                "read_write": 2.377871824532886e-10,
+                "read_only_metadata": 4.415522592558986e-08
+              },
+              "confidence": 0.9999999334104803
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 0.9999998807907104,
+                "entropy": 8.126671722230583e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime",
+            "cached_tokens": 0
+          }
+        }
+      ]
+    },
+    {
+      "batch_size": 1,
+      "phase": "warm",
+      "latency_ms": 875.4751910000778,
+      "results": [
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 875.4,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 117,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 0.999999955606987,
+                "read_write": 2.377871824532886e-10,
+                "read_only_metadata": 4.415522592558986e-08
+              },
+              "confidence": 0.9999999334104803
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 0.9999998807907104,
+                "entropy": 8.126671722230583e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime",
+            "cached_tokens": 0
+          }
+        }
+      ]
+    },
+    {
+      "batch_size": 1,
+      "phase": "warm",
+      "latency_ms": 960.6938280001032,
+      "results": [
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 960.6,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 117,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 0.999999955606987,
+                "read_write": 2.377871824532886e-10,
+                "read_only_metadata": 4.415522592558986e-08
+              },
+              "confidence": 0.9999999334104803
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 0.9999998807907104,
+                "entropy": 8.126671722230583e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime",
+            "cached_tokens": 0
+          }
+        }
+      ]
+    },
+    {
+      "batch_size": 1,
+      "phase": "warm",
+      "latency_ms": 939.7032809999928,
+      "results": [
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 939.6,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 117,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 0.999999955606987,
+                "read_write": 2.377871824532886e-10,
+                "read_only_metadata": 4.415522592558986e-08
+              },
+              "confidence": 0.9999999334104803
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 0.9999998807907104,
+                "entropy": 8.126671722230583e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime",
+            "cached_tokens": 0
+          }
+        }
+      ]
+    },
+    {
+      "batch_size": 1,
+      "phase": "warm",
+      "latency_ms": 980.8105969998451,
+      "results": [
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 980.8,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 117,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 0.999999955606987,
+                "read_write": 2.377871824532886e-10,
+                "read_only_metadata": 4.415522592558986e-08
+              },
+              "confidence": 0.9999999334104803
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 0.9999998807907104,
+                "entropy": 8.126671722230583e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime",
+            "cached_tokens": 0
+          }
+        }
+      ]
+    },
+    {
+      "batch_size": 1,
+      "phase": "warm",
+      "latency_ms": 915.8703979999245,
+      "results": [
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 915.8,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 117,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 0.999999955606987,
+                "read_write": 2.377871824532886e-10,
+                "read_only_metadata": 4.415522592558986e-08
+              },
+              "confidence": 0.9999999334104803
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 0.9999998807907104,
+                "entropy": 8.126671722230583e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime",
+            "cached_tokens": 0
+          }
+        }
+      ]
+    },
+    {
+      "batch_size": 1,
+      "phase": "warm",
+      "latency_ms": 858.9467099998274,
+      "results": [
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 858.9,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 117,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 0.999999955606987,
+                "read_write": 2.377871824532886e-10,
+                "read_only_metadata": 4.415522592558986e-08
+              },
+              "confidence": 0.9999999334104803
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 0.9999998807907104,
+                "entropy": 8.126671722230583e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime",
+            "cached_tokens": 0
+          }
+        }
+      ]
+    },
+    {
+      "batch_size": 2,
+      "phase": "first_inference",
+      "latency_ms": 1047.6444149999224,
+      "results": [
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 1047.6,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 134,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 0.999999955606987,
+                "read_write": 2.377871824532886e-10,
+                "read_only_metadata": 4.415522592558986e-08
+              },
+              "confidence": 0.9999999334104803
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 0.9999998807907104,
+                "entropy": 8.126671722230583e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime",
+            "cached_tokens": 0
+          }
+        },
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 1047.6,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only_metadata",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 1.0546339689953646e-08,
+                "read_write": 2.711669401994423e-11,
+                "read_only_metadata": 0.9999999894265436
+              },
+              "confidence": 0.9999999841398153
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 1.0,
+                "entropy": 1.9436952503060212e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime"
+          }
+        }
+      ]
+    },
+    {
+      "batch_size": 2,
+      "phase": "warm",
+      "latency_ms": 1091.3852430001043,
+      "results": [
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 1091.3,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 134,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 0.999999955606987,
+                "read_write": 2.377871824532886e-10,
+                "read_only_metadata": 4.415522592558986e-08
+              },
+              "confidence": 0.9999999334104803
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 0.9999998807907104,
+                "entropy": 8.126671722230583e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime",
+            "cached_tokens": 0
+          }
+        },
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 1091.3,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only_metadata",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 1.0546339689953646e-08,
+                "read_write": 2.711669401994423e-11,
+                "read_only_metadata": 0.9999999894265436
+              },
+              "confidence": 0.9999999841398153
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 1.0,
+                "entropy": 1.9436952503060212e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime"
+          }
+        }
+      ]
+    },
+    {
+      "batch_size": 2,
+      "phase": "warm",
+      "latency_ms": 1062.305762000051,
+      "results": [
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 1062.2,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 134,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 0.999999955606987,
+                "read_write": 2.377871824532886e-10,
+                "read_only_metadata": 4.415522592558986e-08
+              },
+              "confidence": 0.9999999334104803
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 0.9999998807907104,
+                "entropy": 8.126671722230583e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime",
+            "cached_tokens": 0
+          }
+        },
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 1062.2,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only_metadata",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 1.0546339689953646e-08,
+                "read_write": 2.711669401994423e-11,
+                "read_only_metadata": 0.9999999894265436
+              },
+              "confidence": 0.9999999841398153
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 1.0,
+                "entropy": 1.9436952503060212e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime"
+          }
+        }
+      ]
+    },
+    {
+      "batch_size": 2,
+      "phase": "warm",
+      "latency_ms": 1123.7649909999163,
+      "results": [
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 1123.7,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 134,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 0.999999955606987,
+                "read_write": 2.377871824532886e-10,
+                "read_only_metadata": 4.415522592558986e-08
+              },
+              "confidence": 0.9999999334104803
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 0.9999998807907104,
+                "entropy": 8.126671722230583e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime",
+            "cached_tokens": 0
+          }
+        },
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 1123.7,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only_metadata",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 1.0546339689953646e-08,
+                "read_write": 2.711669401994423e-11,
+                "read_only_metadata": 0.9999999894265436
+              },
+              "confidence": 0.9999999841398153
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 1.0,
+                "entropy": 1.9436952503060212e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime"
+          }
+        }
+      ]
+    },
+    {
+      "batch_size": 2,
+      "phase": "warm",
+      "latency_ms": 1057.8902319998633,
+      "results": [
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 1057.8,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 134,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 0.999999955606987,
+                "read_write": 2.377871824532886e-10,
+                "read_only_metadata": 4.415522592558986e-08
+              },
+              "confidence": 0.9999999334104803
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 0.9999998807907104,
+                "entropy": 8.126671722230583e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime",
+            "cached_tokens": 0
+          }
+        },
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 1057.8,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only_metadata",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 1.0546339689953646e-08,
+                "read_write": 2.711669401994423e-11,
+                "read_only_metadata": 0.9999999894265436
+              },
+              "confidence": 0.9999999841398153
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 1.0,
+                "entropy": 1.9436952503060212e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime"
+          }
+        }
+      ]
+    },
+    {
+      "batch_size": 2,
+      "phase": "warm",
+      "latency_ms": 1097.2958290001316,
+      "results": [
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 1097.2,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 134,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 0.999999955606987,
+                "read_write": 2.377871824532886e-10,
+                "read_only_metadata": 4.415522592558986e-08
+              },
+              "confidence": 0.9999999334104803
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 0.9999998807907104,
+                "entropy": 8.126671722230583e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime",
+            "cached_tokens": 0
+          }
+        },
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 1097.3,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only_metadata",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 1.0546339689953646e-08,
+                "read_write": 2.711669401994423e-11,
+                "read_only_metadata": 0.9999999894265436
+              },
+              "confidence": 0.9999999841398153
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 1.0,
+                "entropy": 1.9436952503060212e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime"
+          }
+        }
+      ]
+    },
+    {
+      "batch_size": 2,
+      "phase": "warm",
+      "latency_ms": 1071.3080880000234,
+      "results": [
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 1071.2,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 134,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 0.999999955606987,
+                "read_write": 2.377871824532886e-10,
+                "read_only_metadata": 4.415522592558986e-08
+              },
+              "confidence": 0.9999999334104803
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 0.9999998807907104,
+                "entropy": 8.126671722230583e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime",
+            "cached_tokens": 0
+          }
+        },
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 1071.3,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only_metadata",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 1.0546339689953646e-08,
+                "read_write": 2.711669401994423e-11,
+                "read_only_metadata": 0.9999999894265436
+              },
+              "confidence": 0.9999999841398153
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 1.0,
+                "entropy": 1.9436952503060212e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime"
+          }
+        }
+      ]
+    },
+    {
+      "batch_size": 2,
+      "phase": "warm",
+      "latency_ms": 1188.9112339999883,
+      "results": [
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 1188.8,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 134,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 0.999999955606987,
+                "read_write": 2.377871824532886e-10,
+                "read_only_metadata": 4.415522592558986e-08
+              },
+              "confidence": 0.9999999334104803
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 0.9999998807907104,
+                "entropy": 8.126671722230583e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime",
+            "cached_tokens": 0
+          }
+        },
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 1188.8,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only_metadata",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 1.0546339689953646e-08,
+                "read_write": 2.711669401994423e-11,
+                "read_only_metadata": 0.9999999894265436
+              },
+              "confidence": 0.9999999841398153
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 1.0,
+                "entropy": 1.9436952503060212e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime"
+          }
+        }
+      ]
+    },
+    {
+      "batch_size": 2,
+      "phase": "warm",
+      "latency_ms": 1056.2537429998429,
+      "results": [
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 1056.2,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 134,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 0.999999955606987,
+                "read_write": 2.377871824532886e-10,
+                "read_only_metadata": 4.415522592558986e-08
+              },
+              "confidence": 0.9999999334104803
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 0.9999998807907104,
+                "entropy": 8.126671722230583e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime",
+            "cached_tokens": 0
+          }
+        },
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 1056.2,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only_metadata",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 1.0546339689953646e-08,
+                "read_write": 2.711669401994423e-11,
+                "read_only_metadata": 0.9999999894265436
+              },
+              "confidence": 0.9999999841398153
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 1.0,
+                "entropy": 1.9436952503060212e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime"
+          }
+        }
+      ]
+    },
+    {
+      "batch_size": 2,
+      "phase": "warm",
+      "latency_ms": 1041.2907509999059,
+      "results": [
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 1041.2,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 134,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 0.999999955606987,
+                "read_write": 2.377871824532886e-10,
+                "read_only_metadata": 4.415522592558986e-08
+              },
+              "confidence": 0.9999999334104803
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 0.9999998807907104,
+                "entropy": 8.126671722230583e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime",
+            "cached_tokens": 0
+          }
+        },
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 1041.2,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only_metadata",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 1.0546339689953646e-08,
+                "read_write": 2.711669401994423e-11,
+                "read_only_metadata": 0.9999999894265436
+              },
+              "confidence": 0.9999999841398153
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 1.0,
+                "entropy": 1.9436952503060212e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime"
+          }
+        }
+      ]
+    },
+    {
+      "batch_size": 2,
+      "phase": "warm",
+      "latency_ms": 1122.9253200001494,
+      "results": [
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 1122.9,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 134,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 0.999999955606987,
+                "read_write": 2.377871824532886e-10,
+                "read_only_metadata": 4.415522592558986e-08
+              },
+              "confidence": 0.9999999334104803
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 0.9999998807907104,
+                "entropy": 8.126671722230583e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime",
+            "cached_tokens": 0
+          }
+        },
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 1122.9,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only_metadata",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 1.0546339689953646e-08,
+                "read_write": 2.711669401994423e-11,
+                "read_only_metadata": 0.9999999894265436
+              },
+              "confidence": 0.9999999841398153
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 1.0,
+                "entropy": 1.9436952503060212e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime"
+          }
+        }
+      ]
+    },
+    {
+      "batch_size": 2,
+      "phase": "warm",
+      "latency_ms": 1069.8014929998862,
+      "results": [
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 1069.7,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 134,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 0.999999955606987,
+                "read_write": 2.377871824532886e-10,
+                "read_only_metadata": 4.415522592558986e-08
+              },
+              "confidence": 0.9999999334104803
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 0.9999998807907104,
+                "entropy": 8.126671722230583e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime",
+            "cached_tokens": 0
+          }
+        },
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 1069.8,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only_metadata",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 1.0546339689953646e-08,
+                "read_write": 2.711669401994423e-11,
+                "read_only_metadata": 0.9999999894265436
+              },
+              "confidence": 0.9999999841398153
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 1.0,
+                "entropy": 1.9436952503060212e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime"
+          }
+        }
+      ]
+    },
+    {
+      "batch_size": 2,
+      "phase": "warm",
+      "latency_ms": 1027.8630079999402,
+      "results": [
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 1027.8,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 134,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 0.999999955606987,
+                "read_write": 2.377871824532886e-10,
+                "read_only_metadata": 4.415522592558986e-08
+              },
+              "confidence": 0.9999999334104803
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 0.9999998807907104,
+                "entropy": 8.126671722230583e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime",
+            "cached_tokens": 0
+          }
+        },
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 1027.8,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only_metadata",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 1.0546339689953646e-08,
+                "read_write": 2.711669401994423e-11,
+                "read_only_metadata": 0.9999999894265436
+              },
+              "confidence": 0.9999999841398153
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 1.0,
+                "entropy": 1.9436952503060212e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime"
+          }
+        }
+      ]
+    },
+    {
+      "batch_size": 2,
+      "phase": "warm",
+      "latency_ms": 1113.6656339999718,
+      "results": [
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 1113.6,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 134,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 0.999999955606987,
+                "read_write": 2.377871824532886e-10,
+                "read_only_metadata": 4.415522592558986e-08
+              },
+              "confidence": 0.9999999334104803
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 0.9999998807907104,
+                "entropy": 8.126671722230583e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime",
+            "cached_tokens": 0
+          }
+        },
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 1113.6,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only_metadata",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 1.0546339689953646e-08,
+                "read_write": 2.711669401994423e-11,
+                "read_only_metadata": 0.9999999894265436
+              },
+              "confidence": 0.9999999841398153
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 1.0,
+                "entropy": 1.9436952503060212e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime"
+          }
+        }
+      ]
+    },
+    {
+      "batch_size": 2,
+      "phase": "warm",
+      "latency_ms": 1196.3347180001165,
+      "results": [
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 1196.2,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 134,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 0.999999955606987,
+                "read_write": 2.377871824532886e-10,
+                "read_only_metadata": 4.415522592558986e-08
+              },
+              "confidence": 0.9999999334104803
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 0.9999998807907104,
+                "entropy": 8.126671722230583e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime",
+            "cached_tokens": 0
+          }
+        },
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 1196.2,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only_metadata",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 1.0546339689953646e-08,
+                "read_write": 2.711669401994423e-11,
+                "read_only_metadata": 0.9999999894265436
+              },
+              "confidence": 0.9999999841398153
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 1.0,
+                "entropy": 1.9436952503060212e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime"
+          }
+        }
+      ]
+    },
+    {
+      "batch_size": 2,
+      "phase": "warm",
+      "latency_ms": 1016.2170880000758,
+      "results": [
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 1016.1,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 134,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 0.999999955606987,
+                "read_write": 2.377871824532886e-10,
+                "read_only_metadata": 4.415522592558986e-08
+              },
+              "confidence": 0.9999999334104803
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 0.9999998807907104,
+                "entropy": 8.126671722230583e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime",
+            "cached_tokens": 0
+          }
+        },
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 1016.2,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only_metadata",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 1.0546339689953646e-08,
+                "read_write": 2.711669401994423e-11,
+                "read_only_metadata": 0.9999999894265436
+              },
+              "confidence": 0.9999999841398153
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 1.0,
+                "entropy": 1.9436952503060212e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime"
+          }
+        }
+      ]
+    },
+    {
+      "batch_size": 2,
+      "phase": "warm",
+      "latency_ms": 1063.5886530001244,
+      "results": [
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 1063.5,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 134,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 0.999999955606987,
+                "read_write": 2.377871824532886e-10,
+                "read_only_metadata": 4.415522592558986e-08
+              },
+              "confidence": 0.9999999334104803
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 0.9999998807907104,
+                "entropy": 8.126671722230583e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime",
+            "cached_tokens": 0
+          }
+        },
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 1063.5,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only_metadata",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 1.0546339689953646e-08,
+                "read_write": 2.711669401994423e-11,
+                "read_only_metadata": 0.9999999894265436
+              },
+              "confidence": 0.9999999841398153
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 1.0,
+                "entropy": 1.9436952503060212e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime"
+          }
+        }
+      ]
+    },
+    {
+      "batch_size": 2,
+      "phase": "warm",
+      "latency_ms": 1059.4486959998903,
+      "results": [
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 1059.4,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 134,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 0.999999955606987,
+                "read_write": 2.377871824532886e-10,
+                "read_only_metadata": 4.415522592558986e-08
+              },
+              "confidence": 0.9999999334104803
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 0.9999998807907104,
+                "entropy": 8.126671722230583e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime",
+            "cached_tokens": 0
+          }
+        },
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 1059.4,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only_metadata",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 1.0546339689953646e-08,
+                "read_write": 2.711669401994423e-11,
+                "read_only_metadata": 0.9999999894265436
+              },
+              "confidence": 0.9999999841398153
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 1.0,
+                "entropy": 1.9436952503060212e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime"
+          }
+        }
+      ]
+    },
+    {
+      "batch_size": 2,
+      "phase": "warm",
+      "latency_ms": 1040.9842210001443,
+      "results": [
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 1040.9,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 134,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 0.999999955606987,
+                "read_write": 2.377871824532886e-10,
+                "read_only_metadata": 4.415522592558986e-08
+              },
+              "confidence": 0.9999999334104803
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 0.9999998807907104,
+                "entropy": 8.126671722230583e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime",
+            "cached_tokens": 0
+          }
+        },
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 1040.9,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only_metadata",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 1.0546339689953646e-08,
+                "read_write": 2.711669401994423e-11,
+                "read_only_metadata": 0.9999999894265436
+              },
+              "confidence": 0.9999999841398153
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 1.0,
+                "entropy": 1.9436952503060212e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime"
+          }
+        }
+      ]
+    },
+    {
+      "batch_size": 2,
+      "phase": "warm",
+      "latency_ms": 1103.4773389999373,
+      "results": [
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 1103.4,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 134,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 0.999999955606987,
+                "read_write": 2.377871824532886e-10,
+                "read_only_metadata": 4.415522592558986e-08
+              },
+              "confidence": 0.9999999334104803
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 0.9999998807907104,
+                "entropy": 8.126671722230583e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime",
+            "cached_tokens": 0
+          }
+        },
+        {
+          "provider_id": "llamacpp_decision",
+          "model": "Qwen3VL-2B-Instruct-Q8_0.gguf",
+          "request_id": null,
+          "latency_ms": 1103.4,
+          "attempts": 1,
+          "usage": {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cost_usd": 0.0
+          },
+          "answers": {
+            "action": {
+              "key": "action",
+              "kind": "choice",
+              "choice": "read_only_metadata",
+              "score": null,
+              "probability": null,
+              "probabilities": {
+                "read_only": 1.0546339689953646e-08,
+                "read_write": 2.711669401994423e-11,
+                "read_only_metadata": 0.9999999894265436
+              },
+              "confidence": 0.9999999841398153
+            }
+          },
+          "diagnostics": {
+            "scoring": {
+              "action": {
+                "scored_nodes": 2,
+                "tree": true,
+                "margin": 1.0,
+                "entropy": 1.9436952503060212e-07
+              }
+            },
+            "context_cache_requested": false,
+            "prompt_cache_requested": false,
+            "cache_policy_verified": true,
+            "raw_logits": "not_exposed_by_runtime"
+          }
+        }
+      ]
+    }
+  ],
+  "cache_policy": "no cross-request cache; within-request sharing only",
+  "execution_profile": {
+    "image_id": "sha256:26e2c4bf944062945a8f1b3ff36d362071bdc0066b68adb2bbbde5d4afd88782",
+    "server_arguments": [
+      "-m",
+      "/models/Qwen3-VL-2B-Instruct-Q8_0.gguf",
+      "--mmproj",
+      "/models/mmproj-Qwen3-VL-2B-Instruct-Q8_0.gguf",
+      "--alias",
+      "Qwen3VL-2B-Instruct-Q8_0.gguf",
+      "--host",
+      "127.0.0.1",
+      "--port",
+      "8096",
+      "--device",
+      "none",
+      "-ngl",
+      "0",
+      "--no-mmproj-offload",
+      "-c",
+      "8192",
+      "-np",
+      "1",
+      "--decision-seqs",
+      "16",
+      "--decision-media-cache",
+      "0",
+      "-t",
+      "4"
+    ],
+    "binary_sha256": "58c4ff91fe340db3fc839d2b84a77974ec58fe98f2646e868d093027d6549daf",
+    "model_sha256": "b7802e29f71a9e5b5e3f83f613df898a2204342dcea71a231ea501d481813c39",
+    "projector_sha256": "69066c8f279ec85ff48ab4059f6ebba0d2932ca57667f2bbdac7d9805bca9e7b",
+    "runtime_revision": "unknown; image and binary digests identify the tested runtime",
+    "device": "cpu",
+    "gpu_execution": false
+  }
+}

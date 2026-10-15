@@ -5,13 +5,16 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import math
 import platform
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 
-from agent.services.decision_providers.evaluation import Run, provider_report
 from agent.services.decision_providers.calibration import CalibrationSample, fit_temperature
+from agent.services.decision_providers.evaluation import Run, provider_report
 from agent.services.tiny_router.decision_calibration import threshold_table
+from agent.services.vision_benchmark_dataset import image_dataset_manifest
 from agent.services.vision_decision_provider import VisionContext, VisionDecisionSchema, VisionImage
 
 
@@ -23,6 +26,15 @@ class VisionPilotCase:
     variant: str
     image: bytes
     expected: dict
+
+
+@dataclass(frozen=True)
+class VisionPilotDataset:
+    cases: tuple[VisionPilotCase, ...]
+    schema_factory: Callable[[str], VisionDecisionSchema]
+    version: str
+    rights: str
+    classification: str
 
 
 def image_corpus() -> tuple[VisionPilotCase, ...]:
@@ -113,24 +125,50 @@ def schema(language: str) -> VisionDecisionSchema:
     )
 
 
-def run_vision_pilot(provider, *, max_cases: int = 80) -> dict:
-    if type(max_cases) is not int or not 1 <= max_cases <= 120:
+def run_vision_pilot(
+    provider,
+    *,
+    max_cases: int = 80,
+    max_seconds: float = 600,
+    clock=time.monotonic,
+    dataset: VisionPilotDataset | None = None,
+) -> dict:
+    if type(max_cases) is not int or not 1 <= max_cases <= 4096:
         raise ValueError("vision_pilot_limit_invalid")
-    all_cases = image_corpus()
+    if type(max_seconds) not in {int, float} or not math.isfinite(max_seconds) or not 0 < max_seconds <= 3600:
+        raise ValueError("vision_pilot_deadline_invalid")
+    deadline = clock() + max_seconds
+    dataset = dataset or VisionPilotDataset(
+        image_corpus(),
+        schema,
+        "document-ui-pilot-v2",
+        "CC0-1.0 original generated images",
+        "synthetic_technical_observation",
+    )
+    all_cases = dataset.cases
+    manifest = image_dataset_manifest(all_cases, maximum_cases=4096)
+    fields = tuple(all_cases[0].expected)
+    if not fields or any(set(case.expected) != set(fields) for case in all_cases):
+        raise ValueError("vision_pilot_corpus_fields_invalid")
     selected = [c for c in all_cases if c.split != "train"]
     # Do not silently publish a partial holdout as a complete evaluation.
     if max_cases < len(selected):
         raise ValueError("vision_pilot_budget_insufficient")
     rows, metadata, distributions = [], [], {}
     for index, case in enumerate(selected):
-        started = time.monotonic()
+        started = clock()
+        if started >= deadline:
+            raise ValueError("vision_pilot_deadline_exceeded")
         outcome = provider.decide(
-            schema(case.language),
+            dataset.schema_factory(case.language),
             (VisionContext(images=(VisionImage(case.image),)),),
             return_probs=True,
-            deadline_monotonic=time.monotonic() + 30,
+            deadline_monotonic=min(deadline, started + 30),
         )
-        elapsed = (time.monotonic() - started) * 1000
+        finished = clock()
+        if finished >= deadline:
+            raise ValueError("vision_pilot_deadline_exceeded")
+        elapsed = (finished - started) * 1000
         metadata.append(
             {
                 "group": case.group,
@@ -163,7 +201,7 @@ def run_vision_pilot(provider, *, max_cases: int = 80) -> dict:
                     distributions[run.case_id] = (values, tuple(probabilities), values.index(expected))
     reports = {}
     for language in ("de", "en"):
-        for field in ("document_type", "rotated", "has_warning"):
+        for field in fields:
             relevant = [
                 (case, run, abstain) for case, name, run, abstain in rows if name == field and case.language == language
             ]
@@ -200,11 +238,13 @@ def run_vision_pilot(provider, *, max_cases: int = 80) -> dict:
     ]
     return {
         "schema": "ananta.vision-pilot-report.v1",
-        "dataset_version": "document-ui-pilot-v2",
-        "dataset_rights": "CC0-1.0 original generated images",
+        "dataset_version": dataset.version,
+        "dataset_manifest": manifest,
+        "evaluation_validity": "inference_failed" if any(row["error"] for row in metadata) else "complete",
+        "dataset_rights": dataset.rights,
         "cases": len(selected),
         "holdout_digest": hashlib.sha256(json.dumps(holdout_identity, sort_keys=True).encode()).hexdigest(),
-        "classification": "synthetic_technical_observation",
+        "classification": dataset.classification,
         "production_release_evidence": False,
         "hardware": platform.platform(),
         "reports": reports,

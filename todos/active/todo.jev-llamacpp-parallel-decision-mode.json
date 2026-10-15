@@ -354,7 +354,7 @@
         "Gemessen 2026-09-27, 48 Kalibrier-Prompts, 8 Tools/13 Felder: warm Median 0,544 s -> 0,267 s; Smoke-Scoring 0,19 s -> 0,086 s; kein Gewinner geändert, max |dp| 0,012",
         "Offen: Attention-only- und MoE-Vergleich, Kompatibilitätsmatrix"
       ],
-      "progress_note": "Actual small tinygemma and larger Qwen3-VL attention runtimes evaluated. Remaining: available licensed hybrid/recurrent and real MoE weights/runtime profiles, offload/batch architecture matrix; unmeasured rows must remain not-run."
+      "progress_note": "2026-10-15: Attention model coverage now includes tinygemma, Qwen3-VL-2B Q8 CPU/CUDA and actual Qwen2.5-VL-3B Q4 CUDA. Exact model/projector/runtime digests retained. No actual licensed hybrid/recurrent or MoE model weights available locally; a 66KB Bonsai KV-bias file is not a model. Those architecture rows remain not-run."
     },
     {
       "id": "JEVCPP-009",
@@ -422,7 +422,7 @@
         "Erste Einzelwerte (nicht p95/p99): RTX 5060 Ti, Bonsai 27B PQ2_0, 8 Tools: 0,27 s warm je Tool-Entscheidung, im Companion-Shadow 0,16 s; 4 Tools: 0,18 s.",
         "Offenes Feld (Bonsai 27B): Erzeugung 63-610 ms je nach Textlänge, ~90 ms/Token; mit \"when\" 0 ms, wenn das Tool keinen Text braucht."
       ],
-      "progress_note": "Actual CPU and RTX5060Ti CUDA single/batch p50/p95/p99 and throughput reports; tokenizer/cache observations separate. Remaining: exhaustive independent hardware/architecture/offload/load profile matrix and recommended profiles supported by larger own samples."
+      "progress_note": "2026-10-15: Matched Qwen3-VL-2B CPU/CUDA and Qwen2.5-VL-3B CUDA single/two-context profiles, 20 repeats per batch size. New 3B CUDA p50 approximately 70.7/73.0 ms, report artifacts/domain/parallel-decision-profile.qwen25-3b.cuda.v2.json. First inference retained, not a controlled cold-start/soak study. Remaining: hybrid/MoE/offload matrix and independent sustained load/resource sweeps."
     },
     {
       "id": "JEVCPP-011",
@@ -705,7 +705,7 @@
     "Der bereits vorhandene Jeff/GLiFormer-Track bleibt bestehen und wird spaeter als alternative Specialist-Baseline mitverglichen.",
     "2026-10-10: Abgeleiteten progress_percent_done-Cache an kanonische Ein-Dezimalstellen-Rundung angepasst (33 -> 33.3); Task-Status und Anforderungen unverändert."
   ],
-  "updated": "2026-10-14",
+  "updated": "2026-10-15",
   "implementation_review": {
     "date": "2026-10-14",
     "classification": "local_synthetic_technical_observation",
