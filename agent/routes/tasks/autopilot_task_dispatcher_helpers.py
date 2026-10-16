@@ -3,10 +3,10 @@ from __future__ import annotations
 import contextlib
 import logging
 import time
-from dataclasses import dataclass
 from typing import Any, Callable
 
 from agent.config import settings
+from agent.ports.task_dispatch import TaskDispatchResult
 from agent.metrics import (
     TASK_FAILURE_REASON_COUNT,
     TASK_SUCCESS_RATE,
@@ -15,16 +15,6 @@ from agent.metrics import (
 )
 from agent.services.goal_config_runtime_service import get_goal_config_runtime_service
 from agent.services.repository_registry import get_repository_registry
-
-
-@dataclass
-class TaskDispatchResult:
-    task_id: str
-    dispatched: bool = False
-    completed: bool = False
-    failed: bool = False
-    failure_type: str | None = None
-
 
 
 def _hub_context_window() -> dict[str, Any]:

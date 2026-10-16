@@ -100,11 +100,21 @@ class DevelopmentCoordinator:
         (self.policy.root / 'stop').write_text('operator_stop')
         return {'stopping': True, 'reason': 'publication_revoked'}
 
+    def retry(self):
+        from agent.services.self_development.retries import prepare_retry
+        with self.journal.locked():
+            state = self.journal.read()
+            self._check_session(state)
+            count = sum(prepare_retry(item, self.policy, state, self.queue)
+                        for item in state['items'].values() if item['status'] == 'failed')
+            self.journal.write(state)
+        return {'retried': count, **self.status()}
+
     def manages(self, task_id):
         return any(i['task_id'] == task_id for i in self.journal.read()['items'].values())
 
     def dispatch(self, task, worker, execute):
-        from agent.routes.tasks.autopilot_task_dispatcher_helpers import TaskDispatchResult
+        from agent.ports.task_dispatch import TaskDispatchResult
         with self.journal.locked():
             state = self.journal.read()
             item = next(i for i in state['items'].values() if i['task_id'] == task.id)

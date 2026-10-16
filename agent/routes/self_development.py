@@ -65,3 +65,19 @@ def start():
 @admin_required
 def stop():
     return _respond(lambda: _service().stop())
+
+
+@self_development_bp.post('/retry')
+@admin_required
+def retry():
+    return _respond(lambda: _service().retry())
+
+
+@self_development_bp.get('/diagnostics')
+@admin_required
+def diagnostics():
+    def read():
+        _service()
+        from agent.services.self_development.runtime import development_thread_diagnostics
+        return development_thread_diagnostics()
+    return _respond(read)

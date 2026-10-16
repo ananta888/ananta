@@ -13,7 +13,7 @@ from urllib.request import Request, urlopen
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['form', 'import', 'submit', 'start', 'stop', 'status'])
+    parser.add_argument('action', choices=['form', 'import', 'submit', 'start', 'stop', 'status', 'retry'])
     parser.add_argument('file', nargs='?', type=Path)
     parser.add_argument('--details', action='store_true', help='Include every imported task record')
     parser.add_argument('--url', default=os.environ.get('ANANTA_BASE_URL', 'http://127.0.0.1:5000'))
