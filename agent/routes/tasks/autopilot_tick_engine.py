@@ -500,7 +500,8 @@ def execute_autopilot_tick(
     )
     local_worker_url = (settings.agent_url or f"http://localhost:{settings.port}").rstrip("/")
     queue_positions = dispatch_queue_positions(dispatch_queue)
-    async_enabled = async_dispatch_enabled(loop._app_config())
+    agent_config = loop._app_config().get("AGENT_CONFIG") if isinstance(loop._app_config(), dict) else None
+    async_enabled = async_dispatch_enabled(agent_config)
     async_state = _async_state(loop, max(1, effective_concurrency)) if async_enabled else None
     free_slots = effective_concurrency
     if async_state is not None:
