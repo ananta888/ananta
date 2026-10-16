@@ -158,7 +158,7 @@
       "id": "CCRE-004",
       "title": "Tool-Lizenz-, API-, Wartungs- und Plattformmatrix für Ghidra, LIEF, Rizin/Cutter, angr, Frida, REA, RetDe",
       "description": "Tool-Lizenz-, API-, Wartungs- und Plattformmatrix für Ghidra, LIEF, Rizin/Cutter, angr, Frida, REA, RetDec, ILSpy, JADX, radare2, IDA und Binary Ninja prüfen.",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "milestone_id": "CCRE-M1",
@@ -167,7 +167,25 @@
         "Lizenz, externe Prozesskopplung, Redistribution und optionale proprietäre Adapter pro Tool aktuell verifiziert.",
         "REA-Paketidentität und API erst nach Repository-Verifizierung verbindlich festlegen."
       ],
-      "progress_percent": 0
+      "progress_percent": 0,
+      "execution": {
+        "files": [
+          "todos/CCRE-004.md",
+          "docs/tooling-matrix/Ghidra-LIEF-RizinCutter-angr-Frida-REA-RetDec-ILSpy-JADX-radare2-IDA-Binary-Ninja.md"
+        ],
+        "test_profile": "self-development",
+        "commit_message": "chore(docs): add reverse-engineering tool matrix for CCRE-004",
+        "completion_rule": "profile_passed"
+      },
+      "execution_result": {
+        "scope": "local",
+        "run_id": "RUN_992f810979314d56a1f595a64a84d762",
+        "source_ids": [
+          "SRC_4402b94637ef8f6f1497d8c57ae77d5e"
+        ],
+        "result_digest": "f55b6a8c771cfa51bec45f066185580ee1f8f4eb7364a9bc5dba9a55fc0955b8",
+        "completion_rule": "profile_passed"
+      }
     },
     {
       "id": "CCRE-005",
