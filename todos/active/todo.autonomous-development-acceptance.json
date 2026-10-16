@@ -29,7 +29,7 @@
     {
       "id": "SELFDEV-002",
       "title": "Cover symlink and oversized workspace publication rejection",
-      "status": "todo",
+      "status": "done",
       "description": "Create only tests/self_development/test_snapshot_boundaries.py. Read agent/services/self_development/workspace.py and tests/self_development/test_workspace.py. Add focused tests proving read_source rejects a symlink file, seal_changes rejects a symlink directory, read_source rejects a file larger than 1000000 bytes, and an undeclared newly created file blocks sealing. Use tmp_path for all files and pytest.raises for actual expected ValueError behavior. Do not modify implementation or existing tests. Run the registered self-development test profile.",
       "depends_on": [
         "SELFDEV-001"
@@ -40,6 +40,15 @@
         ],
         "test_profile": "self-development",
         "commit_message": "test(autopilot): cover unsafe development snapshots",
+        "completion_rule": "profile_passed"
+      },
+      "execution_result": {
+        "scope": "local",
+        "run_id": "RUN_31fa36461fdc6572c19b31f9a70f4287",
+        "source_ids": [
+          "SRC_90b707ec89788f196e6d9b93555f29f3"
+        ],
+        "result_digest": "dc8dc4d80c388204f3922a31913195b14ae40619299baae1fe12758247f70d7c",
         "completion_rule": "profile_passed"
       }
     }
