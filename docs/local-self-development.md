@@ -60,6 +60,18 @@ assembly (SRP debt). The context writer accepts an optional contract as text,
 so it does not depend on a concrete CLI backend (DIP). No new task scheduler,
 approval bypass or Worker-to-Worker delegation is introduced.
 
+For the standalone corpus pilot, isolate its tests from unrelated Hub bootstrap
+fixtures and keep pytest's cache outside the source workspace:
+
+```sh
+python -m pytest -q --confcutdir=tests/research_training -o addopts= -o cache_dir=/tmp/ananta-growth-pilot-cache tests/research_training/test_growth_corpus.py tests/research_training/test_growth_corpus_boundaries.py
+```
+
+This command covers only the standalone corpus tests, which need no Hub test
+fixtures. Register the exact command in the Hub allowlist. It does not replace
+the broader regression suite or production release gates. This prevents runtime
+cache and unrelated bootstrap output from being mistaken for scoped source edits.
+
 ## Publication boundary
 
 Do not enable the legacy Workspace Git auto-push path as a substitute for Hub
