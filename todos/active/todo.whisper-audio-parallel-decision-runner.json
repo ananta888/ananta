@@ -333,7 +333,7 @@
       "milestone_id": "WADEC-M1",
       "title": "Echten whisper.cpp-Fork anlegen, Upstreams pinnen und Wartungsstrategie dokumentieren",
       "type": "repository",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "low",
       "progress_percent": 0,
@@ -347,7 +347,26 @@
       "acceptance_criteria": [
         "Fork-Historie und Upstream-Beziehung sind nachvollziehbar.",
         "UPSTREAM.md beschreibt Start-SHA, Remotes, Sync und Rueck-PR-Strategie."
-      ]
+      ],
+      "execution": {
+        "files": [
+          "todos/active/todo.wadec-echten-whisper-fork-pin-maintenance-strategy.md",
+          "docs/knowledge/eczten-whisper-fork-upstream-pinning.md",
+          "scripts/wadec/whisper_fork_setup.sh"
+        ],
+        "test_profile": "self-development",
+        "commit_message": "chore(repo): pin Echten whisper.cpp fork and document maintenance strategy",
+        "completion_rule": "profile_passed"
+      },
+      "execution_result": {
+        "scope": "local",
+        "run_id": "RUN_62c25505106795c7935a6354a09cbfc0",
+        "source_ids": [
+          "SRC_96b6ba6021dec6aecc71d3dc7c25eb25"
+        ],
+        "result_digest": "c5c45b3aecf9581fd1ed3a54c9d556b33e74e4e8fc5e2b1a308e149dbd6241fc",
+        "completion_rule": "profile_passed"
+      }
     },
     {
       "id": "WADEC-002",
