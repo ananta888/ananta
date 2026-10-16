@@ -74,13 +74,11 @@ cache and unrelated bootstrap output from being mistaken for scoped source edits
 
 ## Publication boundary
 
-Do not enable the legacy Workspace Git auto-push path as a substitute for Hub
-verification: it can publish before the Hub's final verification completes.
-An isolated working branch and successful inference do not establish a complete
-autonomous publication pipeline. Commit and push must remain blocked until a
-Hub-owned publication implementation binds the verified task, exact change set,
-tests, repository and destination branch to its authorization. User permission
-to automate publication does not make an unverified change set valid evidence.
+The opt-in [autonomous TODO development service](autonomous-development.md)
+provides Hub-owned evidence verification and exact-change-set publication.
+Keep the legacy Workspace Git auto-push path disabled: it can publish before
+final Hub verification. Follow the operator policy, private checkout, credential
+mount and test-profile setup in that document.
 
 SRP/DIP: this configuration reuses the existing proposal and backend boundaries;
 it introduces no additional scheduler or Worker orchestration loop. Existing
