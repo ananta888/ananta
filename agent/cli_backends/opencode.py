@@ -51,6 +51,7 @@ from agent.cli_backends.helpers import (
     _resolve_openai_compatible_base_url,
     _resolve_profile_api_key,
 )
+from agent.cli_backends.opencode_codecompass_mcp import opencode_codecompass_mcp
 from agent.cli_backends.opencode_runtime_helpers import (
     build_codex_runtime_diagnostics as _build_codex_runtime_diagnostics,
 )
@@ -384,6 +385,7 @@ def run_opencode_command(
     maximum_output_chars: int = _OPENCODE_MAXIMUM_OUTPUT_CHARS,
     *,
     backend_settings: Any | None = None,
+    task_id: str | None = None,
 ) -> tuple[int, str, str]:
     """Führt einen OpenCode-CLI-Aufruf aus. Gibt (returncode, stdout, stderr) zurück."""
     backend_settings = settings if backend_settings is None else backend_settings
@@ -405,7 +407,10 @@ def run_opencode_command(
         if isinstance(session_meta.get("opencode_runtime"), dict)
         else {}
     )
-    if session and str(runtime_meta.get("kind") or "").strip().lower() == "native_server":
+    task_bound = bool(task_id or _ctx.codecompass_task_capability.current_codecompass_task_id()
+                      or _ctx.codecompass_task_capability.current_task_capability())
+    resume_session_id = str(runtime_meta.get("native_session_id") or "").strip() or None
+    if session and not task_bound and str(runtime_meta.get("kind") or "").strip().lower() == "native_server":
         return _ctx.opencode_runtime_service.run_session_turn(
             session,
             prompt=prompt,
@@ -413,7 +418,7 @@ def run_opencode_command(
             model=model,
         )
     opencode_execution_mode = str(session_meta.get("opencode_execution_mode") or "").strip().lower()
-    if session and opencode_execution_mode == "live_terminal":
+    if session and not task_bound and opencode_execution_mode == "live_terminal":
         return _ctx.live_terminal_session_service.run_opencode_turn(
             session,
             prompt=prompt,
@@ -421,7 +426,8 @@ def run_opencode_command(
             model=model,
             workdir=workdir,
         )
-    if session and opencode_execution_mode == "interactive_terminal":
+    if session and (opencode_execution_mode == "interactive_terminal"
+                    or (task_bound and opencode_execution_mode == "live_terminal")):
         terminal_service = _ctx.live_terminal_session_service
         session_info = terminal_service.ensure_session_for_cli(session, workdir=workdir) or {}
         rc, out, err, command_label = _run_opencode_subprocess(
@@ -434,6 +440,8 @@ def run_opencode_command(
             cancellation=cancellation,
             event_sink=event_sink,
             maximum_output_chars=maximum_output_chars,
+            task_id=task_id,
+            resume_session_id=resume_session_id,
         )
         terminal_session_id = str(session_info.get("terminal_session_id") or session.get("id") or "").strip()
         if terminal_session_id:
@@ -456,6 +464,8 @@ def run_opencode_command(
         cancellation=cancellation,
         event_sink=event_sink,
         maximum_output_chars=maximum_output_chars,
+        task_id=task_id,
+        resume_session_id=resume_session_id,
     )
     return rc, out, err
 
@@ -475,6 +485,8 @@ def _run_opencode_subprocess(
     maximum_output_chars: int = _OPENCODE_MAXIMUM_OUTPUT_CHARS,
     process_runner: ProcessRunnerPort | None = None,
     backend_settings: Any | None = None,
+    task_id: str | None = None,
+    resume_session_id: str | None = None,
 ) -> tuple[int, str, str, str]:
     backend_settings = settings if backend_settings is None else backend_settings
     opencode_bin = backend_settings.opencode_path or "opencode"
@@ -505,12 +517,16 @@ def _run_opencode_subprocess(
             args.extend(["--model", selected_model])
         if output_format:
             args.extend(["--format", str(output_format)])
+        if resume_session_id:
+            args.extend(["--session", resume_session_id])
         try:
             diagnostics = list(runtime_cfg.get("diagnostics") or [])
             if diagnostics:
                 log.warning("OpenCode runtime diagnostics: %s", ",".join(diagnostics))
             temp_dir_ctx = tempfile.TemporaryDirectory() if runtime_cfg.get("provider_config") else contextlib.nullcontext(None)
-            with temp_dir_ctx as tmp_dir:
+            with temp_dir_ctx as tmp_dir, opencode_codecompass_mcp(
+                workspace_dir=str(Path(workdir or os.getcwd()).resolve()), task_id=task_id,
+            ) as mcp:
                 if runtime_cfg.get("provider_config") and tmp_dir:
                     config_dir = os.path.join(tmp_dir, "opencode")
                     os.makedirs(config_dir, exist_ok=True)
@@ -518,7 +534,9 @@ def _run_opencode_subprocess(
                     with open(config_path, "w", encoding="utf-8") as handle:
                         json.dump(runtime_cfg["provider_config"], handle, ensure_ascii=True)
                     env["XDG_CONFIG_HOME"] = tmp_dir
-                    env["OPENCODE_CONFIG_CONTENT"] = json.dumps(runtime_cfg["provider_config"], ensure_ascii=True)
+                config = dict(runtime_cfg.get("provider_config") or {})
+                config["mcp"] = {**config.get("mcp", {}), "ananta_codecompass": mcp.config()}
+                env["OPENCODE_CONFIG_CONTENT"] = json.dumps(config, ensure_ascii=True)
                 env_prefix = " ".join(
                     f"{key}={shlex.quote(value)}" for key, value in env.items() if key in {"XDG_CONFIG_HOME"}
                 )
@@ -538,7 +556,7 @@ def _run_opencode_subprocess(
                     maximum_output_chars=maximum_output_chars,
                     input_text=str(prompt or ""),
                     event_sink=event_sink,
-                    secret_values=tuple(
+                    secret_values=(mcp.token,) + tuple(
                         value
                         for name, value in env.items()
                         if name in _OPENCODE_AUTH_ENVIRONMENT_KEYS and value

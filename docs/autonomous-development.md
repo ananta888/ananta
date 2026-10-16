@@ -157,6 +157,20 @@ never-publishable predecessor cannot wedge a chain. Live prerequisites
 
 ### CodeCompass and typed tool routing in the worker loop
 
+CodeCompass is a core repository-context capability for development tasks,
+including retries. Worker startup advertises `codecompass` after the shared
+core tools are registered; this does not issue a retrieval capability or grant
+access to an index. Keep the task requirement in place when diagnosing a
+registration mismatch. Repair the Worker registration instead of removing
+CodeCompass from the task or disabling capability enforcement.
+
+The OpenCode CLI receives the same read-only CodeCompass tools through an
+invocation-local MCP adapter. The Hub-issued task identity and retrieval scope
+stay in the parent process. OpenCode discovers tools through standard MCP;
+calls still pass the existing tool policy and capability checks. A missing
+index or authorization returns a bounded error. It must not become an
+unrestricted search or a silent alternative execution path.
+
 The active worker path is the workspace-mutation loop. Its model tends to guess
 files with a blind `repo.read_file_range` in a large repository and exhausts its
 iteration budget without writing. Two additions address that:
