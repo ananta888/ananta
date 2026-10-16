@@ -164,9 +164,13 @@ def run_sgpt_command(
                 timeout=timeout,
                 cwd=cwd,
             )
+            if result.returncode != 0:
+                log.warning("SGPT subprocess rc=%s stdout_tail=%s stderr_tail=%s", result.returncode,
+                            (result.stdout or "")[-2000:], (result.stderr or "")[-2000:])
             return result.returncode, result.stdout, result.stderr
-        except subprocess.TimeoutExpired:
-            log.error("SGPT Timeout")
+        except subprocess.TimeoutExpired as timeout_error:
+            log.error("SGPT Timeout stdout_tail=%s stderr_tail=%s",
+                      str(timeout_error.stdout or "")[-2000:], str(timeout_error.stderr or "")[-2000:])
             return -1, "", "Timeout"
         except Exception as e:
             log.exception(f"SGPT Fehler: {e}")
