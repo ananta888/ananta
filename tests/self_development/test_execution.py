@@ -163,6 +163,10 @@ def test_failed_attempt_gets_fresh_task_and_bounded_retry(runtime):
     assert execute(service, passed=False).failed
     pending = service.status()['items'][0]
     assert pending['task_id'] != old_id
+    assert service.manages(old_id)
+    rejected = service.dispatch(SimpleNamespace(id=old_id), SimpleNamespace(url='worker'),
+        lambda: pytest.fail('stale attempts must never invoke a Worker'))
+    assert rejected.failure_type == 'stale_development_attempt'
     assert pending['status'] == 'ready'
     assert pending['attempts'][0]['task_id'] == old_id
     assert execute(service, passed=False).failed

@@ -111,13 +111,18 @@ class DevelopmentCoordinator:
         return {'retried': count, **self.status()}
 
     def manages(self, task_id):
-        return any(i['task_id'] == task_id for i in self.journal.read()['items'].values())
+        return any(i['task_id'] == task_id or any(a['task_id'] == task_id for a in i.get('attempts', []))
+                   for i in self.journal.read()['items'].values())
 
     def dispatch(self, task, worker, execute):
         from agent.ports.task_dispatch import TaskDispatchResult
         with self.journal.locked():
             state = self.journal.read()
-            item = next(i for i in state['items'].values() if i['task_id'] == task.id)
+            item = next((i for i in state['items'].values() if i['task_id'] == task.id), None)
+            if item is None:
+                update_local_task_status(task.id, 'cancelled',
+                    event_type='self_development_stale_attempt_rejected')
+                return TaskDispatchResult(task.id, failed=True, failure_type='stale_development_attempt')
             try:
                 self._check_session(state)
                 if item['status'] != 'ready':
