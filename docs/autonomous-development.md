@@ -118,7 +118,7 @@ or LFS fallback. A certificate-validated fixed public DoH endpoint is used only
 when local GitHub DNS fails. Credentials are neither persisted in Git config nor
 sent to Workers. Push failures retain the committed SHA in the journal; a failed
 publication never counts as completed development. Worker execution failures
-may receive at most two attempts by default (`max_attempts`, capped at three).
+may receive at most two attempts by default (`max_attempts`, capped at five).
 Each retry creates a fresh Task, workspace, assignment and registered run; the
 failed attempt is retained. Stop signals, exhausted budgets and failed
 publication do not trigger a new coding attempt. The journal records bounded
