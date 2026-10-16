@@ -246,12 +246,20 @@ def _record_invalid_output(
     session.invalid_count += 1
     session.report_iterations.append({"iteration": iteration, "kind": "invalid_output"})
     if session.invalid_count >= session.limits.max_invalid:
-        return session.finish("invalid_output_limit_reached", rc, out, err)
+        return session.finish_with_summary(
+            "invalid_output_limit_reached",
+            {"kind": "loop_aborted", "reason": "invalid_output_limit_reached"},
+            err,
+        )
     session.add_evidence(
         {
             "kind": "protocol_warning",
             "iteration": iteration,
             "warning": "previous_answer_was_not_valid_mutation_json",
+            "expected_example": {
+                "kind": "tool_request", "tool_name": "repo.read_file_range",
+                "arguments": {"path": "app.py", "line_start": 1, "line_end": 80},
+            },
         }
     )
     return None

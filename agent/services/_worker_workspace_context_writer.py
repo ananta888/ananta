@@ -121,6 +121,7 @@ def prepare_opencode_context_files(
     tool_definitions: list[dict] | None,
     research_context: dict | None,
     include_response_contract: bool = True,
+    response_contract_text: str | None = None,
     allow_complex_shell: bool = False,
     task_brief_char_limit: int | None = None,
     context_text_char_limit: int | None = None,
@@ -152,6 +153,7 @@ def prepare_opencode_context_files(
         bundle_dir / "response-contract.md",
         include_response_contract=include_response_contract,
         allow_complex_shell=allow_complex_shell,
+        response_contract_text=response_contract_text,
     )
     _write_prompt_inputs(
         manifest,
@@ -248,11 +250,15 @@ def _task_brief_content(
 
 
 def _write_response_contract(
-    manifest: _ContextManifest, response_contract: Path, *, include_response_contract: bool, allow_complex_shell: bool
+    manifest: _ContextManifest, response_contract: Path, *, include_response_contract: bool,
+    allow_complex_shell: bool, response_contract_text: str | None = None,
 ) -> None:
     if not include_response_contract:
         if response_contract.exists():
             response_contract.unlink(missing_ok=True)
+        return
+    if response_contract_text is not None:
+        manifest.write_text(response_contract, response_contract_text + "\n", key="response_contract_path")
         return
     if allow_complex_shell:
         shell_rule = (

@@ -72,7 +72,10 @@ def build_mode_instructions(mode: str) -> str:
         "## Workspace-Mutations-Protokoll (ananta_worker_mutation.v1)",
         "",
         "Antworte mit GENAU EINEM JSON-Objekt. Erlaubte `kind`-Werte:",
-        '- `tool_request` — z.B. codecompass.plan_context, repo.grep, repo.read_file_range, workspace.diff, test.run.',
+        '- `tool_request` — {"kind":"tool_request","tool_name":"repo.read_file_range",'
+        '"arguments":{"path":"app.py","line_start":1,"line_end":80}}',
+        '- Tests: {"kind":"tool_request","tool_name":"test.run",'
+        '"arguments":{"command":"EXACT_HUB_ALLOWLISTED_COMMAND"}}',
         '- `final_answer` — {"kind": "final_answer", "answer": "...", "summary_of_changes": "..."}',
         "- `needs_approval` / `cannot_continue_without_context`.",
     ]
@@ -97,6 +100,7 @@ def build_mode_instructions(mode: str) -> str:
         ]
     common += [
         "- Behaupte keine Änderung, die der Hub nicht per Result bestätigt hat.",
+        "- Dieses innere Protokoll verwendet `kind`, nicht das äußere `command`/`tool_calls`-Proposal-Schema.",
         "- final_answer erst, wenn der letzte PolicyResult akzeptabel ist; sonst markiere das Ergebnis als partial/blocked.",
     ]
     return "\n".join(common)

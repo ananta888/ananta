@@ -206,7 +206,7 @@ def _run_ananta_worker_iterative(
                 options=options,
                 timeout=timeout,
                 model=model,
-                config=mutation_cfg,
+                config={**mutation_cfg, "return_executable_proposal": True},
             )
     except Exception:
         log.warning("workspace mutation loop unavailable, falling back", exc_info=True)

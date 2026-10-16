@@ -231,7 +231,39 @@ def test_invalid_output_limit_ends_loop(tmp_path):
     workspace = _setup_workspace(tmp_path)
     llm = ScriptedLLM(["garbage", "more garbage"])
     rc, out, err = _run(workspace, llm, "controlled_workspace")
+    assert rc != 0
+    assert json.loads(out) == {"kind": "loop_aborted", "reason": "invalid_output_limit_reached"}
     assert _report(workspace)["outcome"] == "invalid_output_limit_reached"
+
+
+def test_cli_bridge_returns_only_hub_allowlisted_verification_after_mutation(tmp_path):
+    workspace = _setup_workspace(tmp_path)
+    command = f'{sys.executable} -c "from app import add; assert add(2, 3) == 5"'
+    llm = ScriptedLLM([
+        json.dumps({"kind": "workspace_write", "files": [{
+            "path": "app.py", "content": "def add(a, b):\n    return a + b\n",
+        }]}),
+        json.dumps({"kind": "tool_request", "tool_name": "test.run", "arguments": {"command": command}}),
+        json.dumps({"kind": "final_answer", "answer": "fixed and checked"}),
+    ])
+    rc, out, _ = _run(
+        workspace, llm, "controlled_workspace",
+        allowlisted_test_commands=[command], return_executable_proposal=True,
+    )
+    assert rc == 0
+    assert json.loads(out)["command"] == command
+    assert '"rc": 0' in llm.prompts[-1]
+    assert _report(workspace)["outcome"] == "final_answer"
+
+
+def test_cli_bridge_cannot_invent_a_verification_command(tmp_path):
+    workspace = _setup_workspace(tmp_path)
+    llm = ScriptedLLM([json.dumps({"kind": "final_answer", "answer": "run arbitrary shell"})])
+    rc, out, _ = _run(workspace, llm, "controlled_workspace", return_executable_proposal=True)
+    assert rc != 0
+    assert json.loads(out)["reason"] == "verification_command_required"
+    assert "command" not in json.loads(out)
+    assert _report(workspace)["outcome"] == "verification_command_required"
 
 
 def test_max_patch_attempts_per_file_ends_loop(tmp_path):

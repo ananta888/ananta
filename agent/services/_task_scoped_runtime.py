@@ -517,6 +517,7 @@ def build_task_propose_prompt(
     research_context: dict | None = None,
     interactive_terminal: bool = False,
     context_profile: dict | None = None,
+    workspace_mutation_mode: str | None = None,
 ) -> tuple[str, dict]:
     from agent.services._task_scoped_citation import extract_retrieval_trace_link
     from agent.services._task_scoped_config_policy import bounded_int
@@ -591,13 +592,19 @@ def build_task_propose_prompt(
     allow_complex_shell = shell_command_mode == "pipeline"
     _raw_pattern_hints = execution_context.get("pattern_hints_normalized")
     _pattern_hints = dict(_raw_pattern_hints) if isinstance(_raw_pattern_hints, dict) and _raw_pattern_hints else None
+    mutation_instructions = None
+    if workspace_mutation_mode:
+        from agent.cli_backends.workspace_mutation.prompts import build_mode_instructions
+
+        mutation_instructions = build_mode_instructions(workspace_mutation_mode)
+    contract_kwargs = {"response_contract_text": mutation_instructions} if mutation_instructions else {}
     opencode_context_files = get_worker_workspace_service().prepare_opencode_context_files(
         task=task,
         workspace_context=workspace_context,
         base_prompt=base_prompt,
         system_prompt=effective_system_prompt,
         context_text=context_text,
-        expected_output_schema=expected_output_schema,
+        expected_output_schema=None if mutation_instructions else expected_output_schema,
         tool_definitions=tool_definitions,
         research_context=research_context,
         include_response_contract=not interactive_terminal,
@@ -606,6 +613,7 @@ def build_task_propose_prompt(
         context_text_char_limit=hub_context_char_limit,
         research_prompt_char_limit=research_prompt_char_limit,
         pattern_hints=_pattern_hints,
+        **contract_kwargs,
     )
     prompt_sections.append(f"Aktueller Auftrag: {base_prompt}")
     read_paths = [
@@ -651,7 +659,7 @@ def build_task_propose_prompt(
     prompt_sections.append(
         f"Worker-Ausfuehrungsprofil: {worker_profile} (source={profile_source})."
     )
-    if expected_output_schema and not compact_profile:
+    if expected_output_schema and not compact_profile and not mutation_instructions:
         prompt_sections.append(
             "Erwartetes Output-Schema (Kurzfassung): "
             + json.dumps(expected_output_schema, ensure_ascii=False)[:400]
@@ -676,6 +684,8 @@ def build_task_propose_prompt(
             "Nutze bei Bedarf `rag_helper/` fuer Hilfsdateien oder ausgelagerten Kontext. "
             "Es ist keine JSON-Antwort erforderlich; Workspace-Aenderungen und Diffs werden nach dem Lauf automatisch erfasst."
         )
+    elif mutation_instructions:
+        prompt_sections.append(mutation_instructions)
     else:
         prompt_sections.append(
             "Antworte ausschliesslich als genau ein JSON-Objekt. "

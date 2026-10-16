@@ -80,6 +80,14 @@ def propose_single_task_step(
     )
     _prepare_prompt(run, request_data=request_data, tool_definitions_resolver=tool_definitions_resolver)
     cli_kwargs = _invoke_primary_cli(run)
+    if run.backend_used == "ananta-worker" and run.rc != 0:
+        # A bounded workspace-loop failure must not be repaired into a new
+        # command that hides a blocked mutation or skipped file creation.
+        return deps.route_response(
+            status="error", message="worker_proposal_failed",
+            data={"backend": run.backend_used, "returncode": run.rc, "details": run.raw_res or run.cli_err},
+            code=502,
+        )
     if run.interactive_opencode and _interactive_timeout_like_failure(
         rc=run.rc, output=run.raw_res, stderr=run.cli_err
     ):
@@ -218,6 +226,14 @@ def _prepare_prompt(run: ProposeRun, *, request_data, tool_definitions_resolver:
     )
     if interactive:
         run.timeout = deps.resolve_interactive_propose_timeout(cfg, fallback=run.timeout)
+    mutation_kwargs = {}
+    if run.effective_backend == "ananta-worker":
+        from agent.cli_backends.workspace_mutation import get_workspace_mutation_config
+
+        mutation_cfg = get_workspace_mutation_config(run.workspace_dir)
+        mode = str(mutation_cfg.get("resolved_mode") or "read_only")
+        if mutation_cfg.get("enabled") and mode != "read_only":
+            mutation_kwargs["workspace_mutation_mode"] = mode
     run.prompt_for_cli, run.worker_context_meta = deps.build_task_propose_prompt(
         tid=run.tid,
         task=run.task,
@@ -226,6 +242,7 @@ def _prepare_prompt(run: ProposeRun, *, request_data, tool_definitions_resolver:
         research_context=run.effective_research_context,
         interactive_terminal=interactive,
         context_profile=interactive_context_profile,
+        **mutation_kwargs,
     )
     run.pipeline = new_pipeline_trace(
         pipeline="task_propose",

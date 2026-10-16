@@ -197,6 +197,21 @@ class MutationSession:
             pass
 
     def finish(self, outcome: str, rc: int, out: str, err: str) -> LoopResult:
+        if outcome != "final_answer":
+            rc = rc or 1
+        elif self.cfg.get("return_executable_proposal"):
+            # The CLI proposal boundary expects an executable action, not the
+            # inner loop's natural-language final answer. Verification runs in
+            # the normal execute path under the Hub's existing command gates.
+            commands = list(self.cfg.get("allowlisted_test_commands") or [])
+            if len(commands) != 1 or not isinstance(commands[0], str) or not commands[0].strip():
+                outcome, rc = "verification_command_required", 1
+                out = json.dumps({"kind": "loop_aborted", "reason": outcome})
+            else:
+                out = json.dumps({
+                    "reason": "Workspace mutation finished; execute Hub-allowlisted verification",
+                    "command": commands[0],
+                })
         self.write_report(outcome)
         return rc, out, err
 

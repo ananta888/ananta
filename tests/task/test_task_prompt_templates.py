@@ -6,6 +6,29 @@ from agent.services.repository_registry import get_repository_registry
 from agent.services.task_scoped_execution_service import TaskScopedExecutionService
 
 
+def test_workspace_loop_prompt_and_context_file_use_the_same_inner_protocol(app, tmp_path):
+    from agent.services._task_scoped_runtime import build_task_propose_prompt
+
+    with app.app_context():
+        app.config["AGENT_CONFIG"] = {
+            **dict(app.config.get("AGENT_CONFIG") or {}),
+            "worker_runtime": {"workspace_root": str(tmp_path)},
+        }
+        task = get_repository_registry().task_repo.save(TaskDB(
+            id=str(uuid.uuid4()), title="Fix add", description="Fix add in app.py", task_kind="coding",
+        ))
+        prompt, metadata = build_task_propose_prompt(
+            tid=task.id, task=task.model_dump(), base_prompt=task.description,
+            tool_definitions_resolver=lambda: [], workspace_mutation_mode="controlled_workspace",
+        )
+    workspace_dir = Path(metadata["workspace"]["workspace_dir"])
+    contract = (workspace_dir / ".ananta/response-contract.md").read_text()
+    assert '"kind":"tool_request"' in prompt
+    assert '"kind":"tool_request"' in contract
+    assert "setze mindestens eines von 'command' oder 'tool_calls'" not in prompt
+    assert "Set at least one of `command` or `tool_calls`" not in contract
+
+
 def test_system_prompt_uses_team_role_template_and_goal(app):
     with app.app_context():
         repos = get_repository_registry()

@@ -47,6 +47,19 @@ protected paths, audit and approval lifecycle in place. Start the Hub Autopilot
 for one dedicated team or goal with explicit concurrency, runtime and dispatch
 limits. Failed checks must produce a bounded failed/blocked result.
 
+For the CLI workspace mutation loop, the inline prompt and the generated
+`.ananta/response-contract.md` use the same inner `kind` protocol. A successful
+CLI loop returns the single Hub-allowlisted verification command as the outer
+proposal; the normal execute path still authorizes and runs that command.
+Configure exactly one verification command for this path. Missing or ambiguous
+commands, invalid model output, policy blocks and exhausted loop budgets return
+a nonzero result. A failed Worker loop is never repaired into a fresh command.
+
+The existing prompt builder still combines context preparation and prompt
+assembly (SRP debt). The context writer accepts an optional contract as text,
+so it does not depend on a concrete CLI backend (DIP). No new task scheduler,
+approval bypass or Worker-to-Worker delegation is introduced.
+
 ## Publication boundary
 
 Do not enable the legacy Workspace Git auto-push path as a substitute for Hub
