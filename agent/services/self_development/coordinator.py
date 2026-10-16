@@ -22,7 +22,12 @@ from agent.services.self_development.budget import (
 from agent.services.self_development.catalog import catalog, import_document
 from agent.services.self_development.publisher import Publisher
 from agent.services.self_development.state import Journal
-from agent.services.self_development.workspace import export_checkout, git, seal_changes
+from agent.services.self_development.workspace import (
+    export_checkout,
+    git,
+    seal_changes,
+    write_scope_manifest,
+)
 from agent.services.task_queue_service import get_task_queue_service
 from agent.services.task_runtime_service import update_local_task_status
 
@@ -243,6 +248,7 @@ class DevelopmentCoordinator:
         item['worker_url'] = str(worker.url)
         workspace = policy.workspaces / ('self-dev-' + task.id)
         baseline = export_checkout(policy.checkout, workspace)
+        write_scope_manifest(workspace, item['contract']['files'])
         manifest = {'revision': item['revision'], 'files': baseline, 'task': item,
                     'profile': profile, 'policy_digest': policy.digest}
         admission = policy.root / ('source-' + task.id + '.json')

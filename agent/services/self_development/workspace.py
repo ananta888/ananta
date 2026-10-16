@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import subprocess
 from pathlib import Path
@@ -51,6 +52,21 @@ def export_checkout(checkout: Path, destination: Path) -> dict:
         target.chmod(0o755 if os.access(path, os.X_OK) else 0o644)
         baseline[name] = hashlib.sha256(content).hexdigest()
     return baseline
+
+
+def write_scope_manifest(workspace: Path, files: list[str]) -> None:
+    """Declare the closed writable scope so the worker mutation policy allows edits.
+
+    Without this the policy treats every write as ``not_in_materialized_scope``
+    (``no_materialization_manifest``), so the model can only read and never
+    converge to a change.
+    """
+    bundle = workspace / '.ananta'
+    bundle.mkdir(parents=True, exist_ok=True)
+    rows = [{'workspace_path': source_path(relative),
+             'allowed_operations': ['write', 'patch', 'replace']} for relative in files]
+    (bundle / 'materialization-manifest.json').write_text(
+        json.dumps(rows, ensure_ascii=False, indent=2), encoding='utf-8')
 
 
 def seal_changes(workspace: Path, baseline: dict, allowed: list[str], seal: Path) -> dict:
