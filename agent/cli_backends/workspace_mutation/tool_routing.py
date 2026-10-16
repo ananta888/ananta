@@ -35,8 +35,21 @@ INSTRUCTIONS = (
 DEFAULT_MIN_CONFIDENCE = 0.6
 
 
+_READ_ONLY_PREFIXES = ("repo.list_files", "repo.read_file_range", "repo.grep", "codecompass.",
+                       "git.status", "git.diff_readonly", "workspace.diff")
+
+ACTION_NUDGE = (
+    "You have enough context. Do not read more files: emit a `patch_request` (or `workspace_write`) "
+    "now, then `test.run` with the exact allowlisted command, or a `final_answer` with the result."
+)
+
+
 def is_blind_read_tool(tool_name: str) -> bool:
     return str(tool_name or "").strip() in _BLIND_READ_TOOLS
+
+
+def is_read_only_tool(tool_name: str) -> bool:
+    return any(str(tool_name or "").startswith(prefix) for prefix in _READ_ONLY_PREFIXES)
 
 
 def route_read_tool(*, query: str, state: str, allowed_tools: Sequence[str], mutation_mode: str = "read_only",

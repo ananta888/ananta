@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 from agent.cli_backends.workspace_mutation.session import LoopResult, LoopTurn, MutationSession
+from agent.cli_backends.workspace_mutation.tool_routing import is_read_only_tool
 from agent.cli_backends.workspace_mutation.tools import build_tool_result, execute_ananta_tool
 
 KIND_PATCH_REQUEST = "patch_request"
@@ -161,6 +162,8 @@ def handle_tool_request(session: MutationSession, turn: LoopTurn) -> LoopResult 
     tool_name = str(turn.message.get("tool_name") or "").strip()
     arguments = dict(turn.message.get("arguments") or {})
     tool_name, arguments = _route_read_tool(session, turn, tool_name, arguments)
+    streak = getattr(session, "read_only_streak", 0)
+    session.read_only_streak = streak + 1 if is_read_only_tool(tool_name) else 0
     decision = _evaluate_tool_policy(session, turn, tool_name, arguments)
     if not decision.allowed:
         blocked_result = _denied_tool_result(tool_name, tool_call_id, decision)

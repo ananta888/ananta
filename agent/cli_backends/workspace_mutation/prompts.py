@@ -124,6 +124,7 @@ def build_iteration_prompt(
     iteration: int,
     max_iterations: int,
     max_chars_per_block: int,
+    nudge: str | None = None,
 ) -> str:
     """Compose the next-iteration prompt with feedback evidence."""
     parts = [
@@ -135,6 +136,8 @@ def build_iteration_prompt(
         "",
         f"Feedback-Iteration {iteration}/{max_iterations}.",
     ]
+    if nudge:
+        parts += ["", "## Handlung erforderlich", nudge]
     if evidence_blocks:
         from agent.cli_backends.context_budget import available_chars, fit_blocks
 

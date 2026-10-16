@@ -95,6 +95,27 @@ def test_prefer_read_tool_leaves_non_blind_and_writes(monkeypatch):
         assert chosen == tool
 
 
+def test_is_read_only_tool_covers_reads_not_writes():
+    assert tool_routing.is_read_only_tool('repo.read_file_range')
+    assert tool_routing.is_read_only_tool('codecompass.plan_context')
+    assert tool_routing.is_read_only_tool('workspace.diff')
+    assert not tool_routing.is_read_only_tool('repo.apply_patch')
+    assert not tool_routing.is_read_only_tool('test.run')
+
+
+def test_build_iteration_prompt_renders_action_nudge():
+    from agent.cli_backends.workspace_mutation.prompts import build_iteration_prompt
+
+    plain = build_iteration_prompt(original_prompt='p', instructions='i', evidence_blocks=[],
+                                   iteration=2, max_iterations=16, max_chars_per_block=1000)
+    nudged = build_iteration_prompt(original_prompt='p', instructions='i', evidence_blocks=[],
+                                    iteration=2, max_iterations=16, max_chars_per_block=1000,
+                                    nudge=tool_routing.ACTION_NUDGE)
+    assert 'Handlung erforderlich' not in plain
+    assert 'Handlung erforderlich' in nudged
+    assert 'patch_request' in nudged
+
+
 def test_handle_tool_request_records_tool_routing(monkeypatch):
     monkeypatch.setattr('agent.cli_backends.workspace_mutation.tool_routing.prefer_read_tool',
                         lambda *, session, tool_name, arguments: ('codecompass.plan_context', {'query': 'q'}))

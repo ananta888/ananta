@@ -67,6 +67,7 @@ class MutationSession:
         self.workspace = workspace
         self.task_id = task_id
         self.task_prompt = ""  # set by the loop driver; used as the tool_routing decision state
+        self.read_only_streak = 0
         self.services = services
         self.limits = limits
         self.session_id = uuid.uuid4().hex[:12]

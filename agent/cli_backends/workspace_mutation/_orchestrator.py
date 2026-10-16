@@ -199,11 +199,15 @@ def run_ananta_worker_workspace_mutation(
             max_diff_chars=int(cfg.get("max_diff_chars") or _max_diff_chars(cfg)),
         ),
     )
+    from agent.cli_backends.workspace_mutation.tool_routing import ACTION_NUDGE
+
     session.task_prompt = str(prompt or "")
     instructions = _build_mode_instructions(mode)
+    nudge_after = int(cfg.get("read_only_nudge_after") or 4)
     last_out, last_err = "", ""
 
     for iteration in range(1, session.limits.max_iterations + 1):
+        nudge = ACTION_NUDGE if (nudge_after and getattr(session, "read_only_streak", 0) >= nudge_after) else None
         iter_prompt = _build_iteration_prompt(
             original_prompt=prompt,
             instructions=instructions,
@@ -211,6 +215,7 @@ def run_ananta_worker_workspace_mutation(
             iteration=iteration,
             max_iterations=session.limits.max_iterations,
             max_chars_per_block=session.limits.max_diff_chars,
+            nudge=nudge,
         )
         rc, out, err = llm_runner(
             prompt=iter_prompt, options=list(options or []), timeout=timeout, model=model, workdir=workdir
