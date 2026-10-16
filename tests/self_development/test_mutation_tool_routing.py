@@ -116,6 +116,15 @@ def test_build_iteration_prompt_renders_action_nudge():
     assert 'patch_request' in nudged
 
 
+def test_instructions_treat_declared_file_not_found_as_create():
+    from agent.cli_backends.workspace_mutation.prompts import build_mode_instructions
+
+    instructions = build_mode_instructions('controlled_workspace')
+    assert 'file_not_found' in instructions
+    assert 'NEU' in instructions or 'erst' in instructions.lower()
+    assert 'workspace_write' in instructions
+
+
 def test_instructions_require_test_run_before_final_answer():
     from agent.cli_backends.workspace_mutation.prompts import build_mode_instructions
 

@@ -109,6 +109,11 @@ def build_mode_instructions(mode: str) -> str:
             "- PatchResults, Diffs und Policy-Ergebnisse kommen als Evidence zurück.",
         ]
     common += [
+        "- Dateien, die im Auftrag deklariert sind, dürfen `file_not_found` melden — sie existieren dann "
+        "NOCH NICHT und muessen ERST werden: lege sie mit `workspace_write` (neue Datei) oder "
+        "`patch_request` an. `file_not_found` ist kein Blocker, sondern der Hinweis auf eine neue Datei.",
+        "- Fuehre VOR `final_answer` zwingend `test.run` mit dem exakten allowlisteten "
+        "Befehl aus und warte auf dessen Ergebnis.",
         "- Behaupte keine Änderung, die der Hub nicht per Result bestätigt hat.",
         "- Dieses innere Protokoll verwendet `kind`, nicht das äußere `command`/`tool_calls`-Proposal-Schema.",
         "- Fuehre VOR `final_answer` zwingend `test.run` mit dem exakten allowlisteten "
