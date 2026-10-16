@@ -98,7 +98,7 @@
       "id": "HSM-001",
       "title": "Bestand und Überschneidungen verifizieren",
       "milestone": "HSM-M1",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "depends_on": [],
@@ -106,7 +106,24 @@
         "Aktuellen Commit und tatsächliche Aufrufpfade von ResultMemory, MemoryTree, ContextBundler und CodeCompass dokumentieren; implementiert, aktiviert und praktisch verifiziert getrennt ausweisen.",
         "Befund zum ungenutzten llm_enabled erneut prüfen; vorhandene Graphiti-, zeitliche Graph- und Memory-Vorhaben auf Überschneidungen prüfen und verlinken.",
         "Dokumentationsaussagen nicht als Implementierungsbeleg verwenden; vorhandene Services vor neuen Abstraktionen auf Wiederverwendung prüfen."
-      ]
+      ],
+      "execution": {
+        "files": [
+          "todos/HSM-001.md"
+        ],
+        "test_profile": "self-development",
+        "commit_message": "feat(autopilot): add todo entry for inventory and overlap verification",
+        "completion_rule": "profile_passed"
+      },
+      "execution_result": {
+        "scope": "local",
+        "run_id": "RUN_0968436e8df3adce6a9ea74e5561c5a2",
+        "source_ids": [
+          "SRC_ba50565e1f1dd376ef076d26647236bd"
+        ],
+        "result_digest": "a7f0b24e230b872d14344338b8f25bbb7469bfd68b7ff940855691a0cc459ba2",
+        "completion_rule": "profile_passed"
+      }
     },
     {
       "id": "HSM-002",
