@@ -1,0 +1,32 @@
+{
+  "title": "Autonomous development publication acceptance",
+  "status": "todo",
+  "tasks": [
+    {
+      "id": "SELFDEV-001",
+      "title": "Cover unsafe source paths in operator task contracts",
+      "status": "todo",
+      "description": "Create only tests/self_development/test_contract_path_boundaries.py. Read agent/services/self_development/contracts.py and tests/self_development/test_contracts.py. Add pytest parametrized tests asserting source_path rejects absolute paths, parent traversal, dot segments, backslash paths, glob patterns, secret paths, fixture paths and directory-only roots. Include two allowed regular source paths. Do not modify implementation or existing tests. Use actual expected ValueError behavior and run the registered self-development test profile.",
+      "depends_on": [],
+      "execution": {
+        "files": ["tests/self_development/test_contract_path_boundaries.py"],
+        "test_profile": "self-development",
+        "commit_message": "test(autopilot): cover unsafe development contract paths",
+        "completion_rule": "profile_passed"
+      }
+    },
+    {
+      "id": "SELFDEV-002",
+      "title": "Cover symlink and oversized workspace publication rejection",
+      "status": "todo",
+      "description": "Create only tests/self_development/test_snapshot_boundaries.py. Read agent/services/self_development/workspace.py and tests/self_development/test_workspace.py. Add focused tests proving read_source rejects a symlink file, seal_changes rejects a symlink directory, read_source rejects a file larger than 1000000 bytes, and an undeclared newly created file blocks sealing. Use tmp_path for all files and pytest.raises for actual expected ValueError behavior. Do not modify implementation or existing tests. Run the registered self-development test profile.",
+      "depends_on": ["SELFDEV-001"],
+      "execution": {
+        "files": ["tests/self_development/test_snapshot_boundaries.py"],
+        "test_profile": "self-development",
+        "commit_message": "test(autopilot): cover unsafe development snapshots",
+        "completion_rule": "profile_passed"
+      }
+    }
+  ]
+}
