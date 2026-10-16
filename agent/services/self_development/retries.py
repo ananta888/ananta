@@ -8,7 +8,7 @@ import uuid
 def prepare_retry(item, policy, state, queue):
     attempts = item.setdefault('attempts', [])
     if (not item.get('contract') or item.get('outcome', {}).get('passed')
-            or len(attempts) + 1 >= min(3, policy.value.get('max_attempts', 2))
+            or len(attempts) + 1 >= min(5, policy.value.get('max_attempts', 2))
             or (policy.root / 'stop').exists()
             or time.time() >= state['session']['expires_at']
             or state['session']['dispatched'] >= policy.value['max_tasks']):

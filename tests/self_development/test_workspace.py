@@ -41,3 +41,17 @@ def test_deletion_requires_explicit_separate_policy(tmp_path):
     (root / 'tests/test_original.py').unlink()
     with pytest.raises(ValueError, match='deletion_requires'):
         seal_changes(root, baseline, ['tests/test_original.py'], tmp_path / 'seal')
+
+
+def test_nested_rag_helper_source_is_preserved_while_root_runtime_context_is_ignored(tmp_path):
+    root, baseline = workspace(tmp_path)
+    nested = root / 'rag-helper/rag_helper/application.py'
+    nested.parent.mkdir(parents=True)
+    nested.write_text('tracked = True\n')
+    import hashlib
+    baseline['rag-helper/rag_helper/application.py'] = hashlib.sha256(nested.read_bytes()).hexdigest()
+    (root / 'rag_helper').mkdir()
+    (root / 'rag_helper/research-context.json').write_text('{}')
+    (root / 'tests/test_original.py').write_text('after\n')
+    hashes = seal_changes(root, baseline, ['tests/test_original.py'], tmp_path / 'seal')
+    assert set(hashes) == {'tests/test_original.py'}

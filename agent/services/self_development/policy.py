@@ -4,8 +4,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from agent.services.self_development.contracts import source_path
 from agent.services.hub_evidence_gate_service import canonical_evidence_digest
+from agent.services.self_development.contracts import source_path
 
 
 class DevelopmentPolicy:
@@ -27,6 +27,8 @@ class DevelopmentPolicy:
             raise ValueError('private_control_root_required')
         if not 1 <= self.value.get('max_tasks', 1) <= 50:
             raise ValueError('development_budget_invalid')
+        if not 1 <= self.value.get('max_attempts', 2) <= 5:
+            raise ValueError('development_attempt_budget_invalid')
 
     def assert_current(self):
         if canonical_evidence_digest(json.loads(self.path.read_text())) != self.digest:

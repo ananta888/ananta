@@ -62,7 +62,8 @@ def seal_changes(workspace: Path, baseline: dict, allowed: list[str], seal: Path
     current = {}
     for root, dirs, files in os.walk(workspace, followlinks=False):
         relative = Path(root).relative_to(workspace)
-        dirs[:] = [d for d in dirs if d not in {'.ananta', '.pytest_cache', '__pycache__', 'rag_helper'}]
+        root_metadata = {'.ananta', '.pytest_cache', 'rag_helper'} if relative == Path('.') else set()
+        dirs[:] = [d for d in dirs if d != '__pycache__' and d not in root_metadata]
         for directory in dirs:
             if (Path(root) / directory).is_symlink():
                 raise ValueError('source_symlink_denied')
