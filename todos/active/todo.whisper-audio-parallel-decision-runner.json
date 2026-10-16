@@ -373,7 +373,7 @@
       "milestone_id": "WADEC-M1",
       "title": "Bestehende Transkriptions-, Server- und Command-Baselines reproduzieren",
       "type": "baseline",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "low",
       "progress_percent": 0,
@@ -388,7 +388,24 @@
       "acceptance_criteria": [
         "Alle Baselines sind vor Core-Aenderungen reproduzierbar.",
         "Spaetere Tests koennen Regressionen gegen Transkription und Server erkennen."
-      ]
+      ],
+      "execution": {
+        "files": [
+          "scripts/wadec/whisper_fork_setup.sh"
+        ],
+        "test_profile": "self-development",
+        "commit_message": "chore(self-development): reproduce transcription, server, and command baselines for WADEC-002",
+        "completion_rule": "profile_passed"
+      },
+      "execution_result": {
+        "scope": "local",
+        "run_id": "RUN_56fe78e815beca35e734237fe220edb3",
+        "source_ids": [
+          "SRC_dd4c0c27a55d7e672cb9c2244bb96d81"
+        ],
+        "result_digest": "9ac1f976449cf9392fcb8e822e5992334c1c80e8e363a92fa8860f53b7ae3621",
+        "completion_rule": "profile_passed"
+      }
     },
     {
       "id": "WADEC-003",
