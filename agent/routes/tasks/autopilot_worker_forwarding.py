@@ -26,6 +26,8 @@ from agent.services.worker_forward_transport import (
     invoke_worker_forwarder,
 )
 
+DEFAULT_PROPOSE_TIMEOUT_SECONDS = 240
+
 _TERMINAL_RETRY_STATUSES = frozenset(
     {
         "completed",
@@ -186,13 +188,16 @@ class AutopilotWorkerForwarder:
         endpoint: str,
         payload: dict[str, Any],
     ) -> WorkerTransportDeadline | None:
-        if not str(endpoint or "").rstrip("/").endswith(
-            "/step/execute"
-        ):
+        normalized = str(endpoint or "").rstrip("/")
+        is_propose = normalized.endswith("/step/propose")
+        if not (is_propose or normalized.endswith("/step/execute")):
             return None
         task_id = str(payload.get("task_id") or "").strip()
         if not task_id or not endpoint.startswith(f"/tasks/{task_id}/"):
             return None
+        if is_propose:
+            # Bound the propose forward so a transport retry cannot block the tick.
+            return WorkerTransportDeadline.after_seconds(self._propose_timeout_seconds())
         registry = self._repository_registry_provider()
         task_repository = getattr(registry, "task_repo", None)
         if task_repository is None:
@@ -232,6 +237,18 @@ class AutopilotWorkerForwarder:
                 str(exc or "knowledge_index_resource_budget_invalid"),
                 retryable=False,
             ) from exc
+
+    def _propose_timeout_seconds(self) -> int:
+        config = self._app_config_provider() or {}
+        policies = config.get("autopilot_security_policies") if isinstance(config, Mapping) else None
+        level = str(config.get("autopilot_security_level") or "balanced").strip().lower()
+        phase = policies.get(level) if isinstance(policies, Mapping) else None
+        raw = phase.get("propose_timeout") if isinstance(phase, Mapping) else None
+        try:
+            seconds = int(raw)
+        except (TypeError, ValueError):
+            seconds = DEFAULT_PROPOSE_TIMEOUT_SECONDS
+        return max(30, min(seconds, 3600))
 
     def forward_with_retry(self, worker_url: str, endpoint: str, payload: dict, token: str | None = None) -> dict:
         cfg = self._resilience_config_provider()
