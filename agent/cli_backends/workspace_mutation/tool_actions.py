@@ -110,7 +110,10 @@ def handle_patch_request(session: MutationSession, turn: LoopTurn) -> LoopResult
     )
     check = session.hub_check(iteration_number=turn.iteration)
     check["patch_result"] = result
-    session.add_evidence(check)
+    if str(result.get("status") or "") == "ok":
+        session.record_source_change_feedback(check)
+    else:
+        session.add_evidence(check)
     turn.row["patch_status"] = str(result.get("status") or "")
     return None
 
