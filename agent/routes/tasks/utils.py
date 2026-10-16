@@ -1,6 +1,7 @@
 import json
 import queue
 import threading
+import time
 from collections.abc import Mapping
 from typing import Any
 
@@ -97,6 +98,26 @@ def _update_local_task_status(
     )
 
 
+def _step_deadline_monotonic(endpoint_name: str, agent_cfg: Mapping[str, Any]) -> float | None:
+    if not endpoint_name.endswith(("/step/propose", "/step/execute")):
+        return None
+    return time.monotonic() + _step_forward_deadline_seconds(endpoint_name, agent_cfg)
+
+
+def _step_forward_deadline_seconds(endpoint_name: str, agent_cfg: Mapping[str, Any]) -> int:
+    policies = agent_cfg.get("autopilot_security_policies") if isinstance(agent_cfg, Mapping) else None
+    level = str(agent_cfg.get("autopilot_security_level") or "balanced").strip().lower()
+    phase = policies.get(level) if isinstance(policies, Mapping) else None
+    key = "propose_timeout" if endpoint_name.endswith("/step/propose") else "execute_timeout"
+    default = 240 if key == "propose_timeout" else 180
+    raw = phase.get(key) if isinstance(phase, Mapping) else None
+    try:
+        seconds = int(raw)
+    except (TypeError, ValueError):
+        seconds = default
+    return max(30, min(seconds, 3600))
+
+
 def _forward_to_worker(
     worker_url: str,
     endpoint: str,
@@ -141,6 +162,7 @@ def _forward_to_worker(
             timeout = max(command_timeout + 120, 180)
         else:
             timeout = max(timeout, command_timeout)
+        deadline_monotonic = _step_deadline_monotonic(endpoint_name, agent_cfg)
     headers = {"Authorization": f"Bearer {token}"} if token else None
     url = f"{worker_url.rstrip('/')}/{endpoint.lstrip('/')}"
     recovery_forward = bool(
