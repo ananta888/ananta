@@ -95,6 +95,12 @@ def build_mode_instructions(mode: str) -> str:
             "Regeln (strict_patch_request):",
             "- Du darfst KEINE Dateien direkt ändern; jeder Patch wird vom Hub einzeln validiert und angewendet.",
             "- Nutze fuer Brownfield-Aufgaben bevorzugt: codecompass.plan_context -> repo.read_file_range -> patch_request -> workspace.diff -> test.run.",
+            "- CodeCompass-Werkzeuge stehen bereit und sind der schnellste Weg zu relevanten Stellen: "
+            '{"kind":"tool_request","tool_name":"codecompass.plan_context","arguments":{"query":"..."}}, '
+            "codecompass.search_symbols, codecompass.search, "
+            "codecompass.get_file_context, codecompass.architecture_query.",
+            "- Rätsele NICHT mit repo.read_file_range über Dateien: nutze zuerst codecompass.plan_context, "
+            "dann repo.read_file_range nur auf die dort genannten Zeilenbereiche, dann patch_request.",
             "- Verwende replace_range oder unified_diff statt kompletter Datei-Rewrites; repo.write_file ist nur fuer kleine neue Dateien gedacht.",
             "- PatchResults, Diffs und Policy-Ergebnisse kommen als Evidence zurück.",
         ]

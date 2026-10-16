@@ -117,6 +117,14 @@ def test_failed_or_revoked_execution_never_publishes(runtime, option):
     assert service.status()['counts'] == {'failed': 1}
 
 
+def test_import_binds_codecompass_capability(runtime):
+    service, ingested, _ = runtime
+    service.import_tasks(form())
+    capabilities = ingested[0]['extra_fields']['required_capabilities']
+    assert 'codecompass' in capabilities
+    assert {'coding', 'testing', 'workflow.adapter.native'} <= set(capabilities)
+
+
 def test_blocked_catalog_records_are_paused_in_general_hub_queue(runtime):
     service, ingested, _ = runtime
     service.import_tasks({'tasks': [{'id': 'LEGACY', 'status': 'blocked'}]})
@@ -173,3 +181,129 @@ def test_failed_attempt_gets_fresh_task_and_bounded_retry(runtime):
     assert service.status()['items'][0]['status'] == 'failed'
     assert len(ingested) == 2
     assert published == []
+
+
+class _FakePlanner:
+    def __init__(self, proposal):
+        self.proposal = dict(proposal)
+        self.calls = []
+
+    def propose(self, *, item, envelope, error=None):
+        self.calls.append((item['todo_id'], envelope, error))
+        return dict(self.proposal)
+
+
+class _ScriptedPlanner:
+    """Returns queued proposals in order, recording the correction feedback."""
+
+    def __init__(self, proposals):
+        self.proposals = [dict(p) for p in proposals]
+        self.errors = []
+
+    def propose(self, *, item, envelope, error=None):
+        self.errors.append(error)
+        return dict(self.proposals.pop(0))
+
+
+def enable_planning(service, planner, **planning):
+    from agent.services.hub_evidence_gate_service import canonical_evidence_digest
+    service.policy.value['planning'] = {'enabled': True, 'max_files': 4,
+        'allowed_test_profiles': ['self-development'], 'default_test_profile': 'self-development',
+        'commit_scopes': ['autopilot'], **planning}
+    service.policy.path.write_text(json.dumps(service.policy.value))
+    service.policy.digest = canonical_evidence_digest(service.policy.value)
+    service.planner = planner
+
+
+def test_planning_admits_contract_less_todo_and_publishes(runtime):
+    service, _, published = runtime
+    planner = _FakePlanner({'files': ['tests/self_development/test_example.py'],
+        'test_profile': 'self-development', 'commit_message': 'test(autopilot): planned coverage'})
+    enable_planning(service, planner)
+    service.import_tasks({'tasks': [{'id': 'LEGACY', 'status': 'todo'}]})
+    assert service.status()['items'][0]['status'] == 'ready'
+    service.start()
+    assert execute(service).completed
+    item = service.status()['items'][0]
+    assert item['planned'] is True
+    assert item['contract']['files'] == ['tests/self_development/test_example.py']
+    assert published == [item['task_id']]
+    assert planner.calls[0][0] == 'LEGACY'
+
+
+def test_planning_proposal_outside_write_scope_is_rejected(runtime):
+    service, _, published = runtime
+    enable_planning(service, _FakePlanner({'files': ['agent/out.py'],
+        'test_profile': 'self-development', 'commit_message': 'test(autopilot): too wide'}))
+    service.import_tasks({'tasks': [{'id': 'LEGACY', 'status': 'todo'}]})
+    service.start()
+    assert execute(service).failed
+    assert published == []
+    assert service.status()['items'][0]['status'] == 'failed'
+    assert 'task_scope_not_authorized' in service.status()['items'][0]['reason']
+
+
+def test_planning_proposal_with_denied_commit_scope_is_rejected(runtime):
+    service, _, published = runtime
+    enable_planning(service, _FakePlanner({'files': ['tests/self_development/test_example.py'],
+        'test_profile': 'self-development', 'commit_message': 'test(worker): wrong scope'}))
+    service.import_tasks({'tasks': [{'id': 'LEGACY', 'status': 'todo'}]})
+    service.start()
+    assert execute(service).failed
+    assert published == []
+    assert service.status()['items'][0]['reason'] == 'planned_admission_failed:planned_commit_scope_denied'
+
+
+def test_planning_retries_once_with_correction_feedback(runtime):
+    service, _, published = runtime
+    good = {'files': ['tests/self_development/test_example.py'], 'test_profile': 'self-development',
+            'commit_message': 'test(autopilot): planned coverage'}
+    bad = dict(good, commit_message='nope')
+    planner = _ScriptedPlanner([bad, good])
+    enable_planning(service, planner, max_attempts=2)
+    service.import_tasks({'tasks': [{'id': 'LEGACY', 'status': 'todo'}]})
+    service.start()
+    assert execute(service).completed
+    assert planner.errors[0] is None
+    assert 'needs_scoped_commit_message' in (planner.errors[1] or '')
+    assert published
+
+
+def test_planning_exhausts_attempts_with_bounded_reason(runtime):
+    service, _, published = runtime
+    bad = {'files': ['tests/self_development/test_example.py'], 'test_profile': 'self-development',
+           'commit_message': 'nope'}
+    enable_planning(service, _ScriptedPlanner([bad, dict(bad)]), max_attempts=2)
+    service.import_tasks({'tasks': [{'id': 'LEGACY', 'status': 'todo'}]})
+    service.start()
+    assert execute(service).failed
+    assert published == []
+    assert service.status()['items'][0]['reason'].startswith('planned_admission_failed:')
+
+
+def test_dependency_deadlock_sweep_skips_unpublishable_dependency(runtime):
+    service, _, _ = runtime
+    enable_planning(service, _FakePlanner({'files': ['tests/self_development/test_example.py'],
+        'test_profile': 'self-development', 'commit_message': 'test(autopilot): planned coverage'}))
+    service.import_tasks({'tasks': [
+        {'id': 'A', 'status': 'blocked'},
+        {'id': 'B', 'status': 'todo', 'depends_on': ['A']},
+    ]})
+    items = {i['todo_id']: i for i in service.status()['items']}
+    assert items['A']['status'] == 'blocked'
+    assert items['B']['status'] == 'skipped'
+    assert items['B']['reason'] == 'dependency_not_published'
+
+
+def test_skip_unpublished_dependencies_marks_external_dependency_skipped(runtime):
+    service, _, _ = runtime
+    from agent.services.hub_evidence_gate_service import canonical_evidence_digest
+    service.policy.value['skip_unpublished_dependencies'] = True
+    service.policy.path.write_text(json.dumps(service.policy.value))
+    service.policy.digest = canonical_evidence_digest(service.policy.value)
+    document = form()
+    document['tasks'][0]['depends_on'] = ['EXTERNAL']
+    service.import_tasks(document)
+    item = service.status()['items'][0]
+    assert item['status'] == 'skipped'
+    assert item['reason'] == 'dependency_not_published'

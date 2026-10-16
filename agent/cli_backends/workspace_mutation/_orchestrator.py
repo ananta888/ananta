@@ -170,6 +170,11 @@ def run_ananta_worker_workspace_mutation(
 ) -> tuple[int, str, str]:
     """AWWPI-014/015/016: run the feedback mutation loop, return (rc, out, err)."""
     cfg = dict(config or get_workspace_mutation_config(workdir))
+    # Bind this step's CodeCompass capability to the loop's own config, so
+    # codecompass.* reads work instead of failing closed and forcing blind reads.
+    from agent.services.codecompass_task_capability import ensure_tool_context
+
+    cfg = ensure_tool_context(cfg, task_id)
     mode = str(cfg.get("resolved_mode") or "read_only")
     if llm_runner is None:
         from agent.cli_backends.sgpt import run_sgpt_command

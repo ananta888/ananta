@@ -81,6 +81,24 @@ def current_task_capability() -> dict[str, Any] | None:
     return _CURRENT.get()
 
 
+def ensure_tool_context(cfg: Mapping[str, Any] | None, task_id: str | None = None) -> dict[str, Any]:
+    """Return ``cfg`` carrying this step's CodeCompass capability and task binding.
+
+    The tool loop already resolves the capability; the workspace-mutation loop
+    reads its own config, so it needs the same binding or every codecompass.*
+    call fails closed and the model falls back to blind ``repo.read_file_range``.
+    Never overwrites a capability already present (the Hub's own wins).
+    """
+    resolved = dict(cfg or {})
+    if not isinstance(resolved.get("codecompass_capability"), dict):
+        received = current_task_capability()
+        if isinstance(received, dict):
+            resolved["codecompass_capability"] = dict(received)
+    if task_id and not resolved.get("codecompass_task_id"):
+        resolved["codecompass_task_id"] = str(task_id)
+    return resolved
+
+
 def _as_task(task: Any) -> Any:
     return SimpleNamespace(**task) if isinstance(task, Mapping) else task
 

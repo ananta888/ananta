@@ -4,14 +4,20 @@ from __future__ import annotations
 import time
 import uuid
 
+from agent.services.self_development.budget import (
+    attempt_budget_exhausted,
+    session_active,
+    task_budget_exhausted,
+)
+
 
 def prepare_retry(item, policy, state, queue):
     attempts = item.setdefault('attempts', [])
     if (not item.get('contract') or item.get('outcome', {}).get('passed')
-            or len(attempts) + 1 >= min(5, policy.value.get('max_attempts', 2))
+            or attempt_budget_exhausted(policy.value, attempts)
             or (policy.root / 'stop').exists()
-            or time.time() >= state['session']['expires_at']
-            or state['session']['dispatched'] >= policy.value['max_tasks']):
+            or not session_active(policy.value, state.get('session'), time.time())
+            or task_budget_exhausted(policy.value, state.get('session') or {})):
         return False
     policy.assert_current()
     attempts.append({k: item.get(k) for k in ('task_id', 'reason', 'outcome', 'revision')})

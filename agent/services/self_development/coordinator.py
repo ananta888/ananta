@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 import time
 import uuid
 from dataclasses import asdict
@@ -13,6 +14,11 @@ from agent.services.hub_evidence_gate_service import (
     get_hub_evidence_gate_service,
 )
 from agent.services.hub_evidence_registry_service import get_hub_evidence_registry_service
+from agent.services.self_development.budget import (
+    session_active,
+    session_deadline,
+    task_budget_exhausted,
+)
 from agent.services.self_development.catalog import catalog, import_document
 from agent.services.self_development.publisher import Publisher
 from agent.services.self_development.state import Journal
@@ -22,13 +28,14 @@ from agent.services.task_runtime_service import update_local_task_status
 
 
 class DevelopmentCoordinator:
-    def __init__(self, policy, *, gate=None, publisher=None, queue=None, registry=None):
+    def __init__(self, policy, *, gate=None, publisher=None, queue=None, registry=None, planner=None):
         self.policy = policy
         self.journal = Journal(policy.root)
         self.gate = gate or get_hub_evidence_gate_service()
         self.publisher = publisher or Publisher(policy)
         self.queue = queue or get_task_queue_service()
         self.registry = registry or get_hub_evidence_registry_service()
+        self.planner = planner
 
     def import_tasks(self, document=None):
         self.policy.assert_current()
@@ -38,15 +45,32 @@ class DevelopmentCoordinator:
             state = self.journal.read()
             added = 0
             for item in report['items']:
+                # Planning opt-in: contract-less legacy TODOs become eligible and
+                # receive a Hub-validated contract at dispatch time.
+                plannable = (self.policy.planning_enabled() and item['status'] == 'blocked'
+                             and str(item.get('reason') or '').startswith('needs_'))
+                if plannable:
+                    item['status'], item['reason'] = 'ready', 'contract_pending'
                 old = state['items'].get(item['key'])
                 if old:
-                    if old['status'] != 'blocked' or old.get('contract') == item.get('contract'):
+                    re_admit = plannable and old['status'] == 'blocked' and not old.get('contract')
+                    # Any item that never received a contract (planning failed or
+                    # was blocked) stays recoverable on the next import instead
+                    # of wedging forever. Items that failed *after* a contract was
+                    # admitted keep their contract and are not silently reopened.
+                    recoverable = (self.policy.planning_enabled()
+                                   and not old.get('contract')
+                                   and old['status'] in {'blocked', 'failed'})
+                    if not (re_admit or recoverable) and (
+                            old['status'] != 'blocked' or old.get('contract') == item.get('contract')):
                         continue
                     item['task_id'] = old['task_id']
                 else:
                     item['task_id'] = str(uuid.uuid4())
                 # Queue dependency links are resolved only from the same admitted document.
+                skip_unpublished = self.policy.value.get('skip_unpublished_dependencies') is True
                 unresolved = []
+                external = []
                 dependency_ids = []
                 for dependency in item['dependencies']:
                     match = next((r for r in report['items'] if r['source'] == item['source']
@@ -56,8 +80,13 @@ class DevelopmentCoordinator:
                         dependency_ids.append(existing['task_id'])
                     else:
                         unresolved.append(dependency)
+                        if match is None:
+                            external.append(dependency)
                 if unresolved and item['status'] == 'ready':
-                    item['status'], item['reason'] = 'blocked', 'dependencies_not_published'
+                    if skip_unpublished and external:
+                        item['status'], item['reason'] = 'skipped', 'dependency_not_published'
+                    else:
+                        item['status'], item['reason'] = 'blocked', 'dependencies_not_published'
                 state['items'][item['key']] = item
                 self.queue.ingest_task(
                     task_id=item['task_id'], status='paused',
@@ -65,8 +94,9 @@ class DevelopmentCoordinator:
                     source='system', team_id=self.policy.value['team_id'], tags=['self-development', item['todo_id']],
                     event_details={'source_file': item['source'], 'reason': item['reason']},
                     extra_fields={'task_kind': 'coding', 'required_capabilities': ['coding', 'testing',
-                        'workflow.adapter.native'], 'depends_on': dependency_ids})
+                        'workflow.adapter.native', 'codecompass'], 'depends_on': dependency_ids})
                 added += 1
+            self._sweep_dependencies(state)
             self.journal.write(state)
         return {'added': added, 'catalog_errors': report['errors'], **self.status()}
 
@@ -82,15 +112,17 @@ class DevelopmentCoordinator:
             self.policy.assert_current()
             state = self.journal.read()
             session = state.get('session', {})
-            if session.get('enabled') and session.get('expires_at', 0) > time.time():
+            if session_active(self.policy.value, session, time.time()):
                 (self.policy.root / 'stop').unlink(missing_ok=True)
+                self._sweep_dependencies(state)
+                self.journal.write(state)
                 for item in state['items'].values():
                     if item['status'] == 'ready':
                         update_local_task_status(item['task_id'], 'todo')
                 return self.status()
             (self.policy.root / 'stop').unlink(missing_ok=True)
             state['session'] = {'id': str(uuid.uuid4()), 'enabled': True,
-                'expires_at': time.time() + min(21600, self.policy.value.get('max_seconds', 1800)), 'dispatched': 0}
+                'expires_at': session_deadline(self.policy.value, time.time()), 'dispatched': 0}
             self.journal.write(state)
             for item in state['items'].values():
                 if item['status'] == 'ready':
@@ -129,6 +161,8 @@ class DevelopmentCoordinator:
                 self._check_session(state)
                 if item['status'] != 'ready':
                     raise ValueError('development_task_not_ready')
+                if not item.get('contract'):
+                    self._admit_planned_contract(state, item)
                 state['session']['dispatched'] += 1
                 item['status'] = 'running'
                 self.journal.write(state)
@@ -153,10 +187,54 @@ class DevelopmentCoordinator:
     def _check_session(self, state):
         self.policy.assert_current()
         session = state.get('session') or {}
-        if ((self.policy.root / 'stop').exists() or not session.get('enabled')
-                or time.time() >= session.get('expires_at', 0)
-                or session.get('dispatched', 0) >= self.policy.value['max_tasks']):
+        if ((self.policy.root / 'stop').exists()
+                or not session_active(self.policy.value, session, time.time())
+                or task_budget_exhausted(self.policy.value, session)):
             raise ValueError('development_session_stopped_or_budget_exhausted')
+
+    @staticmethod
+    def _item_tokens(item):
+        text = ' '.join(str(item.get(field, '')) for field in ('todo_id', 'title', 'description')).lower()
+        return sorted({token for token in re.findall(r'[a-z0-9_]{4,}', text)})[:12]
+
+    def _planning_envelope(self, item):
+        from agent.services.self_development.planner import PlanningEnvelope
+        roots = tuple(str(r).rstrip('/') for r in self.policy.value.get('allowed_roots', ()))
+        allowed = [f for f in git(self.policy.checkout, 'ls-files').splitlines()
+                   if any(f.startswith(root + '/') for root in roots)]
+        tokens = self._item_tokens(item)
+        matches = [f for f in allowed if any(token in f.lower() for token in tokens)]
+        return PlanningEnvelope.from_policy(self.policy, (matches or allowed)[:400])
+
+    def _admit_planned_contract(self, state, item):
+        from agent.services.self_development.contracts import task_contract
+        if self.planner is None:
+            raise ValueError('development_planner_unavailable')
+        envelope = self._planning_envelope(item)
+        max_attempts = int((self.policy.value.get('planning') or {}).get('max_attempts', 2))
+        error = None
+        for _ in range(max(1, min(max_attempts, 5))):
+            proposal = self.planner.propose(item=item, envelope=envelope, error=error)
+            try:
+                execution = {**proposal, 'completion_rule': 'profile_passed'}
+                contract = task_contract({'execution': execution})
+                if contract['test_profile'] not in envelope.allowed_test_profiles:
+                    raise ValueError('planned_test_profile_not_authorized')
+                if envelope.scope_of(contract['commit_message']) not in envelope.commit_scopes:
+                    raise ValueError('planned_commit_scope_denied')
+                if len(contract['files']) > envelope.max_files:
+                    raise ValueError('planned_scope_too_broad')
+                self.policy.authorize_contract(contract)
+            except ValueError as exc:
+                error = str(exc)[:200]
+                continue
+            item['contract'] = contract
+            item['source_execution'] = execution
+            item['planned'] = True
+            item['reason'] = 'planned_contract_admitted'
+            self.journal.write(state)
+            return
+        raise ValueError('planned_admission_failed:' + (error or 'unknown'))
 
     def _execute(self, state, item, task, worker, execute):
         policy = self.policy
@@ -221,7 +299,7 @@ class DevelopmentCoordinator:
 
     def _release_dependencies(self, state):
         for item in state['items'].values():
-            if item.get('reason') != 'dependencies_not_published' or not item.get('contract'):
+            if item.get('reason') not in {'dependencies_not_published', 'dependency_not_published'}:
                 continue
             if item['original_status'] in {'blocked', 'blocked_by_dependency', 'paused', 'needs_review'}:
                 continue
@@ -230,7 +308,35 @@ class DevelopmentCoordinator:
             if set(item['dependencies']).issubset(completed):
                 item['status'], item['reason'] = 'ready', None
                 update_local_task_status(item['task_id'], 'todo')
+        self._sweep_dependencies(state)
         self.journal.write(state)
+
+    def _sweep_dependencies(self, state):
+        """Mark tasks whose prerequisite can never publish as ``skipped``.
+
+        A dependency is dead when it is unknown to the admitted document set or
+        its own task is already terminally negative. Live prerequisites
+        (``ready``/``running``/``published``) keep the dependent blocked so an
+        in-order chain still completes.
+        """
+        by_source: dict[str, dict[str, dict]] = {}
+        for item in state['items'].values():
+            by_source.setdefault(item['source'], {})[item['todo_id']] = item
+        terminal = {'blocked', 'skipped', 'failed'}
+        for item in state['items'].values():
+            if item.get('reason') != 'dependencies_not_published' or item['status'] != 'blocked':
+                continue
+            siblings = by_source.get(item['source'], {})
+            dead = False
+            for dependency in item['dependencies']:
+                target = siblings.get(dependency)
+                if target is None or target['status'] in terminal:
+                    dead = True
+                    break
+            if dead:
+                item['status'], item['reason'] = 'skipped', 'dependency_not_published'
+                update_local_task_status(item['task_id'], 'cancelled',
+                    event_type='self_development_dependency_deadlocked')
 
     @staticmethod
     def _verify_worker_result(task_id, worker_url, command):
@@ -244,7 +350,8 @@ class DevelopmentCoordinator:
 
     def _check_live(self, state):
         self.policy.assert_current()
-        if (self.policy.root / 'stop').exists() or time.time() >= state['session']['expires_at']:
+        if ((self.policy.root / 'stop').exists()
+                or not session_active(self.policy.value, state.get('session'), time.time())):
             raise ValueError('development_lease_revoked')
 
     def _verify(self, state, item):

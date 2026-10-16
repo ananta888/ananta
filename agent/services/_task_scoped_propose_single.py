@@ -15,6 +15,7 @@ deprecation window, see todos/todo.refactor-large-files-split.json SPLIT-001).
 
 from __future__ import annotations
 
+import logging
 import time
 from typing import TYPE_CHECKING, Any, Callable
 
@@ -42,6 +43,8 @@ from agent.services._task_scoped_propose_run import (
 if TYPE_CHECKING:
     from agent.services.task_scoped_execution_service import TaskScopedRouteResponse
 
+
+log = logging.getLogger(__name__)
 
 _INTERACTIVE_TERMINAL_FINALIZE_COMMAND = INTERACTIVE_TERMINAL_FINALIZE_COMMAND
 _INTERACTIVE_TIMEOUT_MARKERS = ("timeout", "timed out", "operation timed out", "session terminated")
@@ -83,9 +86,11 @@ def propose_single_task_step(
     if run.backend_used == "ananta-worker" and run.rc != 0:
         # A bounded workspace-loop failure must not be repaired into a new
         # command that hides a blocked mutation or skipped file creation.
+        detail = str(run.raw_res or run.cli_err or "")
+        log.warning("worker_proposal_failed task=%s rc=%s details=%s", tid, run.rc, detail[:2000])
         return deps.route_response(
             status="error", message="worker_proposal_failed",
-            data={"backend": run.backend_used, "returncode": run.rc, "details": run.raw_res or run.cli_err},
+            data={"backend": run.backend_used, "returncode": run.rc, "details": detail[:2000]},
             code=502,
         )
     if run.interactive_opencode and _interactive_timeout_like_failure(

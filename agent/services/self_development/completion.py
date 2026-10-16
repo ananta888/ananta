@@ -17,9 +17,16 @@ def seal_completion(policy, item):
         raise ValueError('todo_completion_source_denied')
     document = json.loads(read_source(policy.checkout, source))
     matches = [t for t in flatten_tasks(document) if str(t['id']) == item['todo_id']]
-    if len(matches) != 1 or matches[0].get('execution') != item.get('source_execution'):
+    if len(matches) != 1:
         raise ValueError('todo_completion_contract_changed')
     task = matches[0]
+    if item.get('planned'):
+        # A Hub-planned contract is recorded on first verified publication.
+        if task.get('execution') is not None:
+            raise ValueError('todo_completion_contract_changed')
+        task['execution'] = item['source_execution']
+    elif task.get('execution') != item.get('source_execution'):
+        raise ValueError('todo_completion_contract_changed')
     task['status'] = 'done'
     task['execution_result'] = {'scope': 'local', 'run_id': item['outcome']['run_id'],
         'source_ids': item['outcome']['source_ids'], 'result_digest': item['outcome']['result_digest'],
