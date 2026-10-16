@@ -116,6 +116,14 @@ def test_build_iteration_prompt_renders_action_nudge():
     assert 'patch_request' in nudged
 
 
+def test_instructions_require_test_run_before_final_answer():
+    from agent.cli_backends.workspace_mutation.prompts import build_mode_instructions
+
+    instructions = build_mode_instructions('controlled_workspace')
+    assert 'VOR `final_answer`' in instructions
+    assert 'test.run' in instructions
+
+
 def test_orchestrator_iteration_prompt_forwards_nudge():
     from agent.cli_backends.workspace_mutation._orchestrator import _build_iteration_prompt
 

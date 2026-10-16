@@ -111,6 +111,8 @@ def build_mode_instructions(mode: str) -> str:
     common += [
         "- Behaupte keine Änderung, die der Hub nicht per Result bestätigt hat.",
         "- Dieses innere Protokoll verwendet `kind`, nicht das äußere `command`/`tool_calls`-Proposal-Schema.",
+        "- Fuehre VOR `final_answer` zwingend `test.run` mit dem exakten allowlisteten "
+        "Befehl aus und warte auf dessen Ergebnis.",
         "- final_answer erst, wenn der letzte PolicyResult akzeptabel ist; sonst markiere das Ergebnis als partial/blocked.",
     ]
     return "\n".join(common)
