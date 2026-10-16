@@ -49,6 +49,10 @@ def _probe_provider_reachability(provider: str, url: str, timeout_seconds: int) 
         return bool(probe.get("ok"))
 
     check_client = HttpClient(timeout=timeout_seconds, retries=0)
+    if provider in {"llamacpp", "openai", "codex"}:
+        models_url = url.rstrip("/") + "/models"
+        res = check_client.get(models_url, timeout=timeout_seconds, silent=True, return_response=True)
+        return res is not None and 200 <= int(res.status_code) < 400
     res = check_client.get(url, timeout=timeout_seconds, silent=True, return_response=True)
     return res is not None and 200 <= int(res.status_code) < 400
 
