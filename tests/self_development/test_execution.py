@@ -105,6 +105,19 @@ def test_full_hub_execution_reserves_registry_before_worker_and_publishes(runtim
     assert item['outcome']['verified'] is True
 
 
+def test_failed_attempt_keeps_codecompass_requirement_on_retry(runtime):
+    service, ingested, _ = runtime
+    service.policy.value['max_attempts'] = 2
+    service.policy.path.write_text(json.dumps(service.policy.value))
+    service.policy = DevelopmentPolicy(service.policy.path)
+    service.import_tasks(form())
+    service.start()
+
+    execute(service, passed=False)
+
+    assert 'codecompass' in ingested[-1]['extra_fields']['required_capabilities']
+
+
 @pytest.mark.parametrize('option', ['failed_test', 'extra_file', 'operator_stop'])
 def test_failed_or_revoked_execution_never_publishes(runtime, option):
     service, _, published = runtime

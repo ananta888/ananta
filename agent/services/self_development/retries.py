@@ -29,5 +29,5 @@ def prepare_retry(item, policy, state, queue):
         team_id=policy.value['team_id'], tags=['self-development', item['todo_id']],
         event_details={'retry_of': attempts[-1]['task_id'], 'attempt': len(attempts) + 1},
         extra_fields={'task_kind': 'coding', 'required_capabilities': ['coding', 'testing',
-                                                                     'workflow.adapter.native']})
+                                                                     'workflow.adapter.native', 'codecompass']})
     return True
