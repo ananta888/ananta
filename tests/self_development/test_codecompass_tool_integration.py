@@ -29,6 +29,21 @@ def test_ensure_tool_context_without_scope_is_fail_closed():
     assert cfg['codecompass_task_id'] == 'T-2'
 
 
+def test_task_identity_survives_missing_capability_without_granting_access():
+    with task_capability_scope(None, task_id='T-missing-index'):
+        cfg = ensure_tool_context({})
+    assert cfg['codecompass_task_id'] == 'T-missing-index'
+    assert 'codecompass_capability' not in cfg
+    assert 'codecompass_task_id' not in ensure_tool_context({})
+
+
+def test_nested_task_scope_restores_outer_identity():
+    with task_capability_scope(dict(_CAPABILITY)):
+        with task_capability_scope(None, task_id='T-inner'):
+            assert ensure_tool_context({})['codecompass_task_id'] == 'T-inner'
+        assert ensure_tool_context({})['codecompass_task_id'] == 'T-1'
+
+
 def test_strict_patch_instructions_offer_codecompass_reads():
     instructions = build_mode_instructions('strict_patch_request')
     assert 'codecompass.plan_context' in instructions

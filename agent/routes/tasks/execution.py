@@ -166,7 +166,7 @@ def task_propose(tid):
         phase="propose",
     ):
         return error
-    with task_capability_scope(_accepted_codecompass_capability(data)), \
+    with task_capability_scope(_accepted_codecompass_capability(data), task_id=tid), \
             assigned_window_scope(getattr(data, "context_window", None)), _task_request_context(tid):
         outcome = _services().task_scoped_execution_service.propose_task_step(
             tid,
@@ -201,7 +201,7 @@ def task_execute(tid):
         phase="execute",
     ):
         return error
-    with task_capability_scope(_accepted_codecompass_capability(data)), \
+    with task_capability_scope(_accepted_codecompass_capability(data), task_id=tid), \
             assigned_window_scope(getattr(data, "context_window", None)), _task_request_context(tid):
         outcome = _services().task_scoped_execution_service.execute_task_step(
             tid,
