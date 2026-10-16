@@ -28,6 +28,9 @@ python3 scripts/ananta-self-develop.py submit /tmp/my-ananta-task.json
 python3 scripts/ananta-self-develop.py start
 ```
 
+By default the client shows counts, blocking reasons and active/published tasks.
+Use `status --details` for every imported record.
+
 The client reads `ANANTA_HUB_TOKEN_FILE` or `--token-file`. On the local developer
 deployment it also recognizes the existing token below
 `~/ananta-data/workflow-runtime-dev/hub/`. `--url` or `ANANTA_BASE_URL` selects the
@@ -65,7 +68,9 @@ previously blocked import. Source tasks already marked blocked, paused or needin
 review remain blocked. Missing contracts, unknown profiles and unpublished
 prerequisites return explicit reasons. Same-document dependencies release only
 after the prerequisite has been published. Missing/cyclic dependencies remain
-bounded blocked records; they do not cause an execution loop. Cross-document
+bounded blocked records; they do not cause an execution loop. The Hub queue
+holds ineligible imports as `paused`, because generic dependency reconciliation
+may otherwise release a `blocked` task with no known dependency edges. Cross-document
 references need an explicit execution plan.
 
 ## Operator policy and publication
@@ -112,7 +117,11 @@ policy, certificate verification, public-IP pinning, no redirect/proxy/submodule
 or LFS fallback. A certificate-validated fixed public DoH endpoint is used only
 when local GitHub DNS fails. Credentials are neither persisted in Git config nor
 sent to Workers. Push failures retain the committed SHA in the journal; a failed
-publication never counts as completed development. The journal records bounded
+publication never counts as completed development. Worker execution failures
+may receive at most two attempts by default (`max_attempts`, capped at three).
+Each retry creates a fresh Task, workspace, assignment and registered run; the
+failed attempt is retained. Stop signals, exhausted budgets and failed
+publication do not trigger a new coding attempt. The journal records bounded
 failures rather than waiting for human approval. `stop` immediately revokes
 publication even while a Worker is still running; a new `start` creates a new
 bounded session. Operator policy changes revoke the cached session.
