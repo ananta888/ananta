@@ -157,6 +157,21 @@ class MutationSession:
         )
         return check
 
+    def record_source_change_feedback(self, check: dict[str, Any]) -> None:
+        """Old test failures describe old bytes and must not drive another repair.
+
+        Keep the execution report, but replace superseded test prompt evidence
+        with an explicit instruction to verify the new source snapshot.
+        """
+        self.evidence_blocks[:] = [block for block in self.evidence_blocks if "test_result" not in block]
+        commands = list(self.cfg.get("allowlisted_test_commands") or [])
+        verification: dict[str, Any] = {"status": "stale", "reason": "source_changed_rerun_required"}
+        if len(commands) == 1:
+            verification["next_action"] = {"kind": "tool_request", "tool_name": "test.run",
+                                           "arguments": {"command": commands[0]}}
+        check["test_result"] = verification
+        self.add_evidence(check)
+
     def no_progress_detected(self, check: dict[str, Any], *, applied: bool) -> bool:
         """Track the change-set signature; True once the loop stops making progress."""
         changed = list((check.get("diff_result") or {}).get("changed_files") or [])

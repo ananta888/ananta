@@ -157,7 +157,10 @@ def handle_workspace_write(session: MutationSession, turn: LoopTurn) -> LoopResu
     turn.row["applied"] = applied
     turn.row["rejected"] = rejected
     turn.row["source_line_policy_statuses"] = [str(row.get("status") or "") for row in source_line_results]
-    session.add_evidence(check)
+    if applied:
+        session.record_source_change_feedback(check)
+    else:
+        session.add_evidence(check)
     if session.no_progress_detected(check, applied=bool(applied)):
         summary = {"kind": "loop_aborted", "reason": "no_progress_detected"}
         return session.finish_with_summary("no_progress_detected", summary, turn.err)

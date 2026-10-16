@@ -313,3 +313,19 @@ def test_clean_report_passes_changed_files_through(tmp_path):
     )
     assert filtered == ["app.py"]
     assert note is None
+
+
+def test_source_write_replaces_stale_test_failure_with_explicit_rerun(tmp_path):
+    workspace = _setup_workspace(tmp_path)
+    command = f"{sys.executable} -c 'import sys;sys.exit(1)'"
+    llm = ScriptedLLM([
+        json.dumps({"kind": "tool_request", "tool_name": "test.run", "arguments": {"command": command}}),
+        json.dumps({"kind": "workspace_write", "files": [{"path": "app.py", "content": "answer = 42\n"}]}),
+        json.dumps({"kind": "final_answer", "answer": "technical observation only"}),
+    ])
+    rc, _, _ = _run(workspace, llm, "controlled_workspace", allowlisted_test_commands=[command])
+    assert rc == 0
+    assert '"status": "test_failed"' in llm.prompts[1]
+    assert '"status": "test_failed"' not in llm.prompts[2]
+    assert 'source_changed_rerun_required' in llm.prompts[2]
+    assert '"tool_name": "test.run"' in llm.prompts[2]
