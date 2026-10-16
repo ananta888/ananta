@@ -31,7 +31,7 @@ def runtime(tmp_path, monkeypatch):
     value = {'enabled': True, 'automatic_publication': True,
         'remote_url': 'https://github.com/ananta888/ananta.git', 'branch': 'ananta/self-development',
         'control_root': str(root), 'workspace_root': str(tmp_path / 'workers'), 'team_id': 'team',
-        'tenant_id': 'test-tenant', 'max_tasks': 2, 'allowed_roots': ['tests'],
+        'tenant_id': 'test-tenant', 'max_tasks': 2, 'max_attempts': 1, 'allowed_roots': ['tests'],
         'test_profiles': {'self-development': {'command': 'python -m pytest'}}}
     policy_file = tmp_path / 'policy.json'
     policy_file.write_text(json.dumps(value))
@@ -141,3 +141,31 @@ def test_start_releases_ready_tasks_only_and_keeps_session_budget(runtime, monke
     assert len(updates) == 2
     ready_id = next(i['task_id'] for i in service.status()['items'] if i['status'] == 'ready')
     assert updates == [(ready_id, 'todo'), (ready_id, 'todo')]
+
+
+def test_missing_contract_reason_is_preserved_when_dependencies_are_open(runtime):
+    service, ingested, _ = runtime
+    service.import_tasks({'tasks': [{'id': 'LEGACY', 'status': 'todo', 'depends_on': ['EXTERNAL']}]})
+    assert service.status()['items'][0]['reason'] == 'needs_execution_contract'
+    assert ingested[0]['status'] == 'paused'
+
+
+def test_failed_attempt_gets_fresh_task_and_bounded_retry(runtime):
+    service, ingested, published = runtime
+    service.policy.value['max_attempts'] = 2
+    # Policy remains immutable; use the fixture policy file as operator authority.
+    service.policy.path.write_text(json.dumps(service.policy.value))
+    from agent.services.hub_evidence_gate_service import canonical_evidence_digest
+    service.policy.digest = canonical_evidence_digest(service.policy.value)
+    service.import_tasks(form())
+    old_id = service.status()['items'][0]['task_id']
+    service.start()
+    assert execute(service, passed=False).failed
+    pending = service.status()['items'][0]
+    assert pending['task_id'] != old_id
+    assert pending['status'] == 'ready'
+    assert pending['attempts'][0]['task_id'] == old_id
+    assert execute(service, passed=False).failed
+    assert service.status()['items'][0]['status'] == 'failed'
+    assert len(ingested) == 2
+    assert published == []

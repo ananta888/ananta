@@ -54,7 +54,7 @@ class DevelopmentCoordinator:
                         dependency_ids.append(existing['task_id'])
                     else:
                         unresolved.append(dependency)
-                if unresolved:
+                if unresolved and item['status'] == 'ready':
                     item['status'], item['reason'] = 'blocked', 'dependencies_not_published'
                 state['items'][item['key']] = item
                 self.queue.ingest_task(
@@ -121,10 +121,15 @@ class DevelopmentCoordinator:
                     result.failure_type = 'development_not_published'
                 return result
             except Exception as exc:
+                was_running = item['status'] == 'running'
                 item['status'] = 'publication_failed' if item.get('outcome', {}).get('verified') else 'failed'
                 item['reason'] = str(exc)[:240]
                 self.journal.write(state)
                 update_local_task_status(task.id, 'failed', last_output=item['reason'])
+                if was_running:
+                    from agent.services.self_development.retries import prepare_retry
+                    prepare_retry(item, self.policy, state, self.queue)
+                    self.journal.write(state)
                 return TaskDispatchResult(task.id, dispatched=True, failed=True,
                     failure_type='self_development_failed')
 
