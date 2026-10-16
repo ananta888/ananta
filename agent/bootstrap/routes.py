@@ -106,6 +106,7 @@ from agent.routes.semantic_media_debug import semantic_media_debug_bp
 from agent.routes.semantic_media_privacy import semantic_media_privacy_bp
 from agent.routes.semantic_sfu_admission import semantic_sfu_admission_bp
 from agent.routes.sgpt import sgpt_bp
+from agent.routes.self_development import self_development_bp
 from agent.routes.share_sessions import share_sessions_bp
 from agent.routes.snakes import snakes_bp
 from agent.routes.snapshot_diff_api import snapshot_diff_bp
@@ -154,6 +155,7 @@ from agent.ws_voice import register_ws_voice
 
 
 def register_blueprints(app: Flask) -> None:
+    app.register_blueprint(self_development_bp)
     app.register_blueprint(spreadsheet_studio_bp)
     app.register_blueprint(geomaps_bp)
     app.register_blueprint(collaboration_workspaces_bp)

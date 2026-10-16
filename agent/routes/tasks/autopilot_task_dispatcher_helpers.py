@@ -726,11 +726,18 @@ def _dispatch_one_task(
         _ctx = app.app_context() if app is not None else contextlib.nullcontext()
         with _ctx:
             from agent.routes.tasks.autopilot_task_dispatcher import _dispatch_one_task_inner
-            return _dispatch_one_task_inner(
-                task=task, target_worker=target_worker, was_assigned=was_assigned,
-                loop=loop, services=services, policy=policy, fallback_policy=fallback_policy,
-                runtime_caps=runtime_caps, queue_positions=queue_positions, local_worker_url=local_worker_url,
-                append_trace_event=append_trace_event, update_local_task_status=update_local_task_status,
-            )
+            def execute():
+                return _dispatch_one_task_inner(
+                    task=task, target_worker=target_worker, was_assigned=was_assigned,
+                    loop=loop, services=services, policy=policy, fallback_policy=fallback_policy,
+                    runtime_caps=runtime_caps, queue_positions=queue_positions, local_worker_url=local_worker_url,
+                    append_trace_event=append_trace_event, update_local_task_status=update_local_task_status,
+                )
+
+            from agent.services.self_development.runtime import get_development_coordinator
+            development = get_development_coordinator()
+            if development is not None and development.manages(task.id):
+                return development.dispatch(task, target_worker, execute)
+            return execute()
     finally:
         clear_thread_context()
