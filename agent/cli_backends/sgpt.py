@@ -364,6 +364,8 @@ def run_llm_cli_command(
     Führt den konfigurierten CLI-Backend-Aufruf aus.
     Rückgabe: (returncode, stdout, stderr, backend_used)
     """
+    log.disabled = False
+    log.info("cli_dispatch requested=%s role=%s workdir=%s", backend, getattr(settings, "role", ""), workdir)
     requested = (backend or "ananta-worker").strip().lower()
     candidates = _choose_candidates(requested=requested, prompt=prompt, routing_policy=routing_policy)
 
