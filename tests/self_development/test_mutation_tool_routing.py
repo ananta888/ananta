@@ -193,6 +193,8 @@ def test_handle_tool_request_blocks_reads_after_force_threshold(monkeypatch):
     assert tool_actions.handle_tool_request(session, turn) is None
     assert turn.row['tool_status'] == 'error'
     assert added and added[0]['error'] == 'read_only_blocked_action_required'
+    assert 'action_required' in (added[0].get('data') or {})
+    assert 'patch_request' in (added[0].get('data') or {}).get('action_required', '')
 
 
 def test_handle_tool_request_records_tool_routing(monkeypatch):

@@ -166,10 +166,13 @@ def handle_tool_request(session: MutationSession, turn: LoopTurn) -> LoopResult 
     read_only = is_read_only_tool(tool_name)
     force_after = int((session.cfg or {}).get("force_action_after") or 6)
     if read_only and streak >= force_after:
+        from agent.cli_backends.workspace_mutation.tool_routing import ACTION_NUDGE
+
         blocked = build_tool_result(
             tool_name=tool_name, tool_call_id=tool_call_id, status="error",
             error="read_only_blocked_action_required",
             warnings=["too_many_consecutive_reads"],
+            data={"action_required": ACTION_NUDGE},
         )
         session.add_evidence(blocked)
         turn.row["tool_status"] = "error"
