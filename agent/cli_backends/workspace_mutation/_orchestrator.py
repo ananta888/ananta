@@ -146,6 +146,7 @@ def _build_iteration_prompt(
     iteration: int,
     max_iterations: int,
     max_chars_per_block: int,
+    nudge: str | None = None,
 ) -> str:
     return _build_iteration_prompt_impl(
         original_prompt=original_prompt,
@@ -154,6 +155,7 @@ def _build_iteration_prompt(
         iteration=iteration,
         max_iterations=max_iterations,
         max_chars_per_block=max_chars_per_block,
+        nudge=nudge,
     )
 
 

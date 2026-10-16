@@ -116,6 +116,14 @@ def test_build_iteration_prompt_renders_action_nudge():
     assert 'patch_request' in nudged
 
 
+def test_orchestrator_iteration_prompt_forwards_nudge():
+    from agent.cli_backends.workspace_mutation._orchestrator import _build_iteration_prompt
+
+    out = _build_iteration_prompt(original_prompt='p', instructions='i', evidence_blocks=[],
+                                  iteration=1, max_iterations=4, max_chars_per_block=500, nudge='ACT NOW')
+    assert 'ACT NOW' in out
+
+
 def _finish_session(**attrs):
     from agent.cli_backends.workspace_mutation.session import MutationSession
 
