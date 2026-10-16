@@ -8,6 +8,7 @@ from typing import Any, Callable
 
 from agent.config import settings
 from agent.metrics import DISPATCH_WAIT_SECONDS, TASK_QUEUE_WAIT_SECONDS
+from agent.routes.tasks.autopilot_async_dispatch import AsyncDispatchState, async_dispatch_enabled
 from agent.services.repository_registry import get_repository_registry
 from agent.services.recovery_dispatch_gate_service import (
     get_recovery_dispatch_gate_service,
@@ -253,6 +254,14 @@ def _assign_workers(
     return task_assignments
 
 
+def _async_state(loop: Any, max_workers: int) -> AsyncDispatchState:
+    state = getattr(loop, "_async_dispatch_state", None)
+    if state is None:
+        state = AsyncDispatchState(max_workers=max_workers)
+        loop._async_dispatch_state = state
+    return state
+
+
 def _observe_queue_wait(task_assignments: list[tuple[Any, Any, bool]]) -> None:
     for task, _target_worker, _was_assigned in task_assignments:
         try:
@@ -491,9 +500,14 @@ def execute_autopilot_tick(
     )
     local_worker_url = (settings.agent_url or f"http://localhost:{settings.port}").rstrip("/")
     queue_positions = dispatch_queue_positions(dispatch_queue)
+    async_enabled = async_dispatch_enabled(loop._app_config())
+    async_state = _async_state(loop, max(1, effective_concurrency)) if async_enabled else None
+    free_slots = effective_concurrency
+    if async_state is not None:
+        free_slots = max(0, effective_concurrency - async_state.inflight())
     task_assignments = _assign_workers(
         loop,
-        candidates[:effective_concurrency],
+        candidates[:free_slots],
         workers,
         append_trace_event=append_trace_event,
         update_local_task_status=update_local_task_status,
@@ -515,6 +529,57 @@ def execute_autopilot_tick(
     # Dispatch stays synchronous (deterministic and state-safe) until async mode
     # is hardened end-to-end.
     dispatch_window_started = time.time()
+    if async_state is not None:
+        _observe_queue_wait(task_assignments)
+        for task_id, result_or_error in async_state.reap():
+            if isinstance(result_or_error, Exception):
+                update_local_task_status(task_id, "failed", error=str(result_or_error), force=True)
+                result_or_error = TaskDispatchResult(task_id=task_id, failed=True,
+                                                     failure_type="thread_exception")
+            _aggregate_results(loop, [result_or_error])
+        submitted_ids: list[str] = []
+        for task, target_worker, was_assigned in task_assignments:
+            async_state.submit(
+                _dispatch_one_task, task_id=task.id, task=task, target_worker=target_worker,
+                was_assigned=was_assigned, loop=loop, services=services, policy=policy,
+                fallback_policy=fallback_policy, runtime_caps=runtime_caps, queue_positions=queue_positions,
+                local_worker_url=local_worker_url, app=app, append_trace_event=append_trace_event,
+                update_local_task_status=update_local_task_status,
+            )
+            submitted_ids.append(task.id)
+        DISPATCH_WAIT_SECONDS.observe(max(0.0, time.time() - dispatch_window_started))
+        loop.last_tick_at = time.time()
+        loop._set_last_error(None)
+        loop._increment_tick_count()
+        loop._persist_state(enabled=loop.running)
+        if submitted_ids:
+            try:
+                loop.wake()
+            except Exception:
+                pass
+        return {
+            "dispatched": len(submitted_ids),
+            "completed": 0,
+            "failed": 0,
+            "task_ids": submitted_ids,
+            "reason": "ok",
+            "debug": build_tick_debug_payload(
+                team_id_scope=loop.team_id or None,
+                total_tasks_unfiltered=total_tasks_unfiltered,
+                total_tasks_scoped=task_counts[1],
+                candidate_count=len(candidates),
+                workers_online_count=workers_online_count,
+                workers_available_count=len(workers),
+            ),
+            "effective_concurrency_factors": {
+                "requested": int(loop.max_concurrency),
+                "security_cap": int((policy or {}).get("max_concurrency_cap") or 1),
+                "online_worker_capacity": int(online_worker_capacity),
+                "runtime_capacity": int(runtime_capacity),
+                "ollama_capacity": int(ollama_capacity) if ollama_capacity is not None else None,
+                "effective_concurrency": int(effective_concurrency),
+            },
+        }
     executor = concurrent.futures.ThreadPoolExecutor(max_workers=max(1, effective_concurrency))
     try:
         _observe_queue_wait(task_assignments)
