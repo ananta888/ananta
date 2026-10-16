@@ -165,6 +165,19 @@ def test_finish_without_command_is_bounded(monkeypatch):
     assert "verification_command_required" in out
 
 
+def test_handle_tool_request_blocks_reads_after_force_threshold(monkeypatch):
+    monkeypatch.setattr('agent.cli_backends.workspace_mutation.tool_actions._route_read_tool',
+                        lambda session, turn, tool_name, arguments: (tool_name, arguments))
+    added = []
+    session = SimpleNamespace(cfg={'force_action_after': 6}, read_only_streak=6, mode='strict_patch_request',
+                              task_prompt='x', add_evidence=lambda entry: added.append(entry),
+                              next_tool_call_id=lambda prefix: 'tc-1')
+    turn = SimpleNamespace(row={}, message={'tool_name': 'repo.read_file_range', 'arguments': {}}, err='')
+    assert tool_actions.handle_tool_request(session, turn) is None
+    assert turn.row['tool_status'] == 'error'
+    assert added and added[0]['error'] == 'read_only_blocked_action_required'
+
+
 def test_handle_tool_request_records_tool_routing(monkeypatch):
     monkeypatch.setattr('agent.cli_backends.workspace_mutation.tool_routing.prefer_read_tool',
                         lambda *, session, tool_name, arguments: ('codecompass.plan_context', {'query': 'q'}))

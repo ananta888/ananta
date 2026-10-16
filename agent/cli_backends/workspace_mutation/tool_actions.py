@@ -163,7 +163,18 @@ def handle_tool_request(session: MutationSession, turn: LoopTurn) -> LoopResult 
     arguments = dict(turn.message.get("arguments") or {})
     tool_name, arguments = _route_read_tool(session, turn, tool_name, arguments)
     streak = getattr(session, "read_only_streak", 0)
-    session.read_only_streak = streak + 1 if is_read_only_tool(tool_name) else 0
+    read_only = is_read_only_tool(tool_name)
+    force_after = int((session.cfg or {}).get("force_action_after") or 6)
+    if read_only and streak >= force_after:
+        blocked = build_tool_result(
+            tool_name=tool_name, tool_call_id=tool_call_id, status="error",
+            error="read_only_blocked_action_required",
+            warnings=["too_many_consecutive_reads"],
+        )
+        session.add_evidence(blocked)
+        turn.row["tool_status"] = "error"
+        return None
+    session.read_only_streak = streak + 1 if read_only else 0
     decision = _evaluate_tool_policy(session, turn, tool_name, arguments)
     if not decision.allowed:
         blocked_result = _denied_tool_result(tool_name, tool_call_id, decision)
