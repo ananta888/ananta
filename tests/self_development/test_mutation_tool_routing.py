@@ -116,6 +116,47 @@ def test_build_iteration_prompt_renders_action_nudge():
     assert 'patch_request' in nudged
 
 
+def _finish_session(**attrs):
+    from agent.cli_backends.workspace_mutation.session import MutationSession
+
+    class _Session:
+        def __init__(self):
+            self.__dict__.update(attrs)
+            self.outcome = None
+
+        def write_report(self, outcome):
+            self.outcome = outcome
+
+    return _Session(), MutationSession.finish
+
+
+def test_finish_uses_the_command_the_loop_ran():
+    session, finish = _finish_session(cfg={"return_executable_proposal": True,
+                                           "allowlisted_test_commands": ["a", "b"]},
+                                      verification_command="pytest -q tests/x")
+    rc, out, err = finish(session, "final_answer", 0, "", "")
+    assert rc == 0
+    assert "pytest -q tests/x" in out
+
+
+def test_finish_falls_back_to_single_allowlisted_command():
+    session, finish = _finish_session(cfg={"return_executable_proposal": True,
+                                           "allowlisted_test_commands": ["only-cmd"]},
+                                      verification_command="")
+    rc, out, err = finish(session, "final_answer", 0, "", "")
+    assert rc == 0
+    assert "only-cmd" in out
+
+
+def test_finish_without_command_is_bounded(monkeypatch):
+    session, finish = _finish_session(cfg={"return_executable_proposal": True,
+                                           "allowlisted_test_commands": ["a", "b"]},
+                                      verification_command="")
+    rc, out, err = finish(session, "final_answer", 0, "", "")
+    assert rc == 1
+    assert "verification_command_required" in out
+
+
 def test_handle_tool_request_records_tool_routing(monkeypatch):
     monkeypatch.setattr('agent.cli_backends.workspace_mutation.tool_routing.prefer_read_tool',
                         lambda *, session, tool_name, arguments: ('codecompass.plan_context', {'query': 'q'}))

@@ -184,6 +184,8 @@ def handle_tool_request(session: MutationSession, turn: LoopTurn) -> LoopResult 
     if tool_name == "codecompass.plan_context":
         _materialize_context_ranges(session, result, tool_call_id, tool_cfg)
     if tool_name == "test.run":
+        if str(result.get("status") or "") == "ok" and str(arguments.get("command") or "").strip():
+            session.verification_command = str(arguments.get("command")).strip()
         check = session.hub_check(iteration_number=turn.iteration, ran_tests_result=dict(result.get("data") or {}))
         check["tool_result"] = result
         session.add_evidence(check)

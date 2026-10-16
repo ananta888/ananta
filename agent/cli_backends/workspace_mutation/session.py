@@ -68,6 +68,7 @@ class MutationSession:
         self.task_id = task_id
         self.task_prompt = ""  # set by the loop driver; used as the tool_routing decision state
         self.read_only_streak = 0
+        self.verification_command = ""
         self.services = services
         self.limits = limits
         self.session_id = uuid.uuid4().hex[:12]
@@ -220,14 +221,18 @@ class MutationSession:
             # The CLI proposal boundary expects an executable action, not the
             # inner loop's natural-language final answer. Verification runs in
             # the normal execute path under the Hub's existing command gates.
-            commands = list(self.cfg.get("allowlisted_test_commands") or [])
-            if len(commands) != 1 or not isinstance(commands[0], str) or not commands[0].strip():
+            command = str(getattr(self, "verification_command", "") or "").strip()
+            if not command:
+                commands = list(self.cfg.get("allowlisted_test_commands") or [])
+                if len(commands) == 1 and isinstance(commands[0], str):
+                    command = commands[0].strip()
+            if not command:
                 outcome, rc = "verification_command_required", 1
                 out = json.dumps({"kind": "loop_aborted", "reason": outcome})
             else:
                 out = json.dumps({
                     "reason": "Workspace mutation finished; execute Hub-allowlisted verification",
-                    "command": commands[0],
+                    "command": command,
                 })
         self.write_report(outcome)
         return rc, out, err
