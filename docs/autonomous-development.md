@@ -155,6 +155,28 @@ prerequisite is itself terminally negative (`blocked`/`skipped`/`failed`), so a
 never-publishable predecessor cannot wedge a chain. Live prerequisites
 (`ready`/`running`/`published`) still resolve in order.
 
+### CodeCompass and typed tool routing in the worker loop
+
+The active worker path is the workspace-mutation loop. Its model tends to guess
+files with a blind `repo.read_file_range` in a large repository and exhausts its
+iteration budget without writing. Two additions address that:
+
+- the task carries the `codecompass` capability, and
+  `codecompass_task_capability.ensure_tool_context` binds this step's signed
+  capability and task id into the loop's own config (the tool loop already had
+  it), so `codecompass.*` calls stop failing closed;
+- `agent/cli_backends/workspace_mutation/tool_routing.py` routes **blind** reads
+  through the decision area `tool_routing` (cascade: local decision, TypeSafe
+  Jev, LLM). The question is binary - use the best CodeCompass inspection tool
+  (`codecompass.plan_context` first) or keep the read - which keeps the answer
+  confident. Only an `active`, accepted decision upgrades the call; any
+  abstention, deferral, low confidence or error keeps today's path. The tool
+  policy stays the hard gate and writes are never routed.
+
+This makes the worker's tool phase visible to the decision cascade without
+changing its safety: the decision is a proposal, the policy and evidence gates
+are unchanged.
+
 ### Unattended operation
 
 On Hub boot the self-development bootstrap re-arms the Autopilot for an active

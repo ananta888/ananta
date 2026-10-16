@@ -199,6 +199,7 @@ def run_ananta_worker_workspace_mutation(
             max_diff_chars=int(cfg.get("max_diff_chars") or _max_diff_chars(cfg)),
         ),
     )
+    session.task_prompt = str(prompt or "")
     instructions = _build_mode_instructions(mode)
     last_out, last_err = "", ""
 

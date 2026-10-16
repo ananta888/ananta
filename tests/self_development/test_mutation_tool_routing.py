@@ -1,0 +1,105 @@
+"""DPRV tool_routing inside the workspace-mutation loop's read phase."""
+from types import SimpleNamespace
+
+from agent.cli_backends.workspace_mutation import tool_actions, tool_routing
+
+
+class _Service:
+    def __init__(self, choice='codecompass.plan_context', confidence=0.95, mode='active', option=None):
+        self._choice = choice
+        self._confidence = confidence
+        self._mode = mode
+        self._option = option
+        self.decisions = []
+
+    def area_mode(self, area):
+        return self._mode
+
+    def area_option(self, area, key, default=None):
+        return self._option if self._option is not None else default
+
+    def decide(self, area, request, question_thresholds=None):
+        self.decisions.append((area, request, question_thresholds))
+        answer = SimpleNamespace(choice=self._choice, confidence=self._confidence)
+        return SimpleNamespace(usable=True, outcome=SimpleNamespace(
+            result=SimpleNamespace(answer=lambda key: answer)))
+
+
+def test_is_blind_read_tool():
+    assert tool_routing.is_blind_read_tool('repo.read_file_range')
+    assert tool_routing.is_blind_read_tool('repo.grep')
+    assert not tool_routing.is_blind_read_tool('codecompass.plan_context')
+    assert not tool_routing.is_blind_read_tool('repo.apply_patch')
+
+
+def test_route_read_tool_returns_confident_candidate():
+    service = _Service('codecompass.plan_context', 0.9)
+    routed = tool_routing.route_read_tool(query='fix auth', state='fix auth', config={'mode': 'active'},
+                                          allowed_tools=['codecompass.search', 'codecompass.plan_context'],
+                                          service=service)
+    assert routed == {'tool_name': 'codecompass.plan_context', 'arguments': {'query': 'fix auth'}}
+    assert service.decisions[0][0] == 'tool_routing'
+    labels = {label for label, _ in service.decisions[0][1].questions[0].options}
+    assert labels == {'codecompass.plan_context', tool_routing.KEEP_CURRENT}
+
+
+def test_route_read_tool_ignores_answer_that_is_not_the_offered_tool():
+    service = _Service('codecompass.search', 0.99)
+    assert tool_routing.route_read_tool(query='q', state='q', config={'mode': 'active'},
+                                        allowed_tools=['codecompass.plan_context'], service=service) is None
+
+
+def test_route_read_tool_keeps_current_when_model_keeps_read():
+    service = _Service(tool_routing.KEEP_CURRENT, 0.99)
+    assert tool_routing.route_read_tool(query='q', state='q', allowed_tools=['codecompass.search'],
+                                        config={'mode': 'active'}, service=service) is None
+
+
+def test_route_read_tool_requires_confidence_threshold():
+    service = _Service('codecompass.search', 0.4)
+    assert tool_routing.route_read_tool(query='q', state='q', allowed_tools=['codecompass.search'],
+                                        config={'mode': 'active'}, service=service) is None
+
+
+def test_route_read_tool_disabled_area_or_no_candidates():
+    assert tool_routing.route_read_tool(query='q', state='q', allowed_tools=['codecompass.search'],
+                                        config={'mode': 'disabled'}, service=_Service()) is None
+    assert tool_routing.route_read_tool(query='q', state='q', allowed_tools=['repo.read_file_range'],
+                                        config={'mode': 'active'}, service=_Service()) is None
+    assert tool_routing.route_read_tool(query='q', state='q', allowed_tools=['codecompass.search'],
+                                        config={'mode': 'active'}, service=_Service(mode='off')) is None
+
+
+def test_prefer_read_tool_upgrades_blind_read(monkeypatch):
+    monkeypatch.setattr('agent.cli_backends.helpers._get_agent_config', lambda: {
+        'ananta_worker_tool_loop': {'tiny_router': {'mode': 'active'},
+                                    'allowed_tools': ['codecompass.plan_context', 'repo.read_file_range']}})
+    service = _Service('codecompass.plan_context', 0.9)
+    session = SimpleNamespace(mode='strict_patch_request', task_prompt='fix the auth guard')
+    chosen, arguments = tool_routing.prefer_read_tool(
+        session=session, tool_name='repo.read_file_range', arguments={'path': 'a.py'}, service=service)
+    assert chosen == 'codecompass.plan_context'
+    assert arguments == {'query': 'fix the auth guard'}
+    assert 'fix the auth guard' in service.decisions[0][1].state
+
+
+def test_prefer_read_tool_leaves_non_blind_and_writes(monkeypatch):
+    monkeypatch.setattr('agent.cli_backends.helpers._get_agent_config', lambda: {
+        'ananta_worker_tool_loop': {'tiny_router': {'mode': 'active'},
+                                    'allowed_tools': ['codecompass.plan_context']}})
+    session = SimpleNamespace(mode='strict_patch_request', task_prompt='x')
+    service = _Service('codecompass.plan_context', 0.9)
+    for tool in ('codecompass.plan_context', 'repo.apply_patch', 'repo.write_file'):
+        chosen, arguments = tool_routing.prefer_read_tool(
+            session=session, tool_name=tool, arguments={'a': 1}, service=service)
+        assert chosen == tool
+
+
+def test_handle_tool_request_records_tool_routing(monkeypatch):
+    monkeypatch.setattr('agent.cli_backends.workspace_mutation.tool_routing.prefer_read_tool',
+                        lambda *, session, tool_name, arguments: ('codecompass.plan_context', {'query': 'q'}))
+    turn = SimpleNamespace(row={}, message={'tool_name': 'repo.read_file_range', 'arguments': {}}, err='')
+    session = SimpleNamespace(mode='strict_patch_request', task_prompt='x')
+    chosen, arguments = tool_actions._route_read_tool(session, turn, 'repo.read_file_range', {'path': 'a.py'})
+    assert chosen == 'codecompass.plan_context'
+    assert turn.row['tool_routing'] == {'from': 'repo.read_file_range', 'to': 'codecompass.plan_context'}

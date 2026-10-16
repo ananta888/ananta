@@ -47,6 +47,17 @@ def build_patch_tool_call(message: dict[str, Any], rel: str) -> tuple[str, dict[
     }
 
 
+def _route_read_tool(session: MutationSession, turn: LoopTurn, tool_name: str, arguments: dict[str, Any]
+                     ) -> tuple[str, dict[str, Any]]:
+    """DPRV ``tool_routing``: upgrade a blind read to the routed inspection tool."""
+    from agent.cli_backends.workspace_mutation.tool_routing import prefer_read_tool
+
+    chosen, chosen_arguments = prefer_read_tool(session=session, tool_name=tool_name, arguments=arguments)
+    if chosen != tool_name:
+        turn.row["tool_routing"] = {"from": tool_name, "to": chosen}
+    return chosen, chosen_arguments
+
+
 def _evaluate_tool_policy(session: MutationSession, turn: LoopTurn, tool_name: str, arguments: dict[str, Any]) -> Any:
     decision = session.services.tool_policy.evaluate(
         tool_name=tool_name,
@@ -149,6 +160,7 @@ def handle_tool_request(session: MutationSession, turn: LoopTurn) -> LoopResult 
     tool_call_id = session.next_tool_call_id("tool_result")
     tool_name = str(turn.message.get("tool_name") or "").strip()
     arguments = dict(turn.message.get("arguments") or {})
+    tool_name, arguments = _route_read_tool(session, turn, tool_name, arguments)
     decision = _evaluate_tool_policy(session, turn, tool_name, arguments)
     if not decision.allowed:
         blocked_result = _denied_tool_result(tool_name, tool_call_id, decision)
