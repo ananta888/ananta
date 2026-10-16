@@ -87,6 +87,10 @@ def build_mode_instructions(mode: str) -> str:
             "- Du darfst nur innerhalb der erlaubten (materialisierten) Dateien arbeiten.",
             "- Nach jeder Änderung prüft der Hub Diff, Pfade und Policy; das Ergebnis bekommst du als Evidence.",
             "- Verbessere gezielt anhand von DiffResult/PolicyResult/TestResult statt neu zu raten.",
+            "- Nutze fuer die Suche nach relevanten Stellen CodeCompass statt blindem Lesen: "
+            '{"kind":"tool_request","tool_name":"codecompass.plan_context","arguments":{"query":"..."}} '
+            "(auch codecompass.search_symbols, codecompass.search, codecompass.get_file_context).",
+            "- Erst codecompass.plan_context, dann repo.read_file_range nur auf die genannten Zeilenbereiche.",
         ]
     else:
         common += [

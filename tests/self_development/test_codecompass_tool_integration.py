@@ -37,6 +37,13 @@ def test_strict_patch_instructions_offer_codecompass_reads():
     assert 'codecompass.get_file_context' in instructions
 
 
+def test_controlled_workspace_instructions_offer_codecompass_reads():
+    instructions = build_mode_instructions('controlled_workspace')
+    assert 'codecompass.plan_context' in instructions
+    assert 'codecompass.search_symbols' in instructions
+    assert 'codecompass.search' in instructions
+
+
 def test_mutation_scope_never_filters_tools():
     required = required_worker_mutation({
         'allowed_roots': ['agent', 'tests'],

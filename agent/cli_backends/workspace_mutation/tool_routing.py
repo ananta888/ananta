@@ -11,7 +11,10 @@ gate; any abstention, deferral or error keeps today's path.
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any, Mapping, Sequence
+
+log = logging.getLogger(__name__)
 
 # Only *blind* inspection picks are re-routed; a model that already chose a
 # precise tool is left alone, and writes are never routed here.
@@ -41,14 +44,17 @@ def route_read_tool(*, query: str, state: str, allowed_tools: Sequence[str], mut
     """A confident inspection-tool candidate (``{tool_name, arguments}``) or ``None`` (keep today's path)."""
     config = config if isinstance(config, Mapping) else {}
     if str(config.get("mode") or "disabled").strip().lower() == "disabled":
+        log.info("tool_routing: skip (router mode disabled)")
         return None
     available = [tool for tool in CODECOMPASS_READ_TOOLS if tool in (allowed_tools or ())]
     if not available:
+        log.info("tool_routing: skip (no codecompass read tool in allowed_tools)")
         return None
     chosen_tool = available[0]
     service = service or _service()
     try:
         if service.area_mode("tool_routing") == "off":
+            log.info("tool_routing: skip (decision area off)")
             return None
         from agent.services.decision_providers.types import DecisionQuestion, DecisionRequest
 
@@ -60,11 +66,15 @@ def route_read_tool(*, query: str, state: str, allowed_tools: Sequence[str], mut
             DecisionQuestion.choice(QUESTION_KEY, INSTRUCTIONS, options),))
         decision = service.decide("tool_routing", request, question_thresholds={QUESTION_KEY: threshold})
         if decision is None or not decision.usable:
+            log.info("tool_routing: defer (decision unusable)")
             return None
         answer = decision.outcome.result.answer(QUESTION_KEY)
-    except Exception:  # a routing failure must never break the loop
+    except Exception as exc:  # a routing failure must never break the loop
+        log.info("tool_routing: defer (decision error: %s)", type(exc).__name__)
         return None
     if answer.choice != chosen_tool or float(answer.confidence) < threshold:
+        log.info("tool_routing: keep read (choice=%s conf=%.2f thr=%.2f)",
+                 answer.choice, float(answer.confidence), threshold)
         return None
     return {"tool_name": chosen_tool, "arguments": {"query": str(query or "")[:1000]}}
 
@@ -91,7 +101,9 @@ def prefer_read_tool(*, session: Any, tool_name: str, arguments: dict[str, Any],
     routed = route_read_tool(query=query, state=state, allowed_tools=allowed, mutation_mode=str(session.mode),
                              config=routing_cfg, service=service)
     if not routed or routed["tool_name"] == tool_name:
+        log.info("tool_routing: keep %s (no accepted upgrade)", tool_name)
         return tool_name, arguments
+    log.info("tool_routing: upgrade %s -> %s", tool_name, routed["tool_name"])
     return routed["tool_name"], routed["arguments"]
 
 
