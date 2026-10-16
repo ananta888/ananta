@@ -224,6 +224,11 @@ class DevelopmentCoordinator:
     def _verify(self, state, item):
         self._check_live(state)
         outcome = item['outcome']
+        assignment = item['assignment']
+        self.registry.require_assignment_result(tenant_id=self.policy.value['tenant_id'],
+            project_id='ananta-self-development', projection=assignment, task_id=item['task_id'],
+            assignment_id=assignment['assignment_id'], dispatch_lease_id=assignment['dispatch_lease_id'],
+            result_digest=outcome['result_digest'])
         verification = self.registry.verify_release_binding(tenant_id=self.policy.value['tenant_id'],
             project_id='ananta-self-development', run_id=outcome['run_id'], required_scope='local',
             task_id=item['task_id'], repository_revision=item['revision'], source_ids=tuple(outcome['source_ids']))
