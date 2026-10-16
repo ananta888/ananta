@@ -150,7 +150,8 @@ class OpsPolicyService:
                 arguments=arguments,
                 target_fingerprint=str(target_id or ""),
                 risk_class="high",
-                scope={"approval_class": "controlled_workspace_writes", "ops_action": action},
+                scope={"approval_class": ("git_publication" if tool_name in {"git.commit", "git.push"}
+                                          else "controlled_workspace_writes"), "ops_action": action},
             )
             return str(request.id)
         except Exception:
