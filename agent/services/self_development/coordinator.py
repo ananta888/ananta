@@ -58,7 +58,7 @@ class DevelopmentCoordinator:
                     item['status'], item['reason'] = 'blocked', 'dependencies_not_published'
                 state['items'][item['key']] = item
                 self.queue.ingest_task(
-                    task_id=item['task_id'], status='paused' if item['status'] == 'ready' else 'blocked',
+                    task_id=item['task_id'], status='paused',
                     title=item['title'], description=item['description'], created_by='self-development-hub',
                     source='system', team_id=self.policy.value['team_id'], tags=['self-development', item['todo_id']],
                     event_details={'source_file': item['source'], 'reason': item['reason']},
@@ -81,6 +81,10 @@ class DevelopmentCoordinator:
             state = self.journal.read()
             session = state.get('session', {})
             if session.get('enabled') and session.get('expires_at', 0) > time.time():
+                (self.policy.root / 'stop').unlink(missing_ok=True)
+                for item in state['items'].values():
+                    if item['status'] == 'ready':
+                        update_local_task_status(item['task_id'], 'todo')
                 return self.status()
             (self.policy.root / 'stop').unlink(missing_ok=True)
             state['session'] = {'id': str(uuid.uuid4()), 'enabled': True,

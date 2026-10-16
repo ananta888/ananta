@@ -115,3 +115,29 @@ def test_failed_or_revoked_execution_never_publishes(runtime, option):
     assert result.failed
     assert published == []
     assert service.status()['counts'] == {'failed': 1}
+
+
+def test_blocked_catalog_records_are_paused_in_general_hub_queue(runtime):
+    service, ingested, _ = runtime
+    service.import_tasks({'tasks': [{'id': 'LEGACY', 'status': 'blocked'}]})
+    assert service.status()['counts'] == {'blocked': 1}
+    # Generic dependency reconciliation may unblock `blocked` without edges.
+    # Paused is deliberately outside that reconciler's admission contract.
+    assert ingested[0]['status'] == 'paused'
+
+
+def test_start_releases_ready_tasks_only_and_keeps_session_budget(runtime, monkeypatch):
+    service, _, _ = runtime
+    document = form()
+    document['tasks'].append({'id': 'LEGACY', 'status': 'todo'})
+    service.import_tasks(document)
+    updates = []
+    monkeypatch.setattr('agent.services.self_development.coordinator.update_local_task_status',
+                        lambda task_id, status: updates.append((task_id, status)))
+    service.start()
+    first = service.status()['session']
+    service.start()
+    assert service.status()['session']['id'] == first['id']
+    assert len(updates) == 2
+    ready_id = next(i['task_id'] for i in service.status()['items'] if i['status'] == 'ready')
+    assert updates == [(ready_id, 'todo'), (ready_id, 'todo')]
