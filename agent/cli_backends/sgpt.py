@@ -69,6 +69,12 @@ from agent.local_llm_backends import resolve_local_openai_backend
 log = logging.getLogger(__name__)
 
 
+def _log_cli_failure(message: str, *args) -> None:
+    cli_log = logging.getLogger("ananta.worker.cli")
+    cli_log.disabled = False
+    cli_log.warning(message, *args)
+
+
 def run_sgpt_command(
     prompt: str,
     options: list | None = None,
@@ -80,6 +86,7 @@ def run_sgpt_command(
     Führt einen SGPT-Befehl zentral aus, inkl. korrekter Environment-Injektion.
     Gibt (returncode, stdout, stderr) zurück.
     """
+    log.disabled = False
     budget_error = check_prompt_budget(
         prompt,
         max_tokens=prompt_token_limit("sgpt"),
@@ -164,13 +171,17 @@ def run_sgpt_command(
                 timeout=timeout,
                 cwd=cwd,
             )
-            if result.returncode != 0:
-                log.warning("SGPT subprocess rc=%s stdout_tail=%s stderr_tail=%s", result.returncode,
-                            (result.stdout or "")[-2000:], (result.stderr or "")[-2000:])
+            combined = (result.stdout or "") + (result.stderr or "")
+            failed = result.returncode != 0 or any(
+                marker in combined for marker in
+                ("loop_aborted", "worker_proposal_failed", "file_not_found", "Traceback"))
+            if failed:
+                _log_cli_failure("SGPT subprocess rc=%s stdout_tail=%s stderr_tail=%s", result.returncode,
+                                 (result.stdout or "")[-2000:], (result.stderr or "")[-2000:])
             return result.returncode, result.stdout, result.stderr
         except subprocess.TimeoutExpired as timeout_error:
-            log.error("SGPT Timeout stdout_tail=%s stderr_tail=%s",
-                      str(timeout_error.stdout or "")[-2000:], str(timeout_error.stderr or "")[-2000:])
+            _log_cli_failure("SGPT Timeout stdout_tail=%s stderr_tail=%s",
+                             str(timeout_error.stdout or "")[-2000:], str(timeout_error.stderr or "")[-2000:])
             return -1, "", "Timeout"
         except Exception as e:
             log.exception(f"SGPT Fehler: {e}")
