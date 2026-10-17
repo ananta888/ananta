@@ -203,7 +203,51 @@ def handle_tool_request(session: MutationSession, turn: LoopTurn) -> LoopResult 
         check = session.hub_check(iteration_number=turn.iteration, ran_tests_result=dict(result.get("data") or {}))
         check["tool_result"] = result
         session.add_evidence(check)
+        blocked = _second_refusal_of_the_same_test_command(session, turn, result, arguments)
+        if blocked is not None:
+            return blocked
     else:
         session.add_evidence(result)
     turn.row["tool_status"] = str(result.get("status") or "")
     return None
+
+
+def _second_refusal_of_the_same_test_command(
+    session: MutationSession,
+    turn: LoopTurn,
+    result: dict[str, Any],
+    arguments: dict[str, Any],
+) -> LoopResult | None:
+    """End the loop on a repeated ``command_not_allowlisted`` instead of burning iterations.
+
+    ``test.run`` is mandatory before ``final_answer``, so a command the policy refuses can
+    never be satisfied: the loop reads on until ``max_iterations`` and reports that unrelated
+    symptom. The first refusal stays feedback (the model may correct itself); the second one
+    of the *same* command is a contract violation and ends with a bounded, machine-readable
+    result naming the command and the allowlist it missed.
+    """
+    if str(result.get("status") or "") != "policy_blocked":
+        return None
+    if str(result.get("error") or "").strip() != "command_not_allowlisted":
+        return None
+    from agent.services.tools.test_tools import _normalize_command
+
+    command = _normalize_command(arguments.get("command"))
+    if not command:
+        return None
+    previous = str(getattr(session, "blocked_test_command", "") or "")
+    session.blocked_test_command = command
+    if command != previous:
+        return None
+    return session.finish_with_summary(
+        "command_not_allowlisted",
+        {
+            "kind": "loop_aborted",
+            "reason": "command_not_allowlisted",
+            "command": command,
+            "allowlisted_test_commands": list(
+                (session.cfg or {}).get("allowlisted_test_commands") or []
+            ),
+        },
+        turn.err,
+    )

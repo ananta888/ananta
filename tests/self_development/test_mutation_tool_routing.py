@@ -226,3 +226,46 @@ def test_handle_tool_request_records_tool_routing(monkeypatch):
     chosen, arguments = tool_actions._route_read_tool(session, turn, 'repo.read_file_range', {'path': 'a.py'})
     assert chosen == 'codecompass.plan_context'
     assert turn.row['tool_routing'] == {'from': 'repo.read_file_range', 'to': 'codecompass.plan_context'}
+
+
+def test_a_repeated_refusal_of_the_same_test_command_ends_the_loop(monkeypatch):
+    """``test.run`` is mandatory before ``final_answer``: a refused command can never be satisfied.
+
+    The first refusal stays feedback; the second one of the same command ends the loop with a
+    bounded, machine-readable result instead of burning iterations up to ``max_iterations``.
+    """
+    monkeypatch.setattr('agent.cli_backends.workspace_mutation.tool_actions._route_read_tool',
+                        lambda session, turn, tool_name, arguments: (tool_name, arguments))
+    monkeypatch.setattr('agent.cli_backends.workspace_mutation.tool_actions.execute_ananta_tool',
+                        lambda **kwargs: {'status': 'policy_blocked', 'error': 'command_not_allowlisted'})
+    finished = []
+
+    class _ToolPolicy:
+        def evaluate(self, **kwargs):
+            return SimpleNamespace(allowed=True, decision='allow', risk_class='low', reason='',
+                                   as_dict=lambda: {})
+
+    session = SimpleNamespace(
+        cfg={'allowlisted_test_commands': ['allowlisted-cmd']},
+        read_only_streak=0, mode='controlled_workspace', task_prompt='x', task_id='t1',
+        blocked_test_command='', materialization_manifest={}, workspace='/tmp/ws',
+        services=SimpleNamespace(tool_policy=_ToolPolicy()),
+        add_evidence=lambda entry: None,
+        hub_check=lambda **kwargs: {},
+        next_tool_call_id=lambda prefix: 'tc-1',
+        finish_with_summary=lambda outcome, summary, err: finished.append((outcome, summary)) or (1, '', err),
+    )
+    turn = SimpleNamespace(row={}, iteration=1, err='',
+                           message={'tool_name': 'test.run', 'arguments': {'command': 'wrong-cmd'}})
+
+    assert tool_actions.handle_tool_request(session, turn) is None  # first refusal: feedback
+    assert finished == []
+    assert session.blocked_test_command == 'wrong-cmd'
+
+    result = tool_actions.handle_tool_request(session, turn)  # second refusal: bounded abort
+    assert result is not None
+    assert finished and finished[0][0] == 'command_not_allowlisted'
+    summary = finished[0][1]
+    assert summary['kind'] == 'loop_aborted' and summary['reason'] == 'command_not_allowlisted'
+    assert summary['command'] == 'wrong-cmd'
+    assert summary['allowlisted_test_commands'] == ['allowlisted-cmd']
