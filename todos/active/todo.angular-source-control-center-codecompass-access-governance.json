@@ -1811,7 +1811,7 @@
     {
       "id": "SRCCTRL-R6-004",
       "title": "Vertikale E2E-Flows für Workspace, GitHub, Governance und Rollback erstellen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "testing",
@@ -1870,7 +1870,25 @@
         "public_remote_regression_gates": "passed_37_of_37_39_of_39_43_of_43_14_of_14",
         "browser_direct_policy_or_grant_sequence": "absent"
       },
-      "blocked_reason": "Workspace-, Public-Git-, Governance-, Approval- und Rollback-Flows sind lokal vollautomatisch bis zur Aktivierung verifiziert; zusätzlich bestand der reale Hub-reservierte GitHub-OAuth-Backendpfad. Offen bleiben die Browserjourney einer privaten GitHub-App-/OAuth-Installation, Claude-/Cloud- und Produktions-Journeys."
+      "blocked_reason": "Workspace-, Public-Git-, Governance-, Approval- und Rollback-Flows sind lokal vollautomatisch bis zur Aktivierung verifiziert; zusätzlich bestand der reale Hub-reservierte GitHub-OAuth-Backendpfad. Offen bleiben die Browserjourney einer privaten GitHub-App-/OAuth-Installation, Claude-/Cloud- und Produktions-Journeys.",
+      "execution": {
+        "files": [
+          "tests/e2e/test_e2e_workspace_github_rollback.py",
+          "docs/architecture/vertical-e2e-flows.md"
+        ],
+        "test_profile": "self-development",
+        "commit_message": "feat(tests): add vertical E2E flows for workspace, GitHub, governance and rollback",
+        "completion_rule": "profile_passed"
+      },
+      "execution_result": {
+        "scope": "local",
+        "run_id": "RUN_0c6860bca8b49f4b95c7f2436a045bf4",
+        "source_ids": [
+          "SRC_7649e33afdefdaeba6a9e1197662e1fb"
+        ],
+        "result_digest": "f82bc1729b47319a80008b6e7952030ff92c2bbeb6e8c93602bccccea18a10bd",
+        "completion_rule": "profile_passed"
+      }
     },
     {
       "id": "SRCCTRL-R6-005",
