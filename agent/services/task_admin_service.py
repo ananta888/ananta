@@ -28,22 +28,25 @@ from agent.services.vector_store_authorization_policy import (
 )
 
 
-def _reset_stale_active_retry_budget(task: Any) -> dict:
-    """A caller-driven ``retry`` starts a fresh stale-active recovery budget.
+def _reset_repair_budgets(task: Any) -> dict:
+    """A caller-driven ``retry`` starts fresh automated repair budgets.
 
-    ``autopilot_recovery.stale_active_retries`` is spent by the repair sweep (three auto-retries,
-    then ``stale_active_task_auto_failed``) and nothing ever reset it, so the task a ``retry``
-    handed to the autopilot kept its exhausted budget and was auto-failed the moment the 600s
-    manual override expired -- live, 607s after the retry, in the same tick the dispatch gate
-    would first have allowed dispatching. Refilling the counter here lets the sweep do its job
-    again (it only moves the task back to ``todo``), and the autopilot picks it up. The other
-    repair budgets (``tooling_retries``, ``waiting_review_retries``) belong to later stages and
-    are deliberately left alone.
+    ``autopilot_recovery`` holds the budgets the repair sweeps spend (``stale_active_retries``,
+    ``waiting_review_retries``, ``tooling_retries``) and nothing ever reset them, so a retried
+    task kept its exhausted budgets and was auto-failed the moment a sweep touched it again --
+    live, ``stale_active_task_auto_failed`` 7s after the 600s manual override expired, and a
+    ``waiting_review`` stage capped at its 2 retries. Refilling them here lets the sweeps do
+    their bounded job again (three retries, then a controlled failure). The informational keys
+    of the block are history and stay untouched.
     """
     verification = dict(getattr(task, "verification_status", None) or {})
     recovery = dict(verification.get("autopilot_recovery") or {})
-    if int(recovery.get("stale_active_retries") or 0) > 0:
-        recovery["stale_active_retries"] = 0
+    changed = False
+    for key in ("stale_active_retries", "waiting_review_retries", "tooling_retries"):
+        if int(recovery.get(key) or 0) > 0:
+            recovery[key] = 0
+            changed = True
+    if changed:
         verification["autopilot_recovery"] = recovery
     return verification
 
@@ -611,7 +614,7 @@ class TaskAdminService(
                     update_kwargs: dict = {}
                     if action == "retry":
                         update_kwargs["last_exit_code"] = None
-                        update_kwargs["verification_status"] = _reset_stale_active_retry_budget(task)
+                        update_kwargs["verification_status"] = _reset_repair_budgets(task)
                     update_local_task_status(
                         task_id,
                         new_status,

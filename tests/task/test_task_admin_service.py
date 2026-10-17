@@ -1297,6 +1297,8 @@ def test_retry_refills_the_stale_active_recovery_budget(monkeypatch):
         verification_status={
             "autopilot_recovery": {
                 "stale_active_retries": 3,
+                "waiting_review_retries": 2,
+                "tooling_retries": 1,
                 "last_stale_active_status": "assigned",
                 "last_stale_active_retry_at": 123.0,
             },
@@ -1325,12 +1327,15 @@ def test_retry_refills_the_stale_active_recovery_budget(monkeypatch):
     assert captured["status"] == "todo"
     assert kwargs["manual_override_until"] > 0
     assert kwargs["last_exit_code"] is None
-    verification = kwargs["verification_status"]
-    assert verification["autopilot_recovery"]["stale_active_retries"] == 0
+    recovery = kwargs["verification_status"]["autopilot_recovery"]
+    # every repair budget the sweeps spend is refilled
+    assert recovery["stale_active_retries"] == 0
+    assert recovery["waiting_review_retries"] == 0
+    assert recovery["tooling_retries"] == 0
     # informational history and unrelated recovery state stay exactly as they were
-    assert verification["autopilot_recovery"]["last_stale_active_status"] == "assigned"
-    # unrelated verification state is carried over untouched
-    assert verification["source_notes"] == {"kept": True}
+    assert recovery["last_stale_active_status"] == "assigned"
+    assert recovery["last_stale_active_retry_at"] == 123.0
+    assert kwargs["verification_status"]["source_notes"] == {"kept": True}
 
 
 def test_retry_leaves_an_untouched_recovery_budget_alone(monkeypatch):
@@ -1345,7 +1350,7 @@ def test_retry_leaves_an_untouched_recovery_budget_alone(monkeypatch):
         plan_id=None,
         derivation_reason=None,
         status_reason_details={},
-        verification_status={"autopilot_recovery": {"tooling_retries": 2}},
+        verification_status={"autopilot_recovery": {"last_stale_active_status": "assigned"}},
     )
 
     monkeypatch.setattr(
@@ -1359,4 +1364,4 @@ def test_retry_leaves_an_untouched_recovery_budget_alone(monkeypatch):
 
     service.intervene_task(task_id=task.id, action="retry", actor="test")
 
-    assert captured["verification_status"] == {"autopilot_recovery": {"tooling_retries": 2}}
+    assert captured["verification_status"] == {"autopilot_recovery": {"last_stale_active_status": "assigned"}}
