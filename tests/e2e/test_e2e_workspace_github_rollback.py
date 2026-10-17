@@ -32,6 +32,8 @@ def _init_workspace(tmp_path: Path, bare_repo: Path) -> None:
     (ws / "README.md").write_text("initial\n")
 
     subprocess.run(["git", "init", "-b", "main", "."], cwd=ws, check=True)
+    subprocess.run(["git", "config", "user.name", "Test"], cwd=ws, check=True, capture_output=True)
+    subprocess.run(["git", "config", "user.email", "test@example.invalid"], cwd=ws, check=True, capture_output=True)
     subprocess.run(
         ["git", "add", "."],
         cwd=ws,

@@ -10,14 +10,19 @@ from agent.services.audio_decision_command_policy import (
 )
 from agent.services.audio_decision_command_service import run_audio_decision_command
 from agent.services.audio_decision_hub_gate import AudioDecisionProposal, PolicyVerdict
+from voice_runtime.backends.audio_decision import (
+    DecisionOutcome,
+    DecisionProvenance,
+    FieldOutcome,
+)
 
 
 class FakeProvider:
-    def __init__(self, proposal):
-        self.proposal = proposal
+    def __init__(self, outcome):
+        self.outcome = outcome
 
     def decide(self, *, filename, content, profile, fields, language, fallback, cancellation_token=None):
-        return self.proposal
+        return self.outcome
 
 
 def _proposal(**overrides) -> AudioDecisionProposal:
@@ -64,8 +69,15 @@ def test_policy_denies_unknown_label():
 
 
 def test_service_runs_provider_and_policy():
-    proposal = _proposal()
-    provider = FakeProvider(proposal)
+    outcome = DecisionOutcome(
+        ok=True,
+        fields={"command": FieldOutcome(name="command", status="ok", value="stop", probability=0.98,
+                                        coverage=1.0, calibrated=True, confidence=0.95)},
+        language="en",
+        provenance=DecisionProvenance(model="base/v51864/l6/f1", profile_id="speech-commands-en",
+                                      profile_version="0.2.0", profile_status="stable"),
+    )
+    provider = FakeProvider(outcome)
     result = run_audio_decision_command(
         provider,
         filename="a.wav",
