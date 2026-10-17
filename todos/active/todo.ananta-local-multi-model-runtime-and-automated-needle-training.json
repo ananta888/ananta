@@ -854,7 +854,7 @@
     {
       "id": "LMM-TRAIN-004",
       "title": "Needle- und LFM-SFT-LoRA-Jobs über isolierte Worker ausführen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "training",
@@ -873,7 +873,24 @@
         "Training besitzt keinen Schreibzugriff auf produktive Modellpfade.",
         "Cancellation, Timeout, Crash und Teiloutput werden fail-closed behandelt.",
         "Job-, Dataset-, Base- und Candidate-Hashes sind vollständig gebunden."
-      ]
+      ],
+      "execution": {
+        "files": [
+          "todos/LMM-TRAIN-004.md"
+        ],
+        "test_profile": "self-development",
+        "commit_message": "feat(self-development): add LMM-TRAIN-004 todo for isolated Needle/LFM SFT-LoRA workers",
+        "completion_rule": "profile_passed"
+      },
+      "execution_result": {
+        "scope": "local",
+        "run_id": "RUN_34bcf987cb939f1577cacbdb0384da7c",
+        "source_ids": [
+          "SRC_d7e9e2576f7d4e13daf7554c4c1f59ed"
+        ],
+        "result_digest": "ca9c823ffb1b4bb0f0db7d241ddabaca263237907590af0d4bbb108cc6b2b4ff",
+        "completion_rule": "profile_passed"
+      }
     },
     {
       "id": "LMM-LIFE-001",
