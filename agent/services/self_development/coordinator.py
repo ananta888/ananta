@@ -42,18 +42,24 @@ class DevelopmentCoordinator:
         self.registry = registry or get_hub_evidence_registry_service()
         self.planner = planner
 
+    def sync_todo_archive(self):
+        """Archive fully worked off TODO documents (deterministic bookkeeping).
+
+        A document only completes through publication, so a document that was already done
+        before this loop existed would stay in ``todos/active`` forever and the catalog would
+        keep reporting it. Called before the catalog is built and at Hub start.
+        """
+        from agent.services.self_development.completion import archive_completed_sources
+
+        return archive_completed_sources(
+            self.policy,
+            publish=lambda item: self.publisher.publish(item, lambda: None, lambda: None),
+        )
+
     def import_tasks(self, document=None):
         self.policy.assert_current()
         if document is None:
-            # Deterministic sync of the tracked TODO folder: documents that are already fully
-            # worked off are archived before the catalog is built, so the catalog can never
-            # re-import them and an operator never has to move them by hand.
-            from agent.services.self_development.completion import archive_completed_sources
-
-            archive_completed_sources(
-                self.policy,
-                publish=lambda item: self.publisher.publish(item, lambda: None, lambda: None),
-            )
+            self.sync_todo_archive()
         report = catalog(self.policy.checkout, self.policy) if document is None else {
             'items': import_document(document, 'user-submission', self.policy), 'errors': []}
         with self.journal.locked():

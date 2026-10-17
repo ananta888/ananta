@@ -30,6 +30,12 @@ def initialize_self_development(app):
             apply_worker_scope(app, coordinator.policy)
             apply_guardrails(app, coordinator.policy)
             apply_tool_loop_limits(app, coordinator.policy)
+            try:
+                # Deterministic bookkeeping: archive TODO documents that are already fully
+                # worked off. Never blocks the autopilot wiring below.
+                coordinator.sync_todo_archive()
+            except Exception:
+                app.logger.warning('self_development_todo_archive_skipped', exc_info=True)
             ensure_autopilot(app)
             start_autopilot_watchdog(app)
     except Exception:
