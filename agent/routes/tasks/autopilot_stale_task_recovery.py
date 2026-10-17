@@ -94,6 +94,20 @@ def _younger_than(task: Any, now_ts: float, seconds: int) -> bool:
     return bool(updated) and (now_ts - updated) < seconds
 
 
+def _manual_override_active(task: Any, now_ts: float) -> bool:
+    """Whether the task's caller currently drives it (``retry`` holds an override for 600s).
+
+    The repair sweeps and the dispatch gate must agree on who owns the task: the gate already
+    refuses to dispatch while an override is active, so a sweep that retries and then fails the
+    task for standing still would kill a caller-driven retry 60s in (live: ``stale_active_task_auto_failed``
+    68s after ``retry``, before the override ever expired).
+    """
+    try:
+        return float(getattr(task, "manual_override_until", None) or 0) > now_ts
+    except (TypeError, ValueError):
+        return False
+
+
 def _is_recoverable_tooling_output(last_output: str) -> bool:
     lowered = last_output.lower()
     return (
@@ -130,6 +144,8 @@ class StaleTaskRecovery:
     def reset_stale_proposing(self, tasks: list[Any]) -> None:
         for task in tasks:
             if is_hub_managed_model_recovery_task(task) or _status(task) != "proposing":
+                continue
+            if _manual_override_active(task, self.now_ts):
                 continue
             stale_after = self._proposing_stale_seconds(task)
             if _younger_than(task, self.now_ts, stale_after) or getattr(task, "last_output", None):
@@ -206,6 +222,8 @@ class StaleTaskRecovery:
                 continue
             status = _status(task)
             if status not in {"assigned", "in_progress"}:
+                continue
+            if _manual_override_active(task, self.now_ts):
                 continue
             stale_after = ASSIGNED_STALE_SECONDS if status == "assigned" else IN_PROGRESS_STALE_SECONDS
             if _younger_than(task, self.now_ts, stale_after):

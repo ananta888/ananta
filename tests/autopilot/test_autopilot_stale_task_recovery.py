@@ -78,3 +78,48 @@ def test_a_long_propose_is_not_reset_but_a_stuck_one_is(fixed_timeout):
     recovery.reset_stale_proposing([stuck])
     assert resets == [("t2", "todo")]
     assert events == [("t2", "stale_proposing_reset", {"reason": "no_output_after_660s"})]
+
+
+def test_a_manual_override_puts_the_repair_sweeps_on_hold():
+    """``retry`` drives the task for 600s; the sweeps must not fight that.
+
+    The dispatch gate already refuses to dispatch while an override is active, so a sweep that
+    retries and then fails the task for standing still killed the retry 68s after ``retry`` --
+    three historical stale retries were already spent, and the override never got a chance.
+    """
+    recovery = _recovery({"task_propose_timeout_seconds": 600})
+    resets: list = []
+    events: list = []
+    recovery.update_local_task_status = lambda task_id, status, **kwargs: resets.append((task_id, status))
+    recovery.append_trace_event = lambda task_id, event, **kwargs: events.append((task_id, event))
+
+    driven = SimpleNamespace(
+        id="t1", status="assigned", goal_id="", task_kind="coding",
+        updated_at=1000.0 - 600, manual_override_until=1000.0 + 300,
+        verification_status={}, last_output=None,
+    )
+    recovery.retry_stale_active([driven])
+    assert resets == [] and events == []
+
+    # once the override has expired the task is recovered as before
+    driven.manual_override_until = 1000.0 - 1
+    recovery.retry_stale_active([driven])
+    assert resets == [("t1", "todo")]
+
+
+def test_a_stale_propose_of_a_driven_task_is_not_reset(fixed_timeout):
+    recovery = _recovery({"task_propose_timeout_seconds": 600})
+    resets: list = []
+    recovery.update_local_task_status = lambda task_id, status, **kwargs: resets.append((task_id, status))
+    recovery.append_trace_event = lambda *args, **kwargs: None
+
+    driven = SimpleNamespace(
+        id="t2", status="proposing", goal_id="", task_kind="coding",
+        updated_at=1000.0 - 700, manual_override_until=1000.0 + 300, last_output=None,
+    )
+    recovery.reset_stale_proposing([driven])
+    assert resets == []
+
+    driven.manual_override_until = 0
+    recovery.reset_stale_proposing([driven])
+    assert resets == [("t2", "todo")]
