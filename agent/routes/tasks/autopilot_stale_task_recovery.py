@@ -19,8 +19,13 @@ from agent.routes.tasks.autopilot_task_dispatcher_helpers import (
 )
 
 # Reset tasks stuck in `proposing` with no output back to `todo` so the
-# autopilot can retry them (workers can crash mid-dispatch).
-PROPOSING_STALE_SECONDS = 30
+# autopilot can retry them (workers can crash mid-dispatch). The effective
+# threshold tracks the task's own propose timeout (``resolve_propose_llm_timeout_seconds``)
+# plus a margin, so a worker that is legitimately still proposing is not reset;
+# the floor keeps the sweep useful when no timeout can be resolved.
+PROPOSING_STALE_SECONDS = 120
+PROPOSING_STALE_MARGIN_SECONDS = 60
+PROPOSING_STALE_MAX_SECONDS = 1800
 ASSIGNED_STALE_SECONDS = 60
 IN_PROGRESS_STALE_SECONDS = 120
 RECOVER_WAITING_REVIEW_SECONDS = 30
@@ -126,7 +131,8 @@ class StaleTaskRecovery:
         for task in tasks:
             if is_hub_managed_model_recovery_task(task) or _status(task) != "proposing":
                 continue
-            if _younger_than(task, self.now_ts, PROPOSING_STALE_SECONDS) or getattr(task, "last_output", None):
+            stale_after = self._proposing_stale_seconds(task)
+            if _younger_than(task, self.now_ts, stale_after) or getattr(task, "last_output", None):
                 continue
             self.update_local_task_status(
                 task.id,
@@ -135,7 +141,31 @@ class StaleTaskRecovery:
                 event_actor="autopilot_tick",
                 force=True,
             )
-            self.append_trace_event(task.id, "stale_proposing_reset", reason="no_output_after_90s")
+            self.append_trace_event(task.id, "stale_proposing_reset", reason=f"no_output_after_{stale_after}s")
+
+    def _proposing_stale_seconds(self, task: Any) -> int:
+        """The proposing threshold of one task: its propose timeout plus a margin, bounded."""
+        timeout = PROPOSING_STALE_SECONDS
+        try:
+            from agent.services.propose_runtime_policy import (
+                resolve_propose_llm_timeout_seconds,
+            )
+
+            cfg = _effective_agent_cfg_for_task(loop=self.loop, task=task)
+            timeout = int(
+                resolve_propose_llm_timeout_seconds(
+                    effective_config=cfg,
+                    task_kind=str(getattr(task, "task_kind", "") or "").strip() or None,
+                )
+            )
+        except Exception:
+            logging.getLogger("agent.routes.tasks.autopilot_stale_task_recovery").debug(
+                "propose timeout resolution failed; using the stale floor", exc_info=True
+            )
+        return max(
+            PROPOSING_STALE_SECONDS,
+            min(timeout + PROPOSING_STALE_MARGIN_SECONDS, PROPOSING_STALE_MAX_SECONDS),
+        )
 
     def retry_stale_active(self, tasks: list[Any]) -> None:
         """Recover active tasks that stopped progressing without terminal output.
