@@ -23,10 +23,10 @@ class FakeProvider:
 def _proposal(**overrides) -> AudioDecisionProposal:
     defaults = {
         "kind": "proposal",
-        "profile": "speech-commands-en",
         "field": "command",
         "value": "stop",
         "confidence": 0.95,
+        "probability": 0.98,
         "provenance": {"model": "base/v51864/l6/f1", "profile": {"id": "speech-commands-en", "status": "stable"}},
         "grants_permission": False,
     }

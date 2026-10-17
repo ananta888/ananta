@@ -29,7 +29,8 @@ NOISE_STD_DEV_PCT = 10.0      # inconclusive if std dev across repeats > 10%
 MARGIN_PASS_PCT = 5.0         # require >= 5% margin for promotion
 
 
-dataclass MeasurementStep:
+@dataclass
+class MeasurementStep:
     name: str
     script_or_path: Path
     purpose: str

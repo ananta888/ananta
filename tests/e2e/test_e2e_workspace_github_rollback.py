@@ -70,7 +70,7 @@ def setup(tmp_path, bare_repo, mutation):
 
 
 def test_rollback_restores_previous_state(tmp_path: Path, bare_repo: Path) -> None:
-    """Full vertical flow: mutate -> push -> fail -> rollback -> verify."
+    """Full vertical flow: mutate -> push -> fail -> rollback -> verify."""
     ws = tmp_path / "workspace"
 
     # 1. Record the pre-mutation state (HEAD commit hash)
