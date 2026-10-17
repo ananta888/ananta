@@ -60,7 +60,7 @@ def test_forward_to_worker_builds_url_and_auth_header(monkeypatch):
     assert calls[0]["timeout"] is not None
 
 
-def test_forward_to_worker_extends_timeout_for_step_propose(monkeypatch, app):
+def test_forward_to_worker_never_reads_shorter_than_the_governed_step_deadline(monkeypatch, app):
     calls = []
 
     def fake_http_post(url, data=None, headers=None, timeout=None):
@@ -73,6 +73,9 @@ def test_forward_to_worker_extends_timeout_for_step_propose(monkeypatch, app):
         app.config["AGENT_CONFIG"] = {
             **(app.config.get("AGENT_CONFIG") or {}),
             "command_timeout": 75,
+            "task_propose_timeout_seconds": 300,
+            "autopilot_security_level": "balanced",
+            "autopilot_security_policies": {"balanced": {"propose_timeout": 600}},
         }
         result = task_utils._forward_to_worker(
             "http://worker.local/",
@@ -83,7 +86,37 @@ def test_forward_to_worker_extends_timeout_for_step_propose(monkeypatch, app):
 
     assert result == {"ok": True}
     assert calls[0]["url"] == "http://worker.local/tasks/T-1/step/propose"
-    assert calls[0]["timeout"] == 195
+    # command_timeout + 120 (195) is only the read heuristic; the governed step deadline of
+    # 600 is the authority. A shorter read cut the propose while the policy still allowed it
+    # and surfaced as "no response" instead of the governed outcome.
+    assert calls[0]["timeout"] == 600
+
+
+def test_forward_to_worker_keeps_the_read_budget_when_it_is_the_longer_one(monkeypatch, app):
+    calls = []
+
+    def fake_http_post(url, data=None, headers=None, timeout=None):
+        calls.append(timeout)
+        return {"ok": True}
+
+    monkeypatch.setattr(task_utils, "_http_post", fake_http_post)
+
+    with app.app_context():
+        app.config["AGENT_CONFIG"] = {
+            **(app.config.get("AGENT_CONFIG") or {}),
+            "command_timeout": 700,
+            "task_propose_timeout_seconds": 300,
+            "autopilot_security_level": "balanced",
+            "autopilot_security_policies": {"balanced": {"propose_timeout": 600}},
+        }
+        task_utils._forward_to_worker(
+            "http://worker.local/",
+            "/tasks/T-1/step/propose",
+            {"prompt": "x"},
+            token="tok-123",
+        )
+
+    assert calls[0] == 700 + 120
 
 
 class StreamingResponse:

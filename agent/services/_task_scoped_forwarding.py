@@ -54,6 +54,7 @@ from agent.services._task_scoped_forward_failures import (  # noqa: F401
     _handle_forwarding_failure,
     _is_completion_projection_pending,
     _raise_forwarded_worker_http_error,
+    _raise_if_no_worker_response,
     _record_forwarded_worker_failure,
     _record_forwarded_worker_success,
     _worker_404_hub_fallback_enabled,
@@ -431,6 +432,10 @@ def forward_task_request_if_remote(
                 endpoint,
             )
             return None
+        _raise_if_no_worker_response(
+            response,
+            transport_deadline=transport_deadline,
+        )
         _raise_forwarded_worker_http_error(
             response,
             worker_url=str(worker_url),

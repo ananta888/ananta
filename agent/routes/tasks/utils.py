@@ -172,6 +172,11 @@ def _forward_to_worker(
         else:
             timeout = max(timeout, command_timeout)
         deadline_monotonic = _step_deadline_monotonic(endpoint_name, agent_cfg)
+        if deadline_monotonic is not None:
+            # The governed step deadline is the authority for how long this call may run.
+            # A shorter read timeout would cut a propose/execute the policy still allows and
+            # surface as "no response" instead of the governed outcome.
+            timeout = max(timeout, int(deadline_monotonic - time.monotonic()) + 1)
     headers = {"Authorization": f"Bearer {token}"} if token else None
     url = f"{worker_url.rstrip('/')}/{endpoint.lstrip('/')}"
     recovery_forward = bool(
