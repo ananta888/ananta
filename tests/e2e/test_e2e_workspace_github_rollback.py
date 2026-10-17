@@ -84,7 +84,7 @@ def test_rollback_restores_previous_state(tmp_path: Path, bare_repo: Path, mutat
     ws = tmp_path / "workspace"
 
     # 1. Record the pre-mutation state (HEAD commit hash)
-    before_hash = _git("rev-parse", "HEAD", cwd=ws).strip()
+    before_hash = _git("rev-parse", "HEAD", cwd=ws).stdout.strip()
     assert len(before_hash) == 40, f"Unexpected hash: {before_hash}"
 
     # 2. Apply a mutation to the workspace
@@ -103,7 +103,7 @@ def test_rollback_restores_previous_state(tmp_path: Path, bare_repo: Path, mutat
     # 4. Simulate a push failure (e.g., remote rejects the change).
     # We do this by rewriting the bare repo's HEAD to reject the new ref.
     # For simplicity, we just verify that rollback works when we reset locally.
-    after_push_hash = _git("rev-parse", "HEAD", cwd=ws).strip()
+    after_push_hash = _git("rev-parse", "HEAD", cwd=ws).stdout.strip()
     assert after_push_hash != before_hash
 
     # 5. Rollback: reset workspace to the pre-mutation commit.
@@ -111,7 +111,7 @@ def test_rollback_restores_previous_state(tmp_path: Path, bare_repo: Path, mutat
     assert result.returncode == 0, f"Rollback failed: {result.stderr}"
 
     # 6. Verify the workspace is back to its original state.
-    restored_hash = _git("rev-parse", "HEAD", cwd=ws).strip()
+    restored_hash = _git("rev-parse", "HEAD", cwd=ws).stdout.strip()
     assert restored_hash == before_hash, (
         f"Workspace not restored: expected {before_hash}, got {restored_hash}"
     )
