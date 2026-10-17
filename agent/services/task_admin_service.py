@@ -28,6 +28,26 @@ from agent.services.vector_store_authorization_policy import (
 )
 
 
+def _reset_stale_active_retry_budget(task: Any) -> dict:
+    """A caller-driven ``retry`` starts a fresh stale-active recovery budget.
+
+    ``autopilot_recovery.stale_active_retries`` is spent by the repair sweep (three auto-retries,
+    then ``stale_active_task_auto_failed``) and nothing ever reset it, so the task a ``retry``
+    handed to the autopilot kept its exhausted budget and was auto-failed the moment the 600s
+    manual override expired -- live, 607s after the retry, in the same tick the dispatch gate
+    would first have allowed dispatching. Refilling the counter here lets the sweep do its job
+    again (it only moves the task back to ``todo``), and the autopilot picks it up. The other
+    repair budgets (``tooling_retries``, ``waiting_review_retries``) belong to later stages and
+    are deliberately left alone.
+    """
+    verification = dict(getattr(task, "verification_status", None) or {})
+    recovery = dict(verification.get("autopilot_recovery") or {})
+    if int(recovery.get("stale_active_retries") or 0) > 0:
+        recovery["stale_active_retries"] = 0
+        verification["autopilot_recovery"] = recovery
+    return verification
+
+
 class TaskAdminService(
     TaskVectorAdminMixin,
     TaskArchiveAdminMixin,
@@ -591,6 +611,7 @@ class TaskAdminService(
                     update_kwargs: dict = {}
                     if action == "retry":
                         update_kwargs["last_exit_code"] = None
+                        update_kwargs["verification_status"] = _reset_stale_active_retry_budget(task)
                     update_local_task_status(
                         task_id,
                         new_status,

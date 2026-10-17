@@ -1270,3 +1270,93 @@ def test_api_retention_preserves_archived_recovery_lineage(
             .archived_task_repo.get_by_id(source_id)
             is not None
         )
+
+
+def test_retry_refills_the_stale_active_recovery_budget(monkeypatch):
+    """A caller-driven retry must start a fresh recovery budget.
+
+    ``stale_active_retries`` is spent by the repair sweep (3 auto-retries, then
+    ``stale_active_task_auto_failed``) and nothing reset it, so the task a ``retry`` handed to the
+    autopilot kept its exhausted budget and was auto-failed the moment the 600s manual override
+    expired -- live, 607s after the retry, in the same tick the dispatch gate would first have
+    allowed dispatching.
+    """
+    service = TaskAdminService()
+    captured: dict = {}
+    task = SimpleNamespace(
+        id="task-retry-budget",
+        status="failed",
+        assigned_agent_url=None,
+        source_task_id=None,
+        goal_id=None,
+        plan_id=None,
+        derivation_reason=None,
+        status_reason_details={},
+        last_exit_code=1,
+        manual_override_until=0.0,
+        verification_status={
+            "autopilot_recovery": {
+                "stale_active_retries": 3,
+                "last_stale_active_status": "assigned",
+                "last_stale_active_retry_at": 123.0,
+            },
+            "source_notes": {"kept": True},
+        },
+    )
+
+    def _capture(_task_id, status, **kwargs):
+        captured["status"] = status
+        captured["kwargs"] = dict(kwargs)
+
+    monkeypatch.setattr(
+        "agent.services.task_admin_service.get_repository_registry",
+        lambda: SimpleNamespace(task_repo=SimpleNamespace(get_by_id=lambda _task_id: task)),
+    )
+    monkeypatch.setattr(
+        "agent.services.task_admin_service.update_local_task_status",
+        _capture,
+    )
+
+    ok, reason, _data = service.intervene_task(task_id=task.id, action="retry", actor="test")
+
+    # the stub task never changes status, so the authoritative commit check reports the conflict
+    assert ok is False and reason == "task_admin_status_commit_conflict"
+    kwargs = captured["kwargs"]
+    assert captured["status"] == "todo"
+    assert kwargs["manual_override_until"] > 0
+    assert kwargs["last_exit_code"] is None
+    verification = kwargs["verification_status"]
+    assert verification["autopilot_recovery"]["stale_active_retries"] == 0
+    # informational history and unrelated recovery state stay exactly as they were
+    assert verification["autopilot_recovery"]["last_stale_active_status"] == "assigned"
+    # unrelated verification state is carried over untouched
+    assert verification["source_notes"] == {"kept": True}
+
+
+def test_retry_leaves_an_untouched_recovery_budget_alone(monkeypatch):
+    service = TaskAdminService()
+    captured: dict = {}
+    task = SimpleNamespace(
+        id="task-retry-budget-clean",
+        status="failed",
+        assigned_agent_url=None,
+        source_task_id=None,
+        goal_id=None,
+        plan_id=None,
+        derivation_reason=None,
+        status_reason_details={},
+        verification_status={"autopilot_recovery": {"tooling_retries": 2}},
+    )
+
+    monkeypatch.setattr(
+        "agent.services.task_admin_service.get_repository_registry",
+        lambda: SimpleNamespace(task_repo=SimpleNamespace(get_by_id=lambda _task_id: task)),
+    )
+    monkeypatch.setattr(
+        "agent.services.task_admin_service.update_local_task_status",
+        lambda _task_id, _status, **kwargs: captured.update(kwargs),
+    )
+
+    service.intervene_task(task_id=task.id, action="retry", actor="test")
+
+    assert captured["verification_status"] == {"autopilot_recovery": {"tooling_retries": 2}}
