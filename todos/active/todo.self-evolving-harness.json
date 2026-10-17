@@ -814,7 +814,7 @@
     {
       "id": "SEH-036",
       "title": "Produktionsnahen End-to-End-Evolutionslauf und stufenweisen Rollout nachweisen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "progress_percent": 0,
@@ -825,7 +825,25 @@
         "Kein Kandidat erhält Holdout- oder Promotion-Zugriff",
         "Rollback stellt exakt vorherigen zertifizierten Digest wieder her",
         "Runbook dokumentiert Aktivierung, Budgetierung, Kill-Switch, Recovery und schrittweise Freischaltung der mutierbaren Surfaces"
-      ]
+      ],
+      "execution": {
+        "files": [
+          "docs/evolution-rollout.md",
+          "agent/bootstrap/codecompass_sira_rollout.py"
+        ],
+        "test_profile": "self-development",
+        "commit_message": "feat(autopilot): add production E2E evolution rollout plan and bootstrap update",
+        "completion_rule": "profile_passed"
+      },
+      "execution_result": {
+        "scope": "local",
+        "run_id": "RUN_a804699a991e16a1fc7ad858eb47806d",
+        "source_ids": [
+          "SRC_d352bcc68cfcf6b9eeeeedd3f8f4ecd6"
+        ],
+        "result_digest": "64921eb47674809218c0c7d7791beaceef766f92f3dc1bb5cd9b23de3baf6eee",
+        "completion_rule": "profile_passed"
+      }
     },
     {
       "id": "SEH-037",
