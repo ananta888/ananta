@@ -31,9 +31,11 @@ def initialize_self_development(app):
             apply_guardrails(app, coordinator.policy)
             apply_tool_loop_limits(app, coordinator.policy)
             try:
-                # Deterministic bookkeeping: archive TODO documents that are already fully
-                # worked off. Never blocks the autopilot wiring below.
+                # Deterministic bookkeeping: sync the TODO folder (release satisfied waits,
+                # archive what is worked off) and re-arm the items that only failed because the
+                # policy digest changed. Never blocks the autopilot wiring below.
                 coordinator.sync_todo_folder()
+                coordinator.rearm_stale_policy_items()
             except Exception:
                 app.logger.warning('self_development_todo_archive_skipped', exc_info=True)
             ensure_autopilot(app)

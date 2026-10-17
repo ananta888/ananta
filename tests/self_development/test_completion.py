@@ -9,6 +9,7 @@ that were already done before this loop existed are archived by a deterministic 
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -39,7 +40,8 @@ def _document(*statuses: str, status: str | None = None) -> dict:
 
 
 def _policy(root: Path, checkout: Path) -> SimpleNamespace:
-    return SimpleNamespace(root=root, checkout=checkout, assert_current=lambda: None)
+    return SimpleNamespace(root=root, checkout=checkout, assert_current=lambda: None,
+                           value={'max_attempts': 2, 'max_seconds': 0, 'max_tasks': 0, 'team_id': 'team'})
 
 
 # --- is_fully_done -------------------------------------------------------------------
@@ -356,3 +358,87 @@ def test_the_unblock_sweep_publishes_one_closed_change_set(tmp_path):
     assert {task['id']: task['status'] for task in updated['tasks']} == {'A': 'done', 'B': 'todo'}
     # a second sweep has nothing left to do
     assert unblock_satisfied_sources(policy, publish=publisher.publish) == []
+
+
+def test_the_publication_keeps_an_executable_sealed_file_executable(tmp_path):
+    from agent.services.self_development.publisher import Publisher
+
+    checkout = _checkout_with_todos(tmp_path)
+    root = tmp_path / 'private'
+    seal = root / 'sealed' / 'task-exec'
+    seal.mkdir(parents=True, exist_ok=True)
+    script = seal / 'scripts/gates/soak.sh'
+    script.parent.mkdir(parents=True, exist_ok=True)
+    script.write_bytes(b'#!/bin/bash\necho ok\n')
+    script.chmod(0o755)  # a sealed gate script must be able to run after publication
+    digest = __import__('hashlib').sha256(script.read_bytes()).hexdigest()
+    policy = SimpleNamespace(
+        assert_current=lambda: None,
+        value={'branch': 'ananta/self-development',
+               'remote_url': 'https://github.com/ananta888/ananta.git',
+               'github_token_file': str(tmp_path / 'token')},
+        checkout=checkout,
+        root=root,
+    )
+    service = _GitOps(checkout)
+    publisher = Publisher(policy, service_factory=lambda **_kwargs: service)
+    item = {
+        'task_id': 'task-exec',
+        'contract': {'commit_message': 'fix(self-development): make the gate script executable'},
+        'hashes': {'scripts/gates/soak.sh': digest},
+        'removed': [],
+        'revision': git(checkout, 'rev-parse', 'HEAD'),
+    }
+
+    publisher.publish(item, lambda: None, lambda: None)
+
+    published = checkout / 'scripts/gates/soak.sh'
+    assert published.read_bytes() == b'#!/bin/bash\necho ok\n'
+    assert os.access(published, os.X_OK)
+
+
+def test_a_policy_change_rearms_only_the_items_it_invalidated(tmp_path):
+    """``development_policy_changed`` is bookkeeping: those items are valid candidates again."""
+    from agent.services.self_development.coordinator import DevelopmentCoordinator
+
+    checkout = _checkout_with_todos(tmp_path)
+    policy = _policy(tmp_path / 'private', checkout)
+
+    class _Queue:
+        def __init__(self):
+            self.ingested = []
+
+        def ingest_task(self, **kwargs):
+            self.ingested.append(kwargs)
+
+    queue = _Queue()
+    coordinator = DevelopmentCoordinator(policy, queue=queue)
+    state = {'session': {'id': 's', 'enabled': True, 'expires_at': None, 'dispatched': 0}, 'items': {
+        'a': {'key': 'a', 'task_id': 't-a', 'source': 'todos/active/todo.done.json', 'todo_id': 'A',
+              'title': 'a', 'description': '', 'original_status': 'todo', 'status': 'failed',
+              'reason': 'development_policy_changed', 'dependencies': [], 'contract': {'files': ['tests/x.py']},
+              'attempts': []},
+        'b': {'key': 'b', 'task_id': 't-b', 'source': 'todos/active/todo.done.json', 'todo_id': 'B',
+              'title': 'b', 'description': '', 'original_status': 'todo', 'status': 'failed',
+              'reason': 'development_evidence_gate_failed:evidence_run_not_successful',
+              'dependencies': [], 'contract': {'files': ['tests/y.py']}, 'attempts': []},
+    }}
+
+    class _Journal:
+        def locked(self):
+            import contextlib
+            return contextlib.nullcontext()
+
+        def read(self):
+            return state
+
+        def write(self, new_state):
+            state.update(new_state)
+
+    coordinator.journal = _Journal()
+
+    assert coordinator.rearm_stale_policy_items() == 1
+    assert state['items']['a']['status'] == 'ready'
+    assert state['items']['b']['status'] == 'failed'  # a real failure stays failed
+    assert len(queue.ingested) == 1  # exactly the re-armed item, with a fresh task id
+    assert queue.ingested[0]['team_id'] == 'team'

@@ -42,6 +42,27 @@ class DevelopmentCoordinator:
         self.registry = registry or get_hub_evidence_registry_service()
         self.planner = planner
 
+    def rearm_stale_policy_items(self) -> int:
+        """Re-arm items that failed only because the operator changed the policy.
+
+        ``development_policy_changed`` is bookkeeping, not work quality: an admitted item fails
+        closed the moment the policy digest changes (live: 69 items after the ``all-tests``
+        profile was added). With the fresh digest those items are valid candidates again, so
+        the Hub restarts the run by itself; nothing else is retried here.
+        """
+        from agent.services.self_development.retries import prepare_retry
+
+        with self.journal.locked():
+            state = self.journal.read()
+            count = sum(
+                prepare_retry(item, self.policy, state, self.queue)
+                for item in state['items'].values()
+                if item.get('status') == 'failed'
+                and str(item.get('reason') or '').startswith('development_policy_changed')
+            )
+            self.journal.write(state)
+        return count
+
     def sync_todo_folder(self):
         """Synchronise the tracked TODO folder (deterministic bookkeeping).
 
