@@ -69,6 +69,7 @@ class MutationSession:
         self.task_prompt = ""  # set by the loop driver; used as the tool_routing decision state
         self.read_only_streak = 0
         self.blocked_test_command = ""
+        self.test_command_refusals = 0
         self.verification_command = ""
         self.services = services
         self.limits = limits

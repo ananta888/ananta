@@ -17,6 +17,10 @@ KIND_PATCH_REQUEST = "patch_request"
 
 _MAX_MATERIALIZED_CONTEXT_REFS = 4
 
+# Refusals of a test command the policy does not allow before the loop gives up (the brief
+# quotes the allowlisted command, so a second refusal is a contract violation, not a typo).
+TEST_COMMAND_REFUSAL_BUDGET = 2
+
 
 def build_patch_tool_call(message: dict[str, Any], rel: str) -> tuple[str, dict[str, Any]]:
     """Translate a ``patch_request`` message into the hub tool call (name, arguments)."""
@@ -203,7 +207,7 @@ def handle_tool_request(session: MutationSession, turn: LoopTurn) -> LoopResult 
         check = session.hub_check(iteration_number=turn.iteration, ran_tests_result=dict(result.get("data") or {}))
         check["tool_result"] = result
         session.add_evidence(check)
-        blocked = _second_refusal_of_the_same_test_command(session, turn, result, arguments)
+        blocked = _test_command_refusal_budget(session, turn, result, arguments)
         if blocked is not None:
             return blocked
     else:
@@ -212,19 +216,21 @@ def handle_tool_request(session: MutationSession, turn: LoopTurn) -> LoopResult 
     return None
 
 
-def _second_refusal_of_the_same_test_command(
+def _test_command_refusal_budget(
     session: MutationSession,
     turn: LoopTurn,
     result: dict[str, Any],
     arguments: dict[str, Any],
 ) -> LoopResult | None:
-    """End the loop on a repeated ``command_not_allowlisted`` instead of burning iterations.
+    """End the loop on repeated ``command_not_allowlisted`` instead of burning iterations.
 
     ``test.run`` is mandatory before ``final_answer``, so a command the policy refuses can
-    never be satisfied: the loop reads on until ``max_iterations`` and reports that unrelated
-    symptom. The first refusal stays feedback (the model may correct itself); the second one
-    of the *same* command is a contract violation and ends with a bounded, machine-readable
-    result naming the command and the allowlist it missed.
+    never be satisfied: the loop reads on until ``max_iterations`` reports that unrelated
+    symptom. The first refusal stays feedback (the model may correct itself, ideally with the
+    command the brief quotes); the next one ends the loop with a bounded, machine-readable
+    result naming the refused command and the allowlist. Refusals are counted rather than
+    matched string by string: a live run refused four different spellings of the same
+    non-allowlisted suite before running out of iterations.
     """
     if str(result.get("status") or "") != "policy_blocked":
         return None
@@ -235,9 +241,10 @@ def _second_refusal_of_the_same_test_command(
     command = _normalize_command(arguments.get("command"))
     if not command:
         return None
-    previous = str(getattr(session, "blocked_test_command", "") or "")
     session.blocked_test_command = command
-    if command != previous:
+    refusals = int(getattr(session, "test_command_refusals", 0) or 0) + 1
+    session.test_command_refusals = refusals
+    if refusals < TEST_COMMAND_REFUSAL_BUDGET:
         return None
     return session.finish_with_summary(
         "command_not_allowlisted",
@@ -245,6 +252,7 @@ def _second_refusal_of_the_same_test_command(
             "kind": "loop_aborted",
             "reason": "command_not_allowlisted",
             "command": command,
+            "refused_commands": refusals,
             "allowlisted_test_commands": list(
                 (session.cfg or {}).get("allowlisted_test_commands") or []
             ),

@@ -269,3 +269,39 @@ def test_a_repeated_refusal_of_the_same_test_command_ends_the_loop(monkeypatch):
     assert summary['kind'] == 'loop_aborted' and summary['reason'] == 'command_not_allowlisted'
     assert summary['command'] == 'wrong-cmd'
     assert summary['allowlisted_test_commands'] == ['allowlisted-cmd']
+
+
+def test_two_different_refusals_of_test_commands_end_the_loop_too(monkeypatch):
+    """The model varies the spelling: four different refusals were seen in one live run."""
+    monkeypatch.setattr('agent.cli_backends.workspace_mutation.tool_actions._route_read_tool',
+                        lambda session, turn, tool_name, arguments: (tool_name, arguments))
+    refused = iter(({'status': 'policy_blocked', 'error': 'command_not_allowlisted'},
+                    {'status': 'policy_blocked', 'error': 'command_not_allowlisted'}))
+    monkeypatch.setattr('agent.cli_backends.workspace_mutation.tool_actions.execute_ananta_tool',
+                        lambda **kwargs: next(refused))
+    finished = []
+
+    class _ToolPolicy:
+        def evaluate(self, **kwargs):
+            return SimpleNamespace(allowed=True, decision='allow', risk_class='low', reason='',
+                                   as_dict=lambda: {})
+
+    session = SimpleNamespace(
+        cfg={'allowlisted_test_commands': ['allowlisted-cmd']},
+        read_only_streak=0, mode='controlled_workspace', task_prompt='x', task_id='t1',
+        blocked_test_command='', test_command_refusals=0, materialization_manifest={},
+        workspace='/tmp/ws',
+        services=SimpleNamespace(tool_policy=_ToolPolicy()),
+        add_evidence=lambda entry: None, hub_check=lambda **kwargs: {},
+        next_tool_call_id=lambda prefix: 'tc-1',
+        finish_with_summary=lambda outcome, summary, err: finished.append((outcome, summary)) or (1, '', err),
+    )
+    turn = SimpleNamespace(row={}, iteration=1, err='',
+                           message={'tool_name': 'test.run', 'arguments': {'command': 'python -m pytest -q a.py'}})
+
+    assert tool_actions.handle_tool_request(session, turn) is None
+    assert finished == []
+    turn.message = {'tool_name': 'test.run', 'arguments': {'command': 'pytest -o addopts= a.py'}}
+    assert tool_actions.handle_tool_request(session, turn) is not None
+    assert finished[0][1]['refused_commands'] == 2
+    assert finished[0][1]['command'] == 'pytest -o addopts= a.py'
