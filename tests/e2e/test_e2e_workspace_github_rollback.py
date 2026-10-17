@@ -55,15 +55,22 @@ def _init_workspace(tmp_path: Path, bare_repo: Path) -> None:
     assert result.returncode == 0, f"Initial push failed: {result.stderr}"
 
 
-@pytest.mark.parametrize(
-    "mutation",
-    [
-        ("README.md", "mutated content\n"),
-        ("new_file.txt", "hello from e2e\n"),
-    ],
-)
+@pytest.fixture
+def bare_repo(tmp_path: Path) -> Path:
+    """A local bare remote for the push/rollback flow."""
+    remote = tmp_path / "hub.git"
+    remote.mkdir()
+    subprocess.run(["git", "init", "--bare", str(remote)], check=True, capture_output=True)
+    return remote
+
+
+@pytest.fixture(params=[("README.md", "mutated content\n"), ("new_file.txt", "hello from e2e\n")])
+def mutation(request):
+    return request.param
+
+
 @pytest.fixture(autouse=True)
-def setup(tmp_path, bare_repo, mutation):
+def setup(tmp_path, bare_repo):
     """Create workspace + bare repo for each test case."""
     _init_workspace(tmp_path, bare_repo)
     yield tmp_path
@@ -78,8 +85,9 @@ def test_rollback_restores_previous_state(tmp_path: Path, bare_repo: Path, mutat
     assert len(before_hash) == 40, f"Unexpected hash: {before_hash}"
 
     # 2. Apply a mutation to the workspace
-    target = ws / "README.md"
-    target.write_text("mutated content\n")
+    target_path, target_content = mutation
+    target = ws / target_path
+    target.write_text(target_content)
 
     # 3. Stage and commit the mutation
     subprocess.run(["git", "add", "."], cwd=ws, check=True)
@@ -106,4 +114,7 @@ def test_rollback_restores_previous_state(tmp_path: Path, bare_repo: Path, mutat
     )
 
     # 7. Verify file content is original.
-    assert (ws / "README.md").read_text() == "initial\n"
+    if target_path == "README.md":
+        assert target.read_text() == "initial\n"
+    else:
+        assert not target.exists()
