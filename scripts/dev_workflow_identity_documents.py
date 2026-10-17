@@ -30,13 +30,16 @@ WORKER_CAPABILITIES = [
     "tool_calling",
     "vector_index_operation",
     # Worker handlers added after the first keyrings (read-only runtime model
-    # discovery, Hub-delegated CodeCompass chunk layer builds).
+    # discovery, Hub-delegated CodeCompass retrieval and chunk layer builds).
     "local_runtime_capability_discovery",
     "codecompass_layer_build",
+    "codecompass",
 ]
 # Capabilities a keyring written before they existed may lack; such keyrings
 # are upgraded in place (same credentials) by the bootstrap.
-ADDED_WORKER_CAPABILITIES = frozenset({"local_runtime_capability_discovery", "codecompass_layer_build"})
+ADDED_WORKER_CAPABILITIES = frozenset(
+    {"local_runtime_capability_discovery", "codecompass_layer_build", "codecompass"}
+)
 LEGACY_WORKER_CAPABILITIES = [
     capability
     for capability in WORKER_CAPABILITIES

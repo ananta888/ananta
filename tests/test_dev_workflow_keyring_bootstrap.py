@@ -826,7 +826,11 @@ def test_bootstrap_module_has_no_import_time_file_writes(tmp_path):
 @pytest.mark.parametrize("missing", [
     {"codecompass_layer_build"},
     {"local_runtime_capability_discovery"},
+    {"codecompass"},
     {"codecompass_layer_build", "local_runtime_capability_discovery"},
+    {"codecompass", "codecompass_layer_build"},
+    {"codecompass", "local_runtime_capability_discovery"},
+    {"codecompass", "codecompass_layer_build", "local_runtime_capability_discovery"},
 ])
 def test_bootstrap_adds_the_codecompass_layer_capability_without_rotating_credentials(
     tmp_path, missing,
