@@ -105,4 +105,23 @@ class DevelopmentPolicy:
             source_path(path)
             if not any(path.startswith(root.rstrip('/') + '/') for root in allowed_roots):
                 raise ValueError('task_scope_not_authorized')
+        self._assert_profile_covers_tests(profile, contract['files'])
         return profile
+
+    @staticmethod
+    def _assert_profile_covers_tests(profile, files):
+        """A declared test file must run in its profile's verification.
+
+        ``completion_rule: profile_passed`` only speaks for the change when the verification can
+        see it: live, a published ``tests/e2e`` file never executed under its profile and arrived
+        with a syntax error. Non-test files (docs, scripts, sources) are verified behaviourally
+        and are covered by the source gate instead.
+        """
+        tokens = str(profile.get('command') or '').split()
+        root = tokens[-1] if tokens else ''
+        if not root.startswith('tests'):
+            return
+        prefix = root.rstrip('/')
+        for path in files:
+            if path.startswith('tests/') and path != prefix and not path.startswith(prefix + '/'):
+                raise ValueError('test_profile_does_not_cover_files:' + path)

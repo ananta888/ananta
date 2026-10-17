@@ -1,6 +1,7 @@
 """Git-free worker exports and immutable, bounded publication snapshots."""
 from __future__ import annotations
 
+import ast
 import hashlib
 import json
 import os
@@ -67,6 +68,38 @@ def write_scope_manifest(workspace: Path, files: list[str]) -> None:
              'allowed_operations': ['write', 'patch', 'replace']} for relative in files]
     (bundle / 'materialization-manifest.json').write_text(
         json.dumps(rows, ensure_ascii=False, indent=2), encoding='utf-8')
+
+
+def validate_source_files(root: Path, paths) -> None:
+    """Deterministic source gate: every change must at least parse, and gates must run.
+
+    A publication that does not parse is invisible to its profile verification -- the added
+    files lie outside the profile's test tree -- so it has to be rejected before it is sealed.
+    Live, two of five published python files had syntax errors and a shell gate script was not
+    executable, all of them published as verified.
+    """
+    for relative in paths:
+        path = root / relative
+        try:
+            text = path.read_text(encoding='utf-8', errors='replace')
+        except OSError:
+            raise ValueError('source_file_invalid:' + relative)
+        suffix = Path(relative).suffix.lower()
+        if suffix == '.py':
+            try:
+                ast.parse(text, filename=relative)
+            except SyntaxError as exc:
+                raise ValueError(f'source_syntax_invalid:{relative}:line {exc.lineno}')
+        elif suffix == '.json':
+            try:
+                json.loads(text)
+            except ValueError:
+                raise ValueError('source_json_invalid:' + relative)
+        elif suffix == '.sh':
+            if not os.access(path, os.X_OK):
+                raise ValueError('source_script_not_executable:' + relative)
+            if subprocess.run(['bash', '-n', str(path)], capture_output=True).returncode:
+                raise ValueError('source_syntax_invalid:' + relative)
 
 
 def seal_changes(workspace: Path, baseline: dict, allowed: list[str], seal: Path) -> dict:
