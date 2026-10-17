@@ -340,8 +340,11 @@ def test_the_loop_binds_a_declared_test_command_to_the_allowlist(tmp_path):
     """
     workspace = _setup_workspace(tmp_path)
     llm = ScriptedLLM([json.dumps({"kind": "final_answer", "answer": "done"})])
+    # ``-p no:cacheprovider`` is not part of the entry: the declaration cannot run as it stands
+    # and must be bound back to it. (A declaration *narrowed to files under* the entry's root is
+    # a valid scope and is kept -- see tests/worker/test_worker_workspace_task_brief_commands.py.)
     prompt = (
-        "Improve Ananta. Run the exact allowlisted command: python -m pytest -q -o addopts= "
+        "Improve Ananta. Run the exact allowlisted command: python -m pytest -p no:cacheprovider -o addopts= "
         "tests/research_training/test_growth_corpus.py tests/research_training/other.py. Stop."
     )
 

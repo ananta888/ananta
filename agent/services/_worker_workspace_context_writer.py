@@ -267,16 +267,26 @@ def _root_covering_command(declared: str, allowed: set[str]) -> str | None:
     return None
 
 
+def _runs_under_an_allowlisted_entry(command: str, allowed: set[str]) -> bool:
+    """Whether ``command`` is allowed as it stands (exact, or a narrowed scope of one entry)."""
+    try:
+        from agent.services.tools.test_tools import resolve_allowlisted_test_command
+
+        return resolve_allowlisted_test_command(command, sorted(allowed)) is not None
+    except Exception:  # noqa: BLE001 - without the resolver fall back to the exact match
+        return command in allowed
+
+
 def _align_declared_test_command(text: str, allowlist: list[str]) -> str:
     """Bind a declared test command to the allowlist the Worker enforces.
 
     An ingested brief can name a command from another scope (``tests/research_training/...``)
-    while the allowlist only covers the five configured roots. The mutation loop cannot satisfy
-    that contract -- ``test.run`` is mandatory before ``final_answer`` -- and burns every
-    iteration until ``max_iterations`` hides the real cause. Keep the declaration when it is
-    allowlisted, rewrite it to the allowlisted command whose test root covers the paths it names,
-    and leave the text untouched otherwise so the loop's fail-fast reports the mismatch instead
-    of running the wrong suite.
+    while the allowlist only covers the configured roots. The mutation loop cannot satisfy that
+    contract -- ``test.run`` is mandatory before ``final_answer`` -- and burns every iteration
+    until ``max_iterations`` hides the real cause. A declaration that already runs under an
+    allowlisted entry (exactly, or narrowed to files under that entry's root) is kept; a
+    declaration with the wrong flags is bound back to the entry; and one no entry covers is left
+    alone so the loop's fail-fast reports the mismatch instead of running the wrong suite.
     """
     allowed = {" ".join(str(item).split()) for item in allowlist if str(item).strip()}
     if not allowed or not str(text or "").strip():
@@ -287,7 +297,7 @@ def _align_declared_test_command(text: str, allowlist: list[str]) -> str:
             continue
         start, end = span
         declared = " ".join(text[start:end].split())
-        if not declared or declared in allowed:
+        if not declared or _runs_under_an_allowlisted_entry(declared, allowed):
             continue
         replacement = _root_covering_command(declared, allowed)
         if not replacement:

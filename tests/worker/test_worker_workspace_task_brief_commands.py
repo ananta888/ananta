@@ -24,12 +24,23 @@ DECLARED = (
 )
 
 
-def test_a_declared_command_under_an_allowlisted_root_is_rewritten():
+def test_a_narrowed_command_under_an_allowlisted_entry_is_kept():
+    """Narrowing to the changed files is a valid scope: it must not be widened back.
+
+    Running the whole profile directory would pull in unrelated failures (3 pre-existing in
+    ``tests/research_training/test_bootstrap_api.py``) and block a correct proposal.
+    """
     aligned = _align_declared_test_command(DECLARED, ALLOWLIST)
 
-    assert "allowlisted command: python -m pytest -q -o addopts= tests/research_training." in aligned
-    assert "tests/research_training/test_growth_corpus.py tests/" not in aligned
-    assert aligned.startswith("Improve Ananta.") and aligned.endswith("then stop.")
+    assert "allowlisted command: python -m pytest -q -o addopts= " in aligned
+    assert "tests/research_training/test_growth_corpus.py tests/research_training/" in aligned
+
+
+def test_a_command_with_the_wrong_flags_is_repaired_to_the_allowlisted_entry():
+    """Different flags are not an extension: the declaration is bound back to the entry."""
+    declared = "Run exactly: python -m pytest tests/research_training/a.py. Stop."
+    aligned = _align_declared_test_command(declared, ALLOWLIST)
+    assert "Run exactly: python -m pytest -q -o addopts= tests/research_training." in aligned
 
 
 def test_a_declared_command_that_is_already_allowlisted_is_kept():
@@ -83,3 +94,52 @@ def test_the_allowlist_is_read_from_the_persisted_block_without_an_app_context(m
     from agent.services._worker_workspace_context_writer import _allowlisted_test_commands
 
     assert _allowlisted_test_commands() == ['python -m pytest -q -o addopts= tests/research_training']
+
+
+ENTRY = "python -m pytest -q -o addopts= tests/research_training"
+
+
+def test_the_resolver_accepts_an_exact_and_a_narrowed_command():
+    from agent.services.tools.test_tools import resolve_allowlisted_test_command
+
+    assert resolve_allowlisted_test_command(ENTRY, [ENTRY]) == ENTRY
+    narrowed = (
+        "python -m pytest -q -o addopts= tests/research_training/test_growth_corpus.py "
+        "tests/research_training/other.py"
+    )
+    assert resolve_allowlisted_test_command(narrowed, [ENTRY]) == ENTRY
+    assert resolve_allowlisted_test_command(f"{ENTRY}/test_a.py", [ENTRY]) == ENTRY
+
+
+def test_the_resolver_refuses_flags_paths_outside_the_root_and_traversal():
+    from agent.services.tools.test_tools import resolve_allowlisted_test_command
+
+    assert resolve_allowlisted_test_command(f"{ENTRY} -p no:cacheprovider", [ENTRY]) is None
+    assert resolve_allowlisted_test_command(f"{ENTRY} --version", [ENTRY]) is None
+    assert resolve_allowlisted_test_command(f"{ENTRY}/../../../etc/passwd", [ENTRY]) is None
+    assert resolve_allowlisted_test_command("tests/agent/test_x.py", [ENTRY]) is None
+    assert resolve_allowlisted_test_command("python -m pytest tests/agent/test_x.py", [ENTRY]) is None
+    assert resolve_allowlisted_test_command("", [ENTRY]) is None
+    assert resolve_allowlisted_test_command(f"{ENTRY}/test_a.py", []) is None
+
+
+def test_test_run_executes_a_narrowed_command_but_blocks_a_disallowed_flag(tmp_path):
+    """The narrowed form reaches the runner; a flag outside the entry does not."""
+    from agent.services.tools.test_tools import test_run
+
+    narrowed = test_run(
+        workspace_dir=str(tmp_path),
+        arguments={"command": f"{ENTRY}/test_no_such_file.py"},
+        tool_call_id="tc-1",
+        config={"allowlisted_test_commands": [ENTRY], "test_timeout_seconds": 60},
+    )
+    assert narrowed["status"] != "policy_blocked"
+
+    flagged = test_run(
+        workspace_dir=str(tmp_path),
+        arguments={"command": f"{ENTRY} -p no:cacheprovider"},
+        tool_call_id="tc-2",
+        config={"allowlisted_test_commands": [ENTRY], "test_timeout_seconds": 60},
+    )
+    assert flagged["status"] == "policy_blocked"
+    assert flagged["error"] == "command_not_allowlisted"
