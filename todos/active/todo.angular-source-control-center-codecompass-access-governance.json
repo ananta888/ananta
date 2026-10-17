@@ -797,7 +797,7 @@
     {
       "id": "SRCCTRL-N2-003",
       "title": "GitHubRepositoryConnector über GitHub App und OAuth bereitstellen",
-      "status": "blocked",
+      "status": "todo",
       "priority": "P1",
       "risk": "critical",
       "type": "connector",
@@ -1655,7 +1655,7 @@
     {
       "id": "SRCCTRL-R6-001",
       "title": "Content-freies Audit, Metriken, Health und Betriebsalarme vervollständigen",
-      "status": "blocked",
+      "status": "todo",
       "priority": "P1",
       "risk": "medium",
       "type": "operations",
@@ -1811,7 +1811,7 @@
     {
       "id": "SRCCTRL-R6-004",
       "title": "Vertikale E2E-Flows für Workspace, GitHub, Governance und Rollback erstellen",
-      "status": "blocked",
+      "status": "todo",
       "priority": "P1",
       "risk": "high",
       "type": "testing",

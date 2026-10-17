@@ -348,7 +348,7 @@
     {
       "id": "AMI-14",
       "title": "Lokalen Live-Gate mit zwei Browseridentitaeten ausfuehren",
-      "status": "blocked",
+      "status": "todo",
       "priority": "P1",
       "risk": "high",
       "progress_percent": 20,

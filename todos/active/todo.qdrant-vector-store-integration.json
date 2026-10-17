@@ -1179,7 +1179,7 @@
     {
       "id": "QVS-020",
       "title": "Versioniertes Qualitaets- und Performanceprofil ausfuehren",
-      "status": "blocked",
+      "status": "todo",
       "priority": "P1",
       "risk": "medium",
       "type": "benchmark",

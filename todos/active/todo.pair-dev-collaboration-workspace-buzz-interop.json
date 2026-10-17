@@ -1482,7 +1482,7 @@
     {
       "id": "PDCW-BUZZ-006",
       "title": "Eigenständiges Buzz-Bridge-Conformance- und Release-Gate abschließen",
-      "status": "blocked",
+      "status": "todo",
       "priority": "P2",
       "risk": "critical",
       "type": "test",
@@ -1832,7 +1832,7 @@
     {
       "id": "PDCW-QA-004",
       "title": "Chaos-, Soak-, Last- und Backpressure-Gates ausführen",
-      "status": "blocked",
+      "status": "todo",
       "priority": "P1",
       "risk": "critical",
       "type": "test",
@@ -1884,7 +1884,7 @@
     {
       "id": "PDCW-QA-006",
       "title": "Buzz-unabhängiges Native-Core-Release-Gate und Canary-Rollout abschließen",
-      "status": "blocked",
+      "status": "todo",
       "priority": "P0",
       "risk": "critical",
       "type": "test",

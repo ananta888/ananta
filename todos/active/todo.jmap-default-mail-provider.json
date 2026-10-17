@@ -1018,7 +1018,7 @@
     {
       "id": "T21",
       "title": "JMAP-, IMAP-Fallback-, Migration- und Failure-E2E-Gates ausfuehren",
-      "status": "blocked",
+      "status": "todo",
       "priority": "P1",
       "risk": "high",
       "type": "test",

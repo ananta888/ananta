@@ -1156,7 +1156,7 @@
       "title": "Vision-, Audio- und Embedding-Unterstützung als getrennte Strategien ergänzen",
       "type": "backend",
       "milestone_id": "M5",
-      "status": "blocked",
+      "status": "todo",
       "progress_percent": 85,
       "blocked_reason": "Vision, audio and embedding are separated into explicit strategies and remain default-off. Each support claim requires its own approved real GPU model/dataset run and external evidence.",
       "status_basis": "local_implementation_and_ci_verified_external_release_acceptance_pending",

@@ -1124,7 +1124,7 @@
     {
       "id": "DEND-071",
       "title": "Release-Gate fuer experimentelle Freigabe",
-      "status": "blocked",
+      "status": "todo",
       "progress_percent": 70.0,
       "priority": "P0",
       "risk": "critical",

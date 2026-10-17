@@ -505,7 +505,7 @@
       "id": "DMOE-009",
       "title": "Uncertainty-aware Trigger und Router-Policy implementieren",
       "type": "routing",
-      "status": "blocked",
+      "status": "todo",
       "priority": "P0",
       "risk": "high",
       "progress_percent": 80.0,
