@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import difflib
-import fnmatch
 import hashlib
 import json
 import logging
@@ -343,12 +342,13 @@ class WorkerWorkspaceService:
         return workspace_dir
 
     def _write_isolation_manifest(self, *, task: dict, workspace_dir: Path, workspace_cfg: dict) -> None:
-        """Declare the copied baseline's scope: operator-named files, else the inherited glob scope.
+        """Declare the copied baseline's scope -- only what the operator actually named.
 
-        An ingest task carries no contract file list, so the manifest records what the copy
-        actually grants -- the baseline files under ``allowed_new_file_globs``, which the policy
-        already allows by glob. Naming them makes the scope explicit (and clears the
-        ``no_materialization_manifest`` warning) without widening anything.
+        An ingest task carries no contract file list, so a manifest derived from the inherited
+        baseline would just repeat what ``allowed_new_file_globs`` already grants (about eleven
+        thousand rows, ~1MB per workspace) without narrowing anything. Without
+        ``workspace.materialized_files`` no manifest is written and the policy keeps reporting
+        ``no_materialization_manifest`` -- a warning, never a blocker.
         """
         declared = [
             str(item).strip().replace("\\", "/")
@@ -356,36 +356,12 @@ class WorkerWorkspaceService:
             if str(item).strip()
         ]
         if not declared:
-            declared = self._files_matching_allowed_globs(workspace_dir)
-        if not declared:
             return
         rows = [
             {"workspace_path": rel, "allowed_operations": ["read", "write", "patch", "replace"]}
             for rel in declared
         ]
         self._write_json(workspace_dir / ".ananta" / "materialization-manifest.json", rows)
-
-    @staticmethod
-    def _files_matching_allowed_globs(workspace_dir: Path) -> list[str]:
-        """Baseline files under ``allowed_new_file_globs`` (workspace-relative, ``/``-separated)."""
-        try:
-            cfg = dict(current_app.config.get("AGENT_CONFIG", {}) or {}) if has_app_context() else {}
-            mutation_cfg = dict(cfg.get("ananta_worker_workspace_mutation") or {})
-            globs = [str(g).strip() for g in mutation_cfg.get("allowed_new_file_globs") or [] if str(g).strip()]
-        except Exception:  # noqa: BLE001 - a missing config must not fail workspace preparation
-            globs = []
-        if not globs:
-            return []
-        skipped = {".git", ".ananta", "__pycache__", "artifacts", "project-workspaces"}
-        found: list[str] = []
-        for root, dirs, files in os.walk(workspace_dir, followlinks=False):
-            dirs[:] = [name for name in dirs if name not in skipped]
-            rel_root = os.path.relpath(root, workspace_dir)
-            for name in files:
-                rel = name if rel_root == "." else f"{rel_root}/{name}".replace(os.sep, "/")
-                if any(fnmatch.fnmatch(rel, glob) for glob in globs):
-                    found.append(rel)
-        return sorted(found)
 
     def resolve_workspace_context(self, *, task: dict) -> WorkerWorkspaceContext:
         execution_context = dict((task or {}).get("worker_execution_context") or {})

@@ -60,15 +60,26 @@ def test_a_shared_checkout_is_copied_into_a_task_owned_workspace_with_a_manifest
     assert context.workspace_dir == target
     assert (target / "tests" / "test_growth.py").read_text(encoding="utf-8").startswith("def test_growth")
 
-    manifest = json.loads((target / ".ananta" / "materialization-manifest.json").read_text(encoding="utf-8"))
-    declared = [row["workspace_path"] for row in manifest]
-    assert "tests/test_growth.py" in declared  # inherited in-glob baseline is declared
-    assert "docs/note.md" not in declared  # outside the declared globs
-    for row in manifest:
-        assert row["allowed_operations"] == ["read", "write", "patch", "replace"]
-
+    # Without operator-named files no manifest is written: the inherited baseline would only
+    # repeat what allowed_new_file_globs already grants (about 11k rows, ~1MB per workspace)
+    # without narrowing anything. The policy keeps reporting no_materialization_manifest, which
+    # is a warning, never a blocker.
+    assert not (target / ".ananta" / "materialization-manifest.json").exists()
     # the shared checkout is read, never written to
     assert not (shared / ".ananta").exists()
+
+
+def test_operator_named_files_become_the_materialization_manifest(tmp_path):
+    shared = _shared_checkout(tmp_path)
+    task = _task("decl-9", shared, materialized_files=["tests/test_growth.py"])
+
+    with _app(tmp_path).app_context():
+        WorkerWorkspaceService().resolve_workspace_context(task=task)
+
+    manifest_path = tmp_path / "root" / "self-dev-decl-9" / ".ananta" / "materialization-manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert [row["workspace_path"] for row in manifest] == ["tests/test_growth.py"]
+    assert manifest[0]["allowed_operations"] == ["read", "write", "patch", "replace"]
 
 
 def test_a_workspace_resolves_to_the_same_dir_on_every_call(tmp_path):
