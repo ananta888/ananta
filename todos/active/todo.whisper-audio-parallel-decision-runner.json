@@ -412,7 +412,7 @@
       "milestone_id": "WADEC-M1",
       "title": "Encoder-, Decoder-, State-, KV- und Batchpfade quellcodegenau kartieren",
       "type": "research",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
@@ -428,7 +428,26 @@
       "acceptance_criteria": [
         "Branching-/Reuse-Strategie ist aus aktuellem Code belegt und nicht von llama.cpp abgeleitet.",
         "Kritische interne APIs und Upstream-Risiken sind dokumentiert."
-      ]
+      ],
+      "execution": {
+        "files": [
+          "docs/architecture/encoder-decoder-state-kv-batch-source-code-map.md",
+          "agent/services/speech_reconciliation_state_machine.py",
+          "worker/meet_media/video_encoder_profile.py"
+        ],
+        "test_profile": "self-development",
+        "commit_message": "docs(docs): map encoder, decoder, state and kv batch source-code paths for WADEC-003",
+        "completion_rule": "profile_passed"
+      },
+      "execution_result": {
+        "scope": "local",
+        "run_id": "RUN_fba65223614b58793f09f88e41785408",
+        "source_ids": [
+          "SRC_8d2a7db337861418abd44708f36697bd"
+        ],
+        "result_digest": "0396c0de1d69698be2eaab40547acb97ec046b907c15a7e0eb5bcc1e4a0a9ef9",
+        "completion_rule": "profile_passed"
+      }
     },
     {
       "id": "WADEC-004",
