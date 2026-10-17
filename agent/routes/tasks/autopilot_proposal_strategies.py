@@ -12,7 +12,7 @@ from __future__ import annotations
 import os
 import time
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Callable
 
 from agent.metrics import (
     STRATEGY_ATTEMPT_COUNT,
@@ -237,6 +237,50 @@ def _base_propose_payload(task_id: str, loop: Any, context_window: Any) -> dict[
     if strategy_mode_override and strategy_mode_override != "task_default":
         propose_payload["strategy_mode"] = strategy_mode_override
     return propose_payload
+
+
+def _clear_stale_strategy_state(
+    task: Any,
+    *,
+    update_local_task_status: Callable[..., None],
+    append_trace_event: Callable[..., None],
+) -> bool:
+    """Drop accumulated strategy failure state once a proposal is valid.
+
+    ``verification_status.autopilot_strategy`` (attempt_count, failed_models,
+    failed_temperatures, failed_sources, reason_code) is written only on failure and survives a
+    later success, so the next evaluation starts pre-exhausted: a run that then produced a valid
+    executable proposal still ended in ``failed / autopilot_strategy_exhausted``. Nothing is
+    written when there is nothing to clear, and the in-memory task is updated too so a caller
+    rebuilding ``verification_status`` from it cannot resurrect the state.
+    """
+    verification = dict(getattr(task, "verification_status", None) or {})
+    stale = dict(verification.get("autopilot_strategy") or {})
+    if not stale:
+        return False
+    verification.pop("autopilot_strategy", None)
+    status = str(getattr(task, "status", "") or "").strip() or "proposing"
+    cleared = sorted(key for key in stale if stale.get(key) not in (None, "", []))
+    update_local_task_status(
+        task.id,
+        status,
+        verification_status=verification,
+        force=True,
+        event_type="autopilot_strategy_state_cleared",
+        event_actor="autopilot_tick",
+        event_details={"cleared_keys": cleared},
+    )
+    append_trace_event(
+        task.id,
+        "autopilot_strategy_state_cleared",
+        cleared_keys=cleared,
+        proposal_attempt=True,
+    )
+    try:
+        task.verification_status = verification
+    except AttributeError:  # pragma: no cover - a bare stub without the field
+        pass
+    return True
 
 
 def run_proposal_strategies(
@@ -540,6 +584,11 @@ def run_proposal_strategies(
             record_propose_attempt = getattr(loop, "_record_task_propose_attempt", None)
             if callable(record_propose_attempt):
                 record_propose_attempt(task.id, success=True)
+            _clear_stale_strategy_state(
+                task,
+                update_local_task_status=update_local_task_status,
+                append_trace_event=append_trace_event,
+            )
             selected_attempt_meta = {
                 "attempt": attempt_index,
                 "source": candidate_source,
