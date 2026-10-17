@@ -210,14 +210,37 @@ _TEST_COMMAND_MARKERS = ("Run the exact allowlisted command:", "Run exactly:")
 
 
 def _allowlisted_test_commands() -> list[str]:
-    """The Worker's test-command allowlist (``AGENT_CONFIG.ananta_worker_workspace_mutation``)."""
+    """The Worker's test-command allowlist.
+
+    ``AGENT_CONFIG`` when a context provides it, otherwise the persisted
+    ``ananta_worker_workspace_mutation`` block: the brief is written from a path that can run
+    without an app context, and an empty list there would leave a command the policy refuses
+    in the very text the model is told is authoritative.
+    """
+    block = None
     try:
         from agent.cli_backends.helpers import _get_agent_config
 
-        block = (_get_agent_config() or {}).get("ananta_worker_workspace_mutation") or {}
-        return [str(item) for item in block.get("allowlisted_test_commands") or [] if str(item).strip()]
-    except Exception:  # noqa: BLE001 - a missing config must never break the context bundle
+        candidate = (_get_agent_config() or {}).get("ananta_worker_workspace_mutation")
+        if isinstance(candidate, dict) and candidate.get("allowlisted_test_commands"):
+            block = candidate
+    except Exception:  # noqa: BLE001 - fall through to the persisted block
+        block = None
+    if block is None:
+        try:
+            from agent.services.repository_registry import get_repository_registry
+
+            record = get_repository_registry().config_repo.get_by_key(
+                "ananta_worker_workspace_mutation"
+            )
+            payload = json.loads(getattr(record, "value_json", "") or "{}")
+            if isinstance(payload, dict):
+                block = payload
+        except Exception:  # noqa: BLE001 - a missing config must never break the context bundle
+            block = None
+    if not isinstance(block, dict):
         return []
+    return [str(item) for item in block.get("allowlisted_test_commands") or [] if str(item).strip()]
 
 
 def _declared_test_command_span(text: str, marker: str) -> tuple[int, int] | None:

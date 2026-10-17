@@ -56,3 +56,30 @@ def test_text_without_a_declared_command_and_without_an_allowlist_is_untouched()
     plain = "Only change these files: agent/services/thing.py"
     assert _align_declared_test_command(plain, ALLOWLIST) == plain
     assert _align_declared_test_command(DECLARED, []) == DECLARED
+
+
+def test_the_allowlist_is_read_from_the_persisted_block_without_an_app_context(monkeypatch):
+    """The brief is written from a path that may run without an app context.
+
+    ``_get_agent_config()`` then yields ``{}``; the persisted block is the fallback, otherwise
+    the declaration would silently stay outside the allowlist it is judged against.
+    """
+    import json as _json
+
+    monkeypatch.setattr('agent.cli_backends.helpers._get_agent_config', lambda: {})
+
+    class _ConfigRepo:
+        def get_by_key(self, key):
+            assert key == 'ananta_worker_workspace_mutation'
+            return type('R', (), {'value_json': _json.dumps(
+                {'allowlisted_test_commands': ['python -m pytest -q -o addopts= tests/research_training']})})()
+
+    class _Registry:
+        config_repo = _ConfigRepo()
+
+    monkeypatch.setattr('agent.services.repository_registry.get_repository_registry',
+                        lambda: _Registry())
+
+    from agent.services._worker_workspace_context_writer import _allowlisted_test_commands
+
+    assert _allowlisted_test_commands() == ['python -m pytest -q -o addopts= tests/research_training']
