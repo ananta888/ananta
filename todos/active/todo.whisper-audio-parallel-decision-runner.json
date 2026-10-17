@@ -454,7 +454,7 @@
       "milestone_id": "WADEC-M2",
       "title": "Stabiles Schema-, Profil- und Result-Contract fuer Audio Decisions definieren",
       "type": "api",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "progress_percent": 0,
@@ -470,7 +470,26 @@
       "acceptance_criteria": [
         "Contract kann ohne Server intern getestet werden.",
         "Offene Textausgabe ist nicht versehentlich als Decision-Feld modelliert."
-      ]
+      ],
+      "execution": {
+        "files": [
+          "agent/services/audio_decision_command_service.py",
+          "agent/services/audio_decision_command_policy.py",
+          "tests/test_audio_decision_contracts.py"
+        ],
+        "test_profile": "self-development",
+        "commit_message": "feat(voice): add audio decision schema profile and result contracts",
+        "completion_rule": "profile_passed"
+      },
+      "execution_result": {
+        "scope": "local",
+        "run_id": "RUN_4db834a566f4fe4a03b1c28bd358da44",
+        "source_ids": [
+          "SRC_f49092b8464bb2ba5ffdf153ce51f877"
+        ],
+        "result_digest": "e849596fe1f18aeff1947da53f936a70c4b1554ec1ac93c7cc3631f7a81dd3b9",
+        "completion_rule": "profile_passed"
+      }
     },
     {
       "id": "WADEC-005",
