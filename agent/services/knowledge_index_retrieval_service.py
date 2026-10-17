@@ -290,7 +290,15 @@ class KnowledgeIndexRetrievalService:
                     continue
                 output_dir = Path(output_dir_raw)
                 if not output_dir.exists():
-                    continue
+                    # A delegated worker's data root does not hold the Hub-owned
+                    # index (WCRB-013): fetch the granted index's retrieval outputs
+                    # once, then read them locally. On the Hub this is a no-op.
+                    from agent.services.codecompass_worker_artifacts import (
+                        try_materialize_index_outputs,
+                    )
+
+                    if not try_materialize_index_outputs(knowledge_index):
+                        continue
                 output_records = list(self._records.iter_output_records(output_dir))
             duplicate_ids = self._ranking.duplicate_candidate_ids(output_records)
             for filename, record in output_records:
