@@ -331,7 +331,7 @@
       "milestone_id": "JEVCPP-M3",
       "title": "Modellarchitekturen fuer ParallelDecision vergleichen",
       "type": "evaluation",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "progress_percent": 80,
@@ -354,7 +354,24 @@
         "Gemessen 2026-09-27, 48 Kalibrier-Prompts, 8 Tools/13 Felder: warm Median 0,544 s -> 0,267 s; Smoke-Scoring 0,19 s -> 0,086 s; kein Gewinner geändert, max |dp| 0,012",
         "Offen: Attention-only- und MoE-Vergleich, Kompatibilitätsmatrix"
       ],
-      "progress_note": "2026-10-15: Attention model coverage now includes tinygemma, Qwen3-VL-2B Q8 CPU/CUDA and actual Qwen2.5-VL-3B Q4 CUDA. Exact model/projector/runtime digests retained. No actual licensed hybrid/recurrent or MoE model weights available locally; a 66KB Bonsai KV-bias file is not a model. Those architecture rows remain not-run."
+      "progress_note": "2026-10-15: Attention model coverage now includes tinygemma, Qwen3-VL-2B Q8 CPU/CUDA and actual Qwen2.5-VL-3B Q4 CUDA. Exact model/projector/runtime digests retained. No actual licensed hybrid/recurrent or MoE model weights available locally; a 66KB Bonsai KV-bias file is not a model. Those architecture rows remain not-run.",
+      "execution": {
+        "files": [
+          "docs/model_architectures-parallel-decision.md"
+        ],
+        "test_profile": "self-development",
+        "commit_message": "docs(agent): compare model architectures for ParallelDecision",
+        "completion_rule": "profile_passed"
+      },
+      "execution_result": {
+        "scope": "local",
+        "run_id": "RUN_726370459087e683e418943ffdd643fe",
+        "source_ids": [
+          "SRC_7601bd384855033e80013346fe00e862"
+        ],
+        "result_digest": "61ea55898fe6dd12b7662ac495518d46d2da031803df7f15a1506c7a2eb37181",
+        "completion_rule": "profile_passed"
+      }
     },
     {
       "id": "JEVCPP-009",
