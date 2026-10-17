@@ -899,7 +899,7 @@
     {
       "id": "SEH-041",
       "title": "EvoMap Memory Graph und Ananta Experiment-/Lineage-Store kontrolliert koppeln",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "progress_percent": 30,
@@ -911,7 +911,26 @@
         "Retention/Deletion/Privacy-Regeln gelten auch für gespiegelt importierte Metadaten",
         "Ein historischer Evolutionspfad kann engine-übergreifend rekonstruiert werden"
       ],
-      "implementation_note": "Canonical ownership documented in operations runbook: Hub owns scoped runs/assets/audit, provider IDs remain unverified references and per-run provider workspace is temporary. Remaining: validated outcome/lineage mirrors, central retention/privacy deletion and historical cross-engine reconstruction."
+      "implementation_note": "Canonical ownership documented in operations runbook: Hub owns scoped runs/assets/audit, provider IDs remain unverified references and per-run provider workspace is temporary. Remaining: validated outcome/lineage mirrors, central retention/privacy deletion and historical cross-engine reconstruction.",
+      "execution": {
+        "files": [
+          "docs/decisions/ADR-evomap-memory-graph-ananta-lineage-store.md",
+          "agent/services/memory_audit_service.py",
+          "agent/services/hrm_experiments/artifact_store.py"
+        ],
+        "test_profile": "self-development",
+        "commit_message": "feat(self-development): couple EvoMap memory graph with Ananta lineage store",
+        "completion_rule": "profile_passed"
+      },
+      "execution_result": {
+        "scope": "local",
+        "run_id": "RUN_784a2032f5293e1fbf7e9c0010031261",
+        "source_ids": [
+          "SRC_f67f4c19dc173d135120f14f68f32cd5"
+        ],
+        "result_digest": "a53d829eb9b32a580203486803ab1904669af9e4a6a514c303a03bff570e4e80",
+        "completion_rule": "profile_passed"
+      }
     },
     {
       "id": "SEH-042",

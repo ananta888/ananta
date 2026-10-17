@@ -1,43 +1,52 @@
-"""Record bounded policy facts, never raw memory content or private reasoning."""
+"""Memory audit service.
 
+Canonical ownership (per operations runbook):
+- Hub owns scoped runs, assets, and audit records.
+- Provider IDs are unverified references only.
+- Per-run provider workspaces are temporary.
+
+Remaining work: validated outcome/lineage mirrors, central retention/privacy deletion,
+historical cross-engine reconstruction.
+"""
 from __future__ import annotations
 
-import time
-from dataclasses import asdict
-from typing import Callable, Protocol
-
-from agent.services.memory_policy_gateway import MemoryPolicyDecision
-from ananta_contracts.memory_access import require_memory_timestamp
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
 
 
-class MemoryAuditWritePort(Protocol):
-    def append(self, payload: dict, *, created_at: float, retention_until: float) -> dict | None: ...
+def _utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+@dataclass(frozen=True)
+class AuditEntry:
+    run_id: str
+    asset_id: str
+    provider_id: Optional[str] = None  # unverified reference only
+    status: str = "pending"
+    created_at: str = field(default_factory=_utc_now)
+    notes: Dict[str, Any] = field(default_factory=dict)
 
 
 class MemoryAuditService:
-    """Audit retention is independent of the lifetime of the underlying content."""
+    """Tracks Hub-owned audit entries for scoped runs."""
 
-    def __init__(self, *, repository: MemoryAuditWritePort, retention_seconds: float = 90 * 86400,
-                 clock: Callable[[], float] = time.time):
-        require_memory_timestamp(retention_seconds, "audit_retention")
-        if not 3600 <= retention_seconds <= 365 * 86400:
-            raise ValueError("memory_audit_retention_invalid")
-        self._repository = repository
-        self._retention = retention_seconds
-        self._clock = clock
+    def __init__(self) -> None:
+        self._entries: List[AuditEntry] = []
 
-    def record(self, decision: MemoryPolicyDecision) -> dict | None:
-        if not isinstance(decision, MemoryPolicyDecision):
-            raise ValueError("memory_audit_decision_invalid")
-        now = self._clock()
-        require_memory_timestamp(now, "audit_clock")
-        payload = {
-            "schema_version": "ananta.memory-audit-decision.v1",
-            "actor": asdict(decision.actor), "run_id": decision.run_id,
-            "operation": decision.operation.value, "allowed": decision.allowed,
-            "rule_id": decision.rule_id, "reason_code": decision.reason_code,
-            "policy_revision": decision.policy_revision, "policy_digest": decision.policy_digest,
-            "trace_id": decision.trace_id, "target": asdict(decision.target) if decision.target else None,
-            "event_kind": "policy_decision",
+    def record(self, entry: AuditEntry) -> AuditEntry:
+        self._entries.append(entry)
+        return entry
+
+    def entries_for_run(self, run_id: str) -> List[AuditEntry]:
+        return [e for e in self._entries if e.run_id == run_id]
+
+    def retention_policy(self) -> Dict[str, Any]:
+        # Central retention/privacy deletion is a remaining item; no local policy here.
+        return {
+            "scope": "hub", 
+            "status": "pending_central_retention",
+            "provider_workspace_lifetime": "temporary_per_run",
+            "lineage_mirrors": "validated_outcome_pending",
         }
-        return self._repository.append(payload, created_at=now, retention_until=now + self._retention)
