@@ -87,3 +87,56 @@ def test_plan_context_materializes_line_range_evidence(monkeypatch):
     assert calls[0][2] == 'tc-1:range:1'
     materialized = result['data']['materialized_range_results']
     assert len(materialized) == 2
+
+
+def _stub_planner(monkeypatch, refs):
+    class _Planner:
+        def plan_context(self, **kwargs):
+            return {'location_refs': refs}
+
+    monkeypatch.setattr(
+        'agent.services.codecompass_context_planner_service.get_codecompass_context_planner',
+        lambda: _Planner())
+
+
+def test_plan_context_excerpts_are_real_source_lines(tmp_path, monkeypatch):
+    """A location_ref excerpt is source text, not the reference's own reason.
+
+    The reason (``codecompass.search``) as excerpt gave the model no content at all and forced
+    an extra read just to see what the location pointed at.
+    """
+    from agent.services.tools import codecompass_tools
+
+    (tmp_path / 'agent').mkdir(parents=True)
+    (tmp_path / 'agent' / 'a.py').write_text('line one\nline two\nline three\n', encoding='utf-8')
+    _stub_planner(monkeypatch, [
+        {'path': 'agent/a.py', 'line_start': 2, 'line_end': 3, 'reason': 'codecompass.search', 'symbol': 'alpha'},
+    ])
+
+    result = codecompass_tools.codecompass_plan_context(
+        workspace_dir=str(tmp_path), arguments={'query': 'find alpha'}, tool_call_id='tc-1')
+
+    assert result['status'] == 'ok'
+    assert result['evidence'][0]['excerpt'] == 'line two\nline three'
+
+
+def test_a_location_ref_excerpt_falls_back_to_its_label_without_the_file(tmp_path, monkeypatch):
+    from agent.services.tools import codecompass_tools
+
+    _stub_planner(monkeypatch, [
+        {'path': 'agent/gone.py', 'line_start': 1, 'line_end': 2, 'reason': 'codecompass.search', 'symbol': 'alpha'},
+    ])
+
+    result = codecompass_tools.codecompass_plan_context(
+        workspace_dir=str(tmp_path), arguments={'query': 'find alpha'}, tool_call_id='tc-1')
+
+    assert result['evidence'][0]['excerpt'] == 'alpha codecompass.search'
+
+
+def test_source_excerpts_are_bounded_and_cannot_escape_the_workspace(tmp_path):
+    from agent.services.tools.codecompass_tools import _source_excerpt
+
+    (tmp_path / 'agent').mkdir(parents=True)
+    (tmp_path / 'agent' / 'big.py').write_text('x' * 5000, encoding='utf-8')
+    assert len(_source_excerpt(str(tmp_path), {'path': 'agent/big.py', 'line_start': 1, 'line_end': 1})) <= 300
+    assert _source_excerpt(str(tmp_path), {'path': '../../../etc/passwd', 'line_start': 1, 'line_end': 1}) == ''

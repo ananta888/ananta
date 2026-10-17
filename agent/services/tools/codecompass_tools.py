@@ -14,6 +14,7 @@ This module stays the public tool facade; semantic translation tools live in
 """
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Mapping
 
 from agent.services.tools._evidence import (
@@ -187,6 +188,33 @@ def codecompass_get_file_context(*, workspace_dir: str, arguments: dict[str, Any
         error=str(result.get("error") or "") or None,
         max_total_chars=12000,
     )
+
+
+def _source_excerpt(workspace_dir: str, ref: Mapping[str, Any], *, max_chars: int = 300) -> str:
+    """Real source lines of the referenced range, or ``''`` when they cannot be read.
+
+    The excerpt of a ``location_ref`` used to be the reference's own ``reason``
+    (``codecompass.search``), which handed the model no content at all and forced an extra tool
+    call just to see the code the location pointed at.
+    """
+    try:
+        root = Path(workspace_dir).resolve()
+        path = (root / str(ref.get('path') or '')).resolve()
+        if not path.is_relative_to(root) or not path.is_file():
+            return ''
+        line_start = max(1, int(ref.get('line_start') or 1))
+        line_end = max(line_start, int(ref.get('line_end') or line_start))
+        lines: list[str] = []
+        with path.open('r', encoding='utf-8', errors='replace') as stream:
+            for number, line in enumerate(stream, start=1):
+                if number < line_start:
+                    continue
+                if number > line_end:
+                    break
+                lines.append(line.rstrip('\n'))
+        return '\n'.join(lines)[:max_chars].strip()
+    except (OSError, ValueError):
+        return ''
 
 
 def codecompass_get_domain_map(*, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str) -> dict[str, Any]:
@@ -421,7 +449,8 @@ def codecompass_plan_context(*, workspace_dir: str, arguments: dict[str, Any], t
             path=str(ref.get("path") or ""),
             line_start=int(ref.get("line_start") or 1),
             line_end=int(ref.get("line_end") or 1),
-            excerpt=f"{ref.get('symbol') or ''} {ref.get('reason') or ''}".strip(),
+            excerpt=_source_excerpt(workspace_dir, ref)
+            or f"{ref.get('symbol') or ''} {ref.get('reason') or ''}".strip(),
             source=str(ref.get("source") or "codecompass"),
             score=ref.get("score"),
             max_excerpt_chars=300,
