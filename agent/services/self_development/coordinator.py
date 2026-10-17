@@ -44,6 +44,16 @@ class DevelopmentCoordinator:
 
     def import_tasks(self, document=None):
         self.policy.assert_current()
+        if document is None:
+            # Deterministic sync of the tracked TODO folder: documents that are already fully
+            # worked off are archived before the catalog is built, so the catalog can never
+            # re-import them and an operator never has to move them by hand.
+            from agent.services.self_development.completion import archive_completed_sources
+
+            archive_completed_sources(
+                self.policy,
+                publish=lambda item: self.publisher.publish(item, lambda: None, lambda: None),
+            )
         report = catalog(self.policy.checkout, self.policy) if document is None else {
             'items': import_document(document, 'user-submission', self.policy), 'errors': []}
         with self.journal.locked():

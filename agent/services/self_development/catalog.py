@@ -9,6 +9,24 @@ from agent.services.self_development.contracts import DONE, flatten_tasks, task_
 from agent.services.self_development.workspace import git
 
 
+def is_catalog_source(name: str) -> bool:
+    """A tracked TODO document outside the archives and not a schema file."""
+    parts = Path(name).parts
+    return not (any(p in {'archive', 'archiv'} for p in parts) or 'schema' in Path(name).name)
+
+
+def iter_todo_documents(root: Path):
+    """Yield ``(source, document)`` for every tracked, catalogued TODO document."""
+    names = git(root, 'ls-files', 'todos/*.json', 'todo*.json').splitlines()
+    for name in names:
+        if not is_catalog_source(name):
+            continue
+        try:
+            yield name, json.loads((root / name).read_text())
+        except (ValueError, OSError):
+            continue
+
+
 def import_document(document: dict, source: str, policy) -> list[dict]:
     tasks = list(flatten_tasks(document))
     done = {str(t['id']) for t in tasks if str(t.get('status', '')).lower() in DONE}
@@ -51,7 +69,7 @@ def catalog(root: Path, policy):
     errors = []
     documents = 0
     for name in names:
-        if any(p in {'archive', 'archiv'} for p in Path(name).parts) or 'schema' in Path(name).name:
+        if not is_catalog_source(name):
             continue
         try:
             document = json.loads((root / name).read_text())
