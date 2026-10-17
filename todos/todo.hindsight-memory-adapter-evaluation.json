@@ -145,7 +145,7 @@
       "id": "HSM-003",
       "title": "Vergleichsdatensatz und Entscheidungskriterien festlegen",
       "milestone": "HSM-M1",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "depends_on": [
@@ -155,7 +155,25 @@
         "Mindestens 30 feste deutschsprachige Fälle mit Quellen und erwarteten Antworten: Fehlversuche, Architekturänderungen, Retrospektiven, Zeitintervalle, Widersprüche, Duplikate und unbeantwortbare Fragen.",
         "Baseline Ananta, gezielte native Erweiterung und Ananta mit Hindsight bei gleichen Eingaben, Antwortmodellen und Kontextbudgets vergleichen; abweichende interne Modellaufrufe separat ausweisen.",
         "Vor Messbeginn Qualitätsziel, maximal erlaubte Latenz und Kosten festlegen; Quellenrichtigkeit, zeitliche Korrektheit, ungestützte Aussagen und Enthaltungen bewerten."
-      ]
+      ],
+      "execution": {
+        "files": [
+          "docs/hsm-003-comparison-criteria.md",
+          "tests/test_hsm_003_decision_rules.py"
+        ],
+        "test_profile": "self-development",
+        "commit_message": "feat(docs): define comparison dataset and decision criteria for HSM-003",
+        "completion_rule": "profile_passed"
+      },
+      "execution_result": {
+        "scope": "local",
+        "run_id": "RUN_59780bfb566bb783a3bb143fa5ce9d15",
+        "source_ids": [
+          "SRC_ae8db0289f2e8704ed748772ecd36167"
+        ],
+        "result_digest": "df9c0c838577d79b903a02463f9afe37b8728d5725570ce797e231a1c4d77ee2",
+        "completion_rule": "profile_passed"
+      }
     },
     {
       "id": "HSM-004",
