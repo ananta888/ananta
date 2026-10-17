@@ -9,6 +9,9 @@ from flask import current_app
 
 _LOCK = threading.Lock()
 
+WATCHDOG_EXTENSION_KEY = 'self_development_autopilot_watchdog'
+AUTOPILOT_REARM_INTERVAL_SECONDS = 15.0
+
 
 def get_development_coordinator():
     from agent.config import settings
@@ -187,6 +190,71 @@ def ensure_autopilot(app):
     except Exception as exc:  # pragma: no cover - watchdog must never block boot
         app.logger.warning('self_development_autopilot_rearm_failed: %s', exc)
         return False
+
+
+class AutopilotRearmWatchdog:
+    """Hub-only watchdog that re-arms the Autopilot while a session is active.
+
+    The one-shot boot re-arm cannot recover when the Autopilot stops on its own
+    — a guardrail trip, a manual stop, or a dead loop thread — while the
+    development session is still active. This watchdog repeats the bounded
+    ``ensure_autopilot`` check on an interval. Whether any work should run is
+    decided there (active session + ready/running items), so the watchdog never
+    starts work by itself.
+    """
+
+    def __init__(self, app, *, interval_seconds: float = AUTOPILOT_REARM_INTERVAL_SECONDS):
+        self._app = app
+        self._interval_seconds = max(1.0, float(interval_seconds))
+        self._stop_event = threading.Event()
+        self._thread: threading.Thread | None = None
+        self._lock = threading.Lock()
+
+    def start(self) -> None:
+        with self._lock:
+            if self._thread is not None and self._thread.is_alive():
+                return
+            self._stop_event.clear()
+            self._thread = threading.Thread(
+                target=self._loop, name='self-development-autopilot-watchdog', daemon=True)
+            self._thread.start()
+
+    def stop(self, *, join_timeout: float = 5.0) -> None:
+        with self._lock:
+            thread = self._thread
+            self._stop_event.set()
+        if thread is not None and thread is not threading.current_thread():
+            thread.join(timeout=join_timeout)
+        with self._lock:
+            if self._thread is thread:
+                self._thread = None
+
+    def tick(self) -> bool:
+        """One re-arm attempt in an app context; returns whether the loop is running."""
+        with self._app.app_context():
+            return bool(ensure_autopilot(self._app))
+
+    def _loop(self) -> None:  # pragma: no cover - exercised through tick/start
+        while not self._stop_event.is_set():
+            try:
+                self.tick()
+            except Exception as exc:
+                self._app.logger.warning('self_development_autopilot_watchdog_failed: %s', exc)
+            self._stop_event.wait(self._interval_seconds)
+
+
+def start_autopilot_watchdog(app):
+    """Start the periodic re-arm watchdog once per app (no-op when threads are disabled)."""
+    from agent.routes.tasks.autopilot import _background_threads_disabled
+    if _background_threads_disabled(app):
+        return None
+    with _LOCK:
+        watchdog = app.extensions.get(WATCHDOG_EXTENSION_KEY)
+        if watchdog is None:
+            watchdog = AutopilotRearmWatchdog(app)
+            app.extensions[WATCHDOG_EXTENSION_KEY] = watchdog
+        watchdog.start()
+        return watchdog
 
 
 def development_thread_diagnostics():
