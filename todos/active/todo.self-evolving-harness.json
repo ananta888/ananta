@@ -987,7 +987,7 @@
     {
       "id": "SEH-043",
       "title": "Verpflichtenden EvoMap Live-Compatibility- und Release-Gate etablieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "progress_percent": 20,
@@ -998,7 +998,26 @@
         "Pinned Version/Commit und Image Digest erscheinen im Testartefakt",
         "Mindestens ein Gene-/Capsule- oder strukturierter GEP-Fall wird End-to-End geprüft",
         "Upgrade darf ohne grünes Compatibility-Gate nicht als Standardimage promoted werden"
-      ]
+      ],
+      "execution": {
+        "files": [
+          "docs/testing/sfu-broadcast-release-gates.md",
+          "agent/routes/tasks/quality_gates.py",
+          "scripts/run_sfu_broadcast_fleet_gate.py"
+        ],
+        "test_profile": "self-development",
+        "commit_message": "feat(self-development): add mandatory EvoMap live compatibility and release gate checks",
+        "completion_rule": "profile_passed"
+      },
+      "execution_result": {
+        "scope": "local",
+        "run_id": "RUN_db1faf78ff5438926b935402ad977fc7",
+        "source_ids": [
+          "SRC_c284702f95c95638613726ec5d80f4af"
+        ],
+        "result_digest": "c0210391a4edb1be04972e3c21f3987845ecb351a50b097536a8985d2a19c42f",
+        "completion_rule": "profile_passed"
+      }
     },
     {
       "id": "SEH-044",
