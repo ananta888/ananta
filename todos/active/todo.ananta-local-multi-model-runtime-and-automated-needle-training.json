@@ -921,7 +921,7 @@
     {
       "id": "LMM-LIFE-002",
       "title": "Unabhängige Offline-Evaluation und Confidence-Kalibrierung implementieren",
-      "status": "blocked",
+      "status": "todo",
       "priority": "P0",
       "risk": "critical",
       "type": "evaluation",

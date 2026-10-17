@@ -1800,7 +1800,7 @@
     {
       "id": "PDCW-QA-003",
       "title": "Agent-/Multi-Participant-Live-Release-Gate mit realem E2E-Pfad abschließen",
-      "status": "blocked",
+      "status": "todo",
       "priority": "P0",
       "risk": "critical",
       "type": "test",
