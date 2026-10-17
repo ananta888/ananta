@@ -11,7 +11,7 @@ Das Domain-Modell beschreibt eine serialisierbare, UI-unabhaengige Spielsicht au
 | `GameMap` | Container fuer Territorien, Agenten, Policy-Gates, Artifact-Ziele und Trust-Kanten |
 | `CodeTerritory` | Abbildung eines Repository-Pfads/Moduls inkl. Risiko-Metadaten |
 | `AgentUnit` | Rolle, Capabilities, erlaubter Kontext und Risikostufe |
-| `PolicyNode` | Policy-Regel mit Effekt (`allow`, `deny`, `review_required`) |
+| `PolicyNode` | Policy-Regel mit Effekt (`allow`, `deny`, `review_required`) und Versionierung |
 | `ContextGate` | Sichtbarkeit/Freigabe fuer Territorien pro Rollenmenge |
 | `ArtifactObjective` | Task-Abschlussziel inkl. Verification-/Evidence-Anforderung |
 | `TrustEdge` | Vertrauens- oder Abhaengigkeitsbeziehung zwischen Knoten |
@@ -22,6 +22,7 @@ Das Domain-Modell beschreibt eine serialisierbare, UI-unabhaengige Spielsicht au
 2. IDs sind stabil und explizit.
 3. Serialisierung erfolgt ueber `to_dict`/`from_dict` bzw. JSON.
 4. Das Modell ist neutral gegenueber TUI/Web/IDE-Darstellung.
+5. Policy-Nodes tragen eine Version (`policy_version`) zur Nachvollziehbarkeit.
 
 ## Beispiel
 
@@ -45,6 +46,13 @@ Das Domain-Modell beschreibt eine serialisierbare, UI-unabhaengige Spielsicht au
       "allowed_context": ["repo:index"]
     }
   ],
+  "policies": [
+    {
+      "id": "policy:approval-gate",
+      "effect": "review_required",
+      "policy_version": "1.0.0"
+    }
+  ],
   "degraded": false
 }
-```
+`

@@ -953,7 +953,7 @@
     {
       "id": "SEH-042",
       "title": "EvoMap Strategy Presets und Mutationssignale in Ananta-Policies übersetzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "progress_percent": 0,
@@ -964,7 +964,25 @@
         "Mutation und PersonalityState werden getrennt von Identität/Rollenrechten behandelt",
         "Benchmark zeigt, ob Strategy Presets gegenüber Ananta-eigener Auswahl messbaren Mehrwert liefern",
         "Nicht hilfreiche Presets können pro Modell/Task deaktiviert werden"
-      ]
+      ],
+      "execution": {
+        "files": [
+          "agent/caseflow/policies.py",
+          "docs/ananta-game/domain-model.md"
+        ],
+        "test_profile": "self-development",
+        "commit_message": "feat(agent): add EvoMap strategy preset and mutation signal policy translations",
+        "completion_rule": "profile_passed"
+      },
+      "execution_result": {
+        "scope": "local",
+        "run_id": "RUN_2c31f71f1087c1c8046212d6109fdd55",
+        "source_ids": [
+          "SRC_626e001dfb41c4e8fbc542fb9b5af9d8"
+        ],
+        "result_digest": "45c4b6dff2d0ccf1d092b5d2b85c5be51f2be1bb0a7484191d9385d461a499fd",
+        "completion_rule": "profile_passed"
+      }
     },
     {
       "id": "SEH-043",
