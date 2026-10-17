@@ -21,6 +21,75 @@ def is_fully_done(document: dict) -> bool:
     return all(str(task.get('status', '')).lower() in DONE for task in tasks)
 
 
+def unblock_satisfied_tasks(document: dict) -> bool:
+    """Deterministically release tasks whose declared prerequisites are all done.
+
+    ``blocked`` means "waiting for my dependencies": once every ``depends_on`` task of the
+    document is in ``DONE``, the wait is over and the task becomes ``todo`` again. Declarations
+    of a different kind are never touched here -- ``needs_review`` is a human gate and ``paused``
+    is an operator decision -- and neither is a ``blocked`` task without any dependency, which
+    blocks for a stated reason of its own.
+    """
+    tasks = [task for task in flatten_tasks(document) if isinstance(task, dict)]
+    done = {str(task.get('id')) for task in tasks if str(task.get('status', '')).lower() in DONE}
+    changed = False
+    for task in tasks:
+        status = str(task.get('status', '')).lower()
+        if status not in {'blocked', 'blocked_by_dependency'}:
+            continue
+        dependencies = task.get('depends_on', task.get('dependencies', [])) or []
+        dependencies = [str(dep) for dep in dependencies if isinstance(dep, str)]
+        waiting_for = [dep for dep in dependencies if dep not in done]
+        if waiting_for:
+            continue
+        if dependencies or status == 'blocked_by_dependency':
+            task['status'] = 'todo'
+            changed = True
+    return changed
+
+
+def unblock_satisfied_sources(policy, *, publish) -> list[str]:
+    """Deterministic bookkeeping: publish the release of satisfied TODO tasks.
+
+    The 93 ``source_task_blocked`` items of a live run were exactly these: tasks declared to
+    wait whose dependencies had long been published. Releasing them is bookkeeping -- the same
+    closed change set discipline as the archive sweep, no model involved.
+    """
+    from agent.services.self_development.catalog import iter_todo_documents
+    from agent.services.self_development.workspace import git
+
+    changed: dict[str, bytes] = {}
+    for source, document in iter_todo_documents(policy.checkout):
+        if not unblock_satisfied_tasks(document):
+            continue
+        changed[source] = (json.dumps(document, ensure_ascii=False, indent=2) + '\n').encode()
+    if not changed:
+        return []
+    task_id = 'todo-unblock-' + hashlib.sha256('\0'.join(sorted(changed)).encode()).hexdigest()[:16]
+    seal = policy.root / 'sealed' / task_id
+    seal.mkdir(parents=True, exist_ok=True)
+    hashes: dict[str, str] = {}
+    for source, encoded in sorted(changed.items()):
+        target = seal / source
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(encoded)
+        target.chmod(0o400)
+        hashes[source] = hashlib.sha256(encoded).hexdigest()
+    item = {
+        'task_id': task_id,
+        'source': 'todos',
+        'status': 'running',
+        'contract': {
+            'commit_message': f'chore(self-development): unblock {len(changed)} todo document(s) with satisfied dependencies',
+        },
+        'hashes': hashes,
+        'removed': [],
+        'revision': git(policy.checkout, 'rev-parse', 'HEAD'),
+    }
+    publish(item)
+    return sorted(changed)
+
+
 def archive_source(source: str) -> str | None:
     """Where a completed TODO document belongs, or ``None`` when it is already archived.
 

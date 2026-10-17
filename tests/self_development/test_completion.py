@@ -289,3 +289,70 @@ def test_the_publication_refuses_a_removal_of_a_missing_path(tmp_path):
 
     with pytest.raises(ValueError, match='publication_removed_path_missing'):
         publisher.publish(item, lambda: None, lambda: None)
+
+
+# --- unblock_satisfied_tasks: deterministic release of finished waits --------------------
+
+
+def test_a_blocked_task_is_released_when_its_dependencies_are_done():
+    from agent.services.self_development.completion import unblock_satisfied_tasks
+
+    document = {
+        'tasks': [
+            {'id': 'A', 'status': 'done', 'depends_on': []},
+            {'id': 'B', 'status': 'done', 'depends_on': []},
+            {'id': 'C', 'status': 'blocked', 'depends_on': ['A', 'B']},
+            {'id': 'D', 'status': 'blocked', 'depends_on': ['A', 'C']},
+            {'id': 'E', 'status': 'blocked', 'depends_on': []},
+            {'id': 'F', 'status': 'needs_review', 'depends_on': []},
+            {'id': 'G', 'status': 'paused', 'depends_on': []},
+            {'id': 'H', 'status': 'blocked_by_dependency', 'depends_on': []},
+        ]
+    }
+
+    assert unblock_satisfied_tasks(document) is True
+    by_id = {task['id']: task['status'] for task in document['tasks']}
+    assert by_id['C'] == 'todo'  # all dependencies done
+    assert by_id['D'] == 'blocked'  # C is not done yet
+    assert by_id['E'] == 'blocked'  # no dependency: blocked for a stated reason of its own
+    assert by_id['F'] == 'needs_review'  # a human gate is never auto-released
+    assert by_id['G'] == 'paused'  # an operator decision is never auto-released
+    assert by_id['H'] == 'todo'  # declared to wait for dependencies, but it has none
+
+
+def test_a_document_without_satisfied_waits_is_untouched():
+    from agent.services.self_development.completion import unblock_satisfied_tasks
+
+    document = {'tasks': [
+        {'id': 'A', 'status': 'done'},
+        {'id': 'B', 'status': 'blocked', 'depends_on': ['A', 'MISSING']},
+    ]}
+    assert unblock_satisfied_tasks(document) is False
+    assert document['tasks'][1]['status'] == 'blocked'
+
+
+def test_the_unblock_sweep_publishes_one_closed_change_set(tmp_path):
+    from agent.services.self_development.completion import unblock_satisfied_sources
+
+    checkout = _checkout_with_todos(tmp_path)
+    (checkout / 'todos' / 'active' / 'todo.waiting.json').write_text(json.dumps({
+        'tasks': [
+            {'id': 'A', 'status': 'done', 'depends_on': []},
+            {'id': 'B', 'status': 'blocked', 'depends_on': ['A']},
+        ],
+    }), encoding='utf-8')
+    git(checkout, 'add', '-A')
+    git(checkout, 'commit', '-m', 'docs(docs): add a waiting todo')
+    policy = _policy(tmp_path / 'private', checkout)
+    publisher = _RecordingPublisher(tmp_path / 'private', checkout)
+
+    moved = unblock_satisfied_sources(policy, publish=publisher.publish)
+
+    assert moved == ['todos/active/todo.waiting.json']
+    assert len(publisher.items) == 1
+    assert set(publisher.items[0]['hashes']) == {'todos/active/todo.waiting.json'}
+    assert publisher.items[0]['contract']['commit_message'].startswith('chore(self-development): unblock ')
+    updated = json.loads((checkout / 'todos' / 'active' / 'todo.waiting.json').read_text(encoding='utf-8'))
+    assert {task['id']: task['status'] for task in updated['tasks']} == {'A': 'done', 'B': 'todo'}
+    # a second sweep has nothing left to do
+    assert unblock_satisfied_sources(policy, publish=publisher.publish) == []

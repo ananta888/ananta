@@ -42,24 +42,27 @@ class DevelopmentCoordinator:
         self.registry = registry or get_hub_evidence_registry_service()
         self.planner = planner
 
-    def sync_todo_archive(self):
-        """Archive fully worked off TODO documents (deterministic bookkeeping).
+    def sync_todo_folder(self):
+        """Synchronise the tracked TODO folder (deterministic bookkeeping).
 
-        A document only completes through publication, so a document that was already done
-        before this loop existed would stay in ``todos/active`` forever and the catalog would
-        keep reporting it. Called before the catalog is built and at Hub start.
+        Two kinds of bookkeeping, both publication-gated and model-free: tasks whose declared
+        dependencies are all done are released from ``blocked``, and documents that are fully
+        worked off are archived. Called before the catalog is built and at Hub start.
         """
-        from agent.services.self_development.completion import archive_completed_sources
-
-        return archive_completed_sources(
-            self.policy,
-            publish=lambda item: self.publisher.publish(item, lambda: None, lambda: None),
+        from agent.services.self_development.completion import (
+            archive_completed_sources,
+            unblock_satisfied_sources,
         )
+
+        publish = lambda item: self.publisher.publish(item, lambda: None, lambda: None)
+        unblocked = unblock_satisfied_sources(self.policy, publish=publish)
+        archived = archive_completed_sources(self.policy, publish=publish)
+        return {'unblocked': unblocked, 'archived': archived}
 
     def import_tasks(self, document=None):
         self.policy.assert_current()
         if document is None:
-            self.sync_todo_archive()
+            self.sync_todo_folder()
         report = catalog(self.policy.checkout, self.policy) if document is None else {
             'items': import_document(document, 'user-submission', self.policy), 'errors': []}
         with self.journal.locked():

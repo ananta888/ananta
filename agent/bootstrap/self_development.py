@@ -33,7 +33,7 @@ def initialize_self_development(app):
             try:
                 # Deterministic bookkeeping: archive TODO documents that are already fully
                 # worked off. Never blocks the autopilot wiring below.
-                coordinator.sync_todo_archive()
+                coordinator.sync_todo_folder()
             except Exception:
                 app.logger.warning('self_development_todo_archive_skipped', exc_info=True)
             ensure_autopilot(app)
