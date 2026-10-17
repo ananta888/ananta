@@ -108,13 +108,22 @@ def _step_forward_deadline_seconds(endpoint_name: str, agent_cfg: Mapping[str, A
     policies = agent_cfg.get("autopilot_security_policies") if isinstance(agent_cfg, Mapping) else None
     level = str(agent_cfg.get("autopilot_security_level") or "balanced").strip().lower()
     phase = policies.get(level) if isinstance(policies, Mapping) else None
-    key = "propose_timeout" if endpoint_name.endswith("/step/propose") else "execute_timeout"
-    default = 240 if key == "propose_timeout" else 180
+    is_propose = endpoint_name.endswith("/step/propose")
+    key = "propose_timeout" if is_propose else "execute_timeout"
+    default = 240 if is_propose else 180
     raw = phase.get(key) if isinstance(phase, Mapping) else None
     try:
         seconds = int(raw)
     except (TypeError, ValueError):
         seconds = default
+    if is_propose:
+        # A governed propose transport must not cut a proposal the model call is
+        # still allowed to finish: wait at least the configured task propose
+        # timeout, exactly like resolve_security_policy does for the status view.
+        try:
+            seconds = max(seconds, int(agent_cfg.get("task_propose_timeout_seconds") or 0))
+        except (TypeError, ValueError):
+            pass
     return max(30, min(seconds, 3600))
 
 

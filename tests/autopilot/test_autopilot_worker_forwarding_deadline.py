@@ -58,3 +58,34 @@ def test_non_step_or_mismatched_task_has_no_deadline():
     forwarder = _forwarder({'autopilot_security_policies': {'balanced': {'propose_timeout': 240}}})
     assert forwarder.trusted_deadline(endpoint='/tasks/T-1', payload={'task_id': 'T-1'}) is None
     assert forwarder.trusted_deadline(endpoint='/tasks/T-1/step/propose', payload={'task_id': 'OTHER'}) is None
+
+
+def test_propose_deadline_reads_effective_policy_from_agent_config():
+    # The effective policy lives under AGENT_CONFIG; the top level must not
+    # silently mask it and drop the deadline to the hardcoded default.
+    forwarder = _forwarder(
+        {'AGENT_CONFIG': {'autopilot_security_policies': {'balanced': {'propose_timeout': 300}}}}
+    )
+    deadline = forwarder.trusted_deadline(endpoint='/tasks/T-1/step/propose', payload={'task_id': 'T-1'})
+    assert deadline.budget_seconds == 300
+
+
+def test_propose_deadline_never_shorter_than_task_propose_timeout():
+    # The model may plan for task_propose_timeout_seconds; the transport must
+    # wait at least that long or every slow proposal dies at the default.
+    forwarder = _forwarder(
+        {
+            'AGENT_CONFIG': {
+                'autopilot_security_policies': {'balanced': {'propose_timeout': 240}},
+                'task_propose_timeout_seconds': 600,
+            }
+        }
+    )
+    deadline = forwarder.trusted_deadline(endpoint='/tasks/T-1/step/propose', payload={'task_id': 'T-1'})
+    assert deadline.budget_seconds == 600
+
+
+def test_step_forward_deadline_honors_task_propose_timeout_only_for_propose():
+    cfg = {'task_propose_timeout_seconds': 600}
+    assert _step_forward_deadline_seconds('/tasks/T/step/propose', cfg) == 600
+    assert _step_forward_deadline_seconds('/tasks/T/step/execute', cfg) == 180

@@ -26,8 +26,6 @@ from agent.services.worker_forward_transport import (
     invoke_worker_forwarder,
 )
 
-DEFAULT_PROPOSE_TIMEOUT_SECONDS = 240
-
 _TERMINAL_RETRY_STATUSES = frozenset(
     {
         "completed",
@@ -239,16 +237,16 @@ class AutopilotWorkerForwarder:
             ) from exc
 
     def _propose_timeout_seconds(self) -> int:
+        from agent.routes.tasks.utils import _step_forward_deadline_seconds
+
         config = self._app_config_provider() or {}
-        policies = config.get("autopilot_security_policies") if isinstance(config, Mapping) else None
-        level = str(config.get("autopilot_security_level") or "balanced").strip().lower()
-        phase = policies.get(level) if isinstance(policies, Mapping) else None
-        raw = phase.get("propose_timeout") if isinstance(phase, Mapping) else None
-        try:
-            seconds = int(raw)
-        except (TypeError, ValueError):
-            seconds = DEFAULT_PROPOSE_TIMEOUT_SECONDS
-        return max(30, min(seconds, 3600))
+        # The effective policy lives under AGENT_CONFIG (same source the status
+        # endpoint resolves); a bare test config is used as a fallback so the
+        # deadline never silently drops to the hardcoded default.
+        agent_cfg = config.get("AGENT_CONFIG") if isinstance(config, Mapping) else None
+        if not isinstance(agent_cfg, Mapping):
+            agent_cfg = config if isinstance(config, Mapping) else {}
+        return _step_forward_deadline_seconds("/step/propose", agent_cfg)
 
     def forward_with_retry(self, worker_url: str, endpoint: str, payload: dict, token: str | None = None) -> dict:
         cfg = self._resilience_config_provider()
