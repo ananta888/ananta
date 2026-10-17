@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import difflib
+import fnmatch
 import hashlib
 import json
 import logging
@@ -268,18 +269,135 @@ class WorkerWorkspaceService:
                 explicit_scope_key = True
 
         output_dir = str(workspace_cfg.get("output_dir") or "").strip()
-        return self._resolve_workspace_dir(
+        resolved = self._resolve_workspace_dir(
             output_dir=output_dir,
             workspace_root=workspace_root,
             agent_name=resolved_agent_name,
             scope_key=scope_key,
             explicit_scope_key=explicit_scope_key,
         )
+        if not output_dir:
+            return resolved
+        return self._task_owned_workspace_dir(
+            resolved=resolved,
+            task=task,
+            workspace_root=workspace_root,
+            workspace_reuse_mode=workspace_reuse_mode,
+        )
+
+    _TASK_OWNED_WORKSPACE_PREFIX = "self-dev-"
+
+    def _task_owned_workspace_dir(
+        self, *, resolved: Path, task: dict, workspace_root: str, workspace_reuse_mode: str
+    ) -> Path:
+        """The task's own workspace instead of a declared directory that declares no scope.
+
+        A declared ``output_dir`` without a materialization manifest is a shared checkout: one
+        task's residue and baseline bleed into the next and no per-task scope can be decided --
+        live, the shared ``ananta-self-development`` checkout kept a leftover test file and
+        ``.pytest_cache`` from the task before. Such a task gets a copy under ``workspace_root``
+        instead. Everything that *is* declared sharing stays untouched: a directory that already
+        carries a manifest, a directory that does not exist yet (a normal per-task workspace) and
+        ``goal_worker`` reuse.
+        """
+        if str(workspace_reuse_mode or "").strip().lower() == "goal_worker":
+            return resolved
+        if not resolved.is_dir():
+            return resolved
+        if (resolved / ".ananta" / "materialization-manifest.json").exists():
+            return resolved
+        task_id = _safe_segment((task or {}).get("id"), fallback="task")
+        root = Path(os.path.abspath(str(Path(workspace_root).expanduser())))
+        target = root / f"{self._TASK_OWNED_WORKSPACE_PREFIX}{task_id}"
+        return resolved if target == resolved else target
+
+    def materialize_isolated_workspace(self, *, task: dict, workspace_dir: Path) -> Path:
+        """Copy the declared shared directory into the task's own workspace, once.
+
+        The copy starts from the pristine baseline (runtime junk excluded) and gets its own
+        materialization manifest, so the mutation policy evaluates this task's scope instead of
+        a shared one. Repeated calls and workspaces that already carry a manifest are left alone.
+        """
+        if (workspace_dir / ".ananta" / "materialization-manifest.json").exists():
+            return workspace_dir
+        workspace_cfg = dict(((task or {}).get("worker_execution_context") or {}).get("workspace") or {})
+        declared = str(workspace_cfg.get("output_dir") or "").strip()
+        if not declared:
+            return workspace_dir
+        try:
+            source = Path(declared).expanduser().resolve()
+            target = workspace_dir.resolve()
+        except OSError:
+            return workspace_dir
+        if source == target or not source.is_dir() or workspace_dir.exists():
+            return workspace_dir
+        workspace_dir.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(
+            source,
+            workspace_dir,
+            ignore=shutil.ignore_patterns(
+                ".git",
+                "__pycache__",
+                ".pytest_cache",
+                ".venv",
+                "project-workspaces",
+                "artifacts",
+                "*.log",
+            ),
+        )
+        self._write_isolation_manifest(task=task, workspace_dir=workspace_dir, workspace_cfg=workspace_cfg)
+        return workspace_dir
+
+    def _write_isolation_manifest(self, *, task: dict, workspace_dir: Path, workspace_cfg: dict) -> None:
+        """Declare the copied baseline's scope: operator-named files, else the inherited glob scope.
+
+        An ingest task carries no contract file list, so the manifest records what the copy
+        actually grants -- the baseline files under ``allowed_new_file_globs``, which the policy
+        already allows by glob. Naming them makes the scope explicit (and clears the
+        ``no_materialization_manifest`` warning) without widening anything.
+        """
+        declared = [
+            str(item).strip().replace("\\", "/")
+            for item in list(workspace_cfg.get("materialized_files") or [])
+            if str(item).strip()
+        ]
+        if not declared:
+            declared = self._files_matching_allowed_globs(workspace_dir)
+        if not declared:
+            return
+        rows = [
+            {"workspace_path": rel, "allowed_operations": ["read", "write", "patch", "replace"]}
+            for rel in declared
+        ]
+        self._write_json(workspace_dir / ".ananta" / "materialization-manifest.json", rows)
+
+    @staticmethod
+    def _files_matching_allowed_globs(workspace_dir: Path) -> list[str]:
+        """Baseline files under ``allowed_new_file_globs`` (workspace-relative, ``/``-separated)."""
+        try:
+            cfg = dict(current_app.config.get("AGENT_CONFIG", {}) or {}) if has_app_context() else {}
+            mutation_cfg = dict(cfg.get("ananta_worker_workspace_mutation") or {})
+            globs = [str(g).strip() for g in mutation_cfg.get("allowed_new_file_globs") or [] if str(g).strip()]
+        except Exception:  # noqa: BLE001 - a missing config must not fail workspace preparation
+            globs = []
+        if not globs:
+            return []
+        skipped = {".git", ".ananta", "__pycache__", "artifacts", "project-workspaces"}
+        found: list[str] = []
+        for root, dirs, files in os.walk(workspace_dir, followlinks=False):
+            dirs[:] = [name for name in dirs if name not in skipped]
+            rel_root = os.path.relpath(root, workspace_dir)
+            for name in files:
+                rel = name if rel_root == "." else f"{rel_root}/{name}".replace(os.sep, "/")
+                if any(fnmatch.fnmatch(rel, glob) for glob in globs):
+                    found.append(rel)
+        return sorted(found)
 
     def resolve_workspace_context(self, *, task: dict) -> WorkerWorkspaceContext:
         execution_context = dict((task or {}).get("worker_execution_context") or {})
         artifact_sync_cfg = dict(execution_context.get("artifact_sync") or {})
         workspace_dir = self.resolve_workspace_dir_for_read(task=task)
+        workspace_dir = self.materialize_isolated_workspace(task=task, workspace_dir=workspace_dir)
         artifacts_dir = workspace_dir / "artifacts"
         rag_helper_dir = workspace_dir / "rag_helper"
         workspace_dir.mkdir(parents=True, exist_ok=True)
