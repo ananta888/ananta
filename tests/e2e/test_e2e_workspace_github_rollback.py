@@ -31,7 +31,7 @@ def _init_workspace(tmp_path: Path, bare_repo: Path) -> None:
     ws.mkdir(parents=True)
     (ws / "README.md").write_text("initial\n")
 
-    subprocess.run(["git", "init", "."], cwd=ws, check=True)
+    subprocess.run(["git", "init", "-b", "main", "."], cwd=ws, check=True)
     subprocess.run(
         ["git", "add", "."],
         cwd=ws,
@@ -69,7 +69,7 @@ def setup(tmp_path, bare_repo, mutation):
     yield tmp_path
 
 
-def test_rollback_restores_previous_state(tmp_path: Path, bare_repo: Path) -> None:
+def test_rollback_restores_previous_state(tmp_path: Path, bare_repo: Path, mutation) -> None:
     """Full vertical flow: mutate -> push -> fail -> rollback -> verify."""
     ws = tmp_path / "workspace"
 

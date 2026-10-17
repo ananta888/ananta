@@ -38,7 +38,7 @@ class MeasurementStep:
 
 
 @dataclass
-MeasurementPlan:
+class MeasurementPlan:
     steps: list[MeasurementStep]
     thresholds: dict[str, float] = field(default_factory=dict)
 
