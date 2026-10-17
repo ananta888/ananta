@@ -1832,7 +1832,7 @@
     {
       "id": "PDCW-QA-004",
       "title": "Chaos-, Soak-, Last- und Backpressure-Gates ausführen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "critical",
       "type": "test",
@@ -1852,7 +1852,26 @@
         "Kapazitätsfreigaben nennen reale RUN-Evidence, Profil, Hardware, Version, Dauer und Grenzwert; fehlende Runs blockieren Claims."
       ],
       "progress_percent": 65.0,
-      "blocked_reason": "Deterministische Parallelitäts-, Replay-, Rebuild- und Backpressure-Tests bestehen. Eine freizugebende Zielhardware, ein konkretes Produktionsprofil und dessen Grenzwerte sind in dieser Umgebung nicht bereitgestellt. Produktionsbezogene Kapazitäts-, Soak- und Chaos-Claims benötigen diese realen Inputs und anschließend einen vorab Hub-reservierten Lauf mit Profil, Hardware, Dauer und Grenzwerten."
+      "blocked_reason": "Deterministische Parallelitäts-, Replay-, Rebuild- und Backpressure-Tests bestehen. Eine freizugebende Zielhardware, ein konkretes Produktionsprofil und dessen Grenzwerte sind in dieser Umgebung nicht bereitgestellt. Produktionsbezogene Kapazitäts-, Soak- und Chaos-Claims benötigen diese realen Inputs und anschließend einen vorab Hub-reservierten Lauf mit Profil, Hardware, Dauer und Grenzwerten.",
+      "execution": {
+        "files": [
+          "tests/chaos_gates/test_hub_restart_gate.py",
+          "scripts/gates/backpressure_soak.sh",
+          "todos/PDCW-QA-004.md"
+        ],
+        "test_profile": "self-development",
+        "commit_message": "test(tests): add chaos, soak and backpressure gates for live-lane reliability",
+        "completion_rule": "profile_passed"
+      },
+      "execution_result": {
+        "scope": "local",
+        "run_id": "RUN_72e766ac04ec6e45d827311b6142595d",
+        "source_ids": [
+          "SRC_5f5a5a184c5b8badff274d6d5c27c95b"
+        ],
+        "result_digest": "996fb5fcf76d7d47b2ddf2c9384a40d6b5ed7dcd9094312981e0b60846edd6ed",
+        "completion_rule": "profile_passed"
+      }
     },
     {
       "id": "PDCW-QA-005",
