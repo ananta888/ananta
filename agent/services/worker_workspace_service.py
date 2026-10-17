@@ -278,29 +278,23 @@ class WorkerWorkspaceService:
         )
         if not output_dir:
             return resolved
-        return self._task_owned_workspace_dir(
-            resolved=resolved,
-            task=task,
-            workspace_root=workspace_root,
-            workspace_reuse_mode=workspace_reuse_mode,
-        )
+        return self._task_owned_workspace_dir(resolved=resolved, task=task, workspace_root=workspace_root)
 
     _TASK_OWNED_WORKSPACE_PREFIX = "self-dev-"
 
-    def _task_owned_workspace_dir(
-        self, *, resolved: Path, task: dict, workspace_root: str, workspace_reuse_mode: str
-    ) -> Path:
+    def _task_owned_workspace_dir(self, *, resolved: Path, task: dict, workspace_root: str) -> Path:
         """The task's own workspace instead of a declared directory that declares no scope.
 
         A declared ``output_dir`` without a materialization manifest is a shared checkout: one
         task's residue and baseline bleed into the next and no per-task scope can be decided --
         live, the shared ``ananta-self-development`` checkout kept a leftover test file and
         ``.pytest_cache`` from the task before. Such a task gets a copy under ``workspace_root``
-        instead. Everything that *is* declared sharing stays untouched: a directory that already
-        carries a manifest, a directory that does not exist yet (a normal per-task workspace) and
-        ``goal_worker`` reuse.
+        instead. Everything that *is* declared sharing stays untouched: a goal-scoped task (its
+        siblings work in that directory on purpose -- ``workspace_reuse_mode`` defaults to
+        ``goal_worker``, so it cannot be the signal), a directory that already carries a manifest
+        and a directory that does not exist yet (a normal per-task workspace).
         """
-        if str(workspace_reuse_mode or "").strip().lower() == "goal_worker":
+        if str((task or {}).get("goal_id") or "").strip():
             return resolved
         if not resolved.is_dir():
             return resolved

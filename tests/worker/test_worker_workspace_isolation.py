@@ -105,9 +105,14 @@ def test_declared_sharing_a_manifest_a_missing_directory_and_goal_worker_stay_un
         assert service.resolve_workspace_dir_for_read(task=_task("a", with_manifest)) == with_manifest
         # a declared directory that does not exist yet is a normal workspace, not a copy source
         assert service.resolve_workspace_dir_for_read(task=_task("b", missing)) != tmp_path / "root" / "self-dev-b"
-        # goal_worker reuse is declared sharing
+        # a goal-scoped task shares its directory with its siblings on purpose
         goal_task = _task("c", shared, workspace_reuse_mode="goal_worker")
+        goal_task["goal_id"] = "g-1"
         assert service.resolve_workspace_dir_for_read(task=goal_task) == shared
+        # the same task without a goal is isolated -- the reuse mode alone is a global default
+        assert service.resolve_workspace_dir_for_read(task=_task("e", shared, workspace_reuse_mode="goal_worker")) == (
+            tmp_path / "root" / "self-dev-e"
+        )
         # without a declared output_dir nothing changes either
         plain = {"id": "d", "worker_execution_context": {}}
         resolved_plain = service.resolve_workspace_dir_for_read(task=plain)
