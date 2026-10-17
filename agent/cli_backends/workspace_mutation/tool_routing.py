@@ -44,8 +44,21 @@ ACTION_NUDGE = (
 )
 
 
-def is_blind_read_tool(tool_name: str) -> bool:
-    return str(tool_name or "").strip() in _BLIND_READ_TOOLS
+def is_blind_read_tool(tool_name: str, arguments: Mapping[str, Any] | None = None) -> bool:
+    """A read the model has not located yet.
+
+    ``repo.read_file_range`` that already names a concrete file is a precise read, not a
+    blind guess: routing it to ``codecompass.plan_context`` would hand the model locations
+    instead of the file content it asked for, so it reads again and exhausts its iteration
+    budget without ever being able to write (9 of 9 reads in one live propose run were
+    upgraded this way and the loop ended in ``max_iterations``). Pathless searches stay
+    routable -- locating is what the inspection tool is for.
+    """
+    name = str(tool_name or "").strip()
+    if name == "repo.read_file_range":
+        path = arguments.get("path") if isinstance(arguments, Mapping) else None
+        return not str(path or "").strip()
+    return name in _BLIND_READ_TOOLS
 
 
 def is_read_only_tool(tool_name: str) -> bool:
@@ -95,7 +108,7 @@ def route_read_tool(*, query: str, state: str, allowed_tools: Sequence[str], mut
 def prefer_read_tool(*, session: Any, tool_name: str, arguments: dict[str, Any],
                      service: Any | None = None) -> tuple[str, dict[str, Any]]:
     """Upgrade a blind read to the routed inspection tool; otherwise return the call unchanged."""
-    if not is_blind_read_tool(tool_name):
+    if not is_blind_read_tool(tool_name, arguments):
         return tool_name, arguments
     from agent.cli_backends.helpers import _get_agent_config
 

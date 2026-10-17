@@ -27,9 +27,29 @@ class _Service:
 
 def test_is_blind_read_tool():
     assert tool_routing.is_blind_read_tool('repo.read_file_range')
+    assert tool_routing.is_blind_read_tool('repo.read_file_range', {})
+    assert tool_routing.is_blind_read_tool('repo.read_file_range', {'line_start': 1, 'line_end': 40})
     assert tool_routing.is_blind_read_tool('repo.grep')
     assert not tool_routing.is_blind_read_tool('codecompass.plan_context')
     assert not tool_routing.is_blind_read_tool('repo.apply_patch')
+
+
+def test_a_read_that_names_a_file_is_precise_not_blind(monkeypatch):
+    # The documented flow is "plan_context, then read the named line ranges". Routing a read
+    # that already names its file to plan_context hands back locations instead of content, so
+    # the model can never read and never writes: live run, 9 of 9 reads upgraded, max_iterations.
+    monkeypatch.setattr('agent.cli_backends.helpers._get_agent_config', lambda: {
+        'ananta_worker_tool_loop': {'tiny_router': {'mode': 'active'},
+                                    'allowed_tools': ['codecompass.plan_context', 'repo.read_file_range']}})
+    assert not tool_routing.is_blind_read_tool('repo.read_file_range', {'path': 'agent/workers/workspace.js'})
+    chosen, arguments = tool_routing.prefer_read_tool(
+        session=SimpleNamespace(mode='controlled_workspace', task_prompt='fix it'),
+        tool_name='repo.read_file_range',
+        arguments={'path': 'agent/workers/workspace.js', 'line_start': 1, 'line_end': 200},
+        service=_Service('codecompass.plan_context', 0.9),
+    )
+    assert chosen == 'repo.read_file_range'
+    assert arguments == {'path': 'agent/workers/workspace.js', 'line_start': 1, 'line_end': 200}
 
 
 def test_route_read_tool_returns_confident_candidate():
@@ -77,7 +97,8 @@ def test_prefer_read_tool_upgrades_blind_read(monkeypatch):
     service = _Service('codecompass.plan_context', 0.9)
     session = SimpleNamespace(mode='strict_patch_request', task_prompt='fix the auth guard')
     chosen, arguments = tool_routing.prefer_read_tool(
-        session=session, tool_name='repo.read_file_range', arguments={'path': 'a.py'}, service=service)
+        session=session, tool_name='repo.read_file_range', arguments={'line_start': 1, 'line_end': 40},
+        service=service)
     assert chosen == 'codecompass.plan_context'
     assert arguments == {'query': 'fix the auth guard'}
     assert 'fix the auth guard' in service.decisions[0][1].state
