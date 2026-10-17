@@ -35,10 +35,30 @@ def test_the_proposing_threshold_tracks_the_propose_timeout(fixed_timeout):
 
 
 def test_the_proposing_threshold_is_floored_and_capped(fixed_timeout):
+    # The floor is the Hub's governed propose forward deadline (240s default)
+    # plus the margin, never shorter, so an in-flight forward is not pre-empted.
     assert _recovery({"task_propose_timeout_seconds": 5})._proposing_stale_seconds(
-        SimpleNamespace(task_kind="x", goal_id="")) == rec.PROPOSING_STALE_SECONDS
+        SimpleNamespace(task_kind="x", goal_id="")) == 240 + rec.PROPOSING_STALE_MARGIN_SECONDS
     assert _recovery({"task_propose_timeout_seconds": 100000})._proposing_stale_seconds(
         SimpleNamespace(task_kind="x", goal_id="")) == rec.PROPOSING_STALE_MAX_SECONDS
+
+
+def test_the_proposing_threshold_tracks_the_governed_forward_deadline(fixed_timeout):
+    """A short model timeout must not let the sweep cut an in-flight forward.
+
+    The security policy waits up to ``propose_timeout`` (here 600s) for the
+    forward; the sweep must not reset the task before that forward can have
+    finished, even though the raw model budget is only 120s.
+    """
+    recovery = _recovery(
+        {
+            "task_propose_timeout_seconds": 120,
+            "autopilot_security_level": "balanced",
+            "autopilot_security_policies": {"balanced": {"propose_timeout": 600}},
+        }
+    )
+    task = SimpleNamespace(task_kind="development", goal_id="")
+    assert recovery._proposing_stale_seconds(task) == 600 + rec.PROPOSING_STALE_MARGIN_SECONDS
 
 
 def test_a_long_propose_is_not_reset_but_a_stuck_one_is(fixed_timeout):

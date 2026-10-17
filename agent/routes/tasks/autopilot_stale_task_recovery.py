@@ -144,15 +144,34 @@ class StaleTaskRecovery:
             self.append_trace_event(task.id, "stale_proposing_reset", reason=f"no_output_after_{stale_after}s")
 
     def _proposing_stale_seconds(self, task: Any) -> int:
-        """The proposing threshold of one task: its propose timeout plus a margin, bounded."""
-        timeout = PROPOSING_STALE_SECONDS
+        """The proposing threshold of one task: its effective propose budget plus a margin, bounded.
+
+        The sweep must not reset a task whose propose forward is still in flight.
+        The Hub only gives up on that forward at ``_step_forward_deadline_seconds``
+        (the security-policy ``propose_timeout``, raised to the task's own
+        ``task_propose_timeout_seconds``), which can exceed the worker's raw model
+        budget. The threshold therefore tracks the longer of the worker model
+        timeout and the governed forward deadline.
+        """
+        cfg = _effective_agent_cfg_for_task(loop=self.loop, task=task)
+        budget = max(
+            self._resolve_model_propose_timeout(task, cfg),
+            self._resolve_propose_forward_deadline(cfg),
+        )
+        return max(
+            PROPOSING_STALE_SECONDS,
+            min(budget + PROPOSING_STALE_MARGIN_SECONDS, PROPOSING_STALE_MAX_SECONDS),
+        )
+
+    @staticmethod
+    def _resolve_model_propose_timeout(task: Any, cfg: dict[str, Any]) -> int:
+        """The worker-side model budget for one proposal."""
         try:
             from agent.services.propose_runtime_policy import (
                 resolve_propose_llm_timeout_seconds,
             )
 
-            cfg = _effective_agent_cfg_for_task(loop=self.loop, task=task)
-            timeout = int(
+            return int(
                 resolve_propose_llm_timeout_seconds(
                     effective_config=cfg,
                     task_kind=str(getattr(task, "task_kind", "") or "").strip() or None,
@@ -160,12 +179,22 @@ class StaleTaskRecovery:
             )
         except Exception:
             logging.getLogger("agent.routes.tasks.autopilot_stale_task_recovery").debug(
-                "propose timeout resolution failed; using the stale floor", exc_info=True
+                "propose model timeout resolution failed; using the stale floor", exc_info=True
             )
-        return max(
-            PROPOSING_STALE_SECONDS,
-            min(timeout + PROPOSING_STALE_MARGIN_SECONDS, PROPOSING_STALE_MAX_SECONDS),
-        )
+            return PROPOSING_STALE_SECONDS
+
+    @staticmethod
+    def _resolve_propose_forward_deadline(cfg: dict[str, Any]) -> int:
+        """The Hub-side governed forward deadline for one proposal."""
+        try:
+            from agent.routes.tasks.utils import _step_forward_deadline_seconds
+
+            return int(_step_forward_deadline_seconds("/step/propose", cfg))
+        except Exception:
+            logging.getLogger("agent.routes.tasks.autopilot_stale_task_recovery").debug(
+                "propose forward deadline resolution failed; using the stale floor", exc_info=True
+            )
+            return PROPOSING_STALE_SECONDS
 
     def retry_stale_active(self, tasks: list[Any]) -> None:
         """Recover active tasks that stopped progressing without terminal output.
