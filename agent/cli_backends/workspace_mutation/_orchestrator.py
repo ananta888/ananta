@@ -203,6 +203,15 @@ def run_ananta_worker_workspace_mutation(
     )
     from agent.cli_backends.workspace_mutation.tool_routing import ACTION_NUDGE
 
+    from agent.services._worker_workspace_context_writer import _align_declared_test_command
+
+    # The assignment the model reads must quote a command the policy allows: the loop requires
+    # test.run before final_answer, so a refused command can never be satisfied. It is bound to
+    # the same ``cfg`` list ``test.run`` is judged against, so prompt and gate cannot drift. The
+    # brief file is bound separately (it is written without this config in hand).
+    prompt = _align_declared_test_command(
+        str(prompt or ""), list(cfg.get("allowlisted_test_commands") or [])
+    )
     session.task_prompt = str(prompt or "")
     instructions = _build_mode_instructions(mode)
     nudge_after = int(cfg.get("read_only_nudge_after") or 4)

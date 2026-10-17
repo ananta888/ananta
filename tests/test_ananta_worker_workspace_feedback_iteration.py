@@ -329,3 +329,37 @@ def test_source_write_replaces_stale_test_failure_with_explicit_rerun(tmp_path):
     assert '"status": "test_failed"' not in llm.prompts[2]
     assert 'source_changed_rerun_required' in llm.prompts[2]
     assert '"tool_name": "test.run"' in llm.prompts[2]
+
+
+def test_the_loop_binds_a_declared_test_command_to_the_allowlist(tmp_path):
+    """The prompt the model reads must quote a command ``test.run`` will accept.
+
+    ``test.run`` is mandatory before ``final_answer``, so a brief declaring a command outside
+    ``allowlisted_test_commands`` makes the loop unable to finish: it burns every iteration
+    (live: four ``command_not_allowlisted`` refusals, then ``max_iterations``).
+    """
+    workspace = _setup_workspace(tmp_path)
+    llm = ScriptedLLM([json.dumps({"kind": "final_answer", "answer": "done"})])
+    prompt = (
+        "Improve Ananta. Run the exact allowlisted command: python -m pytest -q -o addopts= "
+        "tests/research_training/test_growth_corpus.py tests/research_training/other.py. Stop."
+    )
+
+    rc, _out, _err = run_ananta_worker_workspace_mutation(
+        prompt,
+        str(workspace),
+        options=[],
+        timeout=10,
+        model=None,
+        llm_runner=llm,
+        config=_config(
+            "controlled_workspace",
+            allowlisted_test_commands=["python -m pytest -q -o addopts= tests/research_training"],
+        ),
+    )
+
+    assert llm.prompts, "the loop must have called the model"
+    seen = llm.prompts[0]
+    assert "Run the exact allowlisted command: python -m pytest -q -o addopts= tests/research_training." in seen
+    assert "test_growth_corpus.py tests/" not in seen
+    assert rc == 0
