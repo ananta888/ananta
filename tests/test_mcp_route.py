@@ -421,3 +421,43 @@ def test_invalid_operation_policy_update_is_atomic(client, app, admin_auth_heade
     assert response.get_json()["message"] == "operation_policy_operation_unknown"
     with app.app_context():
         assert "operation_policy" not in (app.config.get("AGENT_CONFIG") or {})
+
+
+def test_mcp_initialize_and_ping_standard_handshake(client, app, admin_auth_header):
+    _enable_mcp(app)
+
+    init = client.post(
+        "/v1/mcp",
+        headers=admin_auth_header,
+        json={"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-03-26"}},
+    )
+    assert init.status_code == 200
+    body = init.get_json()
+    assert body["id"] == 1
+    assert body["result"]["protocolVersion"] == "2025-03-26"
+    assert "tools" in body["result"]["capabilities"]
+    assert body["result"]["serverInfo"]["name"]
+
+    ping = client.post("/v1/mcp", headers=admin_auth_header, json={"jsonrpc": "2.0", "id": 2, "method": "ping"})
+    assert ping.status_code == 200
+    assert ping.get_json()["result"] == {}
+
+
+def test_mcp_initialized_notification_returns_202(client, app, admin_auth_header):
+    _enable_mcp(app)
+    res = client.post(
+        "/v1/mcp",
+        headers=admin_auth_header,
+        json={"jsonrpc": "2.0", "method": "notifications/initialized"},
+    )
+    assert res.status_code == 202
+
+
+def test_mcp_initialize_respects_exposure_policy(client, app, admin_auth_header):
+    with app.app_context():
+        app.config["AGENT_CONFIG"] = {
+            **(app.config.get("AGENT_CONFIG") or {}),
+            "exposure_policy": {"mcp": {"enabled": False}},
+        }
+    res = client.post("/v1/mcp", headers=admin_auth_header, json={"jsonrpc": "2.0", "id": 1, "method": "initialize"})
+    assert res.status_code == 403
