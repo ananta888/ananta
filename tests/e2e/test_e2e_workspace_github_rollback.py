@@ -16,12 +16,13 @@ import pytest
 WORKSPACE_DIR = Path(__file__).resolve().parent.parent / "tests" / "self_development"
 
 
-def _git(*args: str) -> subprocess.CompletedProcess:
+def _git(*args: str, cwd: str | Path | None = None) -> subprocess.CompletedProcess:
     return subprocess.run(
         ["git", *args],
         capture_output=True,
         text=True,
         check=False,
+        cwd=cwd,
     )
 
 
@@ -53,7 +54,7 @@ def _init_workspace(tmp_path: Path, bare_repo: Path) -> None:
     )
 
     # Push initial state
-    result = _git("push", "-u", "origin", "main")
+    result = _git("push", "-u", "origin", "main", cwd=ws)
     assert result.returncode == 0, f"Initial push failed: {result.stderr}"
 
 
