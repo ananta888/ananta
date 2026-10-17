@@ -123,6 +123,21 @@ def build_mode_instructions(mode: str) -> str:
     return "\n".join(common)
 
 
+def _prompt_within_budget(prompt: str) -> bool:
+    """Whether the backend running this loop would accept ``prompt``.
+
+    The workspace-mutation loop is only reached through ``run_sgpt_command``
+    (``agent/cli_backends/sgpt.py``), which rejects a prompt above
+    ``prompt_token_limit("sgpt")`` *before* dispatching it. Verifying against that same
+    limit fits the evidence to the gate that decides, not to the planner's cheaper
+    ~4-chars-per-token estimate -- the planner approves prompts the gate refuses, and such
+    a refusal aborts the whole proposal instead of trimming the context.
+    """
+    from agent.cli_backends.budget import check_prompt_budget, prompt_token_limit
+
+    return check_prompt_budget(prompt, max_tokens=prompt_token_limit("sgpt")) is None
+
+
 def build_iteration_prompt(
     *,
     original_prompt: str,
@@ -146,7 +161,7 @@ def build_iteration_prompt(
     if nudge:
         parts += ["", "## Handlung erforderlich", nudge]
     if evidence_blocks:
-        from agent.cli_backends.context_budget import available_chars, fit_blocks
+        from agent.cli_backends.context_budget import available_chars, fit_blocks_verified
 
         parts += ["", "## Feedback aus vorherigen Iterationen (Evidence, dedupliziert)"]
         formatted = []
@@ -155,7 +170,15 @@ def build_iteration_prompt(
             if len(serialized) > max_chars_per_block:
                 serialized = serialized[: max_chars_per_block - 14] + "\n…[truncated]"
             formatted.append(f"```json\n{serialized}\n```")
-        # LCTX-012: the evidence gets what the window leaves after task and instructions
-        parts += fit_blocks(formatted, available_chars("\n".join(parts)), site="mutation_loop.evidence",
-                            iteration=iteration)
+        # LCTX-012: the evidence gets what the window leaves after task and instructions, and
+        # it must additionally survive the gate that rejects the prompt before the model call.
+        prefix = list(parts)
+        parts = prefix + fit_blocks_verified(
+            formatted,
+            budget_chars=available_chars("\n".join(prefix)),
+            site="mutation_loop.evidence",
+            iteration=iteration,
+            render=lambda kept: "\n".join(prefix + list(kept)),
+            allowed=_prompt_within_budget,
+        )
     return "\n".join(parts)
