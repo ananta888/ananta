@@ -128,3 +128,49 @@ def test_declared_sharing_a_manifest_a_missing_directory_and_goal_worker_stay_un
         plain = {"id": "d", "worker_execution_context": {}}
         resolved_plain = service.resolve_workspace_dir_for_read(task=plain)
     assert str(resolved_plain).startswith(str(tmp_path / "root"))
+
+
+def test_the_manifest_scope_comes_from_the_briefs_write_declarations(tmp_path):
+    """Only the declared write scope becomes manifest rows -- never files meant for reading."""
+    from agent.services.worker_workspace_service import WorkerWorkspaceService
+
+    description = (
+        "Improve Ananta. Read worker/training/growth/corpus.py and "
+        "tests/research_training/test_growth_corpus.py. "
+        "Create only tests/research_training/test_growth_corpus_boundaries.py. "
+        "Only change these files: agent/services/thing.py, tests/worker/test_thing.py. "
+        "Run the exact allowlisted command: python -m pytest -q tests/."
+    )
+    assert WorkerWorkspaceService._declared_write_files(description) == [
+        "agent/services/thing.py",
+        "tests/research_training/test_growth_corpus_boundaries.py",
+        "tests/worker/test_thing.py",
+    ]
+
+
+def test_declared_write_files_ignore_reads_and_unsafe_paths():
+    from agent.services.worker_workspace_service import WorkerWorkspaceService
+
+    assert WorkerWorkspaceService._declared_write_files(
+        "Read worker/training/growth/corpus.py and docs/notes.md, then stop."
+    ) == []
+    assert WorkerWorkspaceService._declared_write_files("Create only ../escape.py") == []
+    assert WorkerWorkspaceService._declared_write_files("Only change these files: /etc/passwd") == []
+    assert WorkerWorkspaceService._declared_write_files("") == []
+
+
+def test_an_isolated_workspace_declares_the_briefs_files(tmp_path):
+    from agent.services.worker_workspace_service import WorkerWorkspaceService
+
+    shared = _shared_checkout(tmp_path)
+    task = _task("brief-7", shared,
+                 materialized_files=None)
+    task["description"] = "Create only tests/research_training/new_test.py. Read docs/x.md."
+
+    with _app(tmp_path).app_context():
+        WorkerWorkspaceService().resolve_workspace_context(task=task)
+
+    manifest_path = tmp_path / "root" / "self-dev-brief-7" / ".ananta" / "materialization-manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert [row["workspace_path"] for row in manifest] == ["tests/research_training/new_test.py"]
+    assert manifest[0]["allowed_operations"] == ["read", "write", "patch", "replace"]

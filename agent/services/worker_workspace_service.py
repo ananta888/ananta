@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import difflib
 import hashlib
+import re
 import json
 import logging
 import os
@@ -341,13 +342,34 @@ class WorkerWorkspaceService:
         self._write_isolation_manifest(task=task, workspace_dir=workspace_dir, workspace_cfg=workspace_cfg)
         return workspace_dir
 
-    def _write_isolation_manifest(self, *, task: dict, workspace_dir: Path, workspace_cfg: dict) -> None:
-        """Declare the copied baseline's scope -- only what the operator actually named.
+    # The two declarations that name a task's write scope. Files a task merely mentions for
+    # reading ("Read worker/training/growth/corpus.py") must never become writable.
+    _DECLARED_WRITE_PATTERNS = (
+        re.compile(r"Only change these files:\s*(.+?)(?:\.\s|\n|$)", re.IGNORECASE),
+        re.compile(r"Create only\s+(\S+)", re.IGNORECASE),
+    )
 
-        An ingest task carries no contract file list, so a manifest derived from the inherited
-        baseline would just repeat what ``allowed_new_file_globs`` already grants (about eleven
-        thousand rows, ~1MB per workspace) without narrowing anything. Without
-        ``workspace.materialized_files`` no manifest is written and the policy keeps reporting
+    @staticmethod
+    def _declared_write_files(description: str) -> list[str]:
+        """The files a task brief declares for change -- parsed deterministically, no model."""
+        found: list[str] = []
+        for pattern in WorkerWorkspaceService._DECLARED_WRITE_PATTERNS:
+            for match in pattern.finditer(str(description or "")):
+                for candidate in match.group(1).replace("\n", " ").split(","):
+                    for token in candidate.split():
+                        value = token.strip().strip(".,;:")
+                        parts = value.split("/")
+                        if value and "/" in value and ".." not in parts and not value.startswith("/"):
+                            found.append(value)
+        return sorted(set(found))
+
+    def _write_isolation_manifest(self, *, task: dict, workspace_dir: Path, workspace_cfg: dict) -> None:
+        """Declare the copied baseline's scope -- only what the task actually named.
+
+        The scope comes from ``workspace.materialized_files`` or, failing that, from the write
+        declarations of the task brief ("Only change these files: ...", "Create only ..."): both
+        are deterministic, and reading files the task merely mentions must never make them
+        writable. Without any declaration no manifest is written and the policy keeps reporting
         ``no_materialization_manifest`` -- a warning, never a blocker.
         """
         declared = [
@@ -355,6 +377,8 @@ class WorkerWorkspaceService:
             for item in list(workspace_cfg.get("materialized_files") or [])
             if str(item).strip()
         ]
+        if not declared:
+            declared = self._declared_write_files(str((task or {}).get("description") or ""))
         if not declared:
             return
         rows = [
