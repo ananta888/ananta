@@ -1,0 +1,422 @@
+{
+  "$schema": "../todo.schema.json",
+  "id": "todo.self-development-dual-path-exploration-codecompass",
+  "version": 1,
+  "owner": "Ananta",
+  "track": "self-development-dual-path-exploration",
+  "title": "Kontrollierte Redundanz: Dual-Path Self-Development, CodeCompass und verifizierte Exploration",
+  "status": "open",
+  "created_at": "2026-10-18",
+  "updated_at": "2026-10-18",
+  "purpose": "Self-Development und Multi-Agent-Workflows als bewusst unabhängige Problemlösungsstrategien erhalten, mit CodeCompass fundieren, fair vergleichen und über unabhängige programmatische Evaluatoren kontrolliert verbessern.",
+  "goal": "Produktionsreife, evidence-gebundene Explorations- und Evaluationsschleifen mit strukturell unterschiedlichen Kandidaten, belastbarer Kosten-/Qualitätsmessung, unabhängiger Verifikation, nachvollziehbarer Promotion und sicherem Rollback.",
+  "related_todos": [
+    "todos/active/todo.self-evolving-harness.json",
+    "todos/active/todo.qdrant-vector-store-integration.json"
+  ],
+  "reference_material": [
+    {
+      "kind": "user-provided-transcript",
+      "description": "Videotranskript zu automatisierter Suche nach Quantenschaltungen: Proposer + unabhängiger programmatischer Evaluator; mehrere Lösungsfamilien; iterative Optimierung. Aussagen über konkrete Forschungsergebnisse sind keine verifizierte technische Ananta-Evidenz."
+    }
+  ],
+  "architecture_constraints": [
+    "Hub bleibt einziger Control Plane",
+    "Self-Development-Suchzustand und Multi-Agent-Graphzustand bleiben bewusst unabhängig",
+    "Queue/Identity/Auth/Policy/Audit/Evidence/Promotion nicht doppelt implementieren",
+    "CodeCompass ist autorisierte, quellengebundene Retrieval-Schicht; Indizes sind kein Sicherheitsanker",
+    "Harte Benchmarks und Holdouts dürfen nicht von Mutationen überschrieben werden",
+    "Kein autonomes Apply ohne vorhandene Promotion- und Approval-Regeln",
+    "16 GB VRAM: sequentieller Default und adaptive Ressourcengrenzen"
+  ],
+  "phases": [
+    {
+      "id": "P1",
+      "title": "Bestandsaufnahme und Integrationsverträge",
+      "tasks": [
+        "DPE-001",
+        "DPE-002",
+        "DPE-003",
+        "DPE-004"
+      ]
+    },
+    {
+      "id": "P2",
+      "title": "Dual-Path Experimente und unabhängiger Evaluator",
+      "tasks": [
+        "DPE-005",
+        "DPE-006",
+        "DPE-007",
+        "DPE-008",
+        "DPE-009"
+      ]
+    },
+    {
+      "id": "P3",
+      "title": "Exploration, Hardware und Cross-Review",
+      "tasks": [
+        "DPE-010",
+        "DPE-011",
+        "DPE-012",
+        "DPE-013",
+        "DPE-014"
+      ]
+    },
+    {
+      "id": "P4",
+      "title": "Promotion, Sicherheit, Langzeitbewertung",
+      "tasks": [
+        "DPE-015",
+        "DPE-016",
+        "DPE-017",
+        "DPE-018",
+        "DPE-019",
+        "DPE-020"
+      ]
+    }
+  ],
+  "definition_of_done": [
+    "Zwei isolierte Pfade arbeiten an identischen Aufgaben und erzeugen vergleichbare Ergebnisse",
+    "CodeCompass wird im Self-Development nachweislich produktiv abgerufen und kontrolliert in ContextBundles eingespeist",
+    "Programmatische unabhängige Korrektheitsprüfungen und Holdouts prüfen alle Kandidaten",
+    "Mindestens vier Strategiefamilien mit festen Budgets und vergleichbaren Seeds getestet",
+    "16-GB-VRAM-Limits, Crash/Resume, Kill-Switch und Rollback nachweislich getestet",
+    "Konsolidierungsentscheidungen beruhen auf A/B-Benchmark-Evidenz statt bloßer Vermutung"
+  ],
+  "tasks": [
+    {
+      "id": "DPE-001",
+      "title": "Ist-Architektur und tatsächliche Laufzeitpfade auditieren",
+      "status": "open",
+      "priority": "P0",
+      "risk": "medium",
+      "depends_on": [],
+      "details": "Codepfade von HarnessSearchService, EvolutionContextBuilder, NativeGraphOrchestrator, CodeCompass, Sandbox, Benchmarks, Gates, TaskQueue, Promotion und Audit nachzeichnen. Dokumentierte Absichten strikt von erreichbaren produktiven Laufzeitpfaden unterscheiden.",
+      "acceptance_criteria": [
+        "Datei-/Aufrufgraph mit realen Entrypoints, Featureflags, tatsächlicher Verkabelung und belegten Integrationslücken",
+        "Redundanzmatrix: absichtliche algorithmische Vielfalt vs. unbeabsichtigte doppelte Infrastruktur",
+        "Keine neuen Kernservices ohne Gap-Nachweis"
+      ]
+    },
+    {
+      "id": "DPE-002",
+      "title": "Dual-Path-Strategievertrag und Isolationsgrenzen",
+      "status": "open",
+      "priority": "P0",
+      "risk": "medium",
+      "depends_on": [
+        "DPE-001"
+      ],
+      "details": "Self-Development und Multi-Agent-Native-Graph als zwei getrennt versionierte Lösungswege definieren, gemeinsame Hub-Policy/Queue/Evidence benutzen, interne Such-/Graphzustände unabhängig belassen.",
+      "acceptance_criteria": [
+        "Versionierte Strategie-ID samt engine_version, workflow_hash, genome_id, seed, capabilities",
+        "Keine Worker-zu-Worker-Orchestrierung; kein zusätzlicher Control Plane",
+        "Beide Pfade unabhängig aktivierbar und deaktivierbar"
+      ]
+    },
+    {
+      "id": "DPE-003",
+      "title": "Gemeinsames Experiment- und Ergebnis-Schema",
+      "status": "open",
+      "priority": "P0",
+      "risk": "medium",
+      "depends_on": [
+        "DPE-002"
+      ],
+      "details": "Kanonische ExperimentSpec/Attempt/Observation/Score/ArtifactRef definieren: Task, unveränderliche Ausgangsrevision, Strategie, Modell/Revision, Budget, Constraints, Timing, Tokens, VRAM, Evidence-IDs, Git-Diff, Testbelege.",
+      "acceptance_criteria": [
+        "Schemavalidierung, Provenance, Digest, Tenant-/Projektgrenzen",
+        "Originale Texte und Test-Holdouts nicht in Agent-Prompts oder Scores leaken",
+        "Abwärtskompatibler Adapter zu HarnessGenome und ExecutionPlan"
+      ]
+    },
+    {
+      "id": "DPE-004",
+      "title": "CodeCompass Retrieval im Harness produktiv verdrahten",
+      "status": "open",
+      "priority": "P0",
+      "risk": "medium",
+      "depends_on": [
+        "DPE-001",
+        "DPE-003"
+      ],
+      "details": "Hub-seitigen CodeCompassAgenticRetrievalService über vorhandene Capability-/ContextBundle-Ports vor Mutationsplanung und Analyse aufrufen; relevanten Indexstand/Revision sichern; Graph, FTS, Vektor und Hybrid wählbar machen.",
+      "acceptance_criteria": [
+        "Nachweis durch E2E-Trace, dass echte Harness-Aufgaben autorisierte CodeCompass-Abfragen auslösen",
+        "Keine ungeprüften Repositorydaten oder Secrets im Prompt; begrenzte ContextBundles mit Quellenref",
+        "Fallback bei fehlendem/stalem Index explizit und sichtbar, nie stillschweigende Erfolgsbehauptung"
+      ]
+    },
+    {
+      "id": "DPE-005",
+      "title": "CodeCompass-gestützte Architekturhypothesen",
+      "status": "open",
+      "priority": "P1",
+      "risk": "medium",
+      "depends_on": [
+        "DPE-004"
+      ],
+      "details": "Strukturelle Informationen (Abhängigkeiten, Callgraph, Tests, Änderungsradius, historische Fehler) in überprüfbare Hypothesen für Mutationen und alternative Agententopologien übersetzen.",
+      "acceptance_criteria": [
+        "Hypothese benennt konkrete Quellbelege, erwartete Wirkung und Gegenprobe",
+        "Neue Ideen außerhalb reiner Parameteroptimierung unterstützt",
+        "Ablationsstudie mit/ohne CodeCompass vorgeschrieben"
+      ]
+    },
+    {
+      "id": "DPE-006",
+      "title": "Unterschiedliche Exploration-Familien",
+      "status": "open",
+      "priority": "P0",
+      "risk": "medium",
+      "depends_on": [
+        "DPE-002",
+        "DPE-003"
+      ],
+      "details": "Mindestens vier Strategien anbieten: S1 Single Agent + Reflexion, S2 mehrfach unabhängige Samples + Synthese, S3 Planner/Developer/Reviewer/QA im Graph, S4 Harness-Genome-Suche mit selbst vorgeschlagenen Workflows.",
+      "acceptance_criteria": [
+        "Strategien halten unabhängige Kontexte/Seeds und können nicht gegenseitig Ergebnisse vorzeitig lesen",
+        "Bedingungen für Parallelität, sequentielle Ausführung und Abbruch explizit",
+        "Ein gemeinsamer Aufgaben-/Budgetvertrag für fairen Vergleich"
+      ]
+    },
+    {
+      "id": "DPE-007",
+      "title": "Unabhängiger programmatischer Evaluator",
+      "status": "open",
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "DPE-003"
+      ],
+      "details": "Verifizierer außerhalb mutierbarer Genome und Agentprompts; bestehende Benchmarks, Tests, Lint, Typprüfung, Property-Based Testing, Sicherheitschecks und bei geeigneten Aufgaben Z3/Lean durch vorhandene Adapter nutzen.",
+      "acceptance_criteria": [
+        "Falsche oder fehlende Evidenz gilt als Fail, nicht als schwache Pass-Wertung",
+        "Evaluatorversion, Holdout-ID und Scoring gebunden und unveränderbar",
+        "Synthetische Testerfolge nie als Produktionsnachweis ausgeben"
+      ]
+    },
+    {
+      "id": "DPE-008",
+      "title": "Experiment-Runner auf Hub-Queue und Sandbox",
+      "status": "open",
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "DPE-003",
+        "DPE-006",
+        "DPE-007"
+      ],
+      "details": "Beide Pfade durch Hub-autorisierte, begrenzte Task-/Lease-Ausführung samt Queue, Containment, Cancellation und Sandbox verbinden. Kein zweiter Scheduler; HarnessSearchService bleibt eigene fachliche Suchzustandsmaschine.",
+      "acceptance_criteria": [
+        "Verlust von Worker/Hub, Retry, Doppelzustellung, Timeout, Stromunterbrechung und Resume getestet",
+        "Persistierte Idempotenzschlüssel und Statusprojektion verhindern Doppelpromotion",
+        "Keine Host-Execution-Fallbacks"
+      ]
+    },
+    {
+      "id": "DPE-009",
+      "title": "Fairer Benchmark-Korpus und Holdouts",
+      "status": "open",
+      "priority": "P0",
+      "risk": "medium",
+      "depends_on": [
+        "DPE-007",
+        "DPE-008"
+      ],
+      "details": "Reale Ananta-Aufgaben für Regression, Cross-Module-Refactor, Bugfix, Architekturvereinfachung, Testabdeckung, Token-/Kontextoptimierung aufnehmen; Golden-Tests, blind gehaltene Holdouts und mehrere Schwierigkeitsklassen.",
+      "acceptance_criteria": [
+        "Fixierter Ausgangscommit und identische Anforderungen pro Strategie",
+        "Holdouts nicht im Retrieval-Index für Kandidaten sichtbar",
+        "Schwache und starke lokale/Cloud-Modelle getrennt vergleichen"
+      ]
+    },
+    {
+      "id": "DPE-010",
+      "title": "Metriken und Pareto-Front erweitern",
+      "status": "open",
+      "priority": "P1",
+      "risk": "medium",
+      "depends_on": [
+        "DPE-009"
+      ],
+      "details": "Erfolgsrate, funktionale Tests, Performance, Wartbarkeit, Sicherheitsregressionen, Tokens, Geldkosten, Zeit, VRAM-Peak, RAM und Retrieval-Recall@Budget verwenden; keine willkürliche einzige Fitnesszahl.",
+      "acceptance_criteria": [
+        "Pareto-Selektion plus harte Nichtverschlechterungs-Gates",
+        "Konfidenzintervalle/mehrere Seeds und klar benannte Unsicherheit",
+        "Manipulierte/fehlende Messungen machen Variante nicht promotierbar"
+      ]
+    },
+    {
+      "id": "DPE-011",
+      "title": "Adaptive Exploration und Novelty Search",
+      "status": "open",
+      "priority": "P1",
+      "risk": "medium",
+      "depends_on": [
+        "DPE-006",
+        "DPE-010"
+      ],
+      "details": "Exploration über verschiedene Architektur-/Algorithmusfamilien, Novelty-Distanz, Diversity-Quota und begrenzte Exploitation; strukturelle statt nur numerische Mutationen. Konservativen Suchbias durch diversifizierte Hypothesen kontrollieren.",
+      "acceptance_criteria": [
+        "Mindestens ein alternatives strukturelles Konzept wird pro geeigneter Aufgabe geprüft",
+        "Abbruchkriterien und Budgetverbrauch deterministisch",
+        "Novelty wird nicht mit Qualität verwechselt"
+      ]
+    },
+    {
+      "id": "DPE-012",
+      "title": "Blindvergleich und unabhängige Kreuzreviews",
+      "status": "open",
+      "priority": "P1",
+      "risk": "medium",
+      "depends_on": [
+        "DPE-008",
+        "DPE-010"
+      ],
+      "details": "A/B/C-Kandidaten anonymisiert evaluieren; beide Pfade prüfen wechselseitig, aber unabhängige Programme entscheiden harte Kriterien; unterschiedliche LLM-Judges nur ergänzend bei nicht automatisch bewertbaren Aspekten.",
+      "acceptance_criteria": [
+        "Reviewer erhält keinen strategieverratenden Metadatentext",
+        "Konflikte und Judge-Disagreement werden protokolliert",
+        "Keine Selbstfreigabe"
+      ]
+    },
+    {
+      "id": "DPE-013",
+      "title": "Gezielter Hardware-Scheduler für 16 GB VRAM",
+      "status": "open",
+      "priority": "P1",
+      "risk": "medium",
+      "depends_on": [
+        "DPE-008"
+      ],
+      "details": "Sequentielle Ausführung als Default auf 16-GB-eGPU, Parallelität nur bei nachgewiesener GPU-/RAM-Headroom; Kontextlänge, Modellwechsel und Cold-Start als Kostenfaktoren messen.",
+      "acceptance_criteria": [
+        "GPU-OOM führt zu kontrolliertem Fehler oder Fallback entsprechend Policy",
+        "GPU-/RAM-/Token-Budget nachweisbar eingehalten",
+        "Keine überoptimistische Parallel-Kapazitätsannahme"
+      ]
+    },
+    {
+      "id": "DPE-014",
+      "title": "Selbst- und gegenseitige Workflow-Optimierung",
+      "status": "open",
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": [
+        "DPE-011",
+        "DPE-012"
+      ],
+      "details": "Pfad A darf Kandidaten für Pfad B erzeugen und umgekehrt; Änderungen als getrennte versionierte Genomes/ExecutionPlans in isolierter Testumgebung bewerten.",
+      "acceptance_criteria": [
+        "Optimizer darf Gate-, Auth-, Budget-, Secret- und Evidence-Regeln nicht mutieren",
+        "Ein Pfad kann den anderen nicht ohne unabhängige Genehmigung überschreiben",
+        "Rollback für jede Aktivierung erprobt"
+      ]
+    },
+    {
+      "id": "DPE-015",
+      "title": "Promotion, Canary und Rollback über vorhandene Gates",
+      "status": "open",
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "DPE-007",
+        "DPE-010",
+        "DPE-014"
+      ],
+      "details": "Existierende HubEvidenceGateService/MutationGate/Promotion-Controller nutzen; Stage/Canary erst nach gültiger, unabhängiger Bewertung, strikte Policy für produktive Änderungen.",
+      "acceptance_criteria": [
+        "Provenance/Approval an exakte Kandidaten-Digests gebunden",
+        "Regression führt zur automatischen Rücknahme nach unveränderlichen Regeln",
+        "Keine doppelte Berechtigungs- oder Rollback-Implementierung"
+      ]
+    },
+    {
+      "id": "DPE-016",
+      "title": "Ablation: Nutzen absichtlicher Redundanz nachweisen",
+      "status": "open",
+      "priority": "P1",
+      "risk": "medium",
+      "depends_on": [
+        "DPE-009",
+        "DPE-012"
+      ],
+      "details": "Vergleiche A-only, B-only, A+B unabhängige Lösungen, A+B Kreuzreview und gemeinsame Varianten; zusätzlichen Engineering-/Compute-Aufwand erfassen.",
+      "acceptance_criteria": [
+        "Qualitätsgewinn vs. Kosten mit Unsicherheit berichtet",
+        "Konsolidierungsentscheidung erfolgt nur anhand empirischer Evidenz",
+        "Keine Änderung an redundanten Pfaden allein aufgrund von Code-Duplizierung"
+      ]
+    },
+    {
+      "id": "DPE-017",
+      "title": "Sicherheits- und Reward-Hacking-Red-Team",
+      "status": "open",
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "DPE-007",
+        "DPE-015"
+      ],
+      "details": "Prompt-Injection aus Repository/CodeCompass, Test-Manipulation, Feedback-Gaming, versteckte Holdout-Exfiltration, Score-Fälschung, Sandbox-Escape, Cross-Tenant-Leaks, doppelte Tasks und Promotion-Bypass testen.",
+      "acceptance_criteria": [
+        "Negative Tests für Gate-Bypass und manipulierte Messdaten",
+        "Evidenzkette geprüft und Audit vollständig",
+        "Fail-closed sowie Kill-Switch/Containment nachgewiesen"
+      ]
+    },
+    {
+      "id": "DPE-018",
+      "title": "Telemetry, UI und Entscheidungsbegründung",
+      "status": "open",
+      "priority": "P2",
+      "risk": "medium",
+      "depends_on": [
+        "DPE-010",
+        "DPE-016"
+      ],
+      "details": "Bestehende Harness-Read-Modelle und Angular/TUI um Vergleichsansicht, Pareto-Front, Kandidatenlineage, CodeCompass-Quellen, Kosten und differenzierte Freigabestatus erweitern.",
+      "acceptance_criteria": [
+        "Aus jedem Score nachvollziehbarer Run/Quellbeleg abrufbar",
+        "Keine sensiblen Inhalte oder Rohsecrets im UI",
+        "Operator kann beide Pfade getrennt stoppen"
+      ]
+    },
+    {
+      "id": "DPE-019",
+      "title": "E2E- und Recovery-Abnahme",
+      "status": "open",
+      "priority": "P0",
+      "risk": "medium",
+      "depends_on": [
+        "DPE-008",
+        "DPE-015",
+        "DPE-017"
+      ],
+      "details": "Reproduzierbare Offline-Fixtures plus opt-in reale End-to-End-Durchläufe mit lokalen Modellen, CodeCompass Index, zwei Pfaden, Sandbox, Evaluation, Canary und Rollback.",
+      "acceptance_criteria": [
+        "CI-Unit/Integration grün; echte Betriebsbelege gesondert erfasst",
+        "Crash/Resume und falscher CodeCompass-Scope nachweislich beherrscht",
+        "Fehlende reale Evidence als offen markieren"
+      ]
+    },
+    {
+      "id": "DPE-020",
+      "title": "Langfristige Optimierungs- und Konsolidierungsregeln",
+      "status": "open",
+      "priority": "P2",
+      "risk": "medium",
+      "depends_on": [
+        "DPE-016",
+        "DPE-019"
+      ],
+      "details": "Versionierte Entscheidungsregeln entwickeln, wann Pfade zusammengelegt, wieder getrennt oder um neue Strategieanbieter ergänzt werden; Wartungskosten und Qualitätstrends dauerhaft vergleichen.",
+      "acceptance_criteria": [
+        "Änderung an Architektur folgt dokumentiertem Experiment",
+        "Unabhängige Referenzimplementierung für wichtige Prüfpfade bleibt möglich",
+        "Nachweisbar redundante Speicherung/Autorisierung gezielt beseitigen"
+      ]
+    }
+  ]
+}
