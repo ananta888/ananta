@@ -320,3 +320,65 @@ def test_skip_unpublished_dependencies_marks_external_dependency_skipped(runtime
     item = service.status()['items'][0]
     assert item['status'] == 'skipped'
     assert item['reason'] == 'dependency_not_published'
+
+
+def test_required_acceptance_review_blocks_start_without_independent_adapter(runtime):
+    service, _, published = runtime
+    service.policy.value['quality_gates'] = {'require_acceptance_review': True}
+    service.policy.path.write_text(json.dumps(service.policy.value))
+    service.policy = DevelopmentPolicy(service.policy.path)
+    service.import_tasks(form())
+
+    with pytest.raises(ValueError, match='independent_acceptance_reviewer_unavailable'):
+        service.start()
+
+    assert published == []
+    assert service.status()['session'] is None
+
+
+def test_required_review_cannot_be_bypassed_by_old_session_or_contract(runtime):
+    service, _, published = runtime
+    service.import_tasks(form())
+    service.start()
+    service.policy.value['quality_gates'] = {'require_acceptance_review': True}
+    service.policy.path.write_text(json.dumps(service.policy.value))
+    service.policy = DevelopmentPolicy(service.policy.path)
+    item = service.status()['items'][0]
+
+    result = service.dispatch(SimpleNamespace(id=item['task_id'], status='todo'),
+        SimpleNamespace(url='http://registered-worker:5000'),
+        lambda: pytest.fail('missing reviewer must block before Worker execution'))
+
+    assert result.failed
+    assert published == []
+    assert service.status()['items'][0]['reason'] == 'independent_acceptance_reviewer_unavailable'
+
+
+def test_stop_also_revokes_todo_bookkeeping_publication(runtime, monkeypatch):
+    service, _, published = runtime
+    service.stop()
+    monkeypatch.setattr('agent.services.self_development.completion.unblock_satisfied_sources',
+                        lambda *a, **kw: pytest.fail('stopped service must not publish bookkeeping'))
+    monkeypatch.setattr('agent.services.self_development.completion.archive_completed_sources',
+                        lambda *a, **kw: pytest.fail('stopped service must not archive sources'))
+
+    result = service.sync_todo_folder()
+
+    assert result == {'unblocked': [], 'archived': [], 'reason': 'development_stopped'}
+    assert service.status()['stopped'] is True
+    assert published == []
+
+
+def test_hub_refuses_publication_when_worker_skips_required_analysis(runtime):
+    service, _, published = runtime
+    service.policy.value['quality_gates'] = {'require_code_analysis': True}
+    service.policy.path.write_text(json.dumps(service.policy.value))
+    service.policy = DevelopmentPolicy(service.policy.path)
+    service.import_tasks(form())
+    service.start()
+
+    result = execute(service)
+
+    assert result.failed
+    assert published == []
+    assert service.status()['items'][0]['reason'] == 'worker_code_analysis_report_required'
