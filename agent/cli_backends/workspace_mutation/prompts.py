@@ -34,6 +34,7 @@ def _ensure_kinds() -> set[str]:
         KIND_CANNOT_CONTINUE,
         KIND_WORKSPACE_WRITE,
         KIND_PATCH_REQUEST,
+        "code_analysis",
     }
 
 
@@ -87,6 +88,10 @@ def build_mode_instructions(mode: str) -> str:
             "- Du darfst nur innerhalb der erlaubten (materialisierten) Dateien arbeiten.",
             "- Nach jeder Änderung prüft der Hub Diff, Pfade und Policy; das Ergebnis bekommst du als Evidence.",
             "- Verbessere gezielt anhand von DiffResult/PolicyResult/TestResult statt neu zu raten.",
+            "- Nutze fuer die Suche nach relevanten Stellen CodeCompass statt blindem Lesen: "
+            '{"kind":"tool_request","tool_name":"codecompass.plan_context","arguments":{"query":"..."}} '
+            "(auch codecompass.search_symbols, codecompass.search, codecompass.get_file_context).",
+            "- Erst codecompass.plan_context, dann repo.read_file_range nur auf die genannten Zeilenbereiche.",
         ]
     else:
         common += [
@@ -95,15 +100,58 @@ def build_mode_instructions(mode: str) -> str:
             "Regeln (strict_patch_request):",
             "- Du darfst KEINE Dateien direkt ändern; jeder Patch wird vom Hub einzeln validiert und angewendet.",
             "- Nutze fuer Brownfield-Aufgaben bevorzugt: codecompass.plan_context -> repo.read_file_range -> patch_request -> workspace.diff -> test.run.",
+            "- CodeCompass-Werkzeuge stehen bereit und sind der schnellste Weg zu relevanten Stellen: "
+            '{"kind":"tool_request","tool_name":"codecompass.plan_context","arguments":{"query":"..."}}, '
+            "codecompass.search_symbols, codecompass.search, "
+            "codecompass.get_file_context, codecompass.architecture_query.",
+            "- Rätsele NICHT mit repo.read_file_range über Dateien: nutze zuerst codecompass.plan_context, "
+            "dann repo.read_file_range nur auf die dort genannten Zeilenbereiche, dann patch_request.",
             "- Verwende replace_range oder unified_diff statt kompletter Datei-Rewrites; repo.write_file ist nur fuer kleine neue Dateien gedacht.",
             "- PatchResults, Diffs und Policy-Ergebnisse kommen als Evidence zurück.",
         ]
     common += [
+        "- Dateien, die im Auftrag deklariert sind, dürfen `file_not_found` melden — sie existieren dann "
+        "NOCH NICHT und muessen ERST werden: lege sie mit `workspace_write` (neue Datei) oder "
+        "`patch_request` an. `file_not_found` ist kein Blocker, sondern der Hinweis auf eine neue Datei.",
+        "- Fuehre VOR `final_answer` zwingend `test.run` mit dem exakten allowlisteten "
+        "Befehl aus und warte auf dessen Ergebnis.",
         "- Behaupte keine Änderung, die der Hub nicht per Result bestätigt hat.",
         "- Dieses innere Protokoll verwendet `kind`, nicht das äußere `command`/`tool_calls`-Proposal-Schema.",
+        "- Fuehre VOR `final_answer` zwingend `test.run` mit dem exakten allowlisteten "
+        "Befehl aus und warte auf dessen Ergebnis.",
         "- final_answer erst, wenn der letzte PolicyResult akzeptabel ist; sonst markiere das Ergebnis als partial/blocked.",
     ]
     return "\n".join(common)
+
+
+def required_analysis_instructions() -> str:
+    """Describe the source-bound action consumed by the runtime prerequisite."""
+    return (
+        '\nVor jeder Aenderung ist Quellcodeanalyse erforderlich: zuerst einen erfolgreichen '
+        'CodeCompass-Aufruf ausfuehren, dann relevante Quellcodebereiche mit repo.read_file_range lesen '
+        '(codecompass.plan_context materialisiert Bereiche automatisch). Danach explizit antworten: '
+        '{"kind":"code_analysis","sources":[{"path":"app.py","file_sha256":"HASH_AUS_READ_RESULT",'
+        '"line_start":1,"line_end":20}],"findings":"Beobachtetes Verhalten und Aufrufbeziehungen",'
+        '"change_reasoning":"Aenderungsansatz und Architekturfolgen",'
+        '"test_reasoning":"Konkrete Verifikation und relevante Regressionen"}. '
+        'Quellen muessen erfolgreich gelesenen aktuellen Bereichen entsprechen. '
+        'Ohne bestaetigte Analyse sind Schreibaktionen und final_answer gesperrt.'
+    )
+
+
+def _prompt_within_budget(prompt: str) -> bool:
+    """Whether the backend running this loop would accept ``prompt``.
+
+    The workspace-mutation loop is only reached through ``run_sgpt_command``
+    (``agent/cli_backends/sgpt.py``), which rejects a prompt above
+    ``prompt_token_limit("sgpt")`` *before* dispatching it. Verifying against that same
+    limit fits the evidence to the gate that decides, not to the planner's cheaper
+    ~4-chars-per-token estimate -- the planner approves prompts the gate refuses, and such
+    a refusal aborts the whole proposal instead of trimming the context.
+    """
+    from agent.cli_backends.budget import check_prompt_budget, prompt_token_limit
+
+    return check_prompt_budget(prompt, max_tokens=prompt_token_limit("sgpt")) is None
 
 
 def build_iteration_prompt(
@@ -114,6 +162,7 @@ def build_iteration_prompt(
     iteration: int,
     max_iterations: int,
     max_chars_per_block: int,
+    nudge: str | None = None,
 ) -> str:
     """Compose the next-iteration prompt with feedback evidence."""
     parts = [
@@ -125,8 +174,10 @@ def build_iteration_prompt(
         "",
         f"Feedback-Iteration {iteration}/{max_iterations}.",
     ]
+    if nudge:
+        parts += ["", "## Handlung erforderlich", nudge]
     if evidence_blocks:
-        from agent.cli_backends.context_budget import available_chars, fit_blocks
+        from agent.cli_backends.context_budget import available_chars, fit_blocks_verified
 
         parts += ["", "## Feedback aus vorherigen Iterationen (Evidence, dedupliziert)"]
         formatted = []
@@ -135,7 +186,15 @@ def build_iteration_prompt(
             if len(serialized) > max_chars_per_block:
                 serialized = serialized[: max_chars_per_block - 14] + "\n…[truncated]"
             formatted.append(f"```json\n{serialized}\n```")
-        # LCTX-012: the evidence gets what the window leaves after task and instructions
-        parts += fit_blocks(formatted, available_chars("\n".join(parts)), site="mutation_loop.evidence",
-                            iteration=iteration)
+        # LCTX-012: the evidence gets what the window leaves after task and instructions, and
+        # it must additionally survive the gate that rejects the prompt before the model call.
+        prefix = list(parts)
+        parts = prefix + fit_blocks_verified(
+            formatted,
+            budget_chars=available_chars("\n".join(prefix)),
+            site="mutation_loop.evidence",
+            iteration=iteration,
+            render=lambda kept: "\n".join(prefix + list(kept)),
+            allowed=_prompt_within_budget,
+        )
     return "\n".join(parts)

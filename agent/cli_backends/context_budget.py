@@ -48,6 +48,31 @@ def _left_out_notice(count: int) -> str:
     return f"[{count} ältere Einträge ausgelassen, um im Kontextfenster zu bleiben]"
 
 
+def fit_blocks_verified(blocks: Sequence[str], *, budget_chars: int, render: Callable[[list[str]], str],
+                        allowed: Callable[[str], bool], site: str, max_rounds: int = 8,
+                        shrink_factor: float = 0.7, condense: Callable[[str], str] = condense_text,
+                        **detail: object) -> list[str]:
+    """``blocks`` that fit ``budget_chars`` *and* whose rendered prompt ``allowed`` accepts.
+
+    The planner budget counts ~4 chars per token while the prompt budget gate counts with the
+    model tokenizer plus its safety factor, so a prompt the planner judged to fit can still be
+    refused right before the model call -- and that refusal aborts the whole loop instead of
+    shortening the context. The gate is the authority: the budget is shrunk and the blocks
+    refitted until ``allowed(render(blocks))``. Bounded by ``max_rounds``; when nothing is
+    accepted, no evidence is returned rather than a prompt the gate would reject.
+    """
+    remaining = max(0, int(budget_chars))
+    kept: list[str] = []
+    for _ in range(max(1, int(max_rounds))):
+        kept = fit_blocks(blocks, remaining, site=site, condense=condense, **detail)
+        if allowed(render(kept)):
+            return kept
+        if remaining <= 0:
+            break
+        remaining = int(remaining * min(max(float(shrink_factor), 0.1), 1.0))
+    return []
+
+
 def fit_blocks(blocks: Sequence[str], budget_chars: int, *, site: str,
                condense: Callable[[str], str] = condense_text, **detail: object) -> list[str]:
     """``blocks`` (oldest first) within ``budget_chars``: newest complete, older condensed, oldest left out.

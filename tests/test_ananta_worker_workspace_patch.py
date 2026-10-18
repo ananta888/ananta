@@ -249,3 +249,42 @@ def test_resolve_mutation_mode_risk_escalates_to_strict():
     cfg = {"mode_by_task_kind": {"coding": "controlled_workspace"}, "escalate_to_strict_risks": ["high", "critical"]}
     assert policy.resolve_mutation_mode(cfg=cfg, task_kind="coding", risk="high") == "strict_patch_request"
     assert policy.resolve_mutation_mode(cfg=cfg, task_kind="coding", risk="low") == "controlled_workspace"
+
+
+def test_policy_treats_cache_and_log_output_as_neither_allowed_nor_blocked(tmp_path):
+    """Runtime artifacts belong to no change scope.
+
+    Without this a workspace without a materialization manifest can never leave
+    ``policy_violation``: running the allowlisted test command alone writes ``.pytest_cache``
+    and the run log lands in ``data/``, so a correct proposal would still be blocked -- live:
+    ``blocked_changes`` for exactly those paths and ``status: policy_violation``.
+    """
+    for rel in (
+        ".pytest_cache/v/cache/lastfailed",
+        ".pytest_cache/v/cache/nodeids",
+        "data/app.log",
+        "data/mail/runtime-state-v1.sqlite3",
+        "agent/services/new_tool.py",
+    ):
+        path = tmp_path / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("x\n", encoding="utf-8")
+
+    result = _policy().evaluate_changed_files(
+        workspace_dir=tmp_path,
+        changed_rel_paths=[
+            ".pytest_cache/v/cache/lastfailed",
+            ".pytest_cache/v/cache/nodeids",
+            "data/app.log",
+            "data/mail/runtime-state-v1.sqlite3",
+            "agent/services/new_tool.py",
+        ],
+        materialization_manifest=None,
+        require_materialized_scope=True,
+    )
+
+    blocked = [row["path"] for row in result.blocked_changes]
+    assert "agent/services/new_tool.py" in blocked  # the scope itself stays enforced
+    assert not any(rel.startswith((".pytest_cache/", "data/")) for rel in blocked), blocked
+    assert result.allowed_changes == []
+    assert "data/app.log" not in result.allowed_changes

@@ -118,6 +118,11 @@ class CliBackendContext:
     codecompass_task_capability = _ServiceProperty(
         lambda: __import__("agent.services.codecompass_task_capability", fromlist=["issue_task_capability"])
     )
+    codecompass_retrieval_capability = _ServiceProperty(
+        lambda: __import__(
+            "agent.services.codecompass_retrieval_capability_service", fromlist=["verify_retrieval_capability"]
+        )
+    )
     ananta_tool_executor = _ServiceProperty(
         lambda: __import__("agent.services.tools", fromlist=["execute_ananta_tool"]).execute_ananta_tool
     )

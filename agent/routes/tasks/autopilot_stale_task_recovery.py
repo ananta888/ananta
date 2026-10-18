@@ -19,8 +19,13 @@ from agent.routes.tasks.autopilot_task_dispatcher_helpers import (
 )
 
 # Reset tasks stuck in `proposing` with no output back to `todo` so the
-# autopilot can retry them (workers can crash mid-dispatch).
-PROPOSING_STALE_SECONDS = 30
+# autopilot can retry them (workers can crash mid-dispatch). The effective
+# threshold tracks the task's own propose timeout (``resolve_propose_llm_timeout_seconds``)
+# plus a margin, so a worker that is legitimately still proposing is not reset;
+# the floor keeps the sweep useful when no timeout can be resolved.
+PROPOSING_STALE_SECONDS = 120
+PROPOSING_STALE_MARGIN_SECONDS = 60
+PROPOSING_STALE_MAX_SECONDS = 1800
 ASSIGNED_STALE_SECONDS = 60
 IN_PROGRESS_STALE_SECONDS = 120
 RECOVER_WAITING_REVIEW_SECONDS = 30
@@ -89,6 +94,20 @@ def _younger_than(task: Any, now_ts: float, seconds: int) -> bool:
     return bool(updated) and (now_ts - updated) < seconds
 
 
+def _manual_override_active(task: Any, now_ts: float) -> bool:
+    """Whether the task's caller currently drives it (``retry`` holds an override for 600s).
+
+    The repair sweeps and the dispatch gate must agree on who owns the task: the gate already
+    refuses to dispatch while an override is active, so a sweep that retries and then fails the
+    task for standing still would kill a caller-driven retry 60s in (live: ``stale_active_task_auto_failed``
+    68s after ``retry``, before the override ever expired).
+    """
+    try:
+        return float(getattr(task, "manual_override_until", None) or 0) > now_ts
+    except (TypeError, ValueError):
+        return False
+
+
 def _is_recoverable_tooling_output(last_output: str) -> bool:
     lowered = last_output.lower()
     return (
@@ -126,7 +145,10 @@ class StaleTaskRecovery:
         for task in tasks:
             if is_hub_managed_model_recovery_task(task) or _status(task) != "proposing":
                 continue
-            if _younger_than(task, self.now_ts, PROPOSING_STALE_SECONDS) or getattr(task, "last_output", None):
+            if _manual_override_active(task, self.now_ts):
+                continue
+            stale_after = self._proposing_stale_seconds(task)
+            if _younger_than(task, self.now_ts, stale_after) or getattr(task, "last_output", None):
                 continue
             self.update_local_task_status(
                 task.id,
@@ -135,7 +157,60 @@ class StaleTaskRecovery:
                 event_actor="autopilot_tick",
                 force=True,
             )
-            self.append_trace_event(task.id, "stale_proposing_reset", reason="no_output_after_90s")
+            self.append_trace_event(task.id, "stale_proposing_reset", reason=f"no_output_after_{stale_after}s")
+
+    def _proposing_stale_seconds(self, task: Any) -> int:
+        """The proposing threshold of one task: its effective propose budget plus a margin, bounded.
+
+        The sweep must not reset a task whose propose forward is still in flight.
+        The Hub only gives up on that forward at ``_step_forward_deadline_seconds``
+        (the security-policy ``propose_timeout``, raised to the task's own
+        ``task_propose_timeout_seconds``), which can exceed the worker's raw model
+        budget. The threshold therefore tracks the longer of the worker model
+        timeout and the governed forward deadline.
+        """
+        cfg = _effective_agent_cfg_for_task(loop=self.loop, task=task)
+        budget = max(
+            self._resolve_model_propose_timeout(task, cfg),
+            self._resolve_propose_forward_deadline(cfg),
+        )
+        return max(
+            PROPOSING_STALE_SECONDS,
+            min(budget + PROPOSING_STALE_MARGIN_SECONDS, PROPOSING_STALE_MAX_SECONDS),
+        )
+
+    @staticmethod
+    def _resolve_model_propose_timeout(task: Any, cfg: dict[str, Any]) -> int:
+        """The worker-side model budget for one proposal."""
+        try:
+            from agent.services.propose_runtime_policy import (
+                resolve_propose_llm_timeout_seconds,
+            )
+
+            return int(
+                resolve_propose_llm_timeout_seconds(
+                    effective_config=cfg,
+                    task_kind=str(getattr(task, "task_kind", "") or "").strip() or None,
+                )
+            )
+        except Exception:
+            logging.getLogger("agent.routes.tasks.autopilot_stale_task_recovery").debug(
+                "propose model timeout resolution failed; using the stale floor", exc_info=True
+            )
+            return PROPOSING_STALE_SECONDS
+
+    @staticmethod
+    def _resolve_propose_forward_deadline(cfg: dict[str, Any]) -> int:
+        """The Hub-side governed forward deadline for one proposal."""
+        try:
+            from agent.routes.tasks.utils import _step_forward_deadline_seconds
+
+            return int(_step_forward_deadline_seconds("/step/propose", cfg))
+        except Exception:
+            logging.getLogger("agent.routes.tasks.autopilot_stale_task_recovery").debug(
+                "propose forward deadline resolution failed; using the stale floor", exc_info=True
+            )
+            return PROPOSING_STALE_SECONDS
 
     def retry_stale_active(self, tasks: list[Any]) -> None:
         """Recover active tasks that stopped progressing without terminal output.
@@ -147,6 +222,8 @@ class StaleTaskRecovery:
                 continue
             status = _status(task)
             if status not in {"assigned", "in_progress"}:
+                continue
+            if _manual_override_active(task, self.now_ts):
                 continue
             stale_after = ASSIGNED_STALE_SECONDS if status == "assigned" else IN_PROGRESS_STALE_SECONDS
             if _younger_than(task, self.now_ts, stale_after):

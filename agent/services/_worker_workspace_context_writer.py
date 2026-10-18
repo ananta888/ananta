@@ -206,13 +206,116 @@ def _write_agents_and_profile(
     return active_profile
 
 
+_TEST_COMMAND_MARKERS = ("Run the exact allowlisted command:", "Run exactly:")
+
+
+def _allowlisted_test_commands() -> list[str]:
+    """The Worker's test-command allowlist.
+
+    ``AGENT_CONFIG`` when a context provides it, otherwise the persisted
+    ``ananta_worker_workspace_mutation`` block: the brief is written from a path that can run
+    without an app context, and an empty list there would leave a command the policy refuses
+    in the very text the model is told is authoritative.
+    """
+    block = None
+    try:
+        from agent.cli_backends.helpers import _get_agent_config
+
+        candidate = (_get_agent_config() or {}).get("ananta_worker_workspace_mutation")
+        if isinstance(candidate, dict) and candidate.get("allowlisted_test_commands"):
+            block = candidate
+    except Exception:  # noqa: BLE001 - fall through to the persisted block
+        block = None
+    if block is None:
+        try:
+            from agent.services.repository_registry import get_repository_registry
+
+            record = get_repository_registry().config_repo.get_by_key(
+                "ananta_worker_workspace_mutation"
+            )
+            payload = json.loads(getattr(record, "value_json", "") or "{}")
+            if isinstance(payload, dict):
+                block = payload
+        except Exception:  # noqa: BLE001 - a missing config must never break the context bundle
+            block = None
+    if not isinstance(block, dict):
+        return []
+    return [str(item) for item in block.get("allowlisted_test_commands") or [] if str(item).strip()]
+
+
+def _declared_test_command_span(text: str, marker: str) -> tuple[int, int] | None:
+    """Character span of the command that follows ``marker`` (command start, command end)."""
+    index = text.find(marker)
+    if index < 0:
+        return None
+    start = index + len(marker)
+    end = len(text)
+    for stop in ("\n", ". "):
+        position = text.find(stop, start)
+        if position != -1:
+            end = min(end, position)
+    return start, end
+
+
+def _root_covering_command(declared: str, allowed: set[str]) -> str | None:
+    """The allowlisted command whose own test root covers the paths ``declared`` names."""
+    paths = [token for token in declared.split() if token and not token.startswith("-")]
+    for command in sorted(allowed):
+        root = command.split()[-1]
+        if root and any(path == root or path.startswith(root + "/") for path in paths):
+            return command
+    return None
+
+
+def _runs_under_an_allowlisted_entry(command: str, allowed: set[str]) -> bool:
+    """Whether ``command`` is allowed as it stands (exact, or a narrowed scope of one entry)."""
+    try:
+        from agent.services.tools.test_tools import resolve_allowlisted_test_command
+
+        return resolve_allowlisted_test_command(command, sorted(allowed)) is not None
+    except Exception:  # noqa: BLE001 - without the resolver fall back to the exact match
+        return command in allowed
+
+
+def _align_declared_test_command(text: str, allowlist: list[str]) -> str:
+    """Bind a declared test command to the allowlist the Worker enforces.
+
+    An ingested brief can name a command from another scope (``tests/research_training/...``)
+    while the allowlist only covers the configured roots. The mutation loop cannot satisfy that
+    contract -- ``test.run`` is mandatory before ``final_answer`` -- and burns every iteration
+    until ``max_iterations`` hides the real cause. A declaration that already runs under an
+    allowlisted entry (exactly, or narrowed to files under that entry's root) is kept; a
+    declaration with the wrong flags is bound back to the entry; and one no entry covers is left
+    alone so the loop's fail-fast reports the mismatch instead of running the wrong suite.
+    """
+    allowed = {" ".join(str(item).split()) for item in allowlist if str(item).strip()}
+    if not allowed or not str(text or "").strip():
+        return text
+    for marker in _TEST_COMMAND_MARKERS:
+        span = _declared_test_command_span(text, marker)
+        if span is None:
+            continue
+        start, end = span
+        declared = " ".join(text[start:end].split())
+        if not declared or _runs_under_an_allowlisted_entry(declared, allowed):
+            continue
+        replacement = _root_covering_command(declared, allowed)
+        if not replacement:
+            continue
+        return text[:start].rstrip() + " " + replacement + text[end:]
+    return text
+
+
 def _task_brief_content(
     task: dict, *, base_prompt: str, active_profile: Any, include_response_contract: bool, char_limit: int | None
 ) -> str:
     profile_line = f"- Active agent profile: {active_profile.profile_id}" + (
         " (root-only fallback)" if active_profile.is_fallback else ""
     )
-    brief_assignment = _truncate_text(str(base_prompt or "").strip(), limit=char_limit).strip()
+    allowlist = _allowlisted_test_commands()
+    brief_assignment = _align_declared_test_command(
+        _truncate_text(str(base_prompt or "").strip(), limit=char_limit).strip(), allowlist
+    )
     execution_mode = "structured-json-proposal" if include_response_contract else "interactive-workspace-execution"
     task_lines = [
         "# Task Brief",
@@ -225,7 +328,7 @@ def _task_brief_content(
         "## Current assignment (source of truth)",
         brief_assignment or "No task prompt available.",
     ]
-    description = str(task.get("description") or "").strip()
+    description = _align_declared_test_command(str(task.get("description") or "").strip(), allowlist)
     if description and description != str(base_prompt or "").strip():
         task_lines.extend(
             [

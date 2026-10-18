@@ -833,6 +833,9 @@ def create_app(agent: str = "default", *, testing: bool = False) -> Flask:
         app,
     )
     run_startup_phase("core_services", initialize_core_services, app)
+    from agent.bootstrap.self_development import initialize_self_development
+
+    run_startup_phase("self_development", initialize_self_development, app)
     from agent.bootstrap.harness_evolution import initialize_harness_evolution
     run_startup_phase("harness_evolution", initialize_harness_evolution, app)
     from agent.bootstrap.scrum_continuous_improvement import initialize_scrum_continuous_improvement
@@ -924,6 +927,9 @@ def create_app(agent: str = "default", *, testing: bool = False) -> Flask:
 
     run_startup_phase("pi_dispatch_evidence", initialize_pi_dispatch, app)
     run_startup_phase("worker_domain_handlers", _register_worker_domain_handlers, app)
+    from agent.bootstrap.codecompass_worker_tools import initialize_codecompass_worker_tools
+
+    run_startup_phase("codecompass_worker_tools", initialize_codecompass_worker_tools, app)
     if not testing:  # Skip background services in testing mode
         run_startup_phase("background_services", start_background_services, app)
 

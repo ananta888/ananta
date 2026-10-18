@@ -69,6 +69,12 @@ from agent.local_llm_backends import resolve_local_openai_backend
 log = logging.getLogger(__name__)
 
 
+def _log_cli_failure(message: str, *args) -> None:
+    cli_log = logging.getLogger("ananta.worker.cli")
+    cli_log.disabled = False
+    cli_log.warning(message, *args)
+
+
 def run_sgpt_command(
     prompt: str,
     options: list | None = None,
@@ -80,6 +86,7 @@ def run_sgpt_command(
     Führt einen SGPT-Befehl zentral aus, inkl. korrekter Environment-Injektion.
     Gibt (returncode, stdout, stderr) zurück.
     """
+    log.disabled = False
     budget_error = check_prompt_budget(
         prompt,
         max_tokens=prompt_token_limit("sgpt"),
@@ -164,9 +171,17 @@ def run_sgpt_command(
                 timeout=timeout,
                 cwd=cwd,
             )
+            combined = (result.stdout or "") + (result.stderr or "")
+            failed = result.returncode != 0 or any(
+                marker in combined for marker in
+                ("loop_aborted", "worker_proposal_failed", "file_not_found", "Traceback"))
+            if failed:
+                _log_cli_failure("SGPT subprocess rc=%s stdout_tail=%s stderr_tail=%s", result.returncode,
+                                 (result.stdout or "")[-2000:], (result.stderr or "")[-2000:])
             return result.returncode, result.stdout, result.stderr
-        except subprocess.TimeoutExpired:
-            log.error("SGPT Timeout")
+        except subprocess.TimeoutExpired as timeout_error:
+            _log_cli_failure("SGPT Timeout stdout_tail=%s stderr_tail=%s",
+                             str(timeout_error.stdout or "")[-2000:], str(timeout_error.stderr or "")[-2000:])
             return -1, "", "Timeout"
         except Exception as e:
             log.exception(f"SGPT Fehler: {e}")
@@ -185,9 +200,10 @@ def _run_ananta_worker_iterative(
     max_iterations: int = 8,
 ) -> tuple[int, str, str]:
     """Iterative execution loop for ananta-worker."""
-    # AWWPI-013/014: workspace mutation loop takes precedence when enabled and
-    # the resolved mutation mode is not read_only. Falls back to the batch loop
-    # on any setup error so existing behavior never breaks.
+    # Required analysis must never fall back to a loop without that prerequisite.
+    analysis_required = (_get_agent_config().get("ananta_worker_workspace_mutation") or {}).get(
+        "require_code_analysis"
+    ) is True
     try:
         from agent.cli_backends.workspace_mutation import (
             get_workspace_mutation_config,
@@ -195,6 +211,7 @@ def _run_ananta_worker_iterative(
         )
 
         mutation_cfg = get_workspace_mutation_config(workdir)
+        analysis_required = analysis_required or mutation_cfg.get("require_code_analysis") is True
         if (
             mutation_cfg.get("enabled")
             and workdir
@@ -208,7 +225,12 @@ def _run_ananta_worker_iterative(
                 model=model,
                 config={**mutation_cfg, "return_executable_proposal": True},
             )
+        if analysis_required:
+            return 1, '{"kind":"loop_aborted","reason":"required_code_analysis_loop_unavailable"}', ""
     except Exception:
+        if analysis_required:
+            log.exception("required workspace analysis loop unavailable")
+            return 1, '{"kind":"loop_aborted","reason":"required_code_analysis_loop_failed"}', ""
         log.warning("workspace mutation loop unavailable, falling back", exc_info=True)
 
     # AWTCL-010/011: hub-controlled tool loop behind a feature flag; the
@@ -349,6 +371,8 @@ def run_llm_cli_command(
     Führt den konfigurierten CLI-Backend-Aufruf aus.
     Rückgabe: (returncode, stdout, stderr, backend_used)
     """
+    log.disabled = False
+    log.info("cli_dispatch requested=%s role=%s workdir=%s", backend, getattr(settings, "role", ""), workdir)
     requested = (backend or "ananta-worker").strip().lower()
     candidates = _choose_candidates(requested=requested, prompt=prompt, routing_policy=routing_policy)
 

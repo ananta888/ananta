@@ -4,6 +4,7 @@ The loop under test is the closed feedback cycle: worker action ->
 DiffResult/PolicyResult/TestResult -> evidence in the next prompt ->
 next worker action.
 """
+
 import json
 import sys
 
@@ -27,9 +28,7 @@ def _setup_workspace(tmp_path, *, materialized=("app.py",)):
     workspace = tmp_path / "ws"
     workspace.mkdir()
     (workspace / "app.py").write_text("def add(a, b):\n    return a - b\n", encoding="utf-8")
-    manifest = [
-        {"workspace_path": rel, "allowed_operations": ["read", "write", "patch"]} for rel in materialized
-    ]
+    manifest = [{"workspace_path": rel, "allowed_operations": ["read", "write", "patch"]} for rel in materialized]
     ananta_dir = workspace / ".ananta"
     ananta_dir.mkdir()
     (ananta_dir / "materialization-manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
@@ -78,7 +77,9 @@ def test_controlled_workspace_allows_materialized_change_and_creates_diff(tmp_pa
     fixed = "def add(a, b):\n    return a + b\n"
     llm = ScriptedLLM(
         [
-            json.dumps({"kind": "workspace_write", "reason": "fix sign", "files": [{"path": "app.py", "content": fixed}]}),
+            json.dumps(
+                {"kind": "workspace_write", "reason": "fix sign", "files": [{"path": "app.py", "content": fixed}]}
+            ),
             json.dumps({"kind": "final_answer", "answer": "fixed add()"}),
         ]
     )
@@ -187,13 +188,17 @@ def test_failing_test_triggers_second_targeted_iteration(tmp_path):
     llm = ScriptedLLM(
         [
             json.dumps({"kind": "tool_request", "tool_name": "test.run", "arguments": {"command": failing_cmd}}),
-            json.dumps({"kind": "workspace_write", "reason": "fix after failing test", "files": [{"path": "app.py", "content": fixed}]}),
+            json.dumps(
+                {
+                    "kind": "workspace_write",
+                    "reason": "fix after failing test",
+                    "files": [{"path": "app.py", "content": fixed}],
+                }
+            ),
             json.dumps({"kind": "final_answer", "answer": "fixed after test feedback"}),
         ]
     )
-    rc, out, err = _run(
-        workspace, llm, "controlled_workspace", allowlisted_test_commands=[failing_cmd]
-    )
+    rc, out, err = _run(workspace, llm, "controlled_workspace", allowlisted_test_commands=[failing_cmd])
     assert out == "fixed after test feedback"
     # Iteration 2 saw the failing TestResult as evidence.
     assert "test_result" in llm.prompts[1]
@@ -239,16 +244,29 @@ def test_invalid_output_limit_ends_loop(tmp_path):
 def test_cli_bridge_returns_only_hub_allowlisted_verification_after_mutation(tmp_path):
     workspace = _setup_workspace(tmp_path)
     command = f'{sys.executable} -c "from app import add; assert add(2, 3) == 5"'
-    llm = ScriptedLLM([
-        json.dumps({"kind": "workspace_write", "files": [{
-            "path": "app.py", "content": "def add(a, b):\n    return a + b\n",
-        }]}),
-        json.dumps({"kind": "tool_request", "tool_name": "test.run", "arguments": {"command": command}}),
-        json.dumps({"kind": "final_answer", "answer": "fixed and checked"}),
-    ])
+    llm = ScriptedLLM(
+        [
+            json.dumps(
+                {
+                    "kind": "workspace_write",
+                    "files": [
+                        {
+                            "path": "app.py",
+                            "content": "def add(a, b):\n    return a + b\n",
+                        }
+                    ],
+                }
+            ),
+            json.dumps({"kind": "tool_request", "tool_name": "test.run", "arguments": {"command": command}}),
+            json.dumps({"kind": "final_answer", "answer": "fixed and checked"}),
+        ]
+    )
     rc, out, _ = _run(
-        workspace, llm, "controlled_workspace",
-        allowlisted_test_commands=[command], return_executable_proposal=True,
+        workspace,
+        llm,
+        "controlled_workspace",
+        allowlisted_test_commands=[command],
+        return_executable_proposal=True,
     )
     assert rc == 0
     assert json.loads(out)["command"] == command
@@ -266,6 +284,30 @@ def test_cli_bridge_cannot_invent_a_verification_command(tmp_path):
     assert _report(workspace)["outcome"] == "verification_command_required"
 
 
+def test_final_answer_survives_proposal_conversion_as_bounded_artifact(tmp_path):
+    workspace = _setup_workspace(tmp_path)
+    verdict = json.dumps({"approved": True, "criteria_passed": [True], "findings": []})
+    llm = ScriptedLLM(
+        [
+            json.dumps({"kind": "test.run", "command": "python -m pytest"}),
+            json.dumps({"kind": "final_answer", "answer": verdict}),
+        ]
+    )
+    rc, out, _ = _run(
+        workspace,
+        llm,
+        "controlled_workspace",
+        return_executable_proposal=True,
+        allowlisted_test_commands=["python -m pytest"],
+    )
+    assert rc == 0
+    assert json.loads(out)["command"] == "python -m pytest"
+    artifact = json.loads((workspace / ".ananta" / "last-final-answer.json").read_text(encoding="utf-8"))
+    assert artifact["schema"] == "ananta_worker_final_answer.v1"
+    assert artifact["outcome"] == "final_answer"
+    assert artifact["answer"] == verdict
+
+
 def test_max_patch_attempts_per_file_ends_loop(tmp_path):
     workspace = _setup_workspace(tmp_path)
     patch_request = json.dumps(
@@ -277,7 +319,9 @@ def test_max_patch_attempts_per_file_ends_loop(tmp_path):
         }
     )
     llm = ScriptedLLM([patch_request] * 6)
-    rc, out, err = _run(workspace, llm, "strict_patch_request", max_feedback_iterations=6, max_patch_attempts_per_file=2)
+    rc, out, err = _run(
+        workspace, llm, "strict_patch_request", max_feedback_iterations=6, max_patch_attempts_per_file=2
+    )
     payload = json.loads(out)
     assert payload["reason"] == "max_patch_attempts_per_file"
 
@@ -308,9 +352,7 @@ def test_clean_report_passes_changed_files_through(tmp_path):
         "final_policy_result": {"status": "ok", "blocked_changes": []},
     }
     (workspace / ".ananta" / "mutation-report.json").write_text(json.dumps(report), encoding="utf-8")
-    filtered, note = WorkerWorkspaceService._mutation_sync_filter(
-        workspace_dir=workspace, changed_rel_paths=["app.py"]
-    )
+    filtered, note = WorkerWorkspaceService._mutation_sync_filter(workspace_dir=workspace, changed_rel_paths=["app.py"])
     assert filtered == ["app.py"]
     assert note is None
 
@@ -318,14 +360,53 @@ def test_clean_report_passes_changed_files_through(tmp_path):
 def test_source_write_replaces_stale_test_failure_with_explicit_rerun(tmp_path):
     workspace = _setup_workspace(tmp_path)
     command = f"{sys.executable} -c 'import sys;sys.exit(1)'"
-    llm = ScriptedLLM([
-        json.dumps({"kind": "tool_request", "tool_name": "test.run", "arguments": {"command": command}}),
-        json.dumps({"kind": "workspace_write", "files": [{"path": "app.py", "content": "answer = 42\n"}]}),
-        json.dumps({"kind": "final_answer", "answer": "technical observation only"}),
-    ])
+    llm = ScriptedLLM(
+        [
+            json.dumps({"kind": "tool_request", "tool_name": "test.run", "arguments": {"command": command}}),
+            json.dumps({"kind": "workspace_write", "files": [{"path": "app.py", "content": "answer = 42\n"}]}),
+            json.dumps({"kind": "final_answer", "answer": "technical observation only"}),
+        ]
+    )
     rc, _, _ = _run(workspace, llm, "controlled_workspace", allowlisted_test_commands=[command])
     assert rc == 0
     assert '"status": "test_failed"' in llm.prompts[1]
     assert '"status": "test_failed"' not in llm.prompts[2]
-    assert 'source_changed_rerun_required' in llm.prompts[2]
+    assert "source_changed_rerun_required" in llm.prompts[2]
     assert '"tool_name": "test.run"' in llm.prompts[2]
+
+
+def test_the_loop_binds_a_declared_test_command_to_the_allowlist(tmp_path):
+    """The prompt the model reads must quote a command ``test.run`` will accept.
+
+    ``test.run`` is mandatory before ``final_answer``, so a brief declaring a command outside
+    ``allowlisted_test_commands`` makes the loop unable to finish: it burns every iteration
+    (live: four ``command_not_allowlisted`` refusals, then ``max_iterations``).
+    """
+    workspace = _setup_workspace(tmp_path)
+    llm = ScriptedLLM([json.dumps({"kind": "final_answer", "answer": "done"})])
+    # ``-p no:cacheprovider`` is not part of the entry: the declaration cannot run as it stands
+    # and must be bound back to it. (A declaration *narrowed to files under* the entry's root is
+    # a valid scope and is kept -- see tests/worker/test_worker_workspace_task_brief_commands.py.)
+    prompt = (
+        "Improve Ananta. Run the exact allowlisted command: python -m pytest -p no:cacheprovider -o addopts= "
+        "tests/research_training/test_growth_corpus.py tests/research_training/other.py. Stop."
+    )
+
+    rc, _out, _err = run_ananta_worker_workspace_mutation(
+        prompt,
+        str(workspace),
+        options=[],
+        timeout=10,
+        model=None,
+        llm_runner=llm,
+        config=_config(
+            "controlled_workspace",
+            allowlisted_test_commands=["python -m pytest -q -o addopts= tests/research_training"],
+        ),
+    )
+
+    assert llm.prompts, "the loop must have called the model"
+    seen = llm.prompts[0]
+    assert "Run the exact allowlisted command: python -m pytest -q -o addopts= tests/research_training." in seen
+    assert "test_growth_corpus.py tests/" not in seen
+    assert rc == 0
