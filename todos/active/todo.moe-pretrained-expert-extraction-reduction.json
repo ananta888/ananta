@@ -1,0 +1,215 @@
+{
+  "$schema": "../todo.track.schema.json",
+  "version": "1.0",
+  "updated_at": "2026-10-18",
+  "owner": "Ananta",
+  "track": "moe_pretrained_expert_extraction_reduction",
+  "title": "Pretrained MoE Expert Extraction, Pruning und 16-GB-VRAM-Distillation (Kolibri-first)",
+  "status": "planned",
+  "priority": "P1",
+  "purpose": "Vortrainierte MoE-Modelle modellagnostisch analysieren, Expertengruppen selektiv extrahieren, Router konsistent reduzieren, funktional evaluieren und auf fester 16-GB-VRAM-GPU möglichst qualitätserhaltend betreiben; zunächst Kolibri 1 als Forschungsadapter.",
+  "constraints": [
+    "Niemals annehmen, dass einzelne Experten eigenständig vollständige LLMs sind: Attention, Embeddings, Shared Experts, Norms und Router bleiben relevant.",
+    "Experten-IDs sind pro Layer spezifisch; keine globalen Experten ohne explizite Modellunterstützung.",
+    "Die Reduktion verändert meist die Modellfunktion. Keine Qualitäts- oder Geschwindigkeitsversprechen ohne reproduzierbare Messung.",
+    "16 GiB VRAM als hartes Ziel für vollständige GPU-Residency, separat RAM-Offload-Pfad bis 64 GiB; KV-Cache, Runtime-Overhead und Kontext mitzählen.",
+    "Keine automatische produktive Aktivierung ohne Tests, nachvollziehbare Provenance und Rollback.",
+    "Originalmodell bleibt unverändert; abgeleitete Artefakte sind versioniert und reproduzierbar.",
+    "Lizenz und Modellnutzungsbedingungen vor Download, Transformation und Verteilung automatisch prüfen."
+  ],
+  "existing_code_reuse": [
+    "worker/training/growth/transforms.py: upcycle(), prune_experts() nur auf eigener Tiny-Referenzarchitektur; nicht als generische HF/Kolibri-Unterstützung ausgeben.",
+    "docs/adaptive-growth-and-specialist-implementation.md: Research-to-MVP und Benchmarks.",
+    "worker/training/growth/: Experiment, Checkpoints und Evaluationsharness.",
+    "todos/active/todo.codecompass-dmoe-parametric-knowledge-injection.json: separate LoRA-/Knowledge-Experts; andere Semantik, nur gemeinsame Verträge/Registry nutzen.",
+    "llama.cpp-vision-decision und Jev-Parallel-Decision-TODOs: optionaler Inferenzvergleich, keine implizite MTP-Unterstützung."
+  ],
+  "architecture": {
+    "adapters": "MoEArchitectureAdapter für HF config/safetensors, Layer/Router/Expert layout, shared_experts, attention, tensor mapping, GGUF export probes; Kolibri-first, keine blind angenommenen Tensor-Namen.",
+    "pipeline": [
+      "source admission and immutable revision",
+      "architecture inventory",
+      "baseline quality/performance profiling",
+      "per-layer router activation traces on DE/EN and coding workloads",
+      "candidate selection (frequency, diversity, contribution, task-conditional, random controls)",
+      "budget-constrained expert subset search",
+      "router remap and checkpoint surgery",
+      "optional calibration/recovery training or distillation",
+      "accuracy/safety regression and throughput measurement",
+      "signed immutable release candidate; explicit rollback"
+    ],
+    "runtime": "Compare whole-model 16 GiB GPU placement, CPU+GPU offload and original MoE; model-specific llama.cpp/vision-decision support must be checked rather than assumed.",
+    "modes": [
+      "static global pruning",
+      "task-specialized reduced expert bank",
+      "dynamic expert paging/caching without removing model experts",
+      "optional multiple reduced models sharing immutable base where compatible"
+    ]
+  },
+  "tasks": [
+    {
+      "id": "MOEX-001",
+      "title": "Kolibri 1 Architektur und Lizenz verifizieren",
+      "status": "todo",
+      "acceptance": [
+        "Pin official config, model revision, tensor inventory, license and tokenizer.",
+        "Document routed/shared experts, layers, top-k and inference implementation.",
+        "Determine current HF/vLLM and llama.cpp compatibility with actual smoke results."
+      ]
+    },
+    {
+      "id": "MOEX-002",
+      "title": "Generische MoE-Introspektion und Adaptervertrag",
+      "status": "todo",
+      "acceptance": [
+        "List exact expert tensors per layer with shapes, sizes and router maps.",
+        "Reject unknown layouts fail-closed.",
+        "No mutation of upstream safetensors."
+      ]
+    },
+    {
+      "id": "MOEX-003",
+      "title": "Realistische 16-GB-VRAM-Speicherplanung",
+      "status": "todo",
+      "acceptance": [
+        "Estimate weights, router, shared layers, KV cache, quantization overhead, context sizes 4k/16k/32k.",
+        "Report full-GPU feasible vs hybrid vs impossible.",
+        "Model eGPU transfer and CPU/RAM bandwidth impact, measured where available."
+      ]
+    },
+    {
+      "id": "MOEX-004",
+      "title": "Router-Telemetrie auf repräsentativen Aufgaben",
+      "status": "todo",
+      "acceptance": [
+        "Capture layer-wise selection counts, token-conditioned activations, confidence and expert overlap.",
+        "Freeze German, English, code, tool-use and structured-decision datasets.",
+        "Prove routing logging does not leak sensitive prompts."
+      ]
+    },
+    {
+      "id": "MOEX-005",
+      "title": "Mehrere Expert-Selektionsstrategien",
+      "status": "todo",
+      "acceptance": [
+        "Compare activation frequency, contribution ablation, diverse coverage, random and task-specific subsets.",
+        "Select distinct experts per layer subject to memory budget.",
+        "Avoid overfitting via validation/holdout split."
+      ]
+    },
+    {
+      "id": "MOEX-006",
+      "title": "Checkpoint-Extraktion, Router-Remapping, Metadaten",
+      "status": "todo",
+      "acceptance": [
+        "Produce new isolated checkpoint with tensor integrity checks, mapping manifest and source digests.",
+        "Correct remapped router outputs, expert indexing and top-k constraints.",
+        "Load and generate test cases without shape mismatch/NaN."
+      ]
+    },
+    {
+      "id": "MOEX-007",
+      "title": "Erholungstraining und Knowledge-Distillation optional",
+      "status": "todo",
+      "acceptance": [
+        "Compare zero-shot pruning versus calibration/fine-tuning/distillation.",
+        "Use bounded small-scale experiments before Kolibri-scale training.",
+        "Track catastrophic forgetting and unchanged holdout."
+      ]
+    },
+    {
+      "id": "MOEX-008",
+      "title": "Quantisierung und GPU-Offload kombinieren",
+      "status": "todo",
+      "acceptance": [
+        "Compare supported Q4/Q3 or equivalent formats against reduced expert counts.",
+        "Validate target runtime and memory residency, no format promises.",
+        "Record tokens/s, p50/p95 latency, RSS, VRAM, energy where measurable."
+      ]
+    },
+    {
+      "id": "MOEX-009",
+      "title": "Decision-Runner-Kompatibilität getrennt evaluieren",
+      "status": "todo",
+      "acceptance": [
+        "Verify Kolibri architecture conversion/inference support before coupling.",
+        "Compare normal decoding, constrained JSON, direct choice/scoring and parallel-decision paths for same tasks.",
+        "MTP/speculative-decoding only if model/runtime demonstrably supports it; validate probability calibration and correctness."
+      ]
+    },
+    {
+      "id": "MOEX-010",
+      "title": "Ananta-Registry, Evolver und CodeCompass anbinden",
+      "status": "todo",
+      "acceptance": [
+        "Reuse research artifacts, immutable model digests, policy gates and benchmark promotion.",
+        "Evolver searches reduction variants under fixed GPU budget; no unsupported automatic production deploy.",
+        "CodeCompass provides representative coding tasks, test outcomes and regression signals."
+      ]
+    },
+    {
+      "id": "MOEX-011",
+      "title": "A/B Benchmark und Abbruchkriterien",
+      "status": "todo",
+      "acceptance": [
+        "Compare original hybrid-offloaded model, reduced MoE, smaller dense/MoE alternatives and identical multi-agent workflows.",
+        "Measure quality, error types, coding unit-test pass, German-language fidelity, tokens/s and end-to-end completion time.",
+        "Define Pareto frontier quality vs GPU residency vs latency and reject if significantly inferior."
+      ]
+    },
+    {
+      "id": "MOEX-012",
+      "title": "Reproduzierbarkeit, Security und Dokumentation",
+      "status": "todo",
+      "acceptance": [
+        "Track seeds, dataset license, exact revision, checkpoint hashes, commands, machine hardware.",
+        "Negative tests on poisoned models, malformed tensor maps, unwanted weight rewriting, memory oversubscription.",
+        "Write operator guide, recovery/rollback and evidence-backed go/no-go."
+      ]
+    }
+  ],
+  "milestones": [
+    {
+      "id": "M0",
+      "title": "Reality check and baseline",
+      "tasks": [
+        "MOEX-001",
+        "MOEX-002",
+        "MOEX-003",
+        "MOEX-004"
+      ]
+    },
+    {
+      "id": "M1",
+      "title": "Safe extraction and selection",
+      "tasks": [
+        "MOEX-005",
+        "MOEX-006"
+      ]
+    },
+    {
+      "id": "M2",
+      "title": "Optimization and compatibility",
+      "tasks": [
+        "MOEX-007",
+        "MOEX-008",
+        "MOEX-009"
+      ]
+    },
+    {
+      "id": "M3",
+      "title": "Orchestration and evidence",
+      "tasks": [
+        "MOEX-010",
+        "MOEX-011",
+        "MOEX-012"
+      ]
+    }
+  ],
+  "success_criteria": [
+    "At least one correctly loaded reduced derivative with full provenance and reproducible checkpoint conversion.",
+    "Measurements on real 16-GB-VRAM eGPU determine if full residency is possible without excluding KV cache.",
+    "Benchmark reports explicitly quantify quality loss or gain vs same-model baseline; no unverified claims.",
+    "Clear keep/reject decision for Kolibri extraction and documented adapter path for other MoE families."
+  ]
+}
