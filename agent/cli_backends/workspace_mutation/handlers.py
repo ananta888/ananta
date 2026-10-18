@@ -176,12 +176,27 @@ def handle_workspace_write(session: MutationSession, turn: LoopTurn) -> LoopResu
     return None
 
 
+def _rejection_hint(reason: str, state: dict) -> str:
+    """Machine-readable next step for a rejected analysis, so the model acts instead of guessing."""
+    if reason == "code_analysis_source_not_observed":
+        return ("cite_an_observed_source_range_with_its_sha256" if state.get("observed_sources")
+                else "read_a_source_file_range_first")
+    if reason == "codecompass_inspection_required":
+        return "call_codecompass_first"
+    return ""
+
+
 def handle_code_analysis(session: MutationSession, turn: LoopTurn) -> None:
     payload = {key: value for key, value in turn.message.items() if key != "kind"}
     reason = session.analysis_gate.accept(payload)
     turn.row["analysis_status"] = reason or "accepted"
+    data: dict = dict(session.analysis_gate.state())
+    if reason:
+        hint = _rejection_hint(reason, data)
+        if hint:
+            data["action_required"] = hint
     session.add_evidence({"kind": "code_analysis_result", "status": "error" if reason else "ok",
-                          "error": reason, "data": session.analysis_gate.state()})
+                          "error": reason, "data": data})
 
 
 ACTION_HANDLERS: dict[str, ActionHandler] = {

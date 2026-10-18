@@ -220,3 +220,71 @@ def test_real_mutation_loop_requires_analysis_before_applying_source(tmp_path, m
     assert report["code_analysis"]["status"] == ("accepted" if with_analysis else "required")
     if not with_analysis:
         assert json.loads(result[1])["reason"] == "max_iterations"
+
+
+def test_missing_source_read_names_an_existing_file_in_the_directory(tmp_path, monkeypatch):
+    # Given an existing test module beside the path the model guessed.
+    session = _session(tmp_path)
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "test_execution.py").write_text("def test_gate():\n    return True\n")
+    monkeypatch.setattr(tool_actions, "_route_read_tool", lambda s, t, n, a: (n, a))
+    monkeypatch.setattr(tool_actions, "execute_ananta_tool",
+                        lambda **kw: {"status": "error", "error": "file_not_found", "data": {}})
+    # When the read names a file that does not exist.
+    tool_actions.handle_tool_request(session, _turn({
+        "tool_name": "repo.read_file_range",
+        "arguments": {"path": "tests/test_agent_live_gate.py", "line_start": 1, "line_end": 40}}))
+    # Then the answer points at a real source file instead of a bare error.
+    data = session.evidence_blocks[-1]["data"]
+    assert data["action_required"] == "read_one_of_the_existing_source_paths_instead"
+    assert data["existing_paths"] == ["tests/test_execution.py"]
+
+
+def test_successful_document_read_is_flagged_while_analysis_is_pending(tmp_path, monkeypatch):
+    # Given a required analysis gate that observes source files only.
+    session = _session(tmp_path)
+    monkeypatch.setattr(tool_actions, "_route_read_tool", lambda s, t, n, a: (n, a))
+    monkeypatch.setattr(tool_actions, "execute_ananta_tool",
+                        lambda **kw: {"status": "ok", "data": {"file_sha256": "0" * 64}})
+    # When the model reads a document instead of source code.
+    tool_actions.handle_tool_request(session, _turn({
+        "tool_name": "repo.read_file_range",
+        "arguments": {"path": "docs/releases/native-core-gate-buzz-independent.md",
+                      "line_start": 1, "line_end": 45}}))
+    # Then the gate states what it needs to make progress.
+    assert session.evidence_blocks[-1]["data"]["action_required"] == "analysis_requires_a_source_file_range"
+
+
+def test_read_of_a_path_outside_any_existing_directory_names_the_next_tool(tmp_path, monkeypatch):
+    # Given a guessed path whose parent directory does not exist either.
+    session = _session(tmp_path)
+    monkeypatch.setattr(tool_actions, "_route_read_tool", lambda s, t, n, a: (n, a))
+    monkeypatch.setattr(tool_actions, "execute_ananta_tool",
+                        lambda **kw: {"status": "error", "error": "file_not_found", "data": {}})
+    # When the read cannot be resolved at all.
+    tool_actions.handle_tool_request(session, _turn({
+        "tool_name": "repo.read_file_range",
+        "arguments": {"path": "missing/module.py", "line_start": 1, "line_end": 20}}))
+    # Then the bounded answer names the discovery tool.
+    assert session.evidence_blocks[-1]["data"]["action_required"] == "path_does_not_exist_use_repo_list_files"
+
+
+def test_analysis_rejection_carries_an_action_required_hint(tmp_path):
+    # Given an existing source file and a sequence of rejected analyses.
+    path = tmp_path / "app.py"
+    path.write_text("value = 1\n")
+    other = tmp_path / "other.py"
+    other.write_text("other = 1\n")
+    session = _session(tmp_path)
+    # When no CodeCompass observation exists yet.
+    handlers.handle_code_analysis(session, _turn({"kind": "code_analysis", **_analysis(path)}))
+    assert session.evidence_blocks[-1]["data"]["action_required"] == "call_codecompass_first"
+    # When CodeCompass was seen but no source range was observed.
+    session.analysis_gate.observe_codecompass(successful=True)
+    handlers.handle_code_analysis(session, _turn({"kind": "code_analysis", **_analysis(path)}))
+    assert session.evidence_blocks[-1]["data"]["action_required"] == "read_a_source_file_range_first"
+    # When a range was observed but the analysis cites a different file.
+    session.analysis_gate.observe_range(**_analysis(path)["sources"][0])
+    handlers.handle_code_analysis(session, _turn({"kind": "code_analysis", **_analysis(other)}))
+    assert (session.evidence_blocks[-1]["data"]["action_required"]
+            == "cite_an_observed_source_range_with_its_sha256")

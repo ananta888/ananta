@@ -75,7 +75,7 @@ def test_plan_context_materializes_line_range_evidence(monkeypatch):
         return {'status': 'ok', 'tool_name': tool_name, 'data': {'lines': arguments.get('line_start')}}
 
     monkeypatch.setattr(tool_actions, 'execute_ananta_tool', fake_execute)
-    session = SimpleNamespace(workspace='/ws')
+    session = SimpleNamespace(workspace='/ws', cfg={})
     result = {'status': 'ok', 'data': {'context_bundle': {'location_refs': [
         {'path': 'agent/a.py', 'line_start': 3, 'line_end': 9},
         {'path': 'agent/b.py', 'line_start': 1, 'line_end': 2},
@@ -87,6 +87,36 @@ def test_plan_context_materializes_line_range_evidence(monkeypatch):
     assert calls[0][2] == 'tc-1:range:1'
     materialized = result['data']['materialized_range_results']
     assert len(materialized) == 2
+
+
+def test_materialization_prefers_source_refs_while_analysis_is_required(monkeypatch):
+    """A retrieval bundle led by documents must still observe a source range.
+
+    The required analysis gate accepts source-file ranges only. When the score
+    ranking put five documents in front of the single ``.py`` ref, the fixed
+    materialization budget read nothing observable and the loop burned its
+    iterations re-reading documents.
+    """
+    calls = []
+
+    def fake_execute(*, tool_name, arguments, workspace_dir, tool_call_id, config=None):
+        calls.append(arguments)
+        return {'status': 'ok', 'tool_name': tool_name, 'data': {}}
+
+    monkeypatch.setattr(tool_actions, 'execute_ananta_tool', fake_execute)
+    session = SimpleNamespace(workspace='/ws', cfg={'require_code_analysis': True})
+    result = {'status': 'ok', 'data': {'context_bundle': {'location_refs': [
+        {'path': 'docs/architecture/design.md', 'line_start': 1, 'line_end': 120},
+        {'path': 'todos/archiv/todo-one.json', 'line_start': 1, 'line_end': 120},
+        {'path': 'docs/contracts/contract.md', 'line_start': 1, 'line_end': 120},
+        {'path': 'test-reports/live-click/run.json', 'line_start': 1, 'line_end': 120},
+        {'path': 'agent/services/gate.py', 'line_start': 1, 'line_end': 120},
+        {'path': 'tests/hub/test_gate.py', 'line_start': 1, 'line_end': 120},
+    ]}}}
+    tool_actions._materialize_context_ranges(session, result, 'tc-1', {'materialization_manifest': {}})
+    materialized = [c['path'] for c in calls]
+    assert materialized == ['agent/services/gate.py', 'tests/hub/test_gate.py',
+                            'docs/architecture/design.md', 'todos/archiv/todo-one.json']
 
 
 def _stub_planner(monkeypatch, refs):

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from agent.cli_backends.workspace_mutation.analysis_reads import annotate_analysis_read, prioritize_source_refs
 from agent.cli_backends.workspace_mutation.session import LoopResult, LoopTurn, MutationSession
 from agent.cli_backends.workspace_mutation.tool_routing import is_read_only_tool
 from agent.cli_backends.workspace_mutation.tools import build_tool_result, execute_ananta_tool
@@ -151,6 +152,8 @@ def _materialize_context_ranges(
 ) -> None:
     """``codecompass.plan_context``: read the first location refs as line ranges into the result."""
     refs = list(((result.get("data") or {}).get("context_bundle") or {}).get("location_refs") or [])
+    if session.cfg.get("require_code_analysis") is True:
+        refs = prioritize_source_refs(refs)
     materialized = []
     for ref_index, ref in enumerate(refs[:_MAX_MATERIALIZED_CONTEXT_REFS], start=1):
         path = str((ref or {}).get("path") or "").strip()
@@ -233,6 +236,8 @@ def handle_tool_request(session: MutationSession, turn: LoopTurn) -> LoopResult 
                     path=str(source.get("path") or ""), file_sha256=str(data.get("file_sha256") or ""),
                     line_start=int(data.get("line_start") or 0), line_end=int(data.get("line_end") or 0),
                 )
+    if tool_name == "repo.read_file_range":
+        annotate_analysis_read(session, result, arguments)
     if tool_name == "test.run":
         if str(result.get("status") or "") == "ok" and str(arguments.get("command") or "").strip():
             session.verification_command = str(arguments.get("command")).strip()

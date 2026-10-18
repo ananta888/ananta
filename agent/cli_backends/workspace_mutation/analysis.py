@@ -9,7 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Final, TypedDict
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, ValidationError
@@ -19,6 +19,16 @@ _SOURCE_SUFFIXES: Final = frozenset({
     ".go", ".rs", ".sh", ".bash", ".java", ".c", ".h", ".cpp",
     ".cs", ".rb", ".php", ".vue", ".svelte", ".sql",
 })
+
+
+def is_source_reference(path: str) -> bool:
+    """True when a path can count as an observed analysis source.
+
+    The gate observes bytes of source files only; documents, reports and
+    manifests cannot authorize a mutation. One predicate keeps the gate,
+    the context materialization and the read hints from drifting apart.
+    """
+    return PurePosixPath(str(path or "")).suffix in _SOURCE_SUFFIXES
 
 
 class SourceReference(BaseModel):
@@ -74,7 +84,7 @@ class CodeAnalysisGate:
         if not self.codecompass_observed or line_start < 1 or line_end < line_start:
             return
         target = (self.workspace / path).resolve()
-        if not target.is_relative_to(self.workspace) or target.suffix not in _SOURCE_SUFFIXES:
+        if not target.is_relative_to(self.workspace) or not is_source_reference(str(target)):
             return
         try:
             content = target.read_bytes()
