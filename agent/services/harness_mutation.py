@@ -22,7 +22,16 @@ from ananta_contracts.harness_genome import (
 )
 from ananta_contracts.harness_invariants import IMMUTABLE_GENOME_PATHS
 
-MUTATION_TYPES = ("parametric", "structural", "prompt", "routing", "tool_policy", "context_policy", "code_patch")
+MUTATION_TYPES = (
+    "parametric",
+    "structural",
+    "prompt",
+    "routing",
+    "tool_policy",
+    "context_policy",
+    "retrieval_policy",
+    "code_patch",
+)
 IMMUTABLE_PATCH_MODULES = frozenset(
     {
         "agent/services/hub_evidence_gate_service.py",
@@ -96,10 +105,34 @@ def _add_few_shot(genome: HarnessGenome, params: Mapping) -> HarnessGenome:
     return replace(genome, prompt=replace(genome.prompt, few_shot_refs=refs))
 
 
+def _boost_graph_retrieval(genome: HarnessGenome, params: Mapping) -> HarnessGenome:
+    target = params.get("graph_weight")
+    if type(target) is not int and type(target) is not float:
+        raise MutationError("mutation_retrieval_graph_weight_invalid")
+    if not 0.0 < target <= 1.0 or target <= genome.retrieval.graph_weight:
+        raise MutationError("mutation_retrieval_graph_weight_invalid")
+    return replace(genome, retrieval=replace(genome.retrieval, graph_weight=float(target)))
+
+
+def _deepen_retrieval(genome: HarnessGenome, params: Mapping) -> HarnessGenome:
+    top_k = params.get("top_k", genome.retrieval.top_k)
+    candidate_budget = params.get("candidate_budget", genome.retrieval.candidate_budget)
+    if type(top_k) is not int or type(candidate_budget) is not int:
+        raise MutationError("mutation_retrieval_depth_invalid")
+    if top_k < genome.retrieval.top_k or candidate_budget < genome.retrieval.candidate_budget:
+        raise MutationError("mutation_retrieval_depth_invalid")
+    return replace(
+        genome,
+        retrieval=replace(genome.retrieval, top_k=top_k, candidate_budget=candidate_budget),
+    )
+
+
 DEFAULT_OPERATORS: dict[str, tuple[str, MutationOperator]] = {
     "widen_context": ("context_policy", _widen_context),
     "enable_action_fusion": ("tool_policy", _enable_action_fusion),
     "add_few_shot": ("prompt", _add_few_shot),
+    "boost_graph_retrieval": ("retrieval_policy", _boost_graph_retrieval),
+    "deepen_retrieval": ("retrieval_policy", _deepen_retrieval),
 }
 
 
@@ -107,7 +140,13 @@ DEFAULT_OPERATORS: dict[str, tuple[str, MutationOperator]] = {
 class MutationEngine:
     operators: Mapping[str, tuple[str, MutationOperator]] = field(default_factory=lambda: dict(DEFAULT_OPERATORS))
     budget: Mapping[str, int] = field(
-        default_factory=lambda: {"context_policy": 3, "tool_policy": 3, "prompt": 3, "code_patch": 2}
+        default_factory=lambda: {
+            "context_policy": 3,
+            "tool_policy": 3,
+            "prompt": 3,
+            "retrieval_policy": 3,
+            "code_patch": 2,
+        }
     )
     allowed_patch_modules: frozenset[str] = frozenset()
     _spent: dict[str, int] = field(default_factory=dict)
