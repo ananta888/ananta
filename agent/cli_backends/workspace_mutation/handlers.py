@@ -20,6 +20,7 @@ from agent.cli_backends.workspace_mutation.audit_events import emit_final_answer
 from agent.cli_backends.workspace_mutation.session import LoopResult, LoopTurn, MutationSession
 from agent.cli_backends.workspace_mutation.tool_actions import (
     KIND_PATCH_REQUEST,
+    block_unanalyzed_mutation,
     handle_patch_request,
     handle_tool_request,
 )
@@ -37,6 +38,12 @@ ActionHandler = Callable[[MutationSession, LoopTurn], "LoopResult | None"]
 
 
 def handle_final_answer(session: MutationSession, turn: LoopTurn) -> LoopResult:
+    if session.cfg.get("require_code_analysis") is True and session.analysis_gate.pending:
+        return session.finish_with_summary(
+            "code_analysis_required",
+            {"kind": "final_answer_blocked", "reason": "code_analysis_required",
+             "code_analysis": session.analysis_gate.state()}, turn.err,
+        )
     final_check = session.hub_check(iteration_number=turn.iteration)
     policy_status = str((final_check.get("policy_result") or {}).get("status") or "ok")
     source_line_status = str((final_check.get("source_line_policy_result") or {}).get("status") or "ok")
@@ -125,6 +132,8 @@ def _write_one_file(
 
 
 def handle_workspace_write(session: MutationSession, turn: LoopTurn) -> LoopResult | None:
+    if block_unanalyzed_mutation(session, turn):
+        return None
     if session.mode != "controlled_workspace":
         turn.row["result"] = "rejected_direct_write_in_strict_mode"
         session.add_evidence(
@@ -167,7 +176,16 @@ def handle_workspace_write(session: MutationSession, turn: LoopTurn) -> LoopResu
     return None
 
 
+def handle_code_analysis(session: MutationSession, turn: LoopTurn) -> None:
+    payload = {key: value for key, value in turn.message.items() if key != "kind"}
+    reason = session.analysis_gate.accept(payload)
+    turn.row["analysis_status"] = reason or "accepted"
+    session.add_evidence({"kind": "code_analysis_result", "status": "error" if reason else "ok",
+                          "error": reason, "data": session.analysis_gate.state()})
+
+
 ACTION_HANDLERS: dict[str, ActionHandler] = {
+    "code_analysis": handle_code_analysis,
     KIND_FINAL_ANSWER: handle_final_answer,
     KIND_NEEDS_APPROVAL: handle_stop_request,
     KIND_CANNOT_CONTINUE: handle_stop_request,

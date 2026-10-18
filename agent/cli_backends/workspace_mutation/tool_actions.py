@@ -22,6 +22,16 @@ _MAX_MATERIALIZED_CONTEXT_REFS = 4
 TEST_COMMAND_REFUSAL_BUDGET = 2
 
 
+def block_unanalyzed_mutation(session: MutationSession, turn: LoopTurn) -> bool:
+    """Apply the same analysis prerequisite at every mutation entry point."""
+    if session.cfg.get("require_code_analysis") is not True or not session.analysis_gate.pending:
+        return False
+    turn.row["result"] = "code_analysis_required"
+    session.add_evidence({"kind": "code_analysis_result", "status": "policy_blocked",
+                          "error": "code_analysis_required", "data": session.analysis_gate.state()})
+    return True
+
+
 def build_patch_tool_call(message: dict[str, Any], rel: str) -> tuple[str, dict[str, Any]]:
     """Translate a ``patch_request`` message into the hub tool call (name, arguments)."""
     variant = str(message.get("variant") or "unified_diff").strip().lower()
@@ -100,6 +110,8 @@ def _register_approval(session: MutationSession, tool_name: str, arguments: dict
 
 
 def handle_patch_request(session: MutationSession, turn: LoopTurn) -> LoopResult | None:
+    if block_unanalyzed_mutation(session, turn):
+        return None
     message = turn.message
     tool_call_id = session.next_tool_call_id("patch_result")
     rel = str(message.get("target_path") or "").strip()
@@ -166,10 +178,13 @@ def handle_tool_request(session: MutationSession, turn: LoopTurn) -> LoopResult 
     tool_name = str(turn.message.get("tool_name") or "").strip()
     arguments = dict(turn.message.get("arguments") or {})
     tool_name, arguments = _route_read_tool(session, turn, tool_name, arguments)
+    if tool_name in {"repo.write_file", "repo.apply_patch"} and block_unanalyzed_mutation(session, turn):
+        return None
     streak = getattr(session, "read_only_streak", 0)
     read_only = is_read_only_tool(tool_name)
     force_after = int((session.cfg or {}).get("force_action_after") or 6)
-    if read_only and streak >= force_after:
+    analysis_pending = session.cfg.get("require_code_analysis") is True and session.analysis_gate.pending
+    if read_only and streak >= force_after and not analysis_pending:
         from agent.cli_backends.workspace_mutation.tool_routing import ACTION_NUDGE
 
         blocked = build_tool_result(
@@ -199,8 +214,25 @@ def handle_tool_request(session: MutationSession, turn: LoopTurn) -> LoopResult 
         tool_call_id=tool_call_id,
         config=tool_cfg,
     )
-    if tool_name == "codecompass.plan_context":
+    if tool_name.startswith("codecompass.") and session.cfg.get("require_code_analysis") is True:
+        session.analysis_gate.observe_codecompass(successful=result.get("status") == "ok")
+    if tool_name == "codecompass.plan_context" and result.get("status") == "ok":
         _materialize_context_ranges(session, result, tool_call_id, tool_cfg)
+    if session.cfg.get("require_code_analysis") is True:
+        reads = ((result.get("data") or {}).get("materialized_range_results") or [])
+        if tool_name == "repo.read_file_range":
+            reads = [result]
+        for read in reads:
+            data = read.get("data") or {}
+            if read.get("status") != "ok":
+                continue
+            for source in read.get("evidence") or []:
+                if source.get("kind") != "file_excerpt" or source.get("truncated") or not source.get("excerpt"):
+                    continue
+                session.analysis_gate.observe_range(
+                    path=str(source.get("path") or ""), file_sha256=str(data.get("file_sha256") or ""),
+                    line_start=int(data.get("line_start") or 0), line_end=int(data.get("line_end") or 0),
+                )
     if tool_name == "test.run":
         if str(result.get("status") or "") == "ok" and str(arguments.get("command") or "").strip():
             session.verification_command = str(arguments.get("command")).strip()

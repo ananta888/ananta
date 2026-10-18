@@ -8,6 +8,9 @@ Workers receive Git-free source exports and no GitHub publication credential.
 The service is disabled unless `ANANTA_SELF_DEVELOPMENT_POLICY_FILE` names an
 explicit Hub-private operator policy.
 
+For mandatory source analysis, independent acceptance review and the current
+role-workflow integration boundary, see [Self-development quality gates](self-development-quality-gates.md).
+
 ## Operator commands
 
 From the repository root:

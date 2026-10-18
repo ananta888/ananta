@@ -3,10 +3,51 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Final, TypeAlias, TypedDict
 
 from agent.services.self_development.contracts import DONE, flatten_tasks, task_contract
 from agent.services.self_development.workspace import git
+
+JSONValue: TypeAlias = str | int | float | bool | None | list['JSONValue'] | dict[str, 'JSONValue']
+MAX_REQUIREMENTS_BYTES: Final = 65536
+
+
+class TaskRequirements(TypedDict):
+    acceptance_criteria: JSONValue
+    references: JSONValue
+    type: JSONValue
+    goal: JSONValue
+    document_goal: JSONValue
+    document_purpose: JSONValue
+
+
+class InvalidTaskRequirements(ValueError):
+    """Requirements cannot be forwarded intact inside the bounded assignment."""
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+
+
+def task_requirements(task: Mapping[str, JSONValue],
+                      document: Mapping[str, JSONValue]) -> TaskRequirements:
+    """Copy source requirements without treating metadata as execution authority."""
+    requirements: TaskRequirements = {
+        'acceptance_criteria': task.get('acceptance_criteria', []),
+        'references': task.get('references', []),
+        'type': task.get('type', ''),
+        'goal': task.get('goal', ''),
+        'document_goal': document.get('goal', ''),
+        'document_purpose': document.get('purpose', ''),
+    }
+    try:
+        encoded = json.dumps(requirements, ensure_ascii=True, allow_nan=False)
+    except (TypeError, ValueError, RecursionError) as exc:
+        raise InvalidTaskRequirements('invalid_task_requirements') from exc
+    if len(encoded) > MAX_REQUIREMENTS_BYTES:
+        raise InvalidTaskRequirements('task_requirements_too_large')
+    return json.loads(encoded)
 
 
 def is_catalog_source(name: str) -> bool:
@@ -43,7 +84,9 @@ def import_document(document: dict, source: str, policy) -> list[dict]:
         key = hashlib.sha256((source + '\0' + identifier).encode()).hexdigest()[:32]
         reason = None
         contract = None
+        requirements = {}
         try:
+            requirements = task_requirements(task, document)
             contract = task_contract(task)
             policy.authorize_contract(contract)
         except ValueError as exc:
@@ -59,7 +102,7 @@ def import_document(document: dict, source: str, policy) -> list[dict]:
             'description': str(task.get('description') or task.get('implementation_note') or ''),
             'original_status': original, 'status': 'blocked' if reason else 'ready',
             'reason': reason, 'dependencies': [d for d in dependencies if d not in done],
-            'contract': contract, 'source_execution': task.get('execution')})
+            'contract': contract, 'source_execution': task.get('execution'), **requirements})
     return result
 
 

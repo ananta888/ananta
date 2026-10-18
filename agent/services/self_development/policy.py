@@ -42,6 +42,11 @@ class DevelopmentPolicy:
             raise ValueError('development_dependency_policy_invalid')
         self._validate_profiles()
         self._validate_planning()
+        quality = self.value.get('quality_gates', {})
+        if (not isinstance(quality, dict)
+                or set(quality) - {'require_code_analysis', 'require_acceptance_review'}
+                or any(not isinstance(flag, bool) for flag in quality.values())):
+            raise ValueError('development_quality_policy_invalid')
 
     def _validate_profiles(self):
         documented_roots = set(self.value.get('allowed_roots') or [])

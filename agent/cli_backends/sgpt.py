@@ -200,9 +200,10 @@ def _run_ananta_worker_iterative(
     max_iterations: int = 8,
 ) -> tuple[int, str, str]:
     """Iterative execution loop for ananta-worker."""
-    # AWWPI-013/014: workspace mutation loop takes precedence when enabled and
-    # the resolved mutation mode is not read_only. Falls back to the batch loop
-    # on any setup error so existing behavior never breaks.
+    # Required analysis must never fall back to a loop without that prerequisite.
+    analysis_required = (_get_agent_config().get("ananta_worker_workspace_mutation") or {}).get(
+        "require_code_analysis"
+    ) is True
     try:
         from agent.cli_backends.workspace_mutation import (
             get_workspace_mutation_config,
@@ -210,6 +211,7 @@ def _run_ananta_worker_iterative(
         )
 
         mutation_cfg = get_workspace_mutation_config(workdir)
+        analysis_required = analysis_required or mutation_cfg.get("require_code_analysis") is True
         if (
             mutation_cfg.get("enabled")
             and workdir
@@ -223,7 +225,12 @@ def _run_ananta_worker_iterative(
                 model=model,
                 config={**mutation_cfg, "return_executable_proposal": True},
             )
+        if analysis_required:
+            return 1, '{"kind":"loop_aborted","reason":"required_code_analysis_loop_unavailable"}', ""
     except Exception:
+        if analysis_required:
+            log.exception("required workspace analysis loop unavailable")
+            return 1, '{"kind":"loop_aborted","reason":"required_code_analysis_loop_failed"}', ""
         log.warning("workspace mutation loop unavailable, falling back", exc_info=True)
 
     # AWTCL-010/011: hub-controlled tool loop behind a feature flag; the

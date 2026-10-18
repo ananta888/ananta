@@ -6,6 +6,7 @@ and the final ``.ananta/mutation-report.json``. The per-kind action
 handlers (``handlers``) only talk to this object, which keeps the loop
 driver in ``_orchestrator`` small.
 """
+
 from __future__ import annotations
 
 import json
@@ -15,6 +16,7 @@ import uuid
 from dataclasses import dataclass
 from typing import Any
 
+from agent.cli_backends.workspace_mutation.analysis import CodeAnalysisGate
 from agent.cli_backends.workspace_mutation.audit_events import emit_evaluation_events
 from agent.cli_backends.workspace_mutation.signatures import changes_signature, evidence_signature
 from agent.cli_backends.workspace_mutation.tools import extract_policy_config
@@ -65,6 +67,7 @@ class MutationSession:
         self.cfg = cfg
         self.mode = mode
         self.workspace = workspace
+        self.analysis_gate = CodeAnalysisGate(required=cfg.get("require_code_analysis") is True, workspace=workspace)
         self.task_id = task_id
         self.task_prompt = ""  # set by the loop driver; used as the tool_routing decision state
         self.read_only_streak = 0
@@ -172,8 +175,11 @@ class MutationSession:
         commands = list(self.cfg.get("allowlisted_test_commands") or [])
         verification: dict[str, Any] = {"status": "stale", "reason": "source_changed_rerun_required"}
         if len(commands) == 1:
-            verification["next_action"] = {"kind": "tool_request", "tool_name": "test.run",
-                                           "arguments": {"command": commands[0]}}
+            verification["next_action"] = {
+                "kind": "tool_request",
+                "tool_name": "test.run",
+                "arguments": {"command": commands[0]},
+            }
         check["test_result"] = verification
         self.add_evidence(check)
 
@@ -199,6 +205,7 @@ class MutationSession:
             "session_id": self.session_id,
             "task_id": self.task_id,
             "mutation_mode": self.mode,
+            "code_analysis": self.analysis_gate.state(),
             "outcome": outcome,
             "baseline": self.baseline_meta,
             "final_policy_result": self.last_policy_result,
@@ -216,26 +223,52 @@ class MutationSession:
         except OSError:
             pass
 
+    def persist_final_answer(self, answer: str) -> None:
+        """Keep the loop's natural-language final answer as a bounded workspace artifact.
+
+        The proposal boundary replaces the answer with an executable action, so without
+        this file a final verdict would be dropped before the Hub ever sees it. Lives in
+        ``.ananta`` only; it is worker context, never sealed or published source.
+        """
+        artifact = {
+            "schema": "ananta_worker_final_answer.v1",
+            "session_id": self.session_id,
+            "task_id": self.task_id,
+            "outcome": "final_answer",
+            "answer": str(answer or "")[:16000],
+            "created_at": time.time(),
+        }
+        try:
+            path = self.workspace / ".ananta" / "last-final-answer.json"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(artifact, ensure_ascii=False), encoding="utf-8")
+        except OSError:
+            pass
+
     def finish(self, outcome: str, rc: int, out: str, err: str) -> LoopResult:
         if outcome != "final_answer":
             rc = rc or 1
-        elif self.cfg.get("return_executable_proposal"):
-            # The CLI proposal boundary expects an executable action, not the
-            # inner loop's natural-language final answer. Verification runs in
-            # the normal execute path under the Hub's existing command gates.
-            command = str(getattr(self, "verification_command", "") or "").strip()
-            if not command:
-                commands = list(self.cfg.get("allowlisted_test_commands") or [])
-                if len(commands) == 1 and isinstance(commands[0], str):
-                    command = commands[0].strip()
-            if not command:
-                outcome, rc = "verification_command_required", 1
-                out = json.dumps({"kind": "loop_aborted", "reason": outcome})
-            else:
-                out = json.dumps({
-                    "reason": "Workspace mutation finished; execute Hub-allowlisted verification",
-                    "command": command,
-                })
+        else:
+            self.persist_final_answer(out)
+            if self.cfg.get("return_executable_proposal"):
+                # The CLI proposal boundary expects an executable action, not the
+                # inner loop's natural-language final answer. Verification runs in
+                # the normal execute path under the Hub's existing command gates.
+                command = str(getattr(self, "verification_command", "") or "").strip()
+                if not command:
+                    commands = list(self.cfg.get("allowlisted_test_commands") or [])
+                    if len(commands) == 1 and isinstance(commands[0], str):
+                        command = commands[0].strip()
+                if not command:
+                    outcome, rc = "verification_command_required", 1
+                    out = json.dumps({"kind": "loop_aborted", "reason": outcome})
+                else:
+                    out = json.dumps(
+                        {
+                            "reason": "Workspace mutation finished; execute Hub-allowlisted verification",
+                            "command": command,
+                        }
+                    )
         self.write_report(outcome)
         return rc, out, err
 

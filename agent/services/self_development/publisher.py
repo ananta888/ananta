@@ -1,6 +1,8 @@
 """Exact-change-set Git publication after a Hub evidence gate succeeds."""
 from __future__ import annotations
 
+import os
+
 from agent.services.git_ops_service import GitOpsService
 from agent.services.ops_policy_service import OpsPolicyDecision, OpsPolicyService
 from agent.services.ops_registry_service import OpsRegistryService, WorkspaceRef
@@ -76,6 +78,10 @@ class Publisher:
                     raise ValueError('publication_symlink_denied')
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_bytes(read_source(seal, relative))
+                # An executable sealed file stays executable: a gate script that cannot run is
+                # exactly what the source gate refuses to publish.
+                if os.access(seal / relative, os.X_OK):
+                    path.chmod(path.stat().st_mode | 0o111)
             for relative in sorted(removed):
                 path = policy.checkout / relative
                 if path.is_symlink() or any(p.is_symlink() for p in path.parents):

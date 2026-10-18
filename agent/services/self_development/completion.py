@@ -80,7 +80,9 @@ def unblock_satisfied_sources(policy, *, publish) -> list[str]:
         'source': 'todos',
         'status': 'running',
         'contract': {
-            'commit_message': f'chore(self-development): unblock {len(changed)} todo document(s) with satisfied dependencies',
+            'commit_message':
+                f'chore(self-development): unblock {len(changed)} todo document(s) '
+                'with satisfied dependencies',
         },
         'hashes': hashes,
         'removed': [],
