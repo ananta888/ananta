@@ -247,11 +247,44 @@ answer, Datei-Digests, Verifikationsbefund) — dieselbe Kette, die
 `AGENTS.md` unter „Hub Evidence Identity" beschreibt (`RUN_*` vor Ausführung
 reservieren, Ergebnis danach einreichen).
 
-**Fix-Richtung:** den `opencode`-Ausführungspfad um einen Run-Ergebnis-Submit
-erweitern (Materialisation der Dateien + Digests + Exit-Status an den
-Hub-Reservation-Schlüssel), statt zu erwarten, dass ein `mutation-report`
-vorhanden ist. Erst danach kann `opencode` überhaupt an Publication und
-Acceptance-Review teilnehmen.
+**Fix-Richtung (Variante A — entschieden):** nicht `opencode` eine separate
+Evidence-Brücke bauen, sondern den **gemeinsamen Struktur-Pfad** bespielen: alle
+Coding-Worker laufen im selben Mutation-Loop (CodeCompass-Reads, Write-Policy,
+Evidence-Report, `final_answer`-Protokoll) — nur das **Brain/CLI** wechselt.
+Ein Submit-Pfad für einen nativen Sonderweg überlässt die Compliancelücken
+(CodeCompass-Call, Verdict-Call) weiterhin dem Zufallsverhalten des Modells und
+ist damit keine Dauerlösung.
+
+Umgesetzt über:
+
+- **Runner-Key:** `ANANTA_WORKSPACE_MUTATION_LLM_BACKEND=opencode` →
+  `ananta_worker_workspace_mutation.llm_backend` →
+  `resolve_mutation_llm_runner` wählt `run_opencode_mutation_llm`
+  (`(rc, out, err)`-Kontrakt wie alle Runner; Präzedenz: injiziert > Brain >
+  structured > CLI-Default).
+- **Routing:** der per-Kind-Map-Wert bleibt der *Struktur*-Backend-Name
+  (`ananta-worker` → Loop-Pfad); das Brain trägt der separate Key. αs Map ist
+  parametrisiert: `ANANTA_WORKER_ALPHA_TASK_KIND_CODE` (Default
+  `ananta-worker`, Wert `opencode` = nativer Pfad als Vergleichs-Flag),
+  Brain-Default in Compose: `ANANTA_WORKER_ALPHA_MUTATION_BRAIN=opencode`.
+- **Verträge unverändert:** `codecompass_observed: Literal[True]`, Evidence-Gate,
+  Review-Verdict-Vertrag — der Loop erzwingt sie für jedes Brain strukturell.
+
+Bekannte Risiken der Variante: (1) opencode besitzt eigene Schreib-Werkzeuge und
+könnte direkt schreiben, obwohl der Loop die Schreibvorgänge über seine Handler
+erwartet — Beobachtung im Live-Nachweis, andernfalls prompt-seitige Regel für
+den Loop-Modus; (2) `structured_output` gilt nur für Nicht-`opencode`-Brains
+(bevorzugtes Brain entscheidet, wie die Antwort erzwungen wird).
+
+**Phasen:**
+1. ~~Runner-Adapter + Config~~ — erledigt (`opencode_runner.py`,
+   `resolve_mutation_llm_runner`, Env-Plumbing mit bounded Validierung,
+   `tests/self_development/test_mutation_llm_backend.py`).
+2. ~~α-Routing + Brain in Compose~~ — erledigt (parametrisierte per-Kind-Map +
+   `ANANTA_WORKSPACE_MUTATION_LLM_BACKEND`).
+3. **Live-Nachweis offen:** α-Loop-Lauf muss `pending_review → published`
+   erreichen; danach der Vergleichslauf α(Loop+opencode-Brain) vs
+   β(Loop+CLI-Brain) unter allen Gates.
 
 ---
 
@@ -262,7 +295,8 @@ Acceptance-Review teilnehmen.
    Regression in `tests/self_development/test_backend_routing_priority.py`.
 2. **Vergleich fahren** — läuft; erster Befund unter L6 (α löst ohne Nachweis,
    β liefert Nachweis ohne Ergebnis).
-3. **L6 schließen** — `opencode` reicht sein Ergebnis als Hub-Evidence ein.
+3. **L6 schließen (Variante A)** — Phasen 1+2 erledigt (Runner-Key + α-Routing);
+   Phase 3 (Live-Nachweis `pending_review → published` mit opencode-Brain) läuft.
    Erst danach ist ein `opencode`-Lauf jenseits von `failed` möglich.
 4. **L2 + L5** — MCP-Export um read/write-Specs für den **lokalen
    Worker-Clone** erweitern, Spec-/Binding-Teil in den gemeinsamen Helfer legen
