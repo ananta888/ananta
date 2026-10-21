@@ -378,3 +378,22 @@ def test_review_brief_is_bounded_and_declares_contract():
             changed_files={},
             verification_command="python -m pytest",
         )
+
+
+def test_review_brief_names_the_attempt_after_a_wrong_answer():
+    brief = build_review_brief(
+        todo_id="MY-001",
+        requirements={"acceptance_criteria": ["A"], "todo_id": "MY-001"},
+        changed_files={"a.py": "hash"},
+        verification_command="python -m pytest",
+        attempt=1,
+    )
+    assert "ATTEMPT 2" in brief
+    assert '{"approved": <true|false>' in brief.split("ATTEMPT 2", 1)[1]
+    first_round = build_review_brief(
+        todo_id="MY-001",
+        requirements={"acceptance_criteria": ["A"], "todo_id": "MY-001"},
+        changed_files={"a.py": "hash"},
+        verification_command="python -m pytest",
+    )
+    assert "ATTEMPT" not in first_round

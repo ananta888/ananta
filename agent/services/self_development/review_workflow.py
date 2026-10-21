@@ -78,7 +78,9 @@ def select_reviewer_worker(
     return min(eligible, key=lambda row: (row[0], row[1]))[1]
 
 
-def build_review_brief(*, todo_id: str, requirements: dict, changed_files: dict, verification_command: str) -> str:
+def build_review_brief(
+    *, todo_id: str, requirements: dict, changed_files: dict, verification_command: str, attempt: int = 0
+) -> str:
     """Bounded reviewer assignment; JSON data only, never execution authority."""
     criteria = requirements.get("acceptance_criteria")
     criteria = criteria if isinstance(criteria, list) else []
@@ -114,6 +116,12 @@ def build_review_brief(*, todo_id: str, requirements: dict, changed_files: dict,
         'ONLY this JSON object (loop backends: kind "final_answer"): ' + VERDICT_CONTRACT,
         "approved is true only when every criterion passes and findings is empty.",
     ]
+    if attempt > 0:
+        lines += [
+            "",
+            f"ATTEMPT {attempt + 1}: the previous answer was not the required JSON verdict. "
+            "Answer ONLY with this exact JSON object — no prose, no other keys: " + VERDICT_CONTRACT,
+        ]
     brief = "\n".join(lines)
     if len(brief) > _MAX_ANSWER_CHARS:
         raise ReviewWorkflowError("review_brief_too_large")
@@ -286,11 +294,14 @@ class QueueAcceptanceReviewer:
             target.chmod(0o644)
         requirements = json.loads(request.requirements_json)
         changed_files = {path: digest for path, digest in request.changed_files}
+        from agent.services.self_development.final_answer_artifact import review_answer_rounds
+
         brief = build_review_brief(
             todo_id=str(requirements.get("todo_id") or ""),
             requirements=requirements,
             changed_files=changed_files,
             verification_command=verification_command,
+            attempt=review_answer_rounds(workspace),
         )
         manifest = {
             "schema": "self_development_review_brief.v1",
