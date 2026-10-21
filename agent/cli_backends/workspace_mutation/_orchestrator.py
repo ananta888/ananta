@@ -171,15 +171,24 @@ def _build_iteration_prompt(
 def resolve_mutation_llm_runner(
     cfg: dict[str, Any], llm_runner: Callable[..., tuple[int, str, str]] | None = None
 ) -> Callable[..., tuple[int, str, str]]:
-    """Pick the loop's LLM runner: an injected one wins, then opt-in structured
-    output, then the CLI default.
+    """Pick the loop's LLM runner: injected, configured brain, structured, CLI.
 
-    ``structured_output`` stays additive (default off), so a deployment that does
-    not set it keeps the exact CLI path it runs today while the structured path
-    can be compared against it.
+    Precedence (L6 variant A): an injected runner wins, then an explicit brain
+    (``llm_backend`` — e.g. ``opencode`` via ``ANANTA_WORKSPACE_MUTATION_LLM_BACKEND``),
+    then the schema-constrained structured path, then the CLI default. The brain
+    choice outranks ``structured_output`` because a configured brain decides *who
+    answers*, while structured output only decides *how* a non-opencode brain is
+    constrained; ``structured_output`` stays additive for every other brain.
     """
     if llm_runner is not None:
         return llm_runner
+    brain = str(cfg.get("llm_backend") or "").strip().lower()
+    if brain == "opencode":
+        from agent.cli_backends.workspace_mutation.opencode_runner import (
+            run_opencode_mutation_llm,
+        )
+
+        return run_opencode_mutation_llm
     if cfg.get("structured_output"):
         from agent.cli_backends.workspace_mutation.structured_runner import (
             run_structured_mutation_llm,

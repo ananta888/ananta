@@ -334,17 +334,30 @@ def _apply_sgpt_routing_env(cfg: dict) -> None:
 
 
 def _apply_workspace_mutation_env(cfg: dict) -> None:
-    """``ANANTA_WORKSPACE_MUTATION_STRUCTURED_OUTPUT`` for the mutation loop.
+    """``ANANTA_WORKSPACE_MUTATION_*`` for the mutation loop (additive).
 
-    Additive: nothing is written unless the variable is set, so the code default
-    (structured output off) keeps every deployment that does not set it, while a
-    container that sets it runs the schema-constrained path.
+    ``ANANTA_WORKSPACE_MUTATION_STRUCTURED_OUTPUT`` opts into the schema-constrained
+    path; ``ANANTA_WORKSPACE_MUTATION_LLM_BACKEND`` names the loop's brain
+    (``opencode`` runs the same loop with opencode as the answerer — L6 variant A).
+    Nothing is written unless a variable is set, so the code defaults keep every
+    deployment that does not set them. An unknown brain fails the config load
+    bounded instead of silently falling back to another runner.
     """
     raw = str(os.environ.get("ANANTA_WORKSPACE_MUTATION_STRUCTURED_OUTPUT") or "").strip().lower()
-    if not raw:
+    raw_brain = str(os.environ.get("ANANTA_WORKSPACE_MUTATION_LLM_BACKEND") or "").strip().lower()
+    if not raw and not raw_brain:
         return
     mutation = dict(cfg.get("ananta_worker_workspace_mutation") or {})
-    mutation["structured_output"] = raw in {"1", "true", "yes", "on"}
+    if raw:
+        mutation["structured_output"] = raw in {"1", "true", "yes", "on"}
+    if raw_brain:
+        allowed_brains = {"opencode"}
+        if raw_brain not in allowed_brains:
+            raise ValueError(
+                f"ANANTA_WORKSPACE_MUTATION_LLM_BACKEND must be one of {sorted(allowed_brains)} "
+                f"(got {raw_brain!r})"
+            )
+        mutation["llm_backend"] = raw_brain
     cfg["ananta_worker_workspace_mutation"] = mutation
 
 

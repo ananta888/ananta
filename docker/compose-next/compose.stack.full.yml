@@ -30,10 +30,17 @@ services:
       # resolve_cli_backend reads task_kind_backend BEFORE default_backend, so the
       # per-kind map must name the backend for this worker as well (coding runs
       # through task_kind=coding). research keeps its deerflow default.
-      ANANTA_SGPT_ROUTING_TASK_KIND_BACKEND: '{"coding":"opencode","analysis":"opencode","doc":"opencode","ops":"opencode","research":"deerflow"}'
+      # L6 variant A: the map names the STRUCTURE backend — ananta-worker routes
+      # the kind through the mutation loop, and ANANTA_WORKSPACE_MUTATION_LLM_BACKEND
+      # below makes opencode that loop's brain. ANANTA_WORKER_ALPHA_TASK_KIND_CODE
+      # = opencode switches the kind back to the native opencode path (loop
+      # bypassed) as the comparison flag.
+      ANANTA_SGPT_ROUTING_TASK_KIND_BACKEND: '{"coding":"${ANANTA_WORKER_ALPHA_TASK_KIND_CODE:-ananta-worker}","analysis":"${ANANTA_WORKER_ALPHA_TASK_KIND_CODE:-ananta-worker}","doc":"${ANANTA_WORKER_ALPHA_TASK_KIND_CODE:-ananta-worker}","ops":"${ANANTA_WORKER_ALPHA_TASK_KIND_CODE:-ananta-worker}","research":"deerflow"}'
       SGPT_EXECUTION_BACKEND: ${ANANTA_WORKER_ALPHA_CLI_BACKEND:-ananta-worker}
       # Schema-constrained mutation answers (code default off; on for this stack).
       ANANTA_WORKSPACE_MUTATION_STRUCTURED_OUTPUT: ${ANANTA_WORKER_STRUCTURED_OUTPUT:-1}
+      # L6 variant A: opencode answers the loop's protocol turns (brain, not path).
+      ANANTA_WORKSPACE_MUTATION_LLM_BACKEND: ${ANANTA_WORKER_ALPHA_MUTATION_BRAIN:-opencode}
       ANANTA_SOURCE_INDEX_RUNTIME_TARGET_JSON: '{"runtime_target_id":"source-index-alpha","runtime_id":"codecompass-index","runtime_kind":"docker_container","provider_id":"opencode","model_provider_id":"${ANANTA_SOURCE_INDEX_MODEL_PROVIDER_ID:-lmstudio}","model_ids":["${ANANTA_SOURCE_INDEX_MODEL_ID:-qwen2.5-3b-instruct}"],"provider_location":"local_container","data_residency":"local","model_class":"code","source_access_authorized":true,"global_source_access":true,"enabled":true,"worker_kind":"worker"}'
       AGENT_URL: http://ai-agent-alpha:5000
       # Worker agent processes inside this container (ports 5000..+N-1, own
