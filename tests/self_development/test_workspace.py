@@ -42,6 +42,21 @@ def test_out_of_scope_source_edit_is_rejected(tmp_path):
         seal_changes(root, baseline, ['tests/test_original.py'], tmp_path / 'seal')
 
 
+def test_declared_new_file_that_was_never_written_fails_closed(tmp_path):
+    # Given one declared file changed while the other declared new file was never
+    # created — the deliverable the task contract promised stayed incomplete.
+    root, baseline = workspace(tmp_path)
+    (root / 'tests/test_original.py').write_text('after\n')
+    # Then the seal refuses instead of accepting the half-finished change set.
+    with pytest.raises(ValueError, match='scope_incomplete'):
+        seal_changes(
+            root,
+            baseline,
+            ['tests/test_original.py', 'tests/test_new.py'],
+            tmp_path / 'seal',
+        )
+
+
 def test_failed_empty_change_set_never_seals(tmp_path):
     root, baseline = workspace(tmp_path)
     with pytest.raises(ValueError, match='empty_or_out_of_scope'):

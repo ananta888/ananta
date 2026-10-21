@@ -177,6 +177,12 @@ def seal_changes(workspace: Path, baseline: dict, allowed: list[str], seal: Path
             with actual.open("rb") as stream:
                 current[path] = hashlib.file_digest(stream, "sha256").hexdigest()
     changed = {p for p in set(baseline) | set(current) if p != "AGENTS.md" and baseline.get(p) != current.get(p)}
+    declared_new_missing = sorted(p for p in allowed if p not in baseline and p not in current)
+    if declared_new_missing:
+        # A declared new file the run never created is an incomplete deliverable:
+        # sealing it as an empty change set let half-done work pass verification
+        # (the suite simply runs without the missing test) and broke the review.
+        raise ValueError("scope_incomplete:" + declared_new_missing[0])
     if not changed or not changed.issubset(set(allowed)):
         raise ValueError("empty_or_out_of_scope_changes")
     if any(p not in current for p in changed):
