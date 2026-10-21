@@ -44,6 +44,24 @@ if TYPE_CHECKING:
     from agent.services._task_scoped_forwarding_dependencies import StepOrchestrationPorts
 
 
+LEGACY_CLI_TASK_KINDS = frozenset(
+    {
+        "generic",
+        "analysis",
+        "coding",
+        "implementation",
+        "ops",
+        "testing",
+        "doc",
+        "review",
+        # The phased acceptance review declares `gate_review`; its research context
+        # explicitly activates the mutation loop, so the kind must reach the CLI
+        # path like `review` instead of falling through to the strategies.
+        "gate_review",
+    }
+)
+
+
 def _resolve_step_ports(
     step_ports: "StepOrchestrationPorts | None",
 ) -> "StepOrchestrationPorts":
@@ -368,16 +386,7 @@ def _run_propose_step_admitted(
         or getattr(request_data, "task_kind", "")
         or ""
     ).strip().lower()
-    legacy_cli_task_kinds = {
-        "generic",
-        "analysis",
-        "coding",
-        "implementation",
-        "ops",
-        "testing",
-        "doc",
-        "review",
-    }
+    legacy_cli_task_kinds = LEGACY_CLI_TASK_KINDS
     if (
         explicit_task_kind
         and task_kind in legacy_cli_task_kinds
