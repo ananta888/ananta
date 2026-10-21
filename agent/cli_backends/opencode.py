@@ -347,7 +347,7 @@ def resolve_opencode_runtime_config(
         }
         provider_config["model"] = f"{target_provider}/{target_model}"
         provider_config["small_model"] = f"{target_provider}/{target_model}"
-        if target_provider in {"ollama", "lmstudio"} and tool_mode == "toolless":
+        if (target_provider in {"ollama", "lmstudio"} or local_target) and tool_mode == "toolless":
             provider_config["agent"]["ananta-worker"] = _build_opencode_theless_agent_config()
             provider_config["default_agent"] = "ananta-worker"
         cli_model = f"{target_provider}/{target_model}"
