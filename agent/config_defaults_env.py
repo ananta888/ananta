@@ -298,12 +298,64 @@ def _apply_terminal_policy_env(cfg: dict) -> None:
         cfg["terminal_policy"] = terminal_policy
 
 
+def _apply_sgpt_routing_env(cfg: dict) -> None:
+    """``ANANTA_SGPT_ROUTING_*`` overrides for the CLI backend routing policy.
+
+    Additive: without these variables nothing is written, so an unchanged
+    container keeps the configured ``sgpt_routing`` (or the
+    ``ananta-worker`` default). Two containers of the same image can
+    therefore run the same delegated task on different backends, for
+    example ``opencode`` next to ``ananta-worker``.
+
+    The backend name is only normalized here; whether a value is actually
+    supported stays ``resolve_cli_backend``'s decision against the
+    supported set, so this layer carries no backend list of its own.
+    """
+    default_backend = str(os.environ.get("ANANTA_SGPT_ROUTING_DEFAULT_BACKEND") or "").strip().lower()
+    task_kind_json = str(os.environ.get("ANANTA_SGPT_ROUTING_TASK_KIND_BACKEND") or "").strip()
+    if not default_backend and not task_kind_json:
+        return
+
+    routing = dict(cfg.get("sgpt_routing") or {})
+    if default_backend:
+        routing["default_backend"] = default_backend
+    if task_kind_json:
+        try:
+            parsed = json.loads(task_kind_json)
+        except (TypeError, ValueError):
+            logging.warning("ANANTA_SGPT_ROUTING_TASK_KIND_BACKEND is not valid JSON; ignored")
+        else:
+            if isinstance(parsed, dict):
+                routing["task_kind_backend"] = {str(k): str(v).strip().lower() for k, v in parsed.items()}
+            else:
+                logging.warning("ANANTA_SGPT_ROUTING_TASK_KIND_BACKEND must be a JSON object; ignored")
+    if routing:
+        cfg["sgpt_routing"] = routing
+
+
+def _apply_workspace_mutation_env(cfg: dict) -> None:
+    """``ANANTA_WORKSPACE_MUTATION_STRUCTURED_OUTPUT`` for the mutation loop.
+
+    Additive: nothing is written unless the variable is set, so the code default
+    (structured output off) keeps every deployment that does not set it, while a
+    container that sets it runs the schema-constrained path.
+    """
+    raw = str(os.environ.get("ANANTA_WORKSPACE_MUTATION_STRUCTURED_OUTPUT") or "").strip().lower()
+    if not raw:
+        return
+    mutation = dict(cfg.get("ananta_worker_workspace_mutation") or {})
+    mutation["structured_output"] = raw in {"1", "true", "yes", "on"}
+    cfg["ananta_worker_workspace_mutation"] = mutation
+
+
 _ENV_CONFIG_OVERRIDES = (
     _apply_tiny_router_env,
     _apply_opencode_runtime_env,
     _apply_worker_parallelism_env,
     _apply_evolver_env,
     _apply_terminal_policy_env,
+    _apply_sgpt_routing_env,
+    _apply_workspace_mutation_env,
 )
 
 

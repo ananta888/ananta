@@ -107,7 +107,10 @@ def get_workspace_mutation_config(workdir: str | None = None) -> dict[str, Any]:
         **cfg,
         "enabled": bool(cfg.get("enabled", False)),
         "resolved_mode": resolved,
-        "max_feedback_iterations": max(1, min(int(cfg.get("max_feedback_iterations") or 4), 16)),
+        # Bounded, not generous: the ceiling keeps a wedged loop from burning the whole
+        # session (60 turns ≈ 40 min at local-runner latency), while leaving room for a
+        # repair round after `test.run` — at 16 the loop spent its last turn on the test.
+        "max_feedback_iterations": max(1, min(int(cfg.get("max_feedback_iterations") or 4), 60)),
         "max_patch_attempts_per_file": max(1, min(int(cfg.get("max_patch_attempts_per_file") or 3), 10)),
         "max_invalid_outputs": max(1, min(int(cfg.get("max_invalid_outputs") or 2), 10)),
         "max_diff_chars": _max_diff_chars(cfg),
@@ -165,6 +168,29 @@ def _build_iteration_prompt(
     )
 
 
+def resolve_mutation_llm_runner(
+    cfg: dict[str, Any], llm_runner: Callable[..., tuple[int, str, str]] | None = None
+) -> Callable[..., tuple[int, str, str]]:
+    """Pick the loop's LLM runner: an injected one wins, then opt-in structured
+    output, then the CLI default.
+
+    ``structured_output`` stays additive (default off), so a deployment that does
+    not set it keeps the exact CLI path it runs today while the structured path
+    can be compared against it.
+    """
+    if llm_runner is not None:
+        return llm_runner
+    if cfg.get("structured_output"):
+        from agent.cli_backends.workspace_mutation.structured_runner import (
+            run_structured_mutation_llm,
+        )
+
+        return run_structured_mutation_llm
+    from agent.cli_backends.sgpt import run_sgpt_command
+
+    return run_sgpt_command
+
+
 def run_ananta_worker_workspace_mutation(
     prompt: str,
     workdir: str,
@@ -184,10 +210,7 @@ def run_ananta_worker_workspace_mutation(
 
     cfg = ensure_tool_context(cfg, task_id)
     mode = str(cfg.get("resolved_mode") or "read_only")
-    if llm_runner is None:
-        from agent.cli_backends.sgpt import run_sgpt_command
-
-        llm_runner = run_sgpt_command
+    llm_runner = resolve_mutation_llm_runner(cfg, llm_runner)
 
     session = MutationSession(
         cfg=cfg,

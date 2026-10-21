@@ -6,6 +6,9 @@ services:
     environment:
       DATABASE_URL: "postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ananta}"
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      # Parallel decision runner 2: llama-server Vulkan, Windows-native on the AMD 780M (port 18152).
+      # 172.18.112.1 = Windows host seen from WSL NAT (default route). Recheck after Windows/WSL reboots.
+      ANANTA_PARALLEL_DECISION_URL2: http://172.18.112.1:18152
     depends_on:
       postgres:
         condition: service_healthy
@@ -19,6 +22,18 @@ services:
     environment:
       AGENT_NAME: ${ANANTA_WORKER_ALPHA_ID:-ananta-worker-1}
       ANANTA_KNOWLEDGE_INDEX_WORKER_ID: ${ANANTA_WORKER_ALPHA_ID:-ananta-worker-1}
+      # CLI backend for delegated execution; lets one image run an opencode
+      # and an ananta-worker backend side by side (per-worker override).
+      # ANANTA_SGPT_ROUTING_* governs the task-scoped propose route,
+      # SGPT_EXECUTION_BACKEND the execute route the self-development path uses.
+      ANANTA_SGPT_ROUTING_DEFAULT_BACKEND: ${ANANTA_WORKER_ALPHA_CLI_BACKEND:-ananta-worker}
+      # resolve_cli_backend reads task_kind_backend BEFORE default_backend, so the
+      # per-kind map must name the backend for this worker as well (coding runs
+      # through task_kind=coding). research keeps its deerflow default.
+      ANANTA_SGPT_ROUTING_TASK_KIND_BACKEND: '{"coding":"opencode","analysis":"opencode","doc":"opencode","ops":"opencode","research":"deerflow"}'
+      SGPT_EXECUTION_BACKEND: ${ANANTA_WORKER_ALPHA_CLI_BACKEND:-ananta-worker}
+      # Schema-constrained mutation answers (code default off; on for this stack).
+      ANANTA_WORKSPACE_MUTATION_STRUCTURED_OUTPUT: ${ANANTA_WORKER_STRUCTURED_OUTPUT:-1}
       ANANTA_SOURCE_INDEX_RUNTIME_TARGET_JSON: '{"runtime_target_id":"source-index-alpha","runtime_id":"codecompass-index","runtime_kind":"docker_container","provider_id":"opencode","model_provider_id":"${ANANTA_SOURCE_INDEX_MODEL_PROVIDER_ID:-lmstudio}","model_ids":["${ANANTA_SOURCE_INDEX_MODEL_ID:-qwen2.5-3b-instruct}"],"provider_location":"local_container","data_residency":"local","model_class":"code","source_access_authorized":true,"global_source_access":true,"enabled":true,"worker_kind":"worker"}'
       AGENT_URL: http://ai-agent-alpha:5000
       HUB_URL: http://ai-agent-hub:5000
@@ -40,6 +55,13 @@ services:
     environment:
       AGENT_NAME: ${ANANTA_WORKER_BETA_ID:-ananta-worker-2}
       ANANTA_KNOWLEDGE_INDEX_WORKER_ID: ${ANANTA_WORKER_BETA_ID:-ananta-worker-2}
+      # Counterpart to the alpha backend: defaults to the ananta-worker loop.
+      # ANANTA_SGPT_ROUTING_* governs the task-scoped propose route,
+      # SGPT_EXECUTION_BACKEND the execute route the self-development path uses.
+      ANANTA_SGPT_ROUTING_DEFAULT_BACKEND: ${ANANTA_WORKER_BETA_CLI_BACKEND:-ananta-worker}
+      SGPT_EXECUTION_BACKEND: ${ANANTA_WORKER_BETA_CLI_BACKEND:-ananta-worker}
+      # Schema-constrained mutation answers (code default off; on for this stack).
+      ANANTA_WORKSPACE_MUTATION_STRUCTURED_OUTPUT: ${ANANTA_WORKER_STRUCTURED_OUTPUT:-1}
       ANANTA_SOURCE_INDEX_RUNTIME_TARGET_JSON: '{"runtime_target_id":"source-index-beta","runtime_id":"codecompass-index","runtime_kind":"docker_container","provider_id":"opencode","model_provider_id":"${ANANTA_SOURCE_INDEX_MODEL_PROVIDER_ID:-lmstudio}","model_ids":["${ANANTA_SOURCE_INDEX_MODEL_ID:-qwen2.5-3b-instruct}"],"provider_location":"local_container","data_residency":"local","model_class":"code","source_access_authorized":true,"global_source_access":true,"enabled":true,"worker_kind":"worker"}'
       AGENT_URL: http://ai-agent-beta:5000
       HUB_URL: http://ai-agent-hub:5000
