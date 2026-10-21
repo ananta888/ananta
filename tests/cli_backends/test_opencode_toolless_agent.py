@@ -79,6 +79,9 @@ def test_protocol_builds_the_loop_brain_agent(flask_app_with_agent_config):
     # promising them away — that promise made the model skip the analysis calls
     assert "codecompass analysis calls" in brain["prompt"]
     assert "never use your own tools" in brain["prompt"]
+    # the analysis sequence is named with its real protocol kinds
+    assert "codecompass tool_request" in brain["prompt"]
+    assert "code_analysis" in brain["prompt"]
     assert "Use CodeCompass tools" not in brain["prompt"]
     assert all(value is False for value in brain["tools"].values())
 

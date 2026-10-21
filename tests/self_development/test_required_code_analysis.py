@@ -49,14 +49,23 @@ def test_mutations_are_blocked_before_analysis(tmp_path, message, monkeypatch):
     assert not (tmp_path / "new.py").exists()
 
 
-def test_final_answer_cannot_claim_success_without_analysis(tmp_path):
-    # Given a session lacking research.
+def test_premature_final_answer_gets_bounded_correction_turns(tmp_path):
     session = _session(tmp_path)
-    # When the model declares success.
-    result = handlers.handle_final_answer(session, _turn({"kind": "final_answer", "answer": "done"}))
-    # Then it terminates with a bounded prerequisite failure.
-    assert result[0] == 1
-    assert json.loads(result[1])["reason"] == "code_analysis_required"
+    first = _turn({"kind": "final_answer", "answer": "done"})
+    second = _turn({"kind": "final_answer", "answer": "done"})
+    third = _turn({"kind": "final_answer", "answer": "done"})
+    # The first refusals keep the loop alive and show the required sequence again.
+    assert handlers.handle_final_answer(session, first) is None
+    assert first.row["result"] == "code_analysis_required"
+    assert session.evidence_blocks[-1]["error"] == "code_analysis_required"
+    assert "code_analysis" in session.correction
+    assert "codecompass.plan_context" in session.correction
+    assert handlers.handle_final_answer(session, second) is None
+    # The bounded budget ends with the prerequisite failure, never an infinite retry.
+    exhausted = handlers.handle_final_answer(session, third)
+    assert exhausted[0] == 1
+    assert json.loads(exhausted[1])["reason"] == "code_analysis_required"
+    assert json.loads(exhausted[1])["kind"] == "final_answer_blocked"
 
 
 def _analysis(path: Path):
@@ -220,6 +229,65 @@ def test_real_mutation_loop_requires_analysis_before_applying_source(tmp_path, m
     assert report["code_analysis"]["status"] == ("accepted" if with_analysis else "required")
     if not with_analysis:
         assert json.loads(result[1])["reason"] == "max_iterations"
+
+
+def test_loop_corrects_a_premature_final_answer(tmp_path, monkeypatch):
+    """A premature final_answer gets a correction turn, not a dead proposal.
+
+    The brain that skips the analysis sequence used to kill the whole loop on its
+    first try (`final_answer_blocked`); the loop must instead show the required
+    sequence again and keep iterating within its bounded budget.
+    """
+    from agent.cli_backends.workspace_mutation import run_ananta_worker_workspace_mutation
+    from agent.services.codecompass_task_capability import task_capability_scope
+    from agent.services.tools.repo_tools import repo_read_file_range
+
+    source = tmp_path / "app.py"
+    source.write_text("value = 1\n")
+    metadata = tmp_path / ".ananta"
+    metadata.mkdir()
+    (metadata / "materialization-manifest.json").write_text(json.dumps([
+        {"workspace_path": "app.py", "allowed_operations": ["read", "write", "patch"]}]))
+    original_execute = tool_actions.execute_ananta_tool
+
+    def execute(**kw):
+        if kw["tool_name"] == "codecompass.plan_context":
+            return {"status": "ok", "data": {"context_bundle": {"location_refs": [
+                {"path": "app.py", "line_start": 1, "line_end": 1}]}}}
+        if kw["tool_name"] == "repo.read_file_range":
+            return repo_read_file_range(workspace_dir=kw["workspace_dir"], arguments=kw["arguments"],
+                                        tool_call_id=kw["tool_call_id"])
+        return original_execute(**kw)
+
+    monkeypatch.setattr(tool_actions, "execute_ananta_tool", execute)
+    messages = [
+        {"kind": "final_answer", "answer": "done"},
+        {"kind": "tool_request", "tool_name": "codecompass.plan_context", "arguments": {}},
+        {"kind": "code_analysis", **_analysis(source)},
+        {"kind": "workspace_write", "files": [{"path": "app.py", "content": "value = 2\n"}]},
+        {"kind": "final_answer", "answer": "changed"},
+    ]
+    outputs = iter(messages)
+    prompts: list[str] = []
+
+    def llm(**kw):
+        prompts.append(str(kw.get("prompt") or ""))
+        return 0, json.dumps(next(outputs)), ""
+
+    with task_capability_scope(None, task_id="scoped-task"):
+        result = run_ananta_worker_workspace_mutation(
+            "Change configured value", str(tmp_path), options=[], timeout=1, model=None,
+            llm_runner=llm, config={"enabled": True, "resolved_mode": "controlled_workspace",
+                                  "require_code_analysis": True, "max_feedback_iterations": len(messages),
+                                  "require_materialized_scope": True, "max_diff_chars": 1000},
+        )
+    # The correction turn shows the required sequence and the loop then finishes.
+    assert result[0] == 0
+    assert source.read_text() == "value = 2\n"
+    assert "codecompass.plan_context" in prompts[1]
+    assert "code_analysis" in prompts[1]
+    report = json.loads((metadata / "mutation-report.json").read_text())
+    assert report["code_analysis"]["status"] == "accepted"
 
 
 def test_missing_source_read_names_an_existing_file_in_the_directory(tmp_path, monkeypatch):

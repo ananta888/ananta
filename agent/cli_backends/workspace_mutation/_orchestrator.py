@@ -259,8 +259,10 @@ def run_ananta_worker_workspace_mutation(
     last_out, last_err = "", ""
 
     for iteration in range(1, session.limits.max_iterations + 1):
-        nudge = ACTION_NUDGE if (not session.analysis_gate.pending and nudge_after
-                                and getattr(session, "read_only_streak", 0) >= nudge_after) else None
+        nudge = getattr(session, "correction", None) or (
+            ACTION_NUDGE if (not session.analysis_gate.pending and nudge_after
+                            and getattr(session, "read_only_streak", 0) >= nudge_after) else None
+        )
         iter_prompt = _build_iteration_prompt(
             original_prompt=prompt,
             instructions=instructions,

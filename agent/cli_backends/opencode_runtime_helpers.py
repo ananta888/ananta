@@ -116,7 +116,9 @@ def build_opencode_loop_brain_agent_config() -> dict[str, object]:
             "Respond with exactly the JSON protocol object the user prompt requests, "
             "including every step that protocol requires — such as codecompass analysis "
             "calls before any mutation. The runtime executes those requested steps for "
-            "you; never use your own tools or MCP servers."
+            "you; never use your own tools or MCP servers. Before final_answer the "
+            "protocol always requires a successful codecompass tool_request and a "
+            "code_analysis answer — never skip them."
         ),
         "temperature": 0.1,
         "tools": {

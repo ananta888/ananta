@@ -124,6 +124,18 @@ def build_mode_instructions(mode: str) -> str:
     return "\n".join(common)
 
 
+ANALYSIS_CORRECTION_NUDGE = (
+    "final_answer is blocked: the required source analysis is missing "
+    "(no successful codecompass observation or no accepted code_analysis). "
+    "Emit these protocol answers across the next turns, in order: "
+    '(1) {"kind":"tool_request","tool_name":"codecompass.plan_context","arguments":{"query":"..."}} '
+    "(or codecompass.get_file_context), "
+    '(2) {"kind":"code_analysis","sources":[{"path":"rel/pfad","file_sha256":"HASH_AUS_LESEERGEBNIS",'
+    '"line_start":1,"line_end":20}],"findings":"...","change_reasoning":"...","test_reasoning":"..."}, '
+    "and only then final_answer."
+)
+
+
 def required_analysis_instructions() -> str:
     """Describe the source-bound action consumed by the runtime prerequisite."""
     return (

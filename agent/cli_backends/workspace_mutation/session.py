@@ -73,6 +73,8 @@ class MutationSession:
         self.read_only_streak = 0
         self.blocked_test_command = ""
         self.test_command_refusals = 0
+        self.final_answer_refusals = 0
+        self.correction: str | None = None
         self.verification_command = ""
         self.services = services
         self.limits = limits

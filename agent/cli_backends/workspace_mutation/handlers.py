@@ -37,12 +37,35 @@ KIND_WORKSPACE_WRITE = "workspace_write"
 ActionHandler = Callable[[MutationSession, LoopTurn], "LoopResult | None"]
 
 
-def handle_final_answer(session: MutationSession, turn: LoopTurn) -> LoopResult:
+FINAL_ANSWER_CORRECTION_BUDGET = 2
+
+
+def handle_final_answer(session: MutationSession, turn: LoopTurn) -> "LoopResult | None":
     if session.cfg.get("require_code_analysis") is True and session.analysis_gate.pending:
+        # A premature final_answer is correctable first: the loop stays alive for a
+        # bounded number of correction turns and shows the required sequence again;
+        # only after the budget does it end with the bounded prerequisite failure.
+        from agent.cli_backends.workspace_mutation.prompts import ANALYSIS_CORRECTION_NUDGE
+
+        refusals = int(getattr(session, "final_answer_refusals", 0)) + 1
+        session.final_answer_refusals = refusals
+        turn.row["result"] = "code_analysis_required"
+        session.add_evidence(
+            {
+                "kind": "code_analysis_result",
+                "status": "policy_blocked",
+                "error": "code_analysis_required",
+                "data": session.analysis_gate.state(),
+            }
+        )
+        if refusals <= FINAL_ANSWER_CORRECTION_BUDGET:
+            session.correction = ANALYSIS_CORRECTION_NUDGE
+            return None
         return session.finish_with_summary(
             "code_analysis_required",
             {"kind": "final_answer_blocked", "reason": "code_analysis_required",
-             "code_analysis": session.analysis_gate.state()}, turn.err,
+             "code_analysis": session.analysis_gate.state()},
+            turn.err,
         )
     final_check = session.hub_check(iteration_number=turn.iteration)
     policy_status = str((final_check.get("policy_result") or {}).get("status") or "ok")
