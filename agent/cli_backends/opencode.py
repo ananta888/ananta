@@ -59,6 +59,9 @@ from agent.cli_backends.opencode_runtime_helpers import (
     build_opencode_runtime_diagnostics as _build_opencode_runtime_diagnostics,
 )
 from agent.cli_backends.opencode_runtime_helpers import (
+    build_opencode_loop_brain_agent_config as _build_opencode_loop_brain_agent_config,
+)
+from agent.cli_backends.opencode_runtime_helpers import (
     build_opencode_toolless_agent_config as _build_opencode_theless_agent_config,
 )
 from agent.cli_backends.opencode_runtime_helpers import (
@@ -347,8 +350,11 @@ def resolve_opencode_runtime_config(
         }
         provider_config["model"] = f"{target_provider}/{target_model}"
         provider_config["small_model"] = f"{target_provider}/{target_model}"
-        if (target_provider in {"ollama", "lmstudio"} or local_target) and tool_mode == "toolless":
-            provider_config["agent"]["ananta-worker"] = _build_opencode_theless_agent_config()
+        if (target_provider in {"ollama", "lmstudio"} or local_target) and tool_mode in {"toolless", "protocol"}:
+            if tool_mode == "protocol":
+                provider_config["agent"]["ananta-worker"] = _build_opencode_loop_brain_agent_config()
+            else:
+                provider_config["agent"]["ananta-worker"] = _build_opencode_theless_agent_config()
             provider_config["default_agent"] = "ananta-worker"
         cli_model = f"{target_provider}/{target_model}"
     elif target_provider and target_model and target_provider in built_in_providers:

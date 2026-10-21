@@ -25,10 +25,11 @@ def run_opencode_mutation_llm(
 ) -> tuple[int, str, str]:
     """One loop turn: protocol prompt in, opencode's final answer out.
 
-    The brain runs ``toolless``: opencode's own tools would slow the turn into
-    timeouts and let it answer outside the loop's protocol (the CodeCompass
-    steps are loop-protocol calls the loop itself executes), so every tool the
-    turn may use belongs to the loop, not to the brain.
+    The brain runs in ``protocol`` mode: opencode's own tools (including native
+    MCP calls) would stall the turn against the local transport until the propose
+    timeout and let it answer outside the loop's protocol — the CodeCompass steps
+    are loop-protocol calls the loop itself executes, so every tool the turn may
+    use belongs to the loop, not to the brain.
     """
     from agent.cli_backends.sgpt import run_llm_cli_command
 
@@ -40,6 +41,6 @@ def run_opencode_mutation_llm(
         backend="opencode",
         model=model,
         workdir=workdir,
-        routing_policy={"opencode_tool_mode": "toolless"},
+        routing_policy={"opencode_tool_mode": "protocol"},
     )
     return int(rc), str(out or ""), str(err or "")

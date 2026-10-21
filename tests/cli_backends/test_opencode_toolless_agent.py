@@ -59,6 +59,25 @@ def test_toolless_builds_the_toolless_agent_for_a_local_backend(flask_app_with_a
     assert pc is not None
     assert pc["default_agent"] == "ananta-worker"
     assert "ananta-worker" in pc["agent"]
+    # the plain toolless agent keeps its CodeCompass prompt (native MCP users)
+    assert "Use CodeCompass tools" in pc["agent"]["ananta-worker"]["prompt"]
+
+
+def test_protocol_builds_the_loop_brain_agent(flask_app_with_agent_config):
+    flask_app_with_agent_config.config["AGENT_CONFIG"] = _llamacpp_agent_cfg()
+    with flask_app_with_agent_config.app_context():
+        from agent.cli_backends.opencode import resolve_opencode_runtime_config
+
+        res = resolve_opencode_runtime_config(model="ananta-code-27b", tool_mode="protocol")
+    assert res["tool_mode"] == "protocol"
+    pc = res["provider_config"]
+    assert pc is not None
+    assert pc["default_agent"] == "ananta-worker"
+    brain = pc["agent"]["ananta-worker"]
+    assert "JSON protocol object" in brain["prompt"]
+    assert "Do not call any tool" in brain["prompt"]
+    assert "Use CodeCompass tools" not in brain["prompt"]
+    assert all(value is False for value in brain["tools"].values())
 
 
 def test_full_mode_keeps_the_default_agent(flask_app_with_agent_config):

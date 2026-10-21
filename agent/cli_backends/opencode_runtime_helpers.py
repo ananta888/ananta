@@ -102,9 +102,35 @@ def build_opencode_toolless_agent_config() -> dict[str, object]:
     }
 
 
+def build_opencode_loop_brain_agent_config() -> dict[str, object]:
+    """The loop brain: protocol answers only, never native tool or MCP calls.
+
+    The mutation loop owns every tool — it executes the protocol's
+    ``codecompass.*`` and ``workspace_write`` steps itself. A brain that reaches
+    for native MCP instead stalls the turn against the local transport and burns
+    the propose timeout without ever answering the protocol.
+    """
+    return {
+        "description": "Mutation loop brain answering the loop protocol as structured JSON",
+        "prompt": (
+            "Answer ONLY with the single JSON protocol object the user prompt requests. "
+            "Do not call any tool or MCP server yourself — the runtime executes every "
+            "step the protocol describes, including repository analysis."
+        ),
+        "temperature": 0.1,
+        "tools": {
+            name: False
+            for name in (
+                "bash", "read", "glob", "grep", "edit", "write", "task",
+                "webfetch", "todowrite", "question", "skill",
+            )
+        },
+    }
+
+
 def normalize_opencode_tool_mode(value: str | None) -> str:
     mode = str(value or "").strip().lower()
-    return mode if mode in {"toolless", "readonly", "full"} else "full"
+    return mode if mode in {"toolless", "readonly", "full", "protocol"} else "full"
 
 
 def normalize_opencode_execution_mode(value: str | None) -> str:
