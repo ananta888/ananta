@@ -324,6 +324,24 @@ class DevelopmentCoordinator:
             self.journal.write(state)
             execute()
             self._check_live(state)
+            from agent.services.self_development.final_answer_artifact import review_answer_retry_pending
+
+            if review_answer_retry_pending(workspace=begin["workspace"]):
+                # The answer gate refused this round: the reviewer still owes its
+                # verdict. Force the review Task back to todo so it is dispatched
+                # again (bounded by the round counter); the item stays
+                # pending_review until collect_review really runs.
+                update_local_task_status(
+                    task.id,
+                    "todo",
+                    event_type="review_answer_retry",
+                    event_actor="system",
+                    event_details={"reason_code": "review_answer_required"},
+                    force=True,
+                )
+                return TaskDispatchResult(
+                    task.id, dispatched=True, failed=True, failure_type="review_answer_pending_retry"
+                )
             receipt = self.reviewer.collect_review(
                 request, reservation, workspace=begin["workspace"], verification_command=verification
             )
@@ -501,6 +519,15 @@ class DevelopmentCoordinator:
                 + json.dumps(item["source_context"], ensure_ascii=False)
                 + "\nOnly change these files: "
                 + ", ".join(item["contract"]["files"])
+                + "\nRequired before any write, in this order: "
+                "(1) call CodeCompass for what you plan to change — on the ananta-worker loop the tool is "
+                '`codecompass.plan_context` with {"query": "<what changes and why>"}`; on the opencode path the '
+                "MCP equivalent is `ananta_codecompass_codecompass_plan_context` with the same argument. "
+                "(2) fetch the authoritative excerpts with "
+                '`codecompass.get_file_context` (loop) or `ananta_codecompass_codecompass_get_file_context` '
+                '(opencode), arguments {"paths": [<files you change>], "line_ranges": [{path, line_start, '
+                'line_end}]}. Do not read those files with your own read tools: the Hub binds exactly these '
+                "CodeCompass ranges to this task and blocks publication without them."
                 + "\nRun exactly: "
                 + profile["command"]
                 + "\nUse test.run and finish only after exit code 0. Never commit, push, create tasks, "

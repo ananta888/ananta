@@ -184,7 +184,7 @@ def apply_tool_loop_limits(app, policy):
     if not isinstance(config, dict):
         return False
     current = dict(config.get("ananta_worker_tool_loop") or {})
-    limits = {"max_iterations": 30, "max_tool_calls": 60, "max_invalid_outputs": 4, "read_only_nudge_after": 4}
+    limits = {"max_iterations": 60, "max_tool_calls": 60, "max_invalid_outputs": 4, "read_only_nudge_after": 4}
     codecompass_reads = [
         "codecompass.plan_context",
         "codecompass.search_symbols",

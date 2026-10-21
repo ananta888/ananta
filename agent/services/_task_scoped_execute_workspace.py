@@ -373,22 +373,49 @@ def run_execute_workspace_path(
                 "manifest_id": f"manifest-{tid}",
                 "missing_expected_paths": missing,
             }
-            final_status = apply_artifact_first_completion(
-                tid,
-                collection_result=collection_result,
-                advisory_parse_result=None,
-                exit_code=execution_run.exit_code,
-                retry_count=int(execution_run.retries_used or 0),
-                expected_paths=expected_paths,
-                verification_required=bool(expected_paths),
-                allow_synthesized_manifest=False,
+            from agent.services.self_development.final_answer_artifact import (
+                enforce_review_answer_gate,
+                review_workspace_dir,
             )
+
+            review_answer_gate = enforce_review_answer_gate(
+                task_kind=str(task.get("task_kind") or ""),
+                workspace=review_workspace_dir(task, workspace_ctx.workspace_dir),
+                task_id=str(tid or ""),
+                output=str(execution_run.output or ""),
+            )
+            if review_answer_gate is not None:
+                # A gate_review round without its verdict: refuse completion so the
+                # task returns to todo and the reviewer gets another bounded round.
+                # Force: execute_local_step already completed the local record, and a
+                # blocked transition would leave the refusal invisible.
+                final_status = str(review_answer_gate["status"])
+                update_local_task_status(
+                    tid,
+                    final_status,
+                    event_type="review_answer_required",
+                    event_actor="system",
+                    event_details=dict(review_answer_gate),
+                    force=True,
+                )
+            else:
+                final_status = apply_artifact_first_completion(
+                    tid,
+                    collection_result=collection_result,
+                    advisory_parse_result=None,
+                    exit_code=execution_run.exit_code,
+                    retry_count=int(execution_run.retries_used or 0),
+                    expected_paths=expected_paths,
+                    verification_required=bool(expected_paths),
+                    allow_synthesized_manifest=False,
+                )
             response_payload["status"] = final_status
             response_payload["artifact_completion"] = {
                 "expected_paths": expected_paths,
                 "produced_paths": sorted(produced_paths),
                 "missing_expected_paths": missing,
                 "final_status": final_status,
+                **({"review_answer": dict(review_answer_gate)} if review_answer_gate else {}),
             }
             goal_output_artifacts = register_goal_artifact_outputs(
                 task=task,

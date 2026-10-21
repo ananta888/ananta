@@ -37,16 +37,30 @@ class ReviewWorkflowError(ValueError):
         super().__init__(reason_code)
 
 
-def select_reviewer_worker(author_worker_url: str, *, workers: list | None = None) -> str:
+def select_reviewer_worker(
+    author_worker_url: str,
+    *,
+    workers: list | None = None,
+    team_id: str | None = None,
+) -> str:
     """Resolve an eligible, online reviewer Worker distinct from the author.
 
     Review-capable Workers win over generalists; ties break by URL so the choice
     never depends on model text or iteration order.
+
+    ``team_id`` binds the lookup to the development team. The autopilot's worker
+    circuit is not observable from this context, so its callback stays open —
+    ``available_workers`` still drops offline and out-of-grace Workers itself.
     """
     if workers is None:
-        from agent.services.autopilot_support_service import available_workers
+        from agent.services.autopilot_support_service import get_autopilot_support_service
+        from flask import current_app, has_app_context
 
-        workers = available_workers()
+        workers, _ = get_autopilot_support_service().available_workers(
+            team_id=team_id,
+            is_worker_circuit_open=lambda _url: False,
+            app_config=dict(current_app.config) if has_app_context() else {},
+        )
     author = str(author_worker_url or "").rstrip("/")
     review_roles = {"reviewer"}
     review_capabilities = {"review", "analysis"}
@@ -89,8 +103,15 @@ def build_review_brief(*, todo_id: str, requirements: dict, changed_files: dict,
         )
     lines += [
         "",
-        "Then run exactly one verification via test.run: " + verification_command,
-        'Finish with kind "final_answer" and an "answer" containing ONLY this JSON object: ' + VERDICT_CONTRACT,
+        # The `Run exactly:` marker is the same declaration the development brief
+        # uses: it lets the propose path propose this command as the executable
+        # step, which is what `collect_review` compares against the reservation.
+        "Run exactly: " + verification_command,
+        "Execute that command once with test.run before you answer.",
+        # The loop dialect speaks "kind"; a plain CLI backend (no loop) must see
+        # the tool call spelled out — it never produced the verdict otherwise.
+        'Finish by calling the final_answer tool exactly once with an "answer" containing '
+        'ONLY this JSON object (loop backends: kind "final_answer"): ' + VERDICT_CONTRACT,
         "approved is true only when every criterion passes and findings is empty.",
     ]
     brief = "\n".join(lines)
@@ -165,7 +186,11 @@ class QueueAcceptanceReviewer:
         self.tenant_id = tenant_id
         self.team_id = team_id
         self.policy_digest = policy_digest
-        self.choose_worker = choose_worker or select_reviewer_worker
+        # The default selector must carry the reviewer team; injected callables keep
+        # their single-argument (author url) contract.
+        self.choose_worker = choose_worker or (
+            lambda author_worker_url: select_reviewer_worker(author_worker_url, team_id=team_id)
+        )
         self.task_lookup = task_lookup or self._default_task_lookup
 
     @staticmethod
@@ -238,7 +263,15 @@ class QueueAcceptanceReviewer:
             raise ReviewWorkflowError("review_reservation_invalid")
         review_task_id = str(reservation.get("review_task_id") or "")
         workspace = self.workspaces / ("acceptance-review-" + review_task_id)
-        export_revision(self.checkout, workspace, request.repository_revision)
+        try:
+            export_revision(self.checkout, workspace, request.repository_revision)
+        except ValueError as exc:
+            if str(exc) != "workspace_already_exists":
+                raise
+            # A bounded answer-gate round re-enters begin_review for the same
+            # review Task: the admitted revision is already exported, and
+            # re-exporting would wipe the round counter and the answer artifact
+            # that collect_review reads. All steps below re-write idempotently.
         sealed_dir = self.sealed_root / request.task_id
         for relative, digest in request.changed_files:
             try:

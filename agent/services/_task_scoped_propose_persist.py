@@ -8,6 +8,7 @@ CLI session turn and log the terminal entries.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from flask import current_app
@@ -184,6 +185,58 @@ def persist_interactive_finalize_proposal(run: ProposeRun, routing: dict) -> Any
     return run.deps.route_response(data=response_payload)
 
 
+def _task_description(task: Any) -> str:
+    """Task description across both task shapes: a mapping (task-scoped propose) or an object."""
+    if isinstance(task, dict):
+        return str(task.get("description") or "")
+    return str(getattr(task, "description", "") or "")
+
+
+def resolve_declared_command_if_missing(command: Any, task: Any) -> Any:
+    """Keep a proposed command, or fall back to the task's declared verification command.
+
+    Shared by both propose paths: a backend that already performed the work answers
+    with an execution report instead of a step (the opencode path reports, the
+    orchestrator path reports), and without a command neither the execute phase nor
+    ``collect_review``'s ``proposal.command`` check can ever be satisfied.
+    """
+    if command:
+        return command
+    return _verification_command_from_task_description(task)
+
+
+def _verification_command_from_task_description(task: Any) -> str | None:
+    """Declared verification command of a task whose backend reported work instead of a step.
+
+    The dispatcher only starts the execute phase when the propose answer carries an
+    executable step (``command`` or ``tool_calls``); a backend that already performed
+    the change inside the propose step answers with an execution report and would end
+    as ``no_executable_step`` without ever running the verification. Proposing the very
+    command the Hub wrote into the task (``Run exactly: …``) restores that step: the
+    execute phase runs the allowlisted verification, and its exit status is what
+    ``last_exit_code`` and ``proposal.command`` are judged against.
+
+    The marker helpers are reused from the workspace context writer so the extraction
+    cannot drift from the prompt that declares the command.
+    """
+    description = _task_description(task)
+    if not description:
+        return None
+    from agent.services._worker_workspace_context_writer import (
+        _TEST_COMMAND_MARKERS,
+        _declared_test_command_span,
+    )
+
+    for marker in _TEST_COMMAND_MARKERS:
+        span = _declared_test_command_span(description, marker)
+        if span is None:
+            continue
+        command = " ".join(description[span[0]:span[1]].split())
+        if command:
+            return command
+    return None
+
+
 def _parse_structured_proposal(run: ProposeRun) -> tuple[Any, Any, Any]:
     """Extract reason/command/tool calls; repair once when neither command nor tool calls exist."""
     reason = _extract_reason(run.raw_res)
@@ -229,15 +282,73 @@ def _apply_native_worker_plan(run: ProposeRun, routing: dict, *, command, reason
     return policy_classification_summary
 
 
+def _write_analysis_report_for_proposal(run: ProposeRun) -> None:
+    """Publish the backend's CodeCompass observations as the gate's analysis report.
+
+    Called only after a successful propose; ``write_analysis_report`` itself refuses
+    to overwrite a report the mutation loop already owns, refuses observations that
+    do not match the baseline, and validates against the gate's schema before any
+    file is written. A refusal keeps the gate closed — it never breaks proposal
+    persistence. Only a successful propose (rc 0) may publish a report, and that
+    rule lives here so no caller can forget it.
+    """
+    if run.rc != 0:
+        return
+    try:
+        from agent.services.self_development.analysis_report import write_analysis_report
+
+        write_analysis_report(
+            Path(run.workspace_dir),
+            task_id=run.tid,
+            description=_task_description(run.task),
+            answer=str(run.raw_res or ""),
+        )
+    except Exception:  # pragma: no cover - reporting must not fail the proposal path
+        import logging
+
+        logging.getLogger(__name__).warning("analysis_report_write_skipped", exc_info=True)
+
+
+def _write_final_answer_for_proposal(run: ProposeRun) -> None:
+    """Persist the verdict artifact that ``collect_review`` parses.
+
+    The opencode path has no loop to write `.ananta/last-final-answer.json`, so
+    the review fails with ``worker_review_answer_missing`` even though the
+    reviewer answered in text. Only an actual verdict object is written — a
+    non-verdict answer stays unwritten and keeps the honest failure.
+    """
+    if run.rc != 0:
+        return
+    try:
+        from agent.services.self_development.final_answer_artifact import write_final_answer
+
+        write_final_answer(Path(run.workspace_dir), task_id=run.tid, answer=str(run.raw_res or ""))
+    except Exception:  # pragma: no cover - artifact writing must not fail the proposal
+        import logging
+
+        logging.getLogger(__name__).warning("final_answer_artifact_write_skipped", exc_info=True)
+
+
 def persist_command_proposal(run: ProposeRun, routing: dict) -> Any:
     reason, command, tool_calls = _parse_structured_proposal(run)
+    command_source = "structured_proposal"
+    if not command and not tool_calls:
+        command = _verification_command_from_task_description(run.task)
+        if command:
+            command_source = "task_declared_verification_command"
     policy_classification_summary = _apply_native_worker_plan(run, routing, command=command, reason=reason)
     append_stage(
         run.pipeline,
         name="parse",
         status="ok",
-        metadata={"has_command": bool(command), "tool_call_count": len(tool_calls or [])},
+        metadata={
+            "has_command": bool(command),
+            "tool_call_count": len(tool_calls or []),
+            "command_source": command_source,
+        },
     )
+    _write_analysis_report_for_proposal(run)
+    _write_final_answer_for_proposal(run)
     trace = _proposal_trace(run)
     pipeline_payload = {**run.pipeline, "trace_id": trace["trace_id"]}
     repair_meta = run.repair_meta

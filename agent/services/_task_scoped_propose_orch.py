@@ -39,6 +39,32 @@ if TYPE_CHECKING:
     from agent.services.task_scoped_execution_service import TaskScopedRouteResponse
 
 
+def _write_review_answer_artifact(*, task: str, task_record: Any, answer: Any) -> None:
+    """Persist the verdict a review task answered with, into that task's workspace.
+
+    Review tasks run through this orchestrator path, while the artifact
+    ``collect_review`` reads (``.ananta/last-final-answer.json``) is written by the
+    mutation loop — a reviewer answered without a loop left the review failing with
+    ``worker_review_answer_missing``. Only an actual verdict object is written; a
+    missing verdict keeps that honest failure. Never raises: proposal persistence
+    must not depend on artifact writing.
+    """
+    try:
+        from agent.services.self_development.final_answer_artifact import (
+            review_workspace_dir,
+            write_final_answer,
+        )
+        from agent.services.worker_workspace_service import get_worker_workspace_service
+
+        workspace = get_worker_workspace_service().resolve_workspace_context(task=task_record)
+        workspace_dir = review_workspace_dir(task_record, workspace.workspace_dir)
+        write_final_answer(workspace_dir, task_id=str(task), answer=str(answer or ""))
+    except Exception:  # pragma: no cover - artifact writing must not fail the proposal
+        import logging
+
+        logging.getLogger(__name__).warning("review_answer_artifact_write_skipped", exc_info=True)
+
+
 def run_propose_orchestrator_path(
     *,
     tid: str,
@@ -416,9 +442,13 @@ def run_propose_orchestrator_path(
         **({"llm_call_profile": llm_call_profile} if llm_call_profile else {}),
     }
     resolved_reason = str(result_dict.get("reason") or result.reason or "").strip() or result.reason
-    resolved_command = result_dict.get("command") if isinstance(result_dict.get("command"), str) else (
+    proposed_command = result_dict.get("command") if isinstance(result_dict.get("command"), str) else (
         result.proposal.command if result.is_executable and result.proposal is not None else None
     )
+    from agent.services._task_scoped_propose_persist import resolve_declared_command_if_missing
+
+    resolved_command = resolve_declared_command_if_missing(proposed_command, task)
+    _write_review_answer_artifact(task=tid, task_record=task, answer=resolved_reason)
     resolved_tool_calls = (
         list(result_dict.get("tool_calls") or [])
         if isinstance(result_dict.get("tool_calls"), list)

@@ -229,15 +229,15 @@ class MutationSession:
         The proposal boundary replaces the answer with an executable action, so without
         this file a final verdict would be dropped before the Hub ever sees it. Lives in
         ``.ananta`` only; it is worker context, never sealed or published source.
+
+        The artifact shape lives in one builder shared with the opencode path, so the
+        schema ``collect_review`` parses cannot drift between the two producers.
         """
-        artifact = {
-            "schema": "ananta_worker_final_answer.v1",
-            "session_id": self.session_id,
-            "task_id": self.task_id,
-            "outcome": "final_answer",
-            "answer": str(answer or "")[:16000],
-            "created_at": time.time(),
-        }
+        from agent.services.self_development.final_answer_artifact import build_final_answer_artifact
+
+        artifact = build_final_answer_artifact(
+            task_id=self.task_id, answer=str(answer or ""), session_id=self.session_id
+        )
         try:
             path = self.workspace / ".ananta" / "last-final-answer.json"
             path.parent.mkdir(parents=True, exist_ok=True)

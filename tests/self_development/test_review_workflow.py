@@ -16,6 +16,7 @@ import pytest
 from agent.ports.task_dispatch import TaskDispatchResult
 from agent.services.self_development.acceptance_review import AcceptanceReviewError
 from agent.services.self_development.contracts import form
+from agent.services.self_development.final_answer_artifact import bump_review_answer_round, review_answer_rounds
 from agent.services.self_development.policy import DevelopmentPolicy
 from agent.services.self_development.review_workflow import (
     QueueAcceptanceReviewer,
@@ -252,6 +253,45 @@ def test_operator_stop_before_review_dispatch_fails_bounded(runtime):
     assert result.failed
     assert published == []
     assert "development_session_stopped_or_budget_exhausted" in final["reason"], final["reason"]
+
+
+def test_answer_gate_round_reenters_begin_review_and_publishes_later(runtime):
+    """A refused answer round keeps the item pending and re-exports nothing.
+
+    Round 1: the reviewer's gate refuses (counter bumped, no verdict) — the item
+    must stay ``pending_review`` instead of failing, and ``begin_review`` must
+    reuse the already exported workspace (a re-export would wipe the counter).
+    Round 2: a real answer is collected and the item publishes.
+    """
+    service, _, published = runtime
+    review_tasks: dict = {}
+    enable_phased_review(service, review_tasks=review_tasks)
+    admit_document(service)
+    execute(service)
+    item = service.status()["items"][0]
+    assert item["status"] == "pending_review"
+    review_id = item["review_task_id"]
+    workspace = service.policy.workspaces / ("acceptance-review-" + review_id)
+
+    def refused_round():
+        bump_review_answer_round(workspace)
+        review_tasks[review_id] = completed_review_task(review_id)
+        return TaskDispatchResult(review_id, dispatched=True, completed=True)
+
+    review_task = SimpleNamespace(id=review_id, status="todo")
+    first = service.dispatch(review_task, SimpleNamespace(url=REVIEWER), refused_round)
+
+    assert first.failed and first.failure_type == "review_answer_pending_retry"
+    final = service.status()["items"][0]
+    assert final["status"] == "pending_review", final["reason"]
+    assert published == []
+    assert review_answer_rounds(workspace) == 1
+    assert (workspace / ".ananta" / "review.json").is_file()
+
+    # second dispatch re-enters begin_review without workspace_already_exists
+    assert dispatch_review(service, item, review_tasks).completed
+    assert published == [item["task_id"]]
+    assert service.status()["items"][0]["status"] == "published"
 
 
 def test_stale_review_redispatch_is_rejected(runtime):
