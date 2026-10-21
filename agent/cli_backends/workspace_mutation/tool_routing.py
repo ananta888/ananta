@@ -44,6 +44,26 @@ ACTION_NUDGE = (
 )
 
 
+def resolve_turn_nudge(session: Any, *, nudge_after: int) -> str | None:
+    """The corrective line for a stalling turn, or ``None`` when on track.
+
+    A read-only streak while the analysis prerequisite is still unmet must not run
+    out the whole iteration budget silently: the nudge then names the required
+    analysis sequence, and afterwards it pushes for the write/answer action.
+    """
+    correction = getattr(session, "correction", None)
+    if correction:
+        return correction
+    if not nudge_after or getattr(session, "read_only_streak", 0) < nudge_after:
+        return None
+    gate = getattr(session, "analysis_gate", None)
+    if gate is not None and gate.pending:
+        from agent.cli_backends.workspace_mutation.prompts import ANALYSIS_CORRECTION_NUDGE
+
+        return ANALYSIS_CORRECTION_NUDGE
+    return ACTION_NUDGE
+
+
 def is_blind_read_tool(tool_name: str, arguments: Mapping[str, Any] | None = None) -> bool:
     """A read the model has not located yet.
 

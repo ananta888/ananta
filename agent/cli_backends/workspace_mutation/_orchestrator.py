@@ -239,7 +239,6 @@ def run_ananta_worker_workspace_mutation(
             max_diff_chars=int(cfg.get("max_diff_chars") or _max_diff_chars(cfg)),
         ),
     )
-    from agent.cli_backends.workspace_mutation.tool_routing import ACTION_NUDGE
     from agent.services._worker_workspace_context_writer import _align_declared_test_command
 
     # The assignment the model reads must quote a command the policy allows: the loop requires
@@ -259,10 +258,9 @@ def run_ananta_worker_workspace_mutation(
     last_out, last_err = "", ""
 
     for iteration in range(1, session.limits.max_iterations + 1):
-        nudge = getattr(session, "correction", None) or (
-            ACTION_NUDGE if (not session.analysis_gate.pending and nudge_after
-                            and getattr(session, "read_only_streak", 0) >= nudge_after) else None
-        )
+        from agent.cli_backends.workspace_mutation.tool_routing import resolve_turn_nudge
+
+        nudge = resolve_turn_nudge(session, nudge_after=nudge_after)
         iter_prompt = _build_iteration_prompt(
             original_prompt=prompt,
             instructions=instructions,

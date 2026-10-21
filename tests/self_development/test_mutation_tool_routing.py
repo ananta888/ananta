@@ -414,3 +414,35 @@ def test_two_different_refusals_of_test_commands_end_the_loop_too(monkeypatch):
     assert tool_actions.handle_tool_request(session, turn) is not None
     assert finished[0][1]["refused_commands"] == 2
     assert finished[0][1]["command"] == "pytest -o addopts= a.py"
+
+
+def test_resolve_turn_nudge_names_the_analysis_sequence_while_pending(tmp_path):
+    from agent.cli_backends.workspace_mutation.analysis import CodeAnalysisGate
+
+    session = SimpleNamespace(
+        correction=None,
+        read_only_streak=4,
+        analysis_gate=CodeAnalysisGate(required=True, workspace=tmp_path),
+    )
+    nudge = tool_routing.resolve_turn_nudge(session, nudge_after=4)
+    assert nudge is not None
+    assert "codecompass.plan_context" in nudge
+    assert "code_analysis" in nudge
+
+
+def test_resolve_turn_nudge_pushes_for_action_after_analysis(tmp_path):
+    from agent.cli_backends.workspace_mutation.analysis import CodeAnalysisGate
+
+    session = SimpleNamespace(
+        correction=None,
+        read_only_streak=4,
+        analysis_gate=CodeAnalysisGate(required=False, workspace=tmp_path),
+    )
+    assert tool_routing.resolve_turn_nudge(session, nudge_after=4) is tool_routing.ACTION_NUDGE
+
+
+def test_resolve_turn_nudge_prefers_the_handler_correction_and_respects_quiet_streaks():
+    quiet = SimpleNamespace(correction=None, read_only_streak=1, analysis_gate=None)
+    assert tool_routing.resolve_turn_nudge(quiet, nudge_after=4) is None
+    corrected = SimpleNamespace(correction="do the analysis first", read_only_streak=99, analysis_gate=None)
+    assert tool_routing.resolve_turn_nudge(corrected, nudge_after=4) == "do the analysis first"
