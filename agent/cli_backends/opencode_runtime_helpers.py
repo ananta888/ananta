@@ -113,9 +113,10 @@ def build_opencode_loop_brain_agent_config() -> dict[str, object]:
     return {
         "description": "Mutation loop brain answering the loop protocol as structured JSON",
         "prompt": (
-            "Answer ONLY with the single JSON protocol object the user prompt requests. "
-            "Do not call any tool or MCP server yourself — the runtime executes every "
-            "step the protocol describes, including repository analysis."
+            "Respond with exactly the JSON protocol object the user prompt requests, "
+            "including every step that protocol requires — such as codecompass analysis "
+            "calls before any mutation. The runtime executes those requested steps for "
+            "you; never use your own tools or MCP servers."
         ),
         "temperature": 0.1,
         "tools": {

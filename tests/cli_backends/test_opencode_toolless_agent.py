@@ -75,7 +75,10 @@ def test_protocol_builds_the_loop_brain_agent(flask_app_with_agent_config):
     assert pc["default_agent"] == "ananta-worker"
     brain = pc["agent"]["ananta-worker"]
     assert "JSON protocol object" in brain["prompt"]
-    assert "Do not call any tool" in brain["prompt"]
+    # the brain must forward the loop's own mandates (codecompass steps) instead of
+    # promising them away — that promise made the model skip the analysis calls
+    assert "codecompass analysis calls" in brain["prompt"]
+    assert "never use your own tools" in brain["prompt"]
     assert "Use CodeCompass tools" not in brain["prompt"]
     assert all(value is False for value in brain["tools"].values())
 
