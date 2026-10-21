@@ -90,6 +90,7 @@ _CODECOMPASS_RUNTIME_RULES = (
     "- Do **not** fabricate or guess missing data. Name the missing context and request a reload via the Hub (see `docs/contracts/codecompass-context-reload-request.md`).",
     "- Do **not** claim coverage, policy effect, or dependency without an evidence path. A name match in the graph is not coverage; a frontend guard reference is not backend enforcement.",
     "- Surface warnings, do not filter them. Heuristic edges come with a warning; the warning is part of the answer.",
+    "- Before you change a file, call `codecompass.plan_context` (or `codecompass.get_file_context`) for the files you change. The Hub binds the ranges you actually observed through CodeCompass to this task and gates publication on them — an unobserved change cannot be published.",
 )
 
 _CONTEXT_INDEX_KEYS = (
@@ -345,6 +346,11 @@ def _task_brief_content(
             "- Apply changes directly in this workspace and keep edits auditable.",
         ]
     )
+    # The observation instruction lives in the task description (the assignment the
+    # brief embeds as its source of truth) and already names both transport-specific
+    # tool sets with their arguments — repeating it here would re-introduce the
+    # opencode-only names into the loop's prompt, where the loop then calls them
+    # under the wrong registry name and the tool policy blocks the run.
     if include_response_contract:
         task_lines.append("- Return exactly one JSON object according to `.ananta/response-contract.md`.")
     else:

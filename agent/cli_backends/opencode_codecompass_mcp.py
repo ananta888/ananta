@@ -13,6 +13,25 @@ from agent.cli_backends.tool_loop import get_tool_loop_config
 from agent.config import settings
 
 
+def _record_observation(result: dict, *, task_id: str, workspace: str) -> None:
+    """Keep the observed ranges of one CodeCompass call for the Hub's analysis gate.
+
+    Strictly best effort: a failing recorder must never break the MCP response the
+    backend is already waiting for. Only successful CodeCompass responses reach it,
+    which is what makes ``codecompass_observed: true`` in the written report true.
+    """
+    if not task_id or not isinstance(result, dict):
+        return
+    try:
+        from agent.services.self_development.analysis_report import record_tool_result
+
+        record_tool_result(result, task_id=task_id, workspace=workspace)
+    except Exception:  # pragma: no cover - observation is advisory for the MCP path
+        import logging
+
+        logging.getLogger(__name__).warning("codecompass_observation_record_failed", exc_info=True)
+
+
 @contextmanager
 def opencode_codecompass_mcp(*, workspace_dir: str, task_id: str | None = None) -> Iterator[McpEndpoint]:
     """Snapshot trusted task context before starting the HTTP request threads."""
@@ -66,6 +85,7 @@ def opencode_codecompass_mcp(*, workspace_dir: str, task_id: str | None = None) 
             result = _ctx.ananta_tool_executor(
                 tool_name=name, arguments=arguments, workspace_dir=workspace_dir, tool_call_id=call_id, config=cfg
             )
+            _record_observation(result, task_id=bound_task_id, workspace=workspace_dir)
         return {
             "content": [{"type": "text", "text": json.dumps(result, ensure_ascii=True)}],
             "isError": result.get("status") == "error" or bool(result.get("error")),

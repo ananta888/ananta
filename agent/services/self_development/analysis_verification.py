@@ -36,6 +36,10 @@ class AnalysisObservation(BaseModel):
     model_config = ConfigDict(frozen=True, strict=True)
     required: Literal[True]
     status: Literal['accepted']
+    # The gateway rejects a report that cannot show a CodeCompass observation: the
+    # flag is deliberately a Literal so `codecompass_observed: false` fails schema
+    # validation before it could ever be verified (see
+    # test_hub_rejects_analysis_missing_assignment_or_source_binding[no_codecompass]).
     codecompass_observed: Literal[True]
     observed_sources: tuple[ObservedRange, ...] = Field(min_length=1)
     analysis: RecordedAnalysis
