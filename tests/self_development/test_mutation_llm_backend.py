@@ -63,6 +63,9 @@ def test_opencode_adapter_returns_the_three_tuple_and_forwards(monkeypatch):
     )
     assert (rc, out, err) == (0, "protocol answer", "ignored fourth element")
     assert captured["backend"] == "opencode"
+    # the loop brain answers protocol turns toolless — its own tools would bypass
+    # the loop's CodeCompass steps and burn the turn timeout
+    assert captured["routing_policy"] == {"opencode_tool_mode": "toolless"}
     assert captured["prompt"] == "PROMPT"
     assert captured["options"] == ["--foo"]
     assert captured["timeout"] == 42
