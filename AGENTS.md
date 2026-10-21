@@ -81,14 +81,20 @@ The hub always remains the owner of:
 
 # Container Model
 
-Each hub and worker instance runs in its **own Docker container**.
+Each hub and worker instance runs in Docker containers.
+
+The number of agent processes a single worker container hosts concurrently is
+configurable (`ANANTA_AGENT_COUNT`, default `1`): one container may carry several
+worker agents as long as every process keeps its own port, name, URL and
+`DATA_DIR`. The hub always runs exactly one process per container.
 
 This model is part of the architecture and must be preserved.
 
 New features must:
 
 - respect container boundaries
-- avoid implicit shared state
+- avoid implicit shared state (agent processes inside one container stay isolated
+  from each other: no shared ports, registration identity or data directories)
 - avoid assumptions about a single process environment
 
 Execution environments must remain reproducible.
