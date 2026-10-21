@@ -155,6 +155,10 @@ services:
       - --owner-gid
       - ${ANANTA_HOST_GID:-1000}
     volumes:
+      # The repository carries the scripts package the bootstrap imports
+      # (contract, identity documents, orchestrator); the baked image copy
+      # drifts behind the repository and fails the import on every rerun.
+      - ../..:/app:ro
       - ../../scripts/bootstrap-dev-workflow-keyrings.py:/app/scripts/bootstrap-dev-workflow-keyrings.py:ro
       - type: bind
         source: ${ANANTA_DEV_WORKFLOW_SECRET_DIR:-../../../ananta-data/workflow-runtime-dev}
