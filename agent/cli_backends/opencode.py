@@ -530,9 +530,17 @@ def _run_opencode_subprocess(
             if diagnostics:
                 log.warning("OpenCode runtime diagnostics: %s", ",".join(diagnostics))
             temp_dir_ctx = tempfile.TemporaryDirectory() if runtime_cfg.get("provider_config") else contextlib.nullcontext(None)
-            with temp_dir_ctx as tmp_dir, opencode_codecompass_mcp(
-                workspace_dir=str(Path(workdir or os.getcwd()).resolve()), task_id=task_id,
-            ) as mcp:
+            # The loop brain runs protocol-only: no MCP server is offered, so the
+            # child never handshakes with the in-process transport (its stall class)
+            # and cannot answer the protocol through native tools instead of them.
+            mcp_context = (
+                contextlib.nullcontext(None)
+                if str(tool_mode or "").strip().lower() == "protocol"
+                else opencode_codecompass_mcp(
+                    workspace_dir=str(Path(workdir or os.getcwd()).resolve()), task_id=task_id,
+                )
+            )
+            with temp_dir_ctx as tmp_dir, mcp_context as mcp:
                 if runtime_cfg.get("provider_config") and tmp_dir:
                     config_dir = os.path.join(tmp_dir, "opencode")
                     os.makedirs(config_dir, exist_ok=True)
@@ -541,7 +549,8 @@ def _run_opencode_subprocess(
                         json.dump(runtime_cfg["provider_config"], handle, ensure_ascii=True)
                     env["XDG_CONFIG_HOME"] = tmp_dir
                 config = dict(runtime_cfg.get("provider_config") or {})
-                config["mcp"] = {**config.get("mcp", {}), "ananta_codecompass": mcp.config()}
+                if mcp is not None:
+                    config["mcp"] = {**config.get("mcp", {}), "ananta_codecompass": mcp.config()}
                 env["OPENCODE_CONFIG_CONTENT"] = json.dumps(config, ensure_ascii=True)
                 env_prefix = " ".join(
                     f"{key}={shlex.quote(value)}" for key, value in env.items() if key in {"XDG_CONFIG_HOME"}
@@ -562,7 +571,7 @@ def _run_opencode_subprocess(
                     maximum_output_chars=maximum_output_chars,
                     input_text=str(prompt or ""),
                     event_sink=event_sink,
-                    secret_values=(mcp.token,) + tuple(
+                    secret_values=((mcp.token,) if mcp is not None else ()) + tuple(
                         value
                         for name, value in env.items()
                         if name in _OPENCODE_AUTH_ENVIRONMENT_KEYS and value

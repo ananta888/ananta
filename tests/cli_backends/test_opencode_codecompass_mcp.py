@@ -31,6 +31,34 @@ def test_native_opencode_discovers_codecompass_without_provider_override(tmp_pat
     assert "ananta_codecompass" in config.get("mcp", {})
 
 
+def test_protocol_mode_offers_no_mcp_server(tmp_path):
+    """The loop brain's config must not carry an MCP server.
+
+    The unconditional in-process transport gave every brain turn a native MCP
+    handshake to wait on after the model had already answered — the observed
+    stall class behind the 300s turn timeouts.
+    """
+    runner = RecordingProcessRunner(ProcessExecutionResult(0, "ok", "", "completed", 3))
+    with (
+        patch("agent.cli_backends.opencode.shutil.which", return_value="/opt/bin/opencode"),
+        patch("agent.cli_backends.opencode._acquire_backend_permit", _permit),
+        patch("agent.cli_backends.opencode.resolve_opencode_runtime_config", return_value={"provider_config": None}),
+    ):
+        result = _run_opencode_subprocess(
+            prompt="protocol answer",
+            model=None,
+            timeout=10,
+            workdir=str(tmp_path),
+            output_format=None,
+            tool_mode="protocol",
+            process_runner=runner,
+        )
+    assert result[0] == 0
+    config = json.loads(runner.calls[0][1]["environment"].get("OPENCODE_CONFIG_CONTENT", "{}"))
+    assert "mcp" not in config
+    assert runner.calls[0][1]["secret_values"] == ()
+
+
 def _rpc(endpoint, method, params=None, *, token=None, notification=False):
     url = urlsplit(endpoint.url)
     connection = http.client.HTTPConnection(url.hostname, url.port, timeout=3)
