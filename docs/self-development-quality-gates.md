@@ -58,6 +58,32 @@ These checks prove that code was observed and an analysis was supplied. They
 cannot prove the semantic correctness of the analysis. The mutation report is
 a technical observation, not an independently issued `SRC_*` or `RUN_*` identity.
 
+## Structured mutation answers (opt-in)
+
+Free-form sampling of a quantised local model does not reliably emit
+`ananta_worker_mutation.v1`. One unescaped quote inside `files[].content`
+closes the JSON string early, the whole answer becomes unparseable, and the
+loop counts it as `invalid_output` until `max_invalid_outputs` aborts the run —
+the four wasted turns cost several minutes and leave no change behind.
+
+Set `ananta_worker_workspace_mutation.structured_output` to `true` (or export
+`ANANTA_WORKSPACE_MUTATION_STRUCTURED_OUTPUT=1` on the Worker) to send every
+turn through `response_format: json_schema` instead. The server derives the
+sampling grammar from `MUTATION_JSON_SCHEMA`, so malformed JSON cannot be
+produced at all. The answer keeps the exact `(rc, out, err)` contract of the
+CLI runner; a transport failure returns a nonzero `rc` with an empty `out`, so
+it ends the run as `llm_failed` instead of burning invalid-output turns.
+
+Endpoint and model resolve like the CLI path and additionally honour
+`local_openai_backends` and `llm_config.base_url`, so a self-hosted runner
+(such as `llamacpp`) is reached directly rather than through an `openai` alias.
+The call holds the `structured_output` backend permit and deliberately sets no
+`max_tokens`, because a complete `workspace_write` must fit.
+
+The flag is additive and off by default: deployments that do not set it keep
+the CLI path unchanged, and both paths stay selectable inside one image for
+comparison runs.
+
 ## Independent acceptance review
 
 The second flag blocks start and dispatch unless a trusted Hub composition
@@ -116,6 +142,16 @@ the queue behind it:
    `.ananta/last-final-answer.json` (worker-side artifact, never sealed);
    the Hub parses it strictly into `AcceptanceReviewResult`, records the
    Registry result and revalidates the complete receipt before publication.
+   Because the `final_answer` tool is side-effect free, the worker-side
+   completion gate refuses `gate_review` completion while that artifact is
+   missing: it materializes a produced verdict from the execution report, and
+   otherwise returns the task to `todo` for up to `REVIEW_ANSWER_ROUNDS_MAX`
+   further model rounds (event `review_answer_required`, reason
+   `review_answer_required`). Only the Hub's `review_answer_retry_pending`
+   condition defers `collect_review` for exactly those rounds (result
+   `review_answer_pending_retry`); once they are exhausted the task completes
+   normally and the review keeps its honest `worker_review_answer_missing`
+   failure.
 3. **Publication** reuses the unchanged chain: completion sealing, verified
    publication, dependency release. `DevelopmentCoordinator._verify`
    revalidates the stored receipt exactly as before.
