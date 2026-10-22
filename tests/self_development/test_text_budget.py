@@ -1,4 +1,4 @@
-"""Unit tests for agent/services/text_budget (CMP-2301)."""
+"""Unit tests for agent/services/text_budget (CMP-2502)."""
 from __future__ import annotations
 
 import pytest
@@ -52,7 +52,7 @@ def test_truncation_marker_raises_value_error_when_max_chars_less_than_1():
 def test_clamp_budget_and_marker_compose_within_budget():
     text = "a" * 20
     budget = 7
-    clamped = clamp_budget(text, budget - len(truncation_marker(budget))) if budget >= 3 else clamp_budget(text, budget)
     marker = truncation_marker(budget)
+    clamped = clamp_budget(text, max(1, budget - len(marker)))
     assert len(clamped) <= budget
     assert len(marker) <= budget
