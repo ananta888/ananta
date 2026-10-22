@@ -10,6 +10,7 @@ request completes deterministically and the dispatch slot is released.
 from __future__ import annotations
 
 import concurrent.futures
+import contextvars
 import logging
 from typing import Callable, TypeVar
 
@@ -29,12 +30,15 @@ class WallTimeout(RuntimeError):
 def run_wall_bounded(fn: Callable[[], T], *, timeout_seconds: float, label: str) -> T:
     """Run ``fn`` with a hard wall-clock bound and return its result.
 
-    On timeout the executor is abandoned (``wait=False``) and ``WallTimeout`` is
-    raised: callers map it to a bounded error response instead of a hung socket.
+    The caller's contextvars ride along: capability scopes and request context
+    live in the context, and a bare thread would silently lose them (observed as
+    empty analysis observations). On timeout the executor is abandoned
+    (``wait=False``) and ``WallTimeout`` is raised: callers map it to a bounded
+    error response instead of a hung socket.
     """
     pool = concurrent.futures.ThreadPoolExecutor(max_workers=1, thread_name_prefix=label)
     try:
-        return pool.submit(fn).result(timeout=timeout_seconds)
+        return pool.submit(contextvars.copy_context().run, fn).result(timeout=timeout_seconds)
     except concurrent.futures.TimeoutError as exc:
         pool.shutdown(wait=False)
         log.warning("wall_bounded_timeout label=%s timeout_seconds=%s", label, timeout_seconds)
