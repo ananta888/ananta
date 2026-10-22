@@ -57,6 +57,33 @@ def test_gate_materializes_when_the_command_report_follows_the_answer(tmp_path):
     assert review_answer_rounds(tmp_path) == 0
 
 
+def test_loop_artifact_in_the_execution_copy_is_bridged(tmp_path):
+    """The loop writes its native artifact into the execution copy; the review
+    reads the admission dir — the bridge carries the verdict over."""
+    from agent.services.self_development.final_answer_artifact import (
+        build_final_answer_artifact,
+        write_final_answer,
+    )
+
+    admission = tmp_path / "acceptance-review-t1"
+    execution_copy = tmp_path / "self-dev-t1"
+    (execution_copy / ".ananta").mkdir(parents=True)
+    loop_artifact = build_final_answer_artifact(task_id="t1", answer=VERDICT, session_id="loop")
+    (execution_copy / ".ananta" / "last-final-answer.json").write_text(json.dumps(loop_artifact), encoding="utf-8")
+    assert write_final_answer(admission, task_id="t1", answer="prose only") is False  # admission stays empty
+
+    gate = enforce_review_answer_gate(
+        task_kind="gate_review",
+        workspace=admission,
+        task_id="task-1",
+        output="49 passed in 5s",
+        execution_workspace=execution_copy,
+    )
+    assert gate is None
+    assert review_answer_present(admission) is True
+    assert review_answer_rounds(admission) == 0
+
+
 def test_gate_forces_bounded_further_rounds_without_an_answer(tmp_path):
     for expected_round in range(1, REVIEW_ANSWER_ROUNDS_MAX + 1):
         gate = enforce_review_answer_gate(

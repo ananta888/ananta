@@ -193,18 +193,31 @@ def enforce_review_answer_gate(
     workspace: str | Path,
     task_id: str,
     output: str,
+    execution_workspace: str | Path | None = None,
 ) -> dict | None:
     """The ``gate_review`` completion contract: no completion without a verdict answer.
 
     Returns ``{"status": "todo", "reason_code": ..., "round": ...}`` while the verdict
     is missing and model rounds remain — completion must be refused so the task is
-    dispatched again. Returns ``None`` once the artifact exists (materialized from a
-    ``final_answer`` execution report when the side-effect-free tool produced one)
-    or the rounds are exhausted: the task then completes normally and the review
-    keeps its honest ``worker_review_answer_missing`` failure.
+    dispatched again. Returns ``None`` once the artifact exists (bridged from the
+    loop's own artifact in the execution copy, materialized from a ``final_answer``
+    execution report, or already present) or the rounds are exhausted: the task then
+    completes normally and the review keeps its honest ``worker_review_answer_missing``
+    failure.
     """
     if str(task_kind or "").strip().lower() != "gate_review":
         return None
+    if execution_workspace is not None and not review_answer_present(workspace):
+        # The loop writes its native artifact into the execution copy of the
+        # admission workspace, while collect_review reads the admission dir —
+        # bridge the loop's verdict over before anything else.
+        loop_artifact = Path(execution_workspace) / ".ananta" / "last-final-answer.json"
+        try:
+            payload = json.loads(loop_artifact.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            payload = None
+        if isinstance(payload, dict) and str(payload.get("outcome") or "") == "final_answer":
+            write_final_answer(Path(workspace), task_id=task_id, answer=str(payload.get("answer") or ""))
     # The execution output joins the verification command and the tool reports
     # with "---" separators, so the report regex (end-anchored) misses whenever
     # pytest ran after final_answer. Fall back to the raw text: the verdict

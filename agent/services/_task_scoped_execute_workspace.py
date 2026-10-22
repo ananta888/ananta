@@ -383,6 +383,7 @@ def run_execute_workspace_path(
                 workspace=review_workspace_dir(task, workspace_ctx.workspace_dir),
                 task_id=str(tid or ""),
                 output=str(execution_run.output or ""),
+                execution_workspace=workspace_ctx.workspace_dir,
             )
             if review_answer_gate is not None:
                 # A gate_review round without its verdict: refuse completion so the
