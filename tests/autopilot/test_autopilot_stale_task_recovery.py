@@ -123,3 +123,29 @@ def test_a_stale_propose_of_a_driven_task_is_not_reset(fixed_timeout):
     driven.manual_override_until = 0
     recovery.reset_stale_proposing([driven])
     assert resets == [("t2", "todo")]
+
+
+def test_stale_proposing_reset_revokes_the_dispatch_lease(fixed_timeout, monkeypatch):
+    # Given a stale proposing task whose dead propose left its dispatch lease open.
+    revoked = []
+    monkeypatch.setattr(
+        "agent.services.recovery_dispatch_gate_service.get_recovery_dispatch_gate_service",
+        lambda: SimpleNamespace(
+            revoke_dispatch_lease=lambda task_id, *, reason_code: revoked.append((task_id, reason_code)) or True
+        ),
+    )
+    recovery = _recovery({"task_propose_timeout_seconds": 600})
+    stale = SimpleNamespace(
+        id="t-lease", status="proposing", goal_id="", task_kind="development",
+        updated_at=1000.0 - 700, manual_override_until=0, last_output=None,
+    )
+    # When the sweep requeues it, the lease is revoked too.
+    recovery.reset_stale_proposing([stale])
+    assert revoked == [("t-lease", "stale_proposing_reset")]
+    # A task still inside its threshold is left alone entirely.
+    fresh = SimpleNamespace(
+        id="t-fresh", status="proposing", goal_id="", task_kind="development",
+        updated_at=1000.0 - 1, manual_override_until=0, last_output=None,
+    )
+    recovery.reset_stale_proposing([fresh])
+    assert revoked == [("t-lease", "stale_proposing_reset")]

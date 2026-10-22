@@ -158,6 +158,23 @@ class StaleTaskRecovery:
                 force=True,
             )
             self.append_trace_event(task.id, "stale_proposing_reset", reason=f"no_output_after_{stale_after}s")
+            try:
+                from agent.services.recovery_dispatch_gate_service import (
+                    get_recovery_dispatch_gate_service,
+                )
+
+                # A dead in-flight propose leaves its dispatch lease open: without
+                # revoking it here the requeued task sits undispatchable behind its
+                # own lease (observed queue starvation after restarts).
+                get_recovery_dispatch_gate_service().revoke_dispatch_lease(
+                    task.id, reason_code="stale_proposing_reset"
+                )
+            except Exception:  # pragma: no cover - requeue must not fail on lease bookkeeping
+                import logging
+
+                logging.getLogger(__name__).warning(
+                    "stale_proposing_lease_revoke_failed task=%s", task.id, exc_info=True
+                )
 
     def _proposing_stale_seconds(self, task: Any) -> int:
         """The proposing threshold of one task: its effective propose budget plus a margin, bounded.
