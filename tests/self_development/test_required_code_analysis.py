@@ -68,6 +68,19 @@ def test_premature_final_answer_gets_bounded_correction_turns(tmp_path):
     assert json.loads(exhausted[1])["kind"] == "final_answer_blocked"
 
 
+def test_correction_names_the_analysis_step_when_observations_already_exist(tmp_path):
+    # Given a session whose codecompass observations are registered but the
+    # explicit code_analysis step is still missing.
+    session = _session(tmp_path)
+    session.analysis_gate.observe_codecompass(successful=True)
+    # When the model jumps to final_answer anyway.
+    assert handlers.handle_final_answer(session, _turn({"kind": "final_answer", "answer": "done"})) is None
+    # Then the correction names exactly the missing step, not the whole sequence.
+    assert "codecompass.plan_context" not in session.correction
+    assert session.correction.count("code_analysis") >= 2
+    assert "must be ranges you actually observed" in session.correction
+
+
 def _analysis(path: Path):
     return {"sources": [{"path": path.name, "file_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
                          "line_start": 1, "line_end": 1}],

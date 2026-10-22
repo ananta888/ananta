@@ -136,6 +136,18 @@ ANALYSIS_CORRECTION_NUDGE = (
 )
 
 
+ANALYSIS_STEP_CORRECTION_NUDGE = (
+    "Your codecompass observations are already registered. final_answer stays blocked until you "
+    "emit the analysis step itself — reply in the next turn with exactly one protocol answer and "
+    "nothing else: "
+    '{"kind":"code_analysis","sources":[{"path":"rel/pfad","file_sha256":"HASH_AUS_DEM_LESEERGEBNIS",'
+    '"line_start":1,"line_end":20}],"findings":"beobachtetes Verhalten und Aufrufbeziehungen",'
+    '"change_reasoning":"Aenderungsansatz und Architekturfolgen","test_reasoning":"konkrete Verifikation '
+    'und relevante Regressionen"} — the sources must be ranges you actually observed, with their hashes "
+    "from the read results. Only after this step is accepted may you answer final_answer."
+)
+
+
 def required_analysis_instructions() -> str:
     """Describe the source-bound action consumed by the runtime prerequisite."""
     return (

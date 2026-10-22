@@ -45,8 +45,6 @@ def handle_final_answer(session: MutationSession, turn: LoopTurn) -> "LoopResult
         # A premature final_answer is correctable first: the loop stays alive for a
         # bounded number of correction turns and shows the required sequence again;
         # only after the budget does it end with the bounded prerequisite failure.
-        from agent.cli_backends.workspace_mutation.prompts import ANALYSIS_CORRECTION_NUDGE
-
         refusals = int(getattr(session, "final_answer_refusals", 0)) + 1
         session.final_answer_refusals = refusals
         turn.row["result"] = "code_analysis_required"
@@ -59,7 +57,16 @@ def handle_final_answer(session: MutationSession, turn: LoopTurn) -> "LoopResult
             }
         )
         if refusals <= FINAL_ANSWER_CORRECTION_BUDGET:
-            session.correction = ANALYSIS_CORRECTION_NUDGE
+            if session.analysis_gate.codecompass_observed:
+                from agent.cli_backends.workspace_mutation.prompts import (
+                    ANALYSIS_STEP_CORRECTION_NUDGE,
+                )
+
+                session.correction = ANALYSIS_STEP_CORRECTION_NUDGE
+            else:
+                from agent.cli_backends.workspace_mutation.prompts import ANALYSIS_CORRECTION_NUDGE
+
+                session.correction = ANALYSIS_CORRECTION_NUDGE
             return None
         return session.finish_with_summary(
             "code_analysis_required",
