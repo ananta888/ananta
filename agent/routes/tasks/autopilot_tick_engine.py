@@ -491,12 +491,15 @@ def execute_autopilot_tick(
     fallback_policy = _fallback_policy(loop)
     runtime_caps = _runtime_model_capabilities(loop)
     online_worker_capacity, runtime_capacity, ollama_capacity = _capacity_factors(loop, workers, runtime_caps)
-    effective_concurrency = resolve_effective_concurrency(
-        requested_max_concurrency=loop.max_concurrency,
-        security_policy=policy,
-        online_worker_capacity=online_worker_capacity,
-        runtime_capacity=runtime_capacity,
-        ollama_capacity=ollama_capacity,
+    effective_concurrency = max(
+        1,
+        resolve_effective_concurrency(
+            requested_max_concurrency=loop.max_concurrency,
+            security_policy=policy,
+            online_worker_capacity=online_worker_capacity,
+            runtime_capacity=runtime_capacity,
+            ollama_capacity=ollama_capacity,
+        ),
     )
     local_worker_url = (settings.agent_url or f"http://localhost:{settings.port}").rstrip("/")
     queue_positions = dispatch_queue_positions(dispatch_queue)

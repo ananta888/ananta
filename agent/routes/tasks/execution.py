@@ -10,6 +10,7 @@ from agent.llm_integration import _call_llm
 from agent.metrics import TASK_COMPLETED, TASK_FAILED
 from agent.models import TaskStepExecuteRequest, TaskStepProposeRequest
 from agent.routes.tasks.utils import _forward_to_worker
+from agent.services.bounded_execution import WALL_TIMEOUT_SECONDS, WallTimeout, run_wall_bounded
 from agent.services.codecompass_task_capability import accepted_capability, task_capability_scope
 from agent.services.knowledge_index_dispatch_request_auth_policy import (
     knowledge_index_dispatch_request_auth_policy,
@@ -168,13 +169,27 @@ def task_propose(tid):
         return error
     with task_capability_scope(_accepted_codecompass_capability(data), task_id=tid), \
             assigned_window_scope(getattr(data, "context_window", None)), _task_request_context(tid):
-        outcome = _services().task_scoped_execution_service.propose_task_step(
-            tid,
-            data,
-            cli_runner=run_llm_cli_command,
-            forwarder=_forward_to_worker,
-            tool_definitions_resolver=tool_registry.get_tool_definitions,
-        )
+        try:
+            outcome = run_wall_bounded(
+                lambda: _services().task_scoped_execution_service.propose_task_step(
+                    tid,
+                    data,
+                    cli_runner=run_llm_cli_command,
+                    forwarder=_forward_to_worker,
+                    tool_definitions_resolver=tool_registry.get_tool_definitions,
+                ),
+                timeout_seconds=WALL_TIMEOUT_SECONDS,
+                label="propose_step",
+            )
+        except WallTimeout:
+            from agent.services.task_scoped_execution_service import TaskScopedRouteResponse
+
+            outcome = TaskScopedRouteResponse(
+                data={"status": "timeout", "reason": "wall_timeout", "task_id": tid},
+                status="error",
+                message="propose_wall_timeout",
+                code=504,
+            )
     return _respond(outcome)
 
 
@@ -203,11 +218,25 @@ def task_execute(tid):
         return error
     with task_capability_scope(_accepted_codecompass_capability(data), task_id=tid), \
             assigned_window_scope(getattr(data, "context_window", None)), _task_request_context(tid):
-        outcome = _services().task_scoped_execution_service.execute_task_step(
-            tid,
-            data,
-            forwarder=_forward_to_worker,
-            cli_runner=run_llm_cli_command,
-            tool_definitions_resolver=tool_registry.get_tool_definitions,
-        )
+        try:
+            outcome = run_wall_bounded(
+                lambda: _services().task_scoped_execution_service.execute_task_step(
+                    tid,
+                    data,
+                    forwarder=_forward_to_worker,
+                    cli_runner=run_llm_cli_command,
+                    tool_definitions_resolver=tool_registry.get_tool_definitions,
+                ),
+                timeout_seconds=WALL_TIMEOUT_SECONDS,
+                label="execute_step",
+            )
+        except WallTimeout:
+            from agent.services.task_scoped_execution_service import TaskScopedRouteResponse
+
+            outcome = TaskScopedRouteResponse(
+                data={"status": "timeout", "reason": "wall_timeout", "task_id": tid},
+                status="error",
+                message="execute_wall_timeout",
+                code=504,
+            )
     return _respond(outcome)

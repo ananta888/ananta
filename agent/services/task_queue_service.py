@@ -1,5 +1,10 @@
+import logging
 import time
 from typing import Any, Callable, Dict, List, Optional
+
+log = logging.getLogger(__name__)
+_SKIP_LOG_INTERVAL_SECONDS = 60.0
+_last_skip_log_at = 0.0
 
 from agent.repository import goal_repo, task_repo
 from agent.services.organization_task_dispatch_gate_service import (
@@ -97,22 +102,51 @@ class TaskQueueService:
             tasks = [task for task in tasks if str(task.team_id or "") == str(team_id)]
         gate = get_recovery_dispatch_gate_service()
         organization_gate = get_organization_task_dispatch_gate_service()
-        candidate_map = {
-            task.id: task
-            for task in tasks
-            if can_autopilot_dispatch(
+        candidate_map = {}
+        skipped: dict[str, str] = {}
+        for task in tasks:
+            if not can_autopilot_dispatch(
                 task.status,
                 manual_override_active=bool((getattr(task, "manual_override_until", None) or 0) > now),
-            )
-            and gate.evaluate_task(task).allowed
-            and organization_gate.evaluate(task).allowed
-        }
+            ):
+                skipped[task.id] = "not_dispatchable:" + str(task.status or "")
+                continue
+            gate_decision = gate.evaluate_task(task)
+            if not gate_decision.allowed:
+                skipped[task.id] = "recovery_gate:" + str(
+                    getattr(gate_decision.decision, "reason_code", "") or "denied"
+                )
+                continue
+            organization_decision = organization_gate.evaluate(task)
+            if not organization_decision.allowed:
+                skipped[task.id] = "organization_gate:" + str(
+                    getattr(organization_decision, "reason_code", "") or "denied"
+                )
+                continue
+            candidate_map[task.id] = task
+        self._log_skipped_candidates(skipped)
         queue = build_dispatch_queue([task.model_dump() for task in candidate_map.values()])
         return [
             {**item, "task": candidate_map.get(item["task_id"])}
             for item in queue
             if item["task_id"] in candidate_map
         ]
+
+    @staticmethod
+    def _log_skipped_candidates(skipped: dict[str, str]) -> None:
+        """One throttled line: why waiting candidates are not dispatching.
+
+        Silent queue drops made a dispatch starvation untraceable from the logs;
+        the tick runs every second, so the report is throttled to one per minute.
+        """
+        global _last_skip_log_at
+        if not skipped:
+            return
+        now = time.monotonic()
+        if now - _last_skip_log_at < _SKIP_LOG_INTERVAL_SECONDS:
+            return
+        _last_skip_log_at = now
+        log.info("dispatch_candidates_skipped %s", skipped)
 
     def get_queue_stats(self) -> Dict[str, Any]:
         """Berechnet Statistiken ueber den aktuellen Zustand der Queue."""
