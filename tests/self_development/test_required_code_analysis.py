@@ -77,7 +77,7 @@ def test_correction_names_the_analysis_step_when_observations_already_exist(tmp_
     assert handlers.handle_final_answer(session, _turn({"kind": "final_answer", "answer": "done"})) is None
     # Then the correction names exactly the missing step, not the whole sequence.
     assert "codecompass.plan_context" not in session.correction
-    assert session.correction.count("code_analysis") >= 2
+    assert '"kind":"code_analysis"' in session.correction
     assert "must be ranges you actually observed" in session.correction
 
 

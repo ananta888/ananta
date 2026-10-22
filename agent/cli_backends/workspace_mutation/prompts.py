@@ -143,8 +143,8 @@ ANALYSIS_STEP_CORRECTION_NUDGE = (
     '{"kind":"code_analysis","sources":[{"path":"rel/pfad","file_sha256":"HASH_AUS_DEM_LESEERGEBNIS",'
     '"line_start":1,"line_end":20}],"findings":"beobachtetes Verhalten und Aufrufbeziehungen",'
     '"change_reasoning":"Aenderungsansatz und Architekturfolgen","test_reasoning":"konkrete Verifikation '
-    'und relevante Regressionen"} — the sources must be ranges you actually observed, with their hashes "
-    "from the read results. Only after this step is accepted may you answer final_answer."
+    'und relevante Regressionen"} — the sources must be ranges you actually observed, with their '
+    "hashes from the read results. Only after this step is accepted may you answer final_answer."
 )
 
 
