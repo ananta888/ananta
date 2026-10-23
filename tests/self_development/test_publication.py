@@ -65,3 +65,299 @@ def test_global_ops_deny_is_not_overridden():
         finally:
             OpsPolicyService._config = original
     assert not decision.allowed
+
+
+# --- publication on a moved remote branch -------------------------------------------
+
+
+def _git(root, *args):
+    from agent.services.self_development.workspace import git as run
+    return run(root, *args)
+
+
+def _repos(tmp_path):
+    """A bare remote plus the closed checkout on the publication branch."""
+    import subprocess
+
+    remote = tmp_path / 'remote.git'
+    subprocess.run(['git', 'init', '--bare', '-b', 'ananta/self-development', str(remote)],
+                   check=True, capture_output=True)
+    checkout = tmp_path / 'checkout'
+    checkout.mkdir()
+    _git(checkout, 'init', '-b', 'ananta/self-development')
+    _git(checkout, 'config', 'user.name', 'Test')
+    _git(checkout, 'config', 'user.email', 'test@example.com')
+    _git(checkout, 'remote', 'add', 'origin', str(remote))
+    (checkout / 'keep.txt').write_text('base\n', encoding='utf-8')
+    _git(checkout, 'add', '--', 'keep.txt')
+    _git(checkout, 'commit', '-m', 'chore: base')
+    _git(checkout, 'push', 'origin', 'HEAD:refs/heads/ananta/self-development')
+    return remote, checkout
+
+
+def _remote_commit(tmp_path, remote, name, path, content, message):
+    """Simulate the operator merging outside work into the publication branch."""
+    import subprocess
+
+    work = tmp_path / name
+    subprocess.run(['git', 'clone', '-b', 'ananta/self-development', str(remote), str(work)],
+                   check=True, capture_output=True)
+    _git(work, 'config', 'user.name', 'Else')
+    _git(work, 'config', 'user.email', 'else@example.com')
+    target = work / path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(content, encoding='utf-8')
+    _git(work, 'add', '--', path)
+    _git(work, 'commit', '-m', message)
+    _git(work, 'push', 'origin', 'HEAD:refs/heads/ananta/self-development')
+    return _git(work, 'rev-parse', 'HEAD')
+
+
+def _seal(tmp_path, task_id, files):
+    import hashlib
+
+    seal = tmp_path / 'private' / 'sealed' / task_id
+    hashes = {}
+    for relative, content in files.items():
+        target = seal / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(content)
+        hashes[relative] = hashlib.sha256(content).hexdigest()
+    return hashes
+
+
+def _policy(root, checkout, remote_url):
+    return SimpleNamespace(
+        root=root, checkout=checkout, assert_current=lambda: None,
+        value={'branch': 'ananta/self-development', 'remote_url': str(remote_url),
+               'github_token_file': str(root / 'token')})
+
+
+class _Service:
+    """Closed Git ops over real git: the integration logic runs end to end."""
+
+    def __init__(self, checkout):
+        self.checkout = checkout
+        self.pushes = 0
+
+    def fetch(self, workspace_id, *, remote=None, credential_ref=None, approval_id=None):
+        _git(self.checkout, 'fetch', remote)
+        return SimpleNamespace(ok=True, error=None)
+
+    def stage(self, workspace_id, paths):
+        _git(self.checkout, 'add', '--', *paths)
+        return SimpleNamespace(ok=True, error=None)
+
+    def commit(self, workspace_id, message):
+        _git(self.checkout, 'commit', '-m', message)
+        return SimpleNamespace(ok=True, error=None)
+
+    def push(self, workspace_id, *, remote=None, branch=None, credential_ref=None, approval_id=None):
+        self.pushes += 1
+        try:
+            _git(self.checkout, 'push', remote, f'HEAD:refs/heads/{branch}')
+        except ValueError as exc:
+            return SimpleNamespace(ok=False, error=SimpleNamespace(code='git_command_failed', message=str(exc)))
+        return SimpleNamespace(ok=True, error=None)
+
+
+def _publisher(policy, service):
+    from agent.services.self_development.publisher import Publisher
+    return Publisher(policy, service_factory=lambda **kwargs: service)
+
+
+def _item(task_id, hashes, revision, removed=()):
+    return {'task_id': task_id, 'hashes': hashes, 'removed': list(removed), 'revision': revision,
+            'status': 'running', 'todo_id': 'T-0',
+            'contract': {'commit_message': 'feat(ctx): add text budget clamp helper'}}
+
+
+def test_publication_adopts_a_moved_remote_branch_before_landing(tmp_path):
+    remote, checkout = _repos(tmp_path)
+    external = _remote_commit(tmp_path, remote, 'elsewhere', 'extra.txt', 'external\n', 'feat: external merge')
+    hashes = _seal(tmp_path, 'task-1', {'agent/text_budget.py': b'clamp\n'})
+    policy = _policy(tmp_path / 'private', checkout, remote)
+    service = _Service(checkout)
+    item = _item('task-1', hashes, _git(checkout, 'rev-parse', 'HEAD'))
+
+    commit_sha = _publisher(policy, service).publish(item, lambda: None, lambda: None)
+
+    assert item['status'] == 'published'
+    assert item['published_base'] == external
+    assert _git(checkout, 'show', 'HEAD:agent/text_budget.py') == 'clamp'
+    assert _git(checkout, 'show', 'HEAD:extra.txt') == 'external'
+    from agent.services.self_development.workspace import is_ancestor
+    assert is_ancestor(checkout, external, commit_sha)
+
+
+def test_publication_replays_an_unpushed_chain_onto_the_tip(tmp_path):
+    remote, checkout = _repos(tmp_path)
+    # An earlier publication commit never reached the remote (its push failed).
+    (checkout / 'agent').mkdir()
+    (checkout / 'agent' / 'a.py').write_text('a\n', encoding='utf-8')
+    _git(checkout, 'add', '--', 'agent/a.py')
+    _git(checkout, 'commit', '-m', 'feat: first chain commit')
+    chain_head = _git(checkout, 'rev-parse', 'HEAD')
+    external = _remote_commit(tmp_path, remote, 'elsewhere', 'extra.txt', 'external\n', 'feat: external merge')
+    hashes = _seal(tmp_path, 'task-2', {'agent/b.py': b'b\n'})
+    policy = _policy(tmp_path / 'private', checkout, remote)
+    service = _Service(checkout)
+    item = _item('task-2', hashes, chain_head)
+
+    commit_sha = _publisher(policy, service).publish(item, lambda: None, lambda: None)
+
+    assert item['status'] == 'published'
+    assert _git(checkout, 'show', 'HEAD:agent/a.py') == 'a'
+    assert _git(checkout, 'show', 'HEAD:agent/b.py') == 'b'
+    assert _git(checkout, 'show', 'HEAD:extra.txt') == 'external'
+    from agent.services.self_development.workspace import is_ancestor
+    assert is_ancestor(checkout, external, commit_sha)
+    assert is_ancestor(checkout, chain_head, commit_sha)
+
+
+def test_publication_refuses_to_overwrite_remote_changes(tmp_path):
+    remote, checkout = _repos(tmp_path)
+    (checkout / 'agent').mkdir()
+    (checkout / 'agent' / 'text_budget.py').write_text('base\n', encoding='utf-8')
+    _git(checkout, 'add', '--', 'agent/text_budget.py')
+    _git(checkout, 'commit', '-m', 'feat: base clamp')
+    revision = _git(checkout, 'rev-parse', 'HEAD')
+    _git(checkout, 'push', 'origin', 'HEAD:refs/heads/ananta/self-development')
+    _remote_commit(tmp_path, remote, 'elsewhere', 'agent/text_budget.py', 'remote-change\n', 'feat: remote change')
+    hashes = _seal(tmp_path, 'task-3', {'agent/text_budget.py': b'mine\n'})
+    policy = _policy(tmp_path / 'private', checkout, remote)
+    service = _Service(checkout)
+    item = _item('task-3', hashes, revision)
+
+    with pytest.raises(ValueError, match='publication_base_changed_files'):
+        _publisher(policy, service).publish(item, lambda: None, lambda: None)
+
+    assert service.pushes == 0
+    assert _git(checkout, 'show', 'HEAD:agent/text_budget.py') == 'remote-change'
+
+
+def test_publication_rebase_conflict_fails_closed(tmp_path):
+    remote, checkout = _repos(tmp_path)
+    (checkout / 'agent').mkdir()
+    (checkout / 'agent' / 'text_budget.py').write_text('chain\n', encoding='utf-8')
+    _git(checkout, 'add', '--', 'agent/text_budget.py')
+    _git(checkout, 'commit', '-m', 'feat: chain clamp')
+    chain_head = _git(checkout, 'rev-parse', 'HEAD')
+    _remote_commit(tmp_path, remote, 'elsewhere', 'agent/text_budget.py', 'remote-change\n', 'feat: remote change')
+    hashes = _seal(tmp_path, 'task-4', {'agent/text_budget.py': b'chain+mine\n'})
+    policy = _policy(tmp_path / 'private', checkout, remote)
+    service = _Service(checkout)
+    item = _item('task-4', hashes, chain_head)
+
+    with pytest.raises(ValueError, match='publication_merge_conflict'):
+        _publisher(policy, service).publish(item, lambda: None, lambda: None)
+
+    assert service.pushes == 0
+    assert _git(checkout, 'status', '--porcelain') == ''
+    assert _git(checkout, 'rev-parse', 'HEAD') == chain_head
+
+
+def test_publication_completes_an_already_pushed_commit_without_rebuilding(tmp_path):
+    remote, checkout = _repos(tmp_path)
+    hashes = _seal(tmp_path, 'task-5', {'agent/text_budget.py': b'clamp\n'})
+    policy = _policy(tmp_path / 'private', checkout, remote)
+    service = _Service(checkout)
+    item = _item('task-5', hashes, _git(checkout, 'rev-parse', 'HEAD'))
+    _publisher(policy, service).publish(item, lambda: None, lambda: None)
+    pushed = item['commit_sha']
+    count = _git(checkout, 'rev-list', '--count', 'HEAD')
+
+    # The push landed but the run died before the bookkeeping was persisted.
+    item.update(status='running')
+    commit_sha = _publisher(policy, service).publish(item, lambda: None, lambda: None)
+
+    assert item['status'] == 'published'
+    assert commit_sha == pushed
+    assert _git(checkout, 'rev-list', '--count', 'HEAD') == count
+
+
+def test_publication_records_the_carrying_commit_when_the_chain_carries_the_change(tmp_path):
+    remote, checkout = _repos(tmp_path)
+    (checkout / 'agent').mkdir()
+    (checkout / 'agent' / 'text_budget.py').write_text('chain\n', encoding='utf-8')
+    _git(checkout, 'add', '--', 'agent/text_budget.py')
+    _git(checkout, 'commit', '-m', 'feat: first chain commit')
+    base = _git(checkout, 'rev-parse', 'HEAD')
+    (checkout / 'agent' / 'text_budget.py').write_text('chain+mine\n', encoding='utf-8')
+    _git(checkout, 'add', '--', 'agent/text_budget.py')
+    _git(checkout, 'commit', '-m', 'feat(ctx): add text budget clamp helper')
+    stuck = _git(checkout, 'rev-parse', 'HEAD')
+    external = _remote_commit(tmp_path, remote, 'elsewhere', 'extra.txt', 'external\n', 'feat: external merge')
+    hashes = _seal(tmp_path, 'task-6', {'agent/text_budget.py': b'chain+mine\n'})
+    policy = _policy(tmp_path / 'private', checkout, remote)
+    service = _Service(checkout)
+    item = _item('task-6', hashes, base, )
+    item['commit_sha'] = stuck
+
+    commit_sha = _publisher(policy, service).publish(item, lambda: None, lambda: None)
+
+    assert item['status'] == 'published'
+    # The merge keeps the stuck commit's identity: the audit record stays truthful.
+    assert commit_sha == stuck
+    assert _git(checkout, 'show', 'HEAD:agent/text_budget.py') == 'chain+mine'
+    assert _git(checkout, 'show', 'HEAD:extra.txt') == 'external'
+    from agent.services.self_development.workspace import is_ancestor
+    assert is_ancestor(checkout, external, _git(checkout, 'rev-parse', 'HEAD'))
+
+
+def test_publication_grant_is_bound_to_exact_fetch_arguments():
+    app = Flask(__name__)
+    service, _ = grant()
+    with app.app_context():
+        exact = service.authorize('git.fetch', 'fetch', target_id='self-development', approval_id=None,
+            arguments={'workspace_id': 'self-development', 'remote': 'origin',
+                       'credential_ref': 'secret://self-development/github'})
+        other = service.authorize('git.fetch', 'fetch', target_id='self-development', approval_id=None,
+            arguments={'workspace_id': 'self-development', 'remote': 'elsewhere',
+                       'credential_ref': 'secret://self-development/github'})
+    assert exact.allowed
+    assert not other.allowed
+
+
+def test_publication_only_failures_are_retryable_without_the_seal(tmp_path):
+    from agent.services.self_development.coordinator import DevelopmentCoordinator
+
+    stub = SimpleNamespace(policy=SimpleNamespace(root=tmp_path))
+    recoverable = {'task_id': 'task-7', 'status': 'failed', 'hashes': {'a.py': 'x'},
+                   'contract': {'commit_message': 'm'},
+                   'reason': 'acceptance_review_failed:publication_git_command_failed'}
+    # A lost seal means the change cannot be rebuilt: fall back to the full re-run path.
+    assert not DevelopmentCoordinator._publication_retryable(stub, recoverable)
+    (tmp_path / 'sealed' / 'task-7').mkdir(parents=True)
+    assert DevelopmentCoordinator._publication_retryable(stub, recoverable)
+    executable = {'task_id': 'task-8', 'status': 'publication_failed', 'hashes': {'a.py': 'x'},
+                  'contract': {'commit_message': 'm'}, 'reason': '[Errno 13] Permission denied'}
+    (tmp_path / 'sealed' / 'task-8').mkdir()
+    assert DevelopmentCoordinator._publication_retryable(stub, executable)
+    missing = {'task_id': 'task-9', 'status': 'failed', 'hashes': {'a.py': 'x'},
+               'contract': {'commit_message': 'm'}, 'reason': 'worker_review_answer_missing'}
+    (tmp_path / 'sealed' / 'task-9').mkdir()
+    assert not DevelopmentCoordinator._publication_retryable(stub, missing)
+
+
+def test_publication_refuses_a_checkout_on_an_unrelated_history(tmp_path):
+    import subprocess
+
+    remote, checkout = _repos(tmp_path)
+    foreign = tmp_path / 'foreign'
+    subprocess.run(['git', 'init', '-b', 'ananta/self-development', str(foreign)],
+                   check=True, capture_output=True)
+    _git(foreign, 'config', 'user.name', 'Foreign')
+    _git(foreign, 'config', 'user.email', 'foreign@example.com')
+    (foreign / 'f.txt').write_text('f\n', encoding='utf-8')
+    _git(foreign, 'add', '--', 'f.txt')
+    _git(foreign, 'commit', '-m', 'feat: foreign line')
+    hashes = _seal(tmp_path, 'task-10', {'agent/text_budget.py': b'clamp\n'})
+    policy = _policy(tmp_path / 'private', checkout, remote)
+    service = _Service(checkout)
+    item = _item('task-10', hashes, _git(foreign, 'rev-parse', 'HEAD'))
+
+    with pytest.raises(ValueError, match='publication_checkout_moved'):
+        _publisher(policy, service).publish(item, lambda: None, lambda: None)
+
+    assert service.pushes == 0

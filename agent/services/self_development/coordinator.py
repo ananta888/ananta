@@ -224,13 +224,38 @@ class DevelopmentCoordinator:
         with self.journal.locked():
             state = self.journal.read()
             self._check_session(state)
-            count = sum(
-                prepare_retry(item, self.policy, state, self.queue)
-                for item in state["items"].values()
-                if item["status"] == "failed"
-            )
+            count = 0
+            for item in state["items"].values():
+                if item["status"] not in {"failed", "publication_failed"}:
+                    continue
+                if self._publication_retryable(item):
+                    # The change is sealed and reviewed; only the publication (push)
+                    # failed. Re-run exactly that step instead of burning a full
+                    # execution attempt on already verified work.
+                    try:
+                        self.publisher.publish(
+                            item, lambda: self._verify(state, item), lambda: self.journal.write(state)
+                        )
+                        self._release_dependencies(state)
+                        count += 1
+                    except Exception as exc:
+                        item["reason"] = str(exc)[:240]
+                        self.journal.write(state)
+                    continue
+                if item["status"] == "failed" and prepare_retry(item, self.policy, state, self.queue):
+                    count += 1
             self.journal.write(state)
         return {"retried": count, **self.status()}
+
+    def _publication_retryable(self, item):
+        reason = str(item.get("reason") or "")
+        seal = self.policy.root / "sealed" / str(item.get("task_id") or "")
+        return (
+            ("publication" in reason or item.get("status") == "publication_failed")
+            and bool(item.get("hashes"))
+            and bool(item.get("contract"))
+            and seal.is_dir()
+        )
 
     def manages(self, task_id):
         return any(

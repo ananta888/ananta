@@ -23,6 +23,20 @@ def git(root: Path, *args: str) -> str:
     return result.stdout.decode("utf-8", errors="strict").strip()
 
 
+def is_ancestor(root: Path, revision: str, tip: str) -> bool:
+    """``merge-base --is-ancestor`` answers 1 for "not an ancestor", never an error."""
+    result = subprocess.run(
+        ["git", "-c", "safe.directory=" + str(root), "merge-base", "--is-ancestor", revision, tip],
+        cwd=root,
+        capture_output=True,
+        timeout=90,
+        check=False,
+    )
+    if result.returncode not in (0, 1):
+        raise ValueError("self_development_git_command_failed:merge-base")
+    return result.returncode == 0
+
+
 def read_source(root: Path, relative: str) -> bytes:
     path = root / relative
     if any(parent.is_symlink() for parent in [path, *path.parents] if parent != root.parent):
