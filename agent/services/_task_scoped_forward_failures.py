@@ -16,7 +16,11 @@ from typing import TYPE_CHECKING, Any, Callable
 from flask import current_app
 
 from agent.common.errors import WorkerForwardingError
-from agent.services.worker_forward_transport import WorkerForwardDeadlineExceeded, WorkerForwardTransportError
+from agent.services.worker_forward_transport import (
+    WorkerForwardAmbiguousTransportError,
+    WorkerForwardDeadlineExceeded,
+    WorkerForwardTransportError,
+)
 
 if TYPE_CHECKING:
     from agent.services.task_scoped_execution_service import TaskScopedRouteResponse
@@ -85,6 +89,29 @@ def _raise_forwarded_worker_http_error(
         f"worker_http_error:{worker_url}:{endpoint}:"
         f"status={http_status}:{str(response.get('message') or '')}"
     )
+
+
+def _raise_if_no_worker_response(
+    response: Any,
+    *,
+    transport_deadline: Any,
+) -> None:
+    """Classify an absent worker response as a transport outcome.
+
+    ``None`` means no response arrived within the read budget -- a transport fact, not
+    something the worker returned. Normalizing it to ``{}`` reported it as
+    ``worker_empty_payload``: a permanent-looking symptom that hides the real cause (the
+    read budget expiring while the governed step deadline, and the worker itself, still had
+    time) and that the retry policy cannot tell apart from a genuine empty payload.
+    """
+    if response is not None:
+        return
+    if (
+        transport_deadline is not None
+        and transport_deadline.remaining_seconds() <= 0
+    ):
+        raise WorkerForwardDeadlineExceeded()
+    raise WorkerForwardAmbiguousTransportError()
 
 
 def _worker_404_hub_fallback_enabled() -> bool:

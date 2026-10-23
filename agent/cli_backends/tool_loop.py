@@ -42,6 +42,20 @@ _FENCED_JSON_RE = re.compile(r"```(?:json)?\s*(\{.*?\})\s*```", re.DOTALL)
 # test.run reads these top-level keys; they are configured once, in the workspace mutation section.
 _TEST_RUN_KEYS = ("allowlisted_test_commands", "test_timeout_seconds", "test_output_max_chars")
 
+# Tools that only gather context. A run of these with no write/action means the
+# model is stuck reading; the optional nudge then tells it to act.
+_READ_ONLY_TOOL_PREFIXES = ("repo.list_files", "repo.read_file_range", "repo.grep",
+                            "codecompass.", "git.status", "git.diff_readonly", "workspace.diff")
+_ACTION_NUDGE = (
+    "You already have enough context. Do not read more files. Now perform the change: "
+    "emit a tool_request for a write tool (repo.write_file or repo.apply_patch), or a "
+    "test.run with the exact allowlisted command, or a final_answer with the result."
+)
+
+
+def _is_read_only_tool(tool_name: str) -> bool:
+    return any(str(tool_name or "").startswith(prefix) for prefix in _READ_ONLY_TOOL_PREFIXES)
+
 
 def get_tool_loop_config() -> dict[str, Any]:
     agent_cfg = _get_agent_config()
@@ -56,6 +70,7 @@ def get_tool_loop_config() -> dict[str, Any]:
         "max_tool_calls": max(1, min(int(cfg.get("max_tool_calls") or 12), 64)),
         **_tool_result_limits(cfg),
         "max_invalid_outputs": max(1, min(int(cfg.get("max_invalid_outputs") or 2), 10)),
+        "read_only_nudge_after": max(0, min(int(cfg.get("read_only_nudge_after") or 0), 20)),
         "allowed_tools": [
             str(item or "").strip() for item in list(cfg.get("allowed_tools") or []) if str(item or "").strip()
         ],
@@ -221,6 +236,7 @@ def build_tool_loop_prompt(
     max_iterations: int,
     max_tool_result_chars: int,
     max_total_tool_result_chars: int | None = None,
+    nudge: str | None = None,
 ) -> str:
     parts = [
         str(original_prompt or "").rstrip(),
@@ -231,6 +247,8 @@ def build_tool_loop_prompt(
         "",
         f"Iteration {iteration}/{max_iterations}.",
     ]
+    if nudge:
+        parts += ["", "## Handlung erforderlich", nudge]
     if tool_results:
         from agent.cli_backends.context_budget import available_chars, fit_blocks
 
@@ -316,6 +334,8 @@ def run_ananta_worker_tool_loop(
     report_iterations: list[dict[str, Any]] = []
     tool_call_count = 0
     invalid_count = 0
+    read_only_streak = 0
+    nudge_after = int(cfg.get("read_only_nudge_after") or 0)
     last_out, last_err = "", ""
     tiny_router_cfg = dict(cfg.get("tiny_router") or {}) if isinstance(cfg.get("tiny_router"), dict) else {}
     cfg.setdefault("codecompass_capability", _task_codecompass_capability(cfg, task_id))
@@ -386,6 +406,7 @@ def run_ananta_worker_tool_loop(
             max_iterations=max_iterations,
             max_tool_result_chars=max_result_chars,
             max_total_tool_result_chars=int(cfg.get("max_total_tool_result_chars") or 0) or None,
+            nudge=_ACTION_NUDGE if (nudge_after and read_only_streak >= nudge_after) else None,
         )
         message = None
         tiny_candidate_used = False
@@ -472,6 +493,7 @@ def run_ananta_worker_tool_loop(
         # kind == tool_request
         tool_name, arguments, aliased_from = registry.resolve_alias(
             str(message.get("tool_name") or "").strip(), cfg.get("allowed_tools"), dict(message.get("arguments") or {}))
+        read_only_streak = read_only_streak + 1 if _is_read_only_tool(tool_name) else 0
         if aliased_from:
             log.info("tool loop: %s answered by %s (retired search tool)", aliased_from, tool_name)
         tool_call_count += 1

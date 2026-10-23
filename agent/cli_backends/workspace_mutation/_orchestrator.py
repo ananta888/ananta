@@ -28,29 +28,35 @@ import logging
 import pathlib
 from typing import Any, Callable
 
-from agent.cli_backends.helpers import _get_agent_config
 from agent.cli_backends.context import default_context
+from agent.cli_backends.helpers import _get_agent_config
 from agent.cli_backends.tool_loop import (
     KIND_CANNOT_CONTINUE,
     KIND_FINAL_ANSWER,
     KIND_NEEDS_APPROVAL,
     KIND_TOOL_REQUEST,
 )
+from agent.cli_backends.workspace_mutation.handlers import ACTION_HANDLERS, KIND_WORKSPACE_WRITE
 from agent.cli_backends.workspace_mutation.prompts import (
     build_iteration_prompt as _build_iteration_prompt_impl,
+)
+from agent.cli_backends.workspace_mutation.prompts import (
     build_mode_instructions as _build_mode_instructions_impl,
+)
+from agent.cli_backends.workspace_mutation.prompts import (
     parse_mutation_output as _parse_mutation_output_impl,
 )
-from agent.cli_backends.workspace_mutation.signatures import (
-    changes_signature as _changes_signature_impl,
-    evidence_signature as _evidence_signature_impl,
-)
-from agent.cli_backends.workspace_mutation.handlers import ACTION_HANDLERS, KIND_WORKSPACE_WRITE
 from agent.cli_backends.workspace_mutation.session import (
     LoopTurn,
     MutationLimits,
     MutationServices,
     MutationSession,
+)
+from agent.cli_backends.workspace_mutation.signatures import (
+    changes_signature as _changes_signature_impl,
+)
+from agent.cli_backends.workspace_mutation.signatures import (
+    evidence_signature as _evidence_signature_impl,
 )
 from agent.cli_backends.workspace_mutation.tool_actions import KIND_PATCH_REQUEST
 
@@ -146,6 +152,7 @@ def _build_iteration_prompt(
     iteration: int,
     max_iterations: int,
     max_chars_per_block: int,
+    nudge: str | None = None,
 ) -> str:
     return _build_iteration_prompt_impl(
         original_prompt=original_prompt,
@@ -154,6 +161,7 @@ def _build_iteration_prompt(
         iteration=iteration,
         max_iterations=max_iterations,
         max_chars_per_block=max_chars_per_block,
+        nudge=nudge,
     )
 
 
@@ -170,6 +178,11 @@ def run_ananta_worker_workspace_mutation(
 ) -> tuple[int, str, str]:
     """AWWPI-014/015/016: run the feedback mutation loop, return (rc, out, err)."""
     cfg = dict(config or get_workspace_mutation_config(workdir))
+    # Bind this step's CodeCompass capability to the loop's own config, so
+    # codecompass.* reads work instead of failing closed and forcing blind reads.
+    from agent.services.codecompass_task_capability import ensure_tool_context
+
+    cfg = ensure_tool_context(cfg, task_id)
     mode = str(cfg.get("resolved_mode") or "read_only")
     if llm_runner is None:
         from agent.cli_backends.sgpt import run_sgpt_command
@@ -180,7 +193,7 @@ def run_ananta_worker_workspace_mutation(
         cfg=cfg,
         mode=mode,
         workspace=pathlib.Path(workdir).resolve(),
-        task_id=task_id,
+        task_id=task_id or cfg.get("codecompass_task_id"),
         services=MutationServices(
             workspace=default_context.worker_workspace_service,
             mutation_policy=default_context.ananta_workspace_mutation_policy_service,
@@ -194,10 +207,28 @@ def run_ananta_worker_workspace_mutation(
             max_diff_chars=int(cfg.get("max_diff_chars") or _max_diff_chars(cfg)),
         ),
     )
+    from agent.cli_backends.workspace_mutation.tool_routing import ACTION_NUDGE
+    from agent.services._worker_workspace_context_writer import _align_declared_test_command
+
+    # The assignment the model reads must quote a command the policy allows: the loop requires
+    # test.run before final_answer, so a refused command can never be satisfied. It is bound to
+    # the same ``cfg`` list ``test.run`` is judged against, so prompt and gate cannot drift. The
+    # brief file is bound separately (it is written without this config in hand).
+    prompt = _align_declared_test_command(
+        str(prompt or ""), list(cfg.get("allowlisted_test_commands") or [])
+    )
+    session.task_prompt = str(prompt or "")
     instructions = _build_mode_instructions(mode)
+    if session.analysis_gate.required:
+        from agent.cli_backends.workspace_mutation.prompts import required_analysis_instructions
+
+        instructions += required_analysis_instructions()
+    nudge_after = int(cfg.get("read_only_nudge_after") or 4)
     last_out, last_err = "", ""
 
     for iteration in range(1, session.limits.max_iterations + 1):
+        nudge = ACTION_NUDGE if (not session.analysis_gate.pending and nudge_after
+                                and getattr(session, "read_only_streak", 0) >= nudge_after) else None
         iter_prompt = _build_iteration_prompt(
             original_prompt=prompt,
             instructions=instructions,
@@ -205,6 +236,7 @@ def run_ananta_worker_workspace_mutation(
             iteration=iteration,
             max_iterations=session.limits.max_iterations,
             max_chars_per_block=session.limits.max_diff_chars,
+            nudge=nudge,
         )
         rc, out, err = llm_runner(
             prompt=iter_prompt, options=list(options or []), timeout=timeout, model=model, workdir=workdir

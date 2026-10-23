@@ -9,12 +9,28 @@ from __future__ import annotations
 
 from typing import Any
 
+from agent.cli_backends.workspace_mutation.analysis_reads import annotate_analysis_read, prioritize_source_refs
 from agent.cli_backends.workspace_mutation.session import LoopResult, LoopTurn, MutationSession
+from agent.cli_backends.workspace_mutation.tool_routing import is_read_only_tool
 from agent.cli_backends.workspace_mutation.tools import build_tool_result, execute_ananta_tool
 
 KIND_PATCH_REQUEST = "patch_request"
 
 _MAX_MATERIALIZED_CONTEXT_REFS = 4
+
+# Refusals of a test command the policy does not allow before the loop gives up (the brief
+# quotes the allowlisted command, so a second refusal is a contract violation, not a typo).
+TEST_COMMAND_REFUSAL_BUDGET = 2
+
+
+def block_unanalyzed_mutation(session: MutationSession, turn: LoopTurn) -> bool:
+    """Apply the same analysis prerequisite at every mutation entry point."""
+    if session.cfg.get("require_code_analysis") is not True or not session.analysis_gate.pending:
+        return False
+    turn.row["result"] = "code_analysis_required"
+    session.add_evidence({"kind": "code_analysis_result", "status": "policy_blocked",
+                          "error": "code_analysis_required", "data": session.analysis_gate.state()})
+    return True
 
 
 def build_patch_tool_call(message: dict[str, Any], rel: str) -> tuple[str, dict[str, Any]]:
@@ -45,6 +61,17 @@ def build_patch_tool_call(message: dict[str, Any], rel: str) -> tuple[str, dict[
         "mode": "create_only" if variant == "write_file_create_only" else "replace_existing",
         "expected_old_hash": str(message.get("expected_old_hash") or ""),
     }
+
+
+def _route_read_tool(session: MutationSession, turn: LoopTurn, tool_name: str, arguments: dict[str, Any]
+                     ) -> tuple[str, dict[str, Any]]:
+    """DPRV ``tool_routing``: upgrade a blind read to the routed inspection tool."""
+    from agent.cli_backends.workspace_mutation.tool_routing import prefer_read_tool
+
+    chosen, chosen_arguments = prefer_read_tool(session=session, tool_name=tool_name, arguments=arguments)
+    if chosen != tool_name:
+        turn.row["tool_routing"] = {"from": tool_name, "to": chosen}
+    return chosen, chosen_arguments
 
 
 def _evaluate_tool_policy(session: MutationSession, turn: LoopTurn, tool_name: str, arguments: dict[str, Any]) -> Any:
@@ -84,6 +111,8 @@ def _register_approval(session: MutationSession, tool_name: str, arguments: dict
 
 
 def handle_patch_request(session: MutationSession, turn: LoopTurn) -> LoopResult | None:
+    if block_unanalyzed_mutation(session, turn):
+        return None
     message = turn.message
     tool_call_id = session.next_tool_call_id("patch_result")
     rel = str(message.get("target_path") or "").strip()
@@ -123,6 +152,8 @@ def _materialize_context_ranges(
 ) -> None:
     """``codecompass.plan_context``: read the first location refs as line ranges into the result."""
     refs = list(((result.get("data") or {}).get("context_bundle") or {}).get("location_refs") or [])
+    if session.cfg.get("require_code_analysis") is True:
+        refs = prioritize_source_refs(refs)
     materialized = []
     for ref_index, ref in enumerate(refs[:_MAX_MATERIALIZED_CONTEXT_REFS], start=1):
         path = str((ref or {}).get("path") or "").strip()
@@ -149,6 +180,26 @@ def handle_tool_request(session: MutationSession, turn: LoopTurn) -> LoopResult 
     tool_call_id = session.next_tool_call_id("tool_result")
     tool_name = str(turn.message.get("tool_name") or "").strip()
     arguments = dict(turn.message.get("arguments") or {})
+    tool_name, arguments = _route_read_tool(session, turn, tool_name, arguments)
+    if tool_name in {"repo.write_file", "repo.apply_patch"} and block_unanalyzed_mutation(session, turn):
+        return None
+    streak = getattr(session, "read_only_streak", 0)
+    read_only = is_read_only_tool(tool_name)
+    force_after = int((session.cfg or {}).get("force_action_after") or 6)
+    analysis_pending = session.cfg.get("require_code_analysis") is True and session.analysis_gate.pending
+    if read_only and streak >= force_after and not analysis_pending:
+        from agent.cli_backends.workspace_mutation.tool_routing import ACTION_NUDGE
+
+        blocked = build_tool_result(
+            tool_name=tool_name, tool_call_id=tool_call_id, status="error",
+            error="read_only_blocked_action_required",
+            warnings=["too_many_consecutive_reads"],
+            data={"action_required": ACTION_NUDGE},
+        )
+        session.add_evidence(blocked)
+        turn.row["tool_status"] = "error"
+        return None
+    session.read_only_streak = streak + 1 if read_only else 0
     decision = _evaluate_tool_policy(session, turn, tool_name, arguments)
     if not decision.allowed:
         blocked_result = _denied_tool_result(tool_name, tool_call_id, decision)
@@ -166,13 +217,82 @@ def handle_tool_request(session: MutationSession, turn: LoopTurn) -> LoopResult 
         tool_call_id=tool_call_id,
         config=tool_cfg,
     )
-    if tool_name == "codecompass.plan_context":
+    if tool_name.startswith("codecompass.") and session.cfg.get("require_code_analysis") is True:
+        session.analysis_gate.observe_codecompass(successful=result.get("status") == "ok")
+    if tool_name == "codecompass.plan_context" and result.get("status") == "ok":
         _materialize_context_ranges(session, result, tool_call_id, tool_cfg)
+    if session.cfg.get("require_code_analysis") is True:
+        reads = ((result.get("data") or {}).get("materialized_range_results") or [])
+        if tool_name == "repo.read_file_range":
+            reads = [result]
+        for read in reads:
+            data = read.get("data") or {}
+            if read.get("status") != "ok":
+                continue
+            for source in read.get("evidence") or []:
+                if source.get("kind") != "file_excerpt" or source.get("truncated") or not source.get("excerpt"):
+                    continue
+                session.analysis_gate.observe_range(
+                    path=str(source.get("path") or ""), file_sha256=str(data.get("file_sha256") or ""),
+                    line_start=int(data.get("line_start") or 0), line_end=int(data.get("line_end") or 0),
+                )
+    if tool_name == "repo.read_file_range":
+        annotate_analysis_read(session, result, arguments)
     if tool_name == "test.run":
+        if str(result.get("status") or "") == "ok" and str(arguments.get("command") or "").strip():
+            session.verification_command = str(arguments.get("command")).strip()
         check = session.hub_check(iteration_number=turn.iteration, ran_tests_result=dict(result.get("data") or {}))
         check["tool_result"] = result
         session.add_evidence(check)
+        blocked = _test_command_refusal_budget(session, turn, result, arguments)
+        if blocked is not None:
+            return blocked
     else:
         session.add_evidence(result)
     turn.row["tool_status"] = str(result.get("status") or "")
     return None
+
+
+def _test_command_refusal_budget(
+    session: MutationSession,
+    turn: LoopTurn,
+    result: dict[str, Any],
+    arguments: dict[str, Any],
+) -> LoopResult | None:
+    """End the loop on repeated ``command_not_allowlisted`` instead of burning iterations.
+
+    ``test.run`` is mandatory before ``final_answer``, so a command the policy refuses can
+    never be satisfied: the loop reads on until ``max_iterations`` reports that unrelated
+    symptom. The first refusal stays feedback (the model may correct itself, ideally with the
+    command the brief quotes); the next one ends the loop with a bounded, machine-readable
+    result naming the refused command and the allowlist. Refusals are counted rather than
+    matched string by string: a live run refused four different spellings of the same
+    non-allowlisted suite before running out of iterations.
+    """
+    if str(result.get("status") or "") != "policy_blocked":
+        return None
+    if str(result.get("error") or "").strip() != "command_not_allowlisted":
+        return None
+    from agent.services.tools.test_tools import _normalize_command
+
+    command = _normalize_command(arguments.get("command"))
+    if not command:
+        return None
+    session.blocked_test_command = command
+    refusals = int(getattr(session, "test_command_refusals", 0) or 0) + 1
+    session.test_command_refusals = refusals
+    if refusals < TEST_COMMAND_REFUSAL_BUDGET:
+        return None
+    return session.finish_with_summary(
+        "command_not_allowlisted",
+        {
+            "kind": "loop_aborted",
+            "reason": "command_not_allowlisted",
+            "command": command,
+            "refused_commands": refusals,
+            "allowlisted_test_commands": list(
+                (session.cfg or {}).get("allowlisted_test_commands") or []
+            ),
+        },
+        turn.err,
+    )

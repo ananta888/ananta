@@ -1,0 +1,357 @@
+{
+  "$schema": "../todo.track.schema.json",
+  "version": 3,
+  "title": "Self-Development: verifizierte Publikationen zuverlaessiger machen",
+  "purpose": "Fehlversuche anhand nachvollziehbarer Versuchsdaten reduzieren, ohne Verifikation, Scope, Budgets oder Publikationsregeln abzuschwaechen. Fruehere Erfolgszahlen und Modellgrenzen sind unbestaetigte Beobachtungen, keine gesicherte Ursachenanalyse.",
+  "goal": "Der Hub delegiert begrenzte Aenderungen an Worker, prueft fachlich passende Tests und publiziert ausschliesslich verifizierte Aenderungen auf dem autorisierten Entwicklungsbranch. Verbesserungen werden an einer vorab festgelegten Aufgabenmischung gemessen.",
+  "track": "self-development",
+  "owner": "operator",
+  "status": "blocked",
+  "created": "2026-10-17",
+  "updated": "2026-10-17",
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["high", "medium", "low"],
+  "risk_scale": ["low", "medium", "high"],
+  "activation": {
+    "state": "contracts_not_admitted",
+    "reason": "Alle Aufgaben sind auf Quell-Ebene blocked. Der bestehende Katalog respektiert diesen Status auch bei aktivierter Contract-Planung. Ein Dokumentstatus oder ein neues Metadatenfeld allein waere keine wirksame Dispatch-Sperre.",
+    "admission": "Vor Freigabe jeder Aufgabe validiert der Hub den konkreten execution-Contract: exakte Dateien, registriertes Testprofil, erlaubter Commit-Scope und profile_passed. candidate_files sind Planungsdaten, keine Rechte. Erst danach darf die jeweilige Aufgabe todo werden; Abhaengigkeiten bleiben bis zur verifizierten Publikation ihrer Voraussetzungen gesperrt.",
+    "headless": "Zulassung und Freigabe duerfen durch explizite Hub-Policy automatisiert werden. Ohne passende Policy entsteht ein begrenztes blocked-Ergebnis. Keine interaktive Freigabe ist Testvoraussetzung. Dieser Plan startet keine produktive Ausfuehrung."
+  },
+  "constraints": [
+    "CodeCompass ist eine verpflichtende Kernfaehigkeit fuer Repository-Kontext: im ananta-worker und ueber den OpenCode-CLI-Pfad verfuegbar, auch bei Retries. Fehlende Worker-Anmeldung oder Transportanbindung reparieren, niemals die Task-Anforderung oder Policy-Pruefung entfernen. Discovery gewaehrt keine Rechte; Index-, Rollen-, Task- und Lease-Grenzen bleiben wirksam.",
+    "Hub besitzt Queue, Planung, Abhaengigkeiten, Policy, Evidenz und Publikation. Worker fuehren delegierte Assignments in eigenen Containern aus; keine neue Scheduler-Schleife oder Worker-zu-Worker-Auftraege.",
+    "Bestehende APIs und Journale bleiben lesbar. Neue Felder sind optional; fehlende historische Metadaten werden unknown/unverified, nicht erfunden.",
+    "SRC_* und RUN_* nur vom Hub Evidence Registry beziehen. Runs vor Ausfuehrung reservieren und an Task, Assignment, Lease, Revision, Quellen, Profil und Umgebung binden. Keine nachtraegliche Aufwertung lokaler Tests zu Release-Evidenz.",
+    "Test-/synthetische Evidenz kennzeichnen. Self-Development-Evidenz mit scope=local erfuellt keine Produktionsfreigabe.",
+    "Exakte Testbefehle und Dateigrenzen bleiben Hub-allowlisted. Modelltext erweitert keine Profile, Tools, Cloud-Zugriffe, Budgets oder Commit-Scopes.",
+    "Jeder publizierte Implementierungsschritt enthaelt seine Regressionstests und ist fuer sich gruen. Keine abgeschwaechten Tests oder separat rot publizierten Testschritte.",
+    "Experimente erhalten explizite endliche Session-, Zeit- und Versuchslimits. Stop und Policy-Wechsel widerrufen Ausfuehrung beziehungsweise Publikation wie bisher. Worker erhalten keine Hub-Credentials oder Git-Rechte."
+  ],
+  "evidence_baseline": {
+    "verification_status": "unverified",
+    "previous_claims": {"published": 6, "reported_relevant_tasks": 29, "reported_non_policy_failures": 21},
+    "limitations": [
+      "Die alte Datei lieferte keine reproduzierbare Abfrage, keinen vollstaendigen Nenner und keine registrierten Evidenzbindungen. 6 Erfolge plus 21 Fehlschlaege erklaeren 29 Tasks nicht vollstaendig.",
+      "agent/-Fehlschlaege belegen keine Modellunfaehigkeit. Kontext-, Tool-, Profil-, Policy-, Transport- und Publikationsfehler getrennt untersuchen.",
+      "Prozentprognosen und Zeitversprechen sind entfernt. Vor der ersten Implementierung eine neue Baseline einfrieren."
+    ]
+  },
+  "verification": {
+    "strategy": "Konkreten Fehler mit Regressionstest reproduzieren; Implementierung und Test im selben Contract verifizieren. Analyseaufgaben liefern reproduzierbare Berichte statt behaupteter Laufzeiterfolge.",
+    "self_development_regression_command": "python3 -m pytest -q --confcutdir=tests/self_development -o addopts= -o cache_dir=/tmp/ananta-self-dev-cache tests/self_development",
+    "command_policy": "Pruefvorschlag aus docs/autonomous-development.md mit python3. Vor Delegation genau diese Schreibweise im gewaehlten Hub-Profil und der Worker-Allowlist registrieren. Ein Profilname beweist weder den Befehl noch dessen fachliche Abdeckung.",
+    "headless": "Isolierte tmp_path-Workspaces, deterministische Policy-Fixtures und injizierte Queue-/Registry-/Publisher-Doubles. Kein echter Push, externer Modellaufruf, Zugangsdatenbedarf oder menschliches Entsperren in Tests.",
+    "artifacts": "Stabile bereinigte Berichte nach artifacts/domain/. Rohdaten und Laufzeitausgaben ausserhalb getrackter Source-Artefakte. Berichte nennen Revision, Methode, Resultate und Grenzen; keine Secrets, Rohprompts oder erfundenen Evidenz-IDs."
+  },
+  "implementation_decisions": {
+    "profile_mapping": "Optionale Hub-Policy test_profile_rules als Liste aus {file_globs: [...], test_profile: registered_name}. Im Opt-in-Modus muss jede Contract-Datei mindestens eine Regel treffen und die Schnittmenge der registrierten Profilnamen fuer alle Dateien genau einen Namen enthalten. Mehrdeutigkeit oder leere Schnittmenge blockiert; kein first-match und kein dynamischer Shell-Befehl. Ein Gesamtprofil kann in mehreren Bereichsregeln vorkommen. Explizite Contracts muessen mit dieser Auswahl uebereinstimmen; Hub-geplante Contracts werden dagegen validiert, nicht nach Reservierung umgeschrieben.",
+    "quality_policy": "Optionale Hub-Policy task_quality mit enabled=false als kompatiblem Default. Bei Aktivierung nichtleere description und nichtleere Liste nichtleerer acceptance_criteria verlangen. Strukturelle Vollstaendigkeit nicht als semantischen Qualitaetsbeweis ausgeben. Dateigrenzen vorhandener Contract-/Planning-Policy verwenden. quality_* als separate Gruende behandeln; automatisch planbare needs_*-Gruende explizit allowlisten statt beliebiger Prefix-Freigabe.",
+    "attempt_identity": "Recorder nutzt bestehende Hub-Task-/Assignment-/Lease-Bindungen als Idempotenzschluessel, keine neuen Evidenz-IDs. Pre-dispatch-Planningfehler separat ohne RUN_* erfassen. Deduplizierte Publikation benoetigt zur Attempt-Bindung den bestehenden Commit-SHA. Legacy-Felder und vorhandene Retry-Historie bleiben erhalten.",
+    "prompt_budget": "Kontext-Snippets maximal 8000 Zeichen plus Feedback maximal 2000 Zeichen; strukturierte Kriterien maximal 4000 Zeichen. Bestehende Task-Anweisung und finale Test-/Policy-Instruktionen niemals still kuerzen. Ueberschreiten der vom Backend bereitgestellten Kontextgrenze vor Dispatch begrenzt melden, nicht das Tokenbudget aus Zeichen schaetzen. Kriterien beim Quality-Schritt fuer explizite Contracts transportieren; SR-1C ergaenzt die Planner-Prompt-Weitergabe.",
+    "rollback": "Jeden Implementierungsschritt separat und mit Tests liefern. Neue Profilzuordnung, Quality-Gate und Prefill/Retry-Feedback mit kompatiblen opt-in Schaltern ausrollen. Beobachtungsmetriken abschaltbar, vorhandene Journal-Daten weiter lesbar. Bei Regression Feature deaktivieren; bereits bestehende Sicherheitsgates bleiben aktiv."
+  },
+  "milestones": [
+    {"id": "SR-M1", "title": "Baseline und passende Verifikation", "task_ids": ["SR-BASELINE", "SR-4A", "SR-2B"], "status": "blocked"},
+    {"id": "SR-M2", "title": "Zulassung, Kontext und gezieltes Fehlerfeedback", "task_ids": ["SR-4B", "SR-1B", "SR-2C", "SR-1C"], "status": "blocked"},
+    {"id": "SR-M3", "title": "Regressionsschutz und kontrollierter Vergleich", "task_ids": ["SR-GATE", "SR-MONITOR"], "status": "blocked"}
+  ],
+  "critical_path_tasks": ["SR-BASELINE", "SR-4A", "SR-2B", "SR-4B", "SR-1B", "SR-2C", "SR-1C", "SR-GATE", "SR-MONITOR"],
+  "tasks": [
+    {
+      "id": "SR-BASELINE",
+      "title": "Baseline und Fehlerhypothesen reproduzierbar erfassen",
+      "description": "Vor Codeaenderungen aktuellen Journal-Snapshot und vorhandene Hub-Evidenzbindungen read-only auswerten. Logische TODOs, Dispatch-Versuche, Planning-Ablehnungen, Test- und Publikationsfehler getrennt zaehlen. Nenner, Zeitraum, Revision und Filter dokumentieren. Unbekannte historische Daten kennzeichnen. Vergleichskohorte vorab festlegen; keine produktiven Dispatches starten.",
+      "type": "analysis",
+      "milestone_id": "SR-M1",
+      "status": "blocked",
+      "block_reason": "contracts_not_admitted",
+      "priority": "high",
+      "risk": "low",
+      "progress_percent": 0,
+      "depends_on": [],
+      "references": ["agent/services/self_development/state.py", "agent/services/self_development/coordinator.py", "agent/services/self_development/retries.py", "docs/autonomous-development.md"],
+      "candidate_files": ["docs/self-development-success-baseline.md"],
+      "acceptance_criteria": [
+        "Bericht benennt Snapshot-Digest, Revision, Zeitraum, Filter, Statusdefinitionen und reproduzierbare Auswertungsmethode ohne sensible Rohdaten.",
+        "Retry-Historie und aktueller Versuch werden nicht doppelt gezaehlt. Fehlende Attempts bleiben unknown. Die alte 6/29-Behauptung wird bestaetigt, korrigiert oder explizit unverified belassen.",
+        "Modell/Backend, Dateibereich, Dateizahl, Fehlerstufe und Testprofil soweit vorhanden ausweisen; Korrelationen und Ursachenhypothesen trennen.",
+        "Ohne lesbare Daten bleibt die Baseline unverified und die Wirkungsmessung blockiert. Lokale Beobachtungen ersetzen keine Registry-Bindung.",
+        "Vor SR-4A muessen mindestens 20 abgeschlossene Baseline-Dispatch-Versuche nach der vorab dokumentierten Kohortenmethodik vorliegen. Bei fehlendem historischem Material zuerst einen separaten begrenzten Hub-Experimentlauf unter bereits explizit autorisierter Policy abschliessen; diese read-only Analyse startet ihn nicht selbst. Kein nachtraegliches Baseline-Messen nach Implementierung."
+      ],
+      "qa": {
+        "happy_path": "Dokumentierte read-only Auswertung zweimal gegen denselben Snapshot ausfuehren; identische Zaehler und vollstaendige Statusaufteilung erwarten.",
+        "failure_path": "Leere Daten, fehlende Historie und unbekannte Registry-Bindungen als no_data/unknown/unverified ausgeben, niemals als Erfolgsquote.",
+        "artifact": "docs/self-development-success-baseline.md"
+      },
+      "commit_message_proposal": "docs(autopilot): document reproducible self-development baseline"
+    },
+    {
+      "id": "SR-4A",
+      "title": "Versuchsmetriken und Fehlerstufen dauerhaft erfassen",
+      "description": "Kleinen injizierbaren Attempt-Recorder fuer optionale, begrenzte Hub-Metadaten einfuehren. Coordinator und retries.py rufen ihn an bestehenden Zustandsuebergaengen auf. Planning-Ablehnung vor Dispatch, echte Dispatches, Retry-Abschluesse und Publikation unterscheiden. Modell/Iteration nur aus beobachteten Invocation-Daten uebernehmen. Keine zweite Datenbank oder Scheduler-Schleife.",
+      "type": "implementation",
+      "milestone_id": "SR-M1",
+      "status": "blocked",
+      "block_reason": "contracts_not_admitted",
+      "priority": "high",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": ["SR-BASELINE"],
+      "references": ["agent/services/self_development/coordinator.py", "agent/services/self_development/retries.py", "agent/services/self_development/state.py", "tests/self_development/test_execution.py"],
+      "candidate_files": ["agent/services/self_development/attempt_metrics.py", "agent/services/self_development/coordinator.py", "agent/services/self_development/retries.py", "tests/self_development/test_attempt_metrics.py", "docs/autonomous-development.md"],
+      "acceptance_criteria": [
+        "Planning-, Worker-, Verification-, Policy-, Stop/Budget- und Publication-Fehler bleiben unterscheidbar; lokaler Testerfolg zaehlt nicht als publiziert.",
+        "Neue Versuche erfassen Task-ID, vorhandene Run-/Assignment-Bindung, Revision, Profil, Policy-Digest, Start/Ende und Dauer. Nicht reservierte Runs bleiben ohne RUN_*.",
+        "Retries bewahren abgeschlossene Attempt-Daten. Wiederholte Speicherung und Neustart duplizieren keine Versuche. Alte Journale ohne Metriken bleiben lesbar.",
+        "Keine Rohprompts, Secrets oder unbeschraenkten Outputs im Journal. Recorder plant, dispatcht und publiziert nicht (SRP/DIP)."
+      ],
+      "qa": {
+        "happy_path": "Mit injizierter Uhr Erfolg und Fail-Retry-Erfolg ueber Coordinator-Einstiegspunkte ausfuehren; Attempt-Zaehler und Fehlerstufen pruefen.",
+        "failure_path": "Planning-Denial, Stop, Publication-Failure und Journal-Neuladen pruefen; kein falscher published-Zaehler und keine duplizierten Attempts.",
+        "command_ref": "verification.self_development_regression_command",
+        "artifact": "artifacts/domain/self-development-attempt-metrics-review.md"
+      },
+      "commit_message_proposal": "feat(autopilot): record bounded development attempt outcomes"
+    },
+    {
+      "id": "SR-2B",
+      "title": "Registrierte Testprofile fachlich zuordnen und vorab pruefen",
+      "description": "Keine Shell-Befehle aus Dateinamen generieren. In scope.py deterministisch aus explizit Hub-konfigurierten Profilzuordnungen waehlen. Bestehende Profildefinition bleibt Quelle fuer Testbefehl, erlaubte Roots und Worker-Allowlist. Alle Contract-Dateien muessen abgedeckt sein; gemischte Bereiche benoetigen ein registriertes Gesamtprofil. Auswahl vor Evidenzreservierung abschliessen und denselben exakten Befehl fuer Worker und Hub-Verifikation verwenden.",
+      "type": "implementation",
+      "milestone_id": "SR-M1",
+      "status": "blocked",
+      "block_reason": "contracts_not_admitted",
+      "priority": "high",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": ["SR-4A"],
+      "references": ["agent/services/self_development/scope.py", "agent/services/self_development/policy.py", "agent/services/self_development/coordinator.py", "tests/self_development/test_scope.py", "docs/autonomous-development.md"],
+      "candidate_files": ["agent/services/self_development/scope.py", "agent/services/self_development/policy.py", "agent/services/self_development/coordinator.py", "tests/self_development/test_scope.py", "docs/autonomous-development.md"],
+      "acceptance_criteria": [
+        "Opt-in-Zuordnung waehlt nur registrierte und fuer Planning erlaubte Profile. Ohne neue Konfiguration bleibt die bisherige explizite Contract-Auswahl kompatibel.",
+        "Operator-authored execution-Contracts nicht still umschreiben; unpassende explizite Auswahl im Opt-in-Modus mit strukturiertem Grund ablehnen.",
+        "Root-Berechtigung allein gilt nicht als fachliche Testabdeckung. Fehlende, mehrdeutige oder gemischte Zuordnung ohne Gesamtprofil scheitert vor Worker-Ausfuehrung.",
+        "Registrierter Befehl erreicht Worker-Allowlist und _verify_worker_result; RUN_*-Profil-Digest bindet genau dieses Profil. Modelltext erweitert keine Allowlist.",
+        "Tests beweisen passenden Regressionstest und Ablehnung eines fachfremden Profils. Eine gruene fachfremde Suite reicht nicht."
+      ],
+      "qa": {
+        "happy_path": "Profil-Fixtures fuer Self-Development und fremden Bereich verwenden; eindeutige Zuordnung und registriertes Gesamtprofil durch Coordinator-Verifikation verfolgen.",
+        "failure_path": "Unbekanntes Profil, mehrdeutige Zuordnung, fehlendes Gesamtprofil und abweichenden Worker-Testbefehl ablehnen; Altpolicy ohne Mapping pruefen.",
+        "command_ref": "verification.self_development_regression_command",
+        "artifact": "artifacts/domain/self-development-profile-review.md"
+      },
+      "commit_message_proposal": "feat(autopilot): validate explicit development profile mappings"
+    },
+    {
+      "id": "SR-4B",
+      "title": "Qualitaetssperren von automatisch planbaren Vertraegen trennen",
+      "description": "Task-Qualitaet als eigenen kleinen Validator pruefen. Im Opt-in-Modus konkrete Beschreibung und strukturierte acceptance_criteria verlangen; keine reine Zeichenanzahlgrenze als Qualitaetsnachweis. Dateizahl am konfigurierten Contract-Limit messen. Qualitaetsfehler getrennt von fehlenden Contracts behandeln. Coordinator darf Sperren weder ueber startswith('needs_') noch den recoverable-Reimportpfad aufheben. Korrigierte Quelldaten vollstaendig neu validieren.",
+      "type": "implementation",
+      "milestone_id": "SR-M2",
+      "status": "blocked",
+      "block_reason": "contracts_not_admitted",
+      "priority": "high",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": ["SR-2B"],
+      "references": ["agent/services/self_development/catalog.py", "agent/services/self_development/coordinator.py", "agent/services/self_development/policy.py", "tests/self_development/test_contracts.py", "tests/self_development/test_planner.py"],
+      "candidate_files": ["agent/services/self_development/task_quality.py", "agent/services/self_development/catalog.py", "agent/services/self_development/coordinator.py", "agent/services/self_development/policy.py", "tests/self_development/test_import_quality.py"],
+      "acceptance_criteria": [
+        "Gate ist opt-in; Legacy-Tasks bleiben ohne neue Konfiguration kompatibel. Explizite Quellstatus blocked/paused/needs_review bleiben in jedem Modus gesperrt.",
+        "Qualitaetsfehler haben einen geschlossenen maschinenlesbaren Grund und bleiben bei aktiviertem Planner, Reimport und Neustart gesperrt; kein unbegrenztes Warten.",
+        "Fehlender Contract allein bleibt im bisherigen Planning-Opt-in planbar. Korrigierte Tasks neu pruefen, ohne publizierte Aufgaben erneut auszufuehren.",
+        "Validator entscheidet nur ueber Qualitaet, nicht Queue oder Rechte. Kleine nebenwirkungsfreie Schnittstelle (SRP/ISP)."
+      ],
+      "qa": {
+        "happy_path": "Task ohne Kriterien importieren, Kriterien ergaenzen und erneut importieren; stabile Identitaet und erneute Hub-Zulassung pruefen.",
+        "failure_path": "Aktivierte Planung, blocked-Altbestand, Reimport und Quellstatus paused kombinieren; keine Quality-Sperre darf ready werden.",
+        "command_ref": "verification.self_development_regression_command",
+        "artifact": "artifacts/domain/self-development-quality-review.md"
+      },
+      "commit_message_proposal": "fix(autopilot): preserve development task quality blocks"
+    },
+    {
+      "id": "SR-1B",
+      "title": "Begrenzten Kontext aus dem exakten Worker-Checkout uebergeben",
+      "description": "Nach Export und Scope-Manifest reinen Kontext-Builder aufrufen. Nur deklarierte Contract-Dateien ueber sichere read_source-Grenzen aus dem exportierten Workspace lesen. Hoechstens zwei Dateien, 4000 Zeichen je Datei und 8000 Zeichen insgesamt; Pfad, Revision, fehlende Neudatei und Kuerzung markieren. Existierende Datei und neue Testdatei gemeinsam unterstuetzen. Coordinator setzt nur den gelieferten Kontext ein; grosse Dateien bleiben ueber autorisierte Tools lesbar.",
+      "type": "implementation",
+      "milestone_id": "SR-M2",
+      "status": "blocked",
+      "block_reason": "contracts_not_admitted",
+      "priority": "medium",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": ["SR-4B"],
+      "references": ["agent/services/self_development/workspace.py", "agent/services/self_development/coordinator.py", "tests/self_development/test_workspace.py", "tests/self_development/test_execution.py"],
+      "candidate_files": ["agent/services/self_development/context_prefill.py", "agent/services/self_development/coordinator.py", "agent/services/self_development/policy.py", "tests/self_development/test_context_prefill.py", "docs/autonomous-development.md"],
+      "acceptance_criteria": [
+        "Nur sichere deklarierte Workspace-Pfade lesen. Symlink-, Traversal- und Uebergroessenfehler nicht als fehlende Neudateien verschlucken.",
+        "Bei mehr als zwei Contract-Dateien Prefill nachvollziehbar auslassen. Gemischte existierende/neue Dateien funktionieren; gekuerzte Snippets sind nicht als vollstaendig bezeichnet.",
+        "Budgets sind deterministisch; Task-Anweisung, Akzeptanzkriterien, exakter Testbefehl und Policy-Hinweise bleiben erhalten. Quelltext ist untrusted data und erteilt keine Rechte.",
+        "Kontextaufbereitung bleibt separater Baustein mit injizierbarem Reader (SRP/DIP); keine neue Orchestrierung."
+      ],
+      "qa": {
+        "happy_path": "Temporaeren Export mit Implementierung und fehlender neuer Testdatei bauen; Snippets, Revision und new-file-Markierung im Worker-Brief pruefen.",
+        "failure_path": "Symlink, Traversal, uebergrosse Datei, Unicode, Kuerzung und drei Contract-Dateien pruefen; Grenzen und unveraenderte Rechte nachweisen.",
+        "command_ref": "verification.self_development_regression_command",
+        "artifact": "artifacts/domain/self-development-context-review.md"
+      },
+      "commit_message_proposal": "feat(autopilot): prefill bounded checkout context for workers"
+    },
+    {
+      "id": "SR-2C",
+      "title": "Bereinigtes, zugeordnetes Fehlerfeedback fuer frische Retries nutzen",
+      "description": "Vor prepare_retry() vorhandene Fehlerstufe und begrenzten bereinigten Diagnoseauszug sichern. Feedback als Daten, nicht als neue Instruktion oder angebliche Ursache uebergeben. Im naechsten Brief bei unveraendertem Contract anzeigen. Keine erfundenen Iterationszahlen. Keine automatische Neuplanung oder Aenderung von Profil, Scope, Modell oder Commit aus Testausgabe.",
+      "type": "implementation",
+      "milestone_id": "SR-M2",
+      "status": "blocked",
+      "block_reason": "contracts_not_admitted",
+      "priority": "medium",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": ["SR-1B"],
+      "references": ["agent/services/self_development/retries.py", "agent/services/self_development/coordinator.py", "agent/services/self_development/budget.py", "tests/self_development/test_execution.py", "tests/self_development/test_budget.py"],
+      "candidate_files": ["agent/services/self_development/retry_feedback.py", "agent/services/self_development/retries.py", "agent/services/self_development/coordinator.py", "agent/services/self_development/policy.py", "tests/self_development/test_retry_feedback.py", "docs/autonomous-development.md"],
+      "acceptance_criteria": [
+        "Feedback maximal 2000 Zeichen, bereinigt um Secrets und Kontrollzeichen; fehlende Diagnose unavailable. Keine ungekuerzten Tool-Outputs oder Rohprompts persistieren.",
+        "Diagnose stammt nur aus zum Versuch passenden Ergebnissen; fremde Task-/Lease-Daten ablehnen. Diagnose ersetzt niemals Hub-Verifikation.",
+        "Jeder Retry bekommt neue Task-, Workspace-, Assignment-, Lease- und vorreservierte Run-Bindung. Alte Ergebnisse nicht wiederverwenden.",
+        "Stop-, Budget-, Policy- und Publication-Failure-Sperren erhalten. Feedback erzeugt weder zusaetzliche Retries noch neue Rechte."
+      ],
+      "qa": {
+        "happy_path": "Fail-Retry-Erfolg mit zugeordneter Testdiagnose und frischen Registry-Testbindungen ausfuehren; bereinigten Brief und Attempt-Historie pruefen.",
+        "failure_path": "Fremde Lease, fehlenden Output, Secret-Muster, Prompt-Injection, Stop und erschoepftes Versuchslimit pruefen; kein Rechtegewinn oder zusaetzlicher Dispatch.",
+        "command_ref": "verification.self_development_regression_command",
+        "artifact": "artifacts/domain/self-development-retry-review.md"
+      },
+      "commit_message_proposal": "feat(autopilot): carry bounded failure feedback into retries"
+    },
+    {
+      "id": "SR-1C",
+      "title": "Planner-Korrekturen verbessern und unzulaessige Scopes ablehnen",
+      "description": "Vorhandene begrenzte Planner-Selbstkorrektur nutzen, statt Scopes per Prefix oder Fallback umzuschreiben. Strukturierte Task-Akzeptanzkriterien, erlaubte Profile und fachlich passende erlaubte Scope-Beispiele uebergeben. Bei Ablehnung vorhandenen Fehlercode und gueltige Alternativen liefern. Kriterien auch im Worker-Brief erhalten. ContractPlanner.propose() liefert weiter genau einen Contract; keine Listen oder Kind-Tasks einfuehren.",
+      "type": "implementation",
+      "milestone_id": "SR-M2",
+      "status": "blocked",
+      "block_reason": "contracts_not_admitted",
+      "priority": "medium",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": ["SR-2C"],
+      "references": ["agent/services/self_development/planner.py", "agent/services/self_development/catalog.py", "agent/services/self_development/coordinator.py", "tests/self_development/test_planner.py", "CONTRIBUTING.md"],
+      "candidate_files": ["agent/services/self_development/planner.py", "agent/services/self_development/catalog.py", "agent/services/self_development/coordinator.py", "tests/self_development/test_planner.py"],
+      "acceptance_criteria": [
+        "Scope und Commitformat weiter deterministisch pruefen. Kein repo-Fallback, keine Scope-Allowlist-Erweiterung und keine stille Umbenennung.",
+        "Erst ungueltige, dann gueltige Modellantwort innerhalb planning.max_attempts zulassen; dauerhaft ungueltige Antworten enden begrenzt mit bestehendem Fehlergrund.",
+        "acceptance_criteria begrenzt und kompatibel vom Katalog zu Planner und Worker uebernehmen. Legacy-Tasks ohne Feld bleiben ausserhalb Quality-Opt-in unterstuetzt.",
+        "Planner-Port bleibt substituierbar (LSP/ISP). Policy entscheidet ueber Scope und Profile; Promptdaten sind keine Autorisierung."
+      ],
+      "qa": {
+        "happy_path": "Planner-Double liefert ungueltigen Scope und danach gueltigen Contract; Fehlerkorrektur, Kriterienweitergabe und genau einen zugelassenen Contract pruefen.",
+        "failure_path": "Nur ungueltige Scopes, Commit-Newlines, Legacy-Task ohne Kriterien und ueberschrittene Dateigrenze pruefen; kein Fallback oder neuer Task.",
+        "command_ref": "verification.self_development_regression_command",
+        "artifact": "artifacts/domain/self-development-planner-review.md"
+      },
+      "commit_message_proposal": "fix(autopilot): retain criteria during bounded contract planning"
+    },
+    {
+      "id": "SR-GATE",
+      "title": "Hub-Worker-Publikationspfad gegen Fehlfreigaben absichern",
+      "description": "Bausteine durch reale Coordinator-Einstiegspunkte zusammenspielen lassen. Queue, Worker-Transport und Git als deterministische Ports ersetzen; Evidenzpruefung mit isolierter echter Registry und explizit synthetischen Testbindungen ausfuehren. Kein Mock ersetzt das zu pruefende Gate. Explizite/geplante Contracts, Retry und abhaengige TODOs pruefen. Vorherige Schritte behalten eigene Tests; diese Aufgabe ergaenzt uebergreifende Szenarien.",
+      "type": "test",
+      "milestone_id": "SR-M3",
+      "status": "blocked",
+      "block_reason": "contracts_not_admitted",
+      "priority": "high",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": ["SR-1C"],
+      "references": ["tests/self_development/test_execution.py", "tests/self_development/test_publication.py", "agent/services/self_development/completion.py", "agent/services/self_development/publisher.py", "docs/planning-pipeline.md"],
+      "candidate_files": ["tests/self_development/test_success_pipeline.py", "tests/self_development/test_publication.py"],
+      "acceptance_criteria": [
+        "Passender erfolgreicher Worker-Test fuehrt genau einmal zur fuer den Test erlaubten lokalen Publikation und erst danach zur Freigabe einer Abhaengigkeit.",
+        "Falscher Testbefehl, unbekannter Run, falsches Assignment/Lease, Scope-Drift und stale Result verhindern Publikation; synthetische Evidenz scheitert stets bei Produktionsanspruch.",
+        "Stop, Policy-Wechsel, Restart und Push-Fehler enden begrenzt und nachvollziehbar; kein verfruehtes done, doppelte Publikation oder duplizierte Metriken.",
+        "Self-Development-Suite bleibt gruen. Keine Netzwerkzugriffe, Credentials, interaktiven Gates oder Worker-zu-Worker-Aufrufe in Tests."
+      ],
+      "qa": {
+        "happy_path": "Expliziten und geplanten Contract sowie Fail-Retry-Erfolg inklusive Abhaengigkeit ausfuehren; Publikationszaehler und echte Registry-Testbindungen pruefen.",
+        "failure_path": "Genannte Ablehnungen parametrisiert ausloesen; kein unberechtigter Publisher-Aufruf und keine Abhaengigkeitsfreigabe.",
+        "command_ref": "verification.self_development_regression_command",
+        "artifact": "artifacts/domain/self-development-pipeline-gate-review.md"
+      },
+      "commit_message_proposal": "test(autopilot): guard development verification and publication"
+    },
+    {
+      "id": "SR-MONITOR",
+      "title": "Kontrollierten Vergleich auswerten und Fortsetzung begruenden",
+      "description": "Nach dem Gate einen explizit Hub-policy-autorisierten, zeitlich und mengenmaessig begrenzten Vergleich auswerten. Vor der ersten Implementierung Aufgabenpaare gleicher Klasse und vergleichbarer Schwierigkeit fuer getrennte Baseline-/Kandidatenkohorten festlegen. Jeweils mindestens 20 konsekutive Dispatch-Versuche mit unveraenderter Ausfuehrungskonfiguration pro Arm; zuerst Baseline, nach den Verbesserungen Kandidat. Bestehenden autorisierten Entwicklungsbranch sequenziell nutzen, keine konkurrierenden Pushes aus zwei Checkouts. Historische Baseline nur bei gleicher dokumentierter Auswahlmethodik und vollstaendigen Daten verwenden. Retries zaehlen einzeln; keine nachtraegliche Auswahl einfacher Erfolge oder Wiederholung bereits geloester Aufgaben auf gefixtem Code. Offline-Tests und produktive Hub-Experimentlaeufe bleiben getrennt.",
+      "type": "analysis",
+      "milestone_id": "SR-M3",
+      "status": "blocked",
+      "block_reason": "contracts_not_admitted",
+      "priority": "high",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": ["SR-GATE"],
+      "references": ["scripts/ananta-self-develop.py", "agent/services/self_development/budget.py", "agent/services/self_development/state.py"],
+      "planned_inputs": ["docs/self-development-success-baseline.md"],
+      "candidate_files": ["docs/self-development-success-comparison.md"],
+      "acceptance_criteria": [
+        "Bericht weist Kohorte, Nenner, Revisionen, Policy-/Profil-/Umgebungsbindungen, Versuchslimits und alle Fehler aus. Je Attempt auch ausgefuehrte Checkout-Revision nennen, da Publikationen HEAD fortschreiben. Planning-/Policy-Ablehnungen vor Dispatch separat berichten.",
+        "Primaer: verifizierte Publikationsereignisse / Dispatch-Versuche. Jeder Retry ohne Publikation bleibt im Nenner; offene Versuche verhindern finales Urteil. Publikationsereignisse anhand Attempt-/Commit-Bindung deduplizieren.",
+        "Sekundaer: eindeutige publizierte TODOs / eindeutige versuchte TODOs, Ergebnisse je Aufgabenklasse, Fehlerstufen, Dauer und beobachtete Modellkosten berichten.",
+        "Ziel >75% bei 20 Versuchen ab 16 verifizierten Publikationen. max_iterations <20% und evidence_run_not_successful <10% verwenden denselben Nenner; keine nachtraeglichen Ausschluesse.",
+        "Mindestens je ein docs-, tests- und agent/-Task erfolgreich publiziert. Konfidenzintervall und kleine Stichprobe offenlegen; eine Serie beweist keine dauerhafte Quote.",
+        "Ohne gueltige Evidenz, passende Policy, abgeschlossene Baseline vor Implementierung oder vollstaendige Daten bounded blocked/inconclusive. Keine neue Branch-Freigabe implizieren. Unterschiede zwischen den Aufgabenpaaren als Limitation ausweisen. Bei Regression Feature deaktivieren beziehungsweise Aenderung gezielt zuruecknehmen; Gate nicht lockern."
+      ],
+      "qa": {
+        "happy_path": "Versionierte Auswertungsmethode auf festem synthetischem Datensatz pruefen: 16/20 erfuellt >75%, 15/20 nicht; Klassenquoten und Retry-Zaehler kontrollieren. Testdaten explizit synthetisch klassifizieren.",
+        "failure_path": "Offene Versuche, leere Kohorte, fehlende Revision, doppelte Attempts und unbekannte Registry-IDs ergeben inconclusive/unverified statt Erfolg. Reale Resultate separat durch Hub-Registry verifizieren.",
+        "artifact": "docs/self-development-success-comparison.md"
+      },
+      "commit_message_proposal": "docs(autopilot): report controlled development success comparison"
+    }
+  ],
+  "tasks_status_summary": {
+    "total": 9,
+    "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 9, "done": 0},
+    "progress_percent_done": 0,
+    "by_priority": {"high": 6, "medium": 3, "low": 0},
+    "by_risk": {"low": 1, "medium": 5, "high": 3},
+    "critical_path": {"total": 9, "done": 0, "remaining": 9},
+    "milestones": {"total": 3, "todo": 0, "in_progress": 0, "blocked": 3, "done": 0}
+  },
+  "removed_or_deferred": [
+    {"previous_id": "SR-1A", "decision": "deferred", "reason": "Easy-first verbessert eine ausgewaehlte Quote, belegt keine bessere Loesungsfaehigkeit und kann schwere Tasks verdraengen. Contracts entstehen erst beim Dispatch; status()/start()-Sortierung steuert nicht die Hub-Queue. Erst bei belegtem Queue-Problem eigener Fairness-/Scheduling-Plan."},
+    {"previous_id": "SR-1A-TEST", "decision": "removed", "reason": "Kein isolierter Testtask fuer zurueckgestellte Priorisierung."},
+    {"previous_id": "SR-2A", "decision": "deferred", "reason": "Test/Code/Integration-Aufteilung erzeugt rote Zwischenpublikationen und erweitert Single-Contract-Port sowie Completion-/Evidenzidentitaet. Bei belegtem Bedarf separater Hub-Plan mit idempotenter DAG-Zulassung, Evidenzbindungen und einzeln gruenen vertikalen Teilschritten; keine Worker-Taskerzeugung."},
+    {"previous_id": "SR-2B-TEST", "decision": "merged_into_SR-2B", "reason": "Profiltests zusammen mit Implementierung statt spaeterer separater Publikation."},
+    {"previous_id": "SR-3A", "decision": "deferred", "reason": "Kein belegter Modellengpass, kein konkreter zugelassener Cloud-Provider oder Kosten-/Daten-/Budgetvertrag. Bei belegtem Bedarf bestehenden Hub-Routingpfad und Provider-Policy separat vergleichen; keine cloud-code-Ausnahme."},
+    {"previous_id": "SR-3B", "decision": "deferred", "reason": "Sampling nicht als Ursache belegt. ananta-worker erhaelt temperature im aktuellen Dispatchpfad nicht; 8192 Output-Tokens ohne Kontext-/Providerbindung sind willkuerlich. Spaeter entlang wirklicher Invocation kontrolliert vergleichen; keine globalen Defaults aendern."}
+  ],
+  "architecture_review": {
+    "srp": "Metriken, Qualitaetspruefung, Kontext und Feedback erhalten getrennte kleine Komponenten. Coordinator delegiert und behaelt Orchestrierung.",
+    "ocp": "Profilzuordnung und Quality-Gate sind optionale Policy-Erweiterungen mit kompatiblen Defaults; keine Task-ID- oder Modell-Sonderfaelle.",
+    "lsp_isp": "ContractPlanner liefert weiter einen Contract. Reader und Recorder erhalten kleine zweckgebundene Schnittstellen, keine catch-all Worker-API.",
+    "dip": "Uhr, sichere Reader und bestehende Queue-/Registry-/Publisher-Ports bleiben injizierbar. Reine Entscheidungen importieren weder Flask-Routen noch konkrete LLM-Backends.",
+    "preserved_debt": "Coordinator koppelt weiter Legacy-Taskstatus, Ausfuehrung und Publikation; Journal persistiert gemeinsamen JSON-Zustand unter Projektlock. Kein grosser Umbau in diesem Track. Rohkontext aus Taskbeschreibungen nicht in Metriken kopieren."
+  },
+  "success_criteria": [
+    "Schema, Task-IDs, Abhaengigkeiten, Milestone-Zuordnung und Summary-Zaehler konsistent.",
+    "Jeder Implementierungsschritt mit passenden Regressionstests vor Publikation im Hub-Evidenz-/Policy-Pfad verifiziert.",
+    "Kontrollierter Vergleich erreicht >75% verifizierte Publikationen pro Dispatch bei mindestens 20 konsekutiven Versuchen und dokumentierter Aufgabenmischung; Verbesserung gegen Baseline separat ausweisen.",
+    "Bei gleichem Dispatch-Nenner max_iterations <20% und evidence_run_not_successful <10%; erfolgreiche docs-, tests- und agent/-Aenderungen vertreten.",
+    "Keine Policy-Abschwaechung, synthetischen Produktionsnachweise oder neuen Worker-Orchestrierungsrechte. Nicht messbare Resultate inconclusive statt done."
+  ],
+  "related_todos": ["todos/active/todo.autonomous-development-acceptance.json"],
+  "summary_notes": [
+    "Version 3: Operator hat priorisierte Hub-Ausfuehrung und Ueberwachung autorisiert. Neun konkrete Contracts wurden separat ueber user-submission zugelassen; deren Fortschritt steht im Hub-Journal. Diese ungetrackte Planquelle bleibt passiv, um keinen zweiten Katalogimport derselben Arbeit aus einer neuen source-Identitaet auszufuehren.",
+    "CodeCompass darf nicht fuer den Wiederanlauf entfernt werden. Worker-Advertisement, OpenCode-MCP und Erhalt der Anforderung bei Retries sind Voraussetzung der operativen Weiterarbeit.",
+    "Version 2 ersetzt unbelegte Modell-Ursachenzuschreibung durch Baseline, Fehlerklassifikation und kontrollierte Vergleiche.",
+    "9 Aufgaben vor Contract-Zulassung gesperrt. Keine produktive Konfiguration geaendert oder Registry-Identitaeten behauptet.",
+    "Kandidatenpfade und Commit-Vorschlaege vor Umsetzung gegen aktuellen Diff, CONTRIBUTING.md und konkrete Hub-Policy pruefen.",
+    "Keine festen Phasen-Prozentprognosen oder Zeitversprechen. Modell-/Scheduling-/Dekompositionsarbeit benoetigt belegten Bedarf und eigenen pruefbaren Plan."
+  ]
+}

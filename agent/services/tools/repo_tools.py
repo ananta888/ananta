@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import fnmatch
 import hashlib
+import logging
 import os
 import re
 import subprocess
@@ -23,6 +24,8 @@ from agent.services.tools._evidence import (
     build_evidence_entry,
     build_tool_result,
 )
+
+log = logging.getLogger(__name__)
 
 _IGNORED_SEGMENTS = {".git", ".ananta", "__pycache__", "node_modules", "artifacts"}
 _MAX_LIST_LIMIT = 500
@@ -104,8 +107,11 @@ def repo_read_file_range(*, workspace_dir: str, arguments: dict[str, Any], tool_
             tool_name="repo.read_file_range", tool_call_id=tool_call_id, status="error", error=str(exc)
         )
     if not path.is_file():
+        log.warning("repo.read_file_range file_not_found requested=%s workspace=%s",
+                    str(args.get("path") or ""), str(Path(workspace_dir)))
         return build_tool_result(
-            tool_name="repo.read_file_range", tool_call_id=tool_call_id, status="error", error="file_not_found"
+            tool_name="repo.read_file_range", tool_call_id=tool_call_id, status="error", error="file_not_found",
+            data={"requested_path": str(args.get("path") or ""), "workspace_dir": str(Path(workspace_dir))},
         )
     if path.stat().st_size > _MAX_FILE_BYTES:
         return build_tool_result(

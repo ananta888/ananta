@@ -89,8 +89,8 @@ def build_opencode_runtime_diagnostics(*, base_url: str | None) -> list[str]:
 
 def build_opencode_toolless_agent_config() -> dict[str, object]:
     return {
-        "description": "Toolless worker for structured JSON replies",
-        "prompt": "Return concise structured answers. Never call tools.",
+        "description": "Worker for structured JSON replies with governed CodeCompass reads",
+        "prompt": "Return concise structured answers. Use CodeCompass tools when repository context is needed.",
         "temperature": 0.1,
         "tools": {
             name: False

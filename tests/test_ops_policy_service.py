@@ -107,3 +107,24 @@ def test_consume_approval_uses_one_shot_lifecycle(monkeypatch) -> None:
     )
     OpsPolicyService.consume_approval("approval-1")
     assert approvals.consumed == "approval-1"
+
+
+def test_git_publication_does_not_inherit_workspace_auto_approval(monkeypatch):
+    from types import SimpleNamespace
+    from agent.services.approval_auto_grant_policy import ApprovalAutoGrantPolicy
+    from agent.services.ops_policy_service import OpsPolicyService
+    captured = {}
+
+    def create_pending_request(**values):
+        captured.update(values)
+        return SimpleNamespace(id="synthetic-approval")
+
+    monkeypatch.setattr("agent.services.approval_request_service.get_approval_request_service",
+        lambda: SimpleNamespace(create_pending_request=create_pending_request))
+    for tool, action in (("git.commit", "commit"), ("git.push", "push")):
+        result = OpsPolicyService().create_approval_request(tool_name=tool, action=action,
+            target_id="workspace", arguments={"workspace_id": "workspace"})
+        assert result == "synthetic-approval"
+        assert ApprovalAutoGrantPolicy().reason(policy_by_mode={"balanced": {
+            "controlled_workspace_writes": True}}, human_required_tools=[], tool_name=tool,
+            scope=captured["scope"], governance_mode="balanced") is None

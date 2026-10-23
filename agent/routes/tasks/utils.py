@@ -1,6 +1,7 @@
 import json
 import queue
 import threading
+import time
 from collections.abc import Mapping
 from typing import Any
 
@@ -97,6 +98,35 @@ def _update_local_task_status(
     )
 
 
+def _step_deadline_monotonic(endpoint_name: str, agent_cfg: Mapping[str, Any]) -> float | None:
+    if not endpoint_name.endswith(("/step/propose", "/step/execute")):
+        return None
+    return time.monotonic() + _step_forward_deadline_seconds(endpoint_name, agent_cfg)
+
+
+def _step_forward_deadline_seconds(endpoint_name: str, agent_cfg: Mapping[str, Any]) -> int:
+    policies = agent_cfg.get("autopilot_security_policies") if isinstance(agent_cfg, Mapping) else None
+    level = str(agent_cfg.get("autopilot_security_level") or "balanced").strip().lower()
+    phase = policies.get(level) if isinstance(policies, Mapping) else None
+    is_propose = endpoint_name.endswith("/step/propose")
+    key = "propose_timeout" if is_propose else "execute_timeout"
+    default = 240 if is_propose else 180
+    raw = phase.get(key) if isinstance(phase, Mapping) else None
+    try:
+        seconds = int(raw)
+    except (TypeError, ValueError):
+        seconds = default
+    if is_propose:
+        # A governed propose transport must not cut a proposal the model call is
+        # still allowed to finish: wait at least the configured task propose
+        # timeout, exactly like resolve_security_policy does for the status view.
+        try:
+            seconds = max(seconds, int(agent_cfg.get("task_propose_timeout_seconds") or 0))
+        except (TypeError, ValueError):
+            pass
+    return max(30, min(seconds, 3600))
+
+
 def _forward_to_worker(
     worker_url: str,
     endpoint: str,
@@ -141,6 +171,12 @@ def _forward_to_worker(
             timeout = max(command_timeout + 120, 180)
         else:
             timeout = max(timeout, command_timeout)
+        deadline_monotonic = _step_deadline_monotonic(endpoint_name, agent_cfg)
+        if deadline_monotonic is not None:
+            # The governed step deadline is the authority for how long this call may run.
+            # A shorter read timeout would cut a propose/execute the policy still allows and
+            # surface as "no response" instead of the governed outcome.
+            timeout = max(timeout, int(deadline_monotonic - time.monotonic()) + 1)
     headers = {"Authorization": f"Bearer {token}"} if token else None
     url = f"{worker_url.rstrip('/')}/{endpoint.lstrip('/')}"
     recovery_forward = bool(

@@ -186,13 +186,16 @@ class AutopilotWorkerForwarder:
         endpoint: str,
         payload: dict[str, Any],
     ) -> WorkerTransportDeadline | None:
-        if not str(endpoint or "").rstrip("/").endswith(
-            "/step/execute"
-        ):
+        normalized = str(endpoint or "").rstrip("/")
+        is_propose = normalized.endswith("/step/propose")
+        if not (is_propose or normalized.endswith("/step/execute")):
             return None
         task_id = str(payload.get("task_id") or "").strip()
         if not task_id or not endpoint.startswith(f"/tasks/{task_id}/"):
             return None
+        if is_propose:
+            # Bound the propose forward so a transport retry cannot block the tick.
+            return WorkerTransportDeadline.after_seconds(self._propose_timeout_seconds())
         registry = self._repository_registry_provider()
         task_repository = getattr(registry, "task_repo", None)
         if task_repository is None:
@@ -232,6 +235,18 @@ class AutopilotWorkerForwarder:
                 str(exc or "knowledge_index_resource_budget_invalid"),
                 retryable=False,
             ) from exc
+
+    def _propose_timeout_seconds(self) -> int:
+        from agent.routes.tasks.utils import _step_forward_deadline_seconds
+
+        config = self._app_config_provider() or {}
+        # The effective policy lives under AGENT_CONFIG (same source the status
+        # endpoint resolves); a bare test config is used as a fallback so the
+        # deadline never silently drops to the hardcoded default.
+        agent_cfg = config.get("AGENT_CONFIG") if isinstance(config, Mapping) else None
+        if not isinstance(agent_cfg, Mapping):
+            agent_cfg = config if isinstance(config, Mapping) else {}
+        return _step_forward_deadline_seconds("/step/propose", agent_cfg)
 
     def forward_with_retry(self, worker_url: str, endpoint: str, payload: dict, token: str | None = None) -> dict:
         cfg = self._resilience_config_provider()

@@ -66,7 +66,7 @@ EXCLUDE_DIRS = {
 }
 EXCLUDE_FILE_PATTERNS = {"*.pyc", "package-lock.json", "yarn.lock", "pnpm-lock.yaml"}
 MAX_FILE_BYTES = 48_000  # skip files larger than this
-MAX_RECORDS = 2000       # hard cap to avoid overwhelming the indexer
+MAX_RECORDS = 12_000     # hard cap; must cover the fair-share of a full repository
 MAX_SNAPSHOT_HASH_BYTES = 8_000_000
 SNAPSHOT_POLICY_PATH = ROOT / "config" / "codecompass" / "snapshot_policy.v1.json"
 

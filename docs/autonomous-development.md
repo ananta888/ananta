@@ -8,6 +8,9 @@ Workers receive Git-free source exports and no GitHub publication credential.
 The service is disabled unless `ANANTA_SELF_DEVELOPMENT_POLICY_FILE` names an
 explicit Hub-private operator policy.
 
+For mandatory source analysis, independent acceptance review and the current
+role-workflow integration boundary, see [Self-development quality gates](self-development-quality-gates.md).
+
 ## Operator commands
 
 From the repository root:
@@ -80,8 +83,122 @@ The policy is outside Worker mounts, owned by the operator/Hub, and includes:
 - `enabled: true`, `automatic_publication: true`;
 - fixed `remote_url: https://github.com/ananta888/ananta.git` and `branch: ananta/self-development`;
 - private `control_root`, separate shared `workspace_root`, `github_token_file`;
-- `team_id`, `tenant_id`, `allowed_roots`, `max_tasks` (1–50), `max_seconds` (at most six hours);
+- `team_id`, `tenant_id`, `allowed_roots`;
+- `max_tasks` (1–50), `max_seconds` (up to seven days) and `max_attempts` (1–5);
 - `test_profiles`, mapping names to exact commands and bounded timeouts.
+
+The three budgets are opt-in liftable: a value of `0` or `null` means
+**unlimited** for that dimension (`max_tasks`, `max_seconds`, `max_attempts`).
+A missing key keeps the finite default (`max_tasks` 1, `max_seconds` 1800 s,
+`max_attempts` 2); the finite clamps above are unchanged. Only an explicit
+operator value of `0`/`null` removes a limit.
+
+Note: with a single Worker slot (autopilot `max_concurrency` 1) an unlimited
+`max_attempts` lets one failing task retry forever and starves the rest of the
+queue. Keep `max_attempts` finite for long unattended runs; use unlimited
+`max_tasks`/`max_seconds` to remove the run-total bounds instead.
+
+### Single-source scope
+
+A `test_profiles` entry is the one place that defines an area's verification
+command, its contract write roots and the Worker mutation globs. Optional keys
+`allowed_roots` (subset of the global `allowed_roots`) and
+`allowed_new_file_globs` narrow a profile; when omitted they fall back to the
+global roots and to `<root>/*` (fnmatch, which already covers the whole
+subtree). On Hub boot the derived Worker mutation scope is merged additively
+into `ananta_worker_workspace_mutation` and persisted, so the planner, the
+contract authorization and the Worker allowlist can no longer drift apart. The
+merge only ever *widens* the operator's own allowlist.
+
+Add several area profiles (for example per test directory) so the planner can
+choose the command that exercises the changed area, instead of a single
+synthetic suite.
+
+### Contract planning for legacy TODOs
+
+Legacy TODOs without an explicit `execution` block are normally held blocked
+(`needs_execution_contract`). An operator may opt into Hub-owned contract
+planning with a `planning` block:
+
+```json
+{
+  "planning": {
+    "enabled": true,
+    "allowed_test_profiles": ["self-development"],
+    "default_test_profile": "self-development",
+    "commit_scopes": ["autopilot", "worker"],
+    "max_files": 6
+  }
+}
+```
+
+When enabled, contract-less, non-`blocked` TODO tasks are admitted as eligible
+and receive a Hub-validated contract at dispatch time. The Hub renders a bounded
+prompt (allowed roots, allowed test profiles, commit scopes, file cap, repository
+listing), parses the model's JSON proposal, and then validates it with the same
+`task_contract` and `authorize_contract` checks used for operator-authored
+contracts. The model only *proposes*; it can never widen write scope, select an
+unregistered test profile or exceed the file cap. Rejected proposals fail with a
+bounded reason (`planned_commit_scope_denied`, `planned_scope_too_broad`,
+`task_scope_not_authorized`, `planned_test_profile_not_authorized`). The model is
+reached through the Hub's existing LLM adapter; no new orchestration loop or
+Worker-to-Worker delegation is introduced.
+
+Bounded self-correction: a rejected proposal is re-prompted with the exact
+validation error, up to `planning.max_attempts` (1–5) times, before the task
+fails with `planned_admission_failed:<reason>`. Items that never received a
+contract are recoverable on the next `import`; items that failed *after* a
+contract was admitted keep their contract and are not silently reopened.
+
+Set `skip_unpublished_dependencies: true` to mark tasks whose dependency is not
+present in the same admitted document as `skipped` (reason
+`dependency_not_published`) instead of holding them `blocked` forever. A
+deadlock sweep additionally marks tasks `skipped` when an in-document
+prerequisite is itself terminally negative (`blocked`/`skipped`/`failed`), so a
+never-publishable predecessor cannot wedge a chain. Live prerequisites
+(`ready`/`running`/`published`) still resolve in order.
+
+### CodeCompass and typed tool routing in the worker loop
+
+CodeCompass is a core repository-context capability for development tasks,
+including retries. Worker startup advertises `codecompass` after the shared
+core tools are registered; this does not issue a retrieval capability or grant
+access to an index. Keep the task requirement in place when diagnosing a
+registration mismatch. Repair the Worker registration instead of removing
+CodeCompass from the task or disabling capability enforcement.
+
+The OpenCode CLI receives the same read-only CodeCompass tools through an
+invocation-local MCP adapter. The Hub-issued task identity and retrieval scope
+stay in the parent process. OpenCode discovers tools through standard MCP;
+calls still pass the existing tool policy and capability checks. A missing
+index or authorization returns a bounded error. It must not become an
+unrestricted search or a silent alternative execution path.
+
+The active worker path is the workspace-mutation loop. Its model tends to guess
+files with a blind `repo.read_file_range` in a large repository and exhausts its
+iteration budget without writing. Two additions address that:
+
+- the task carries the `codecompass` capability, and
+  `codecompass_task_capability.ensure_tool_context` binds this step's signed
+  capability and task id into the loop's own config (the tool loop already had
+  it), so `codecompass.*` calls stop failing closed;
+- `agent/cli_backends/workspace_mutation/tool_routing.py` routes **blind** reads
+  through the decision area `tool_routing` (cascade: local decision, TypeSafe
+  Jev, LLM). The question is binary - use the best CodeCompass inspection tool
+  (`codecompass.plan_context` first) or keep the read - which keeps the answer
+  confident. Only an `active`, accepted decision upgrades the call; any
+  abstention, deferral, low confidence or error keeps today's path. The tool
+  policy stays the hard gate and writes are never routed.
+
+This makes the worker's tool phase visible to the decision cascade without
+changing its safety: the decision is a proposal, the policy and evidence gates
+are unchanged.
+
+### Unattended operation
+
+On Hub boot the self-development bootstrap re-arms the Autopilot for an active
+session whenever a `ready`/`running` task exists, so a Hub restart no longer
+silently stops the run. It never starts work when no session is active.
 
 Initialize `control_root/checkout` from the trusted source revision, configure its
 origin, development branch, upstream and local commit identity. Mount that private

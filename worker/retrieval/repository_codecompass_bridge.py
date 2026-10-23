@@ -13,6 +13,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, Protocol
 
+from agent.codecompass.index_header import strip_index_header
 from agent.codecompass.semantic_translation.config import (
     load_semantic_translation_config,
 )
@@ -254,9 +255,10 @@ class RepositoryCodeCompassBridge:
                         content = record.get("content")
                         if not isinstance(content, str):
                             continue
+                        source, _header_lines = strip_index_header(content, path)
                         emitted = self._semantic_graph.emit_graph_records(
                             path,
-                            content,
+                            source,
                         )
                         _checkpoint(execution_deadline)
                         if not isinstance(emitted, Mapping):

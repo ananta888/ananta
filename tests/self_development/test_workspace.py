@@ -1,9 +1,14 @@
 """Publication takes only bounded exact regular-file changes."""
 import hashlib
+import json
 
 import pytest
 
-from agent.services.self_development.workspace import fingerprint, seal_changes
+from agent.services.self_development.workspace import (
+    fingerprint,
+    seal_changes,
+    write_scope_manifest,
+)
 
 
 def workspace(tmp_path):
@@ -11,6 +16,13 @@ def workspace(tmp_path):
     (root / 'tests').mkdir(parents=True)
     (root / 'tests/test_original.py').write_text('before\n')
     return root, fingerprint(root, ['tests/test_original.py'])
+
+
+def test_scope_manifest_declares_writable_files(tmp_path):
+    write_scope_manifest(tmp_path, ['tests/test_original.py'])
+    rows = json.loads((tmp_path / '.ananta' / 'materialization-manifest.json').read_text())
+    assert rows == [{'workspace_path': 'tests/test_original.py',
+                     'allowed_operations': ['write', 'patch', 'replace']}]
 
 
 def test_only_exact_declared_bytes_are_sealed(tmp_path):

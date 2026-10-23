@@ -1,6 +1,8 @@
 """Exact-change-set Git publication after a Hub evidence gate succeeds."""
 from __future__ import annotations
 
+import os
+
 from agent.services.git_ops_service import GitOpsService
 from agent.services.ops_policy_service import OpsPolicyDecision, OpsPolicyService
 from agent.services.ops_registry_service import OpsRegistryService, WorkspaceRef
@@ -48,6 +50,10 @@ class Publisher:
         policy.assert_current()
         verify()
         hashes = item['hashes']
+        # A change set is content (hashes) plus deletions (removed): a completed TODO document
+        # is added under todos/archiv and its previous path is removed in the same commit.
+        removed = [str(relative) for relative in (item.get('removed') or [])]
+        change_set = sorted(set(hashes) | set(removed))
         seal = policy.root / 'sealed' / item['task_id']
         if fingerprint(seal, sorted(hashes)) != hashes:
             raise ValueError('sealed_snapshot_changed')
@@ -56,7 +62,7 @@ class Publisher:
         if git(policy.checkout, 'branch', '--show-current') != policy.value['branch']:
             raise ValueError('publication_branch_changed')
         runner, remote_policy = transport(policy)
-        grant = VerifiedPublicationPolicy(policy, sorted(hashes), item['contract']['commit_message'], verify)
+        grant = VerifiedPublicationPolicy(policy, change_set, item['contract']['commit_message'], verify)
         service = self.service_factory(registry=OpsRegistryService(workspaces=[
             WorkspaceRef('self-development', policy.checkout)]), runner=runner, policy=grant,
             remote_policy=remote_policy)
@@ -72,10 +78,25 @@ class Publisher:
                     raise ValueError('publication_symlink_denied')
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_bytes(read_source(seal, relative))
-            for result in (service.stage('self-development', sorted(hashes)),):
+                # An executable sealed file stays executable: a gate script that cannot run is
+                # exactly what the source gate refuses to publish.
+                if os.access(seal / relative, os.X_OK):
+                    path.chmod(path.stat().st_mode | 0o111)
+            for relative in sorted(removed):
+                path = policy.checkout / relative
+                if path.is_symlink() or any(p.is_symlink() for p in path.parents):
+                    raise ValueError('publication_symlink_denied')
+                if not path.is_file():
+                    raise ValueError('publication_removed_path_missing')
+                path.unlink()
+            for result in (service.stage('self-development', change_set),):
                 self._require(result)
-            staged = git(policy.checkout, 'diff', '--cached', '--name-only').splitlines()
-            if sorted(staged) != sorted(hashes) or fingerprint(policy.checkout, staged) != hashes:
+            # --no-renames: a moved document is an add plus a delete; without it git reports the
+            # rename (R100) and only the destination, which would break the exact change set.
+            staged = git(policy.checkout, 'diff', '--cached', '--no-renames', '--name-only').splitlines()
+            if sorted(staged) != change_set:
+                raise ValueError('publication_index_mismatch')
+            if fingerprint(policy.checkout, sorted(hashes)) != hashes:
                 raise ValueError('publication_index_mismatch')
             self._require(service.commit('self-development', item['contract']['commit_message']))
             item['commit_sha'] = git(policy.checkout, 'rev-parse', 'HEAD')

@@ -37,6 +37,21 @@ _SECRET_NAME_PATTERNS = (
 _DEFAULT_STRICT_PATH_MARKERS = (
     "auth", "oidc", "keycloak", "deployment", "kubernetes", "secret", "security", ".github", "docker-compose",
 )
+# Runtime artifacts no change scope owns -- cache and log/state output, gitignored runtime per the
+# project's output boundary (AGENTS.md). They are neither allowed changes nor violations: a worker
+# that runs the allowlisted test command writes .pytest_cache, and the run log lands in data/.
+_RUNTIME_ARTIFACT_PATTERNS = (
+    ".pytest_cache/*",
+    ".mypy_cache/*",
+    ".ruff_cache/*",
+    "data/*",
+    "*.log",
+)
+
+
+def _is_runtime_artifact(rel: str) -> bool:
+    """Whether ``rel`` is cache/log/state output that no change scope declares."""
+    return any(fnmatch.fnmatch(rel, pattern) for pattern in _RUNTIME_ARTIFACT_PATTERNS)
 
 
 @dataclass(frozen=True)
@@ -174,6 +189,13 @@ class AnantaWorkspaceMutationPolicyService:
             deleted = not resolved.exists()
             if deleted:
                 blocked.append({"path": rel, "reason": "delete_or_rename_requires_separate_approval"})
+                continue
+            if _is_runtime_artifact(rel):
+                # Tool-written cache/log/state noise. It belongs to no change scope: it is not an
+                # allowed change either, it simply is not a violation. Without this a workspace
+                # without a materialization manifest can never leave policy_violation -- running
+                # the allowlisted test command alone writes .pytest_cache, and the run logs land
+                # in data/, so a correct proposal would still be blocked.
                 continue
             if domain_allowed_write_paths is not None:
                 from agent.codecompass.domain_scope import is_path_within

@@ -55,6 +55,43 @@ def _normalize_command(value: str) -> str:
     return " ".join(str(value or "").strip().split())
 
 
+def resolve_allowlisted_test_command(command: str, allowlist: list[str]) -> str | None:
+    """The allowlisted entry a requested test command runs under, or ``None``.
+
+    An exact match passes as it is. A command that is an allowlisted command *plus path
+    arguments under that command's own test root* passes as well: the interpreter and every
+    flag stay pinned by the allowlist and only the files to test may be narrowed, which is what
+    a worker needs to verify exactly the files it changed instead of a whole directory whose
+    other tests fail for unrelated reasons (live: 3 pre-existing failures in
+    ``tests/research_training/test_bootstrap_api.py`` blocked an otherwise correct proposal).
+
+    No ``-``-prefixed token (no extra flags), no path outside that root and no ``..`` are
+    accepted, so the extension cannot reach outside the profile's own scope.
+    """
+    normalized = _normalize_command(command)
+    if not normalized:
+        return None
+    allowed = {_normalize_command(item) for item in allowlist if _normalize_command(item)}
+    if normalized in allowed:
+        return normalized
+    tokens = normalized.split()
+    for base in sorted(allowed):
+        base_tokens = base.split()
+        prefix, root = base_tokens[:-1], base_tokens[-1]
+        if not prefix or not root:
+            continue
+        if tokens[: len(prefix)] != prefix:
+            continue
+        paths = tokens[len(prefix) :]
+        if not paths:
+            continue
+        if any(token.startswith("-") or ".." in token.split("/") for token in paths):
+            continue
+        if all(token == root or token.startswith(root + "/") for token in paths):
+            return base
+    return None
+
+
 def test_run(*, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str, config: dict[str, Any] | None = None) -> dict[str, Any]:
     cfg = dict(config or {})
     allowlist = [_normalize_command(item) for item in list(cfg.get("allowlisted_test_commands") or []) if _normalize_command(item)]
@@ -63,7 +100,7 @@ def test_run(*, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str
     command = _normalize_command(str((arguments or {}).get("command") or ""))
     if not command:
         return build_tool_result(tool_name="test.run", tool_call_id=tool_call_id, status="error", error="command_required")
-    if command not in allowlist:
+    if resolve_allowlisted_test_command(command, allowlist) is None:
         return build_tool_result(
             tool_name="test.run",
             tool_call_id=tool_call_id,

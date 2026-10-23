@@ -133,6 +133,7 @@ def _runtime_provider_urls() -> dict[str, str | None]:
                 "openai": urls.get("openai"),
                 "codex": urls.get("codex") or urls.get("openai"),
                 "anthropic": urls.get("anthropic"),
+                "llamacpp": urls.get("llamacpp") or urls.get("openai"),
                 "mock": getattr(settings, "mock_url", None),
             }
     return {
@@ -141,6 +142,7 @@ def _runtime_provider_urls() -> dict[str, str | None]:
         "openai": settings.openai_url,
         "codex": settings.openai_url,
         "anthropic": settings.anthropic_url,
+        "llamacpp": settings.openai_url,
         "mock": settings.mock_url,
     }
 

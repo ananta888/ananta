@@ -307,6 +307,9 @@ class AutonomousLoopManager:
                 self._persist_state(enabled=False)
         if thread_to_join and thread_to_join.is_alive() and thread_to_join is not threading.current_thread():
             thread_to_join.join(timeout=2.0)
+        async_state = getattr(self, "_async_dispatch_state", None)
+        if async_state is not None:
+            async_state.shutdown()
         with self._lock:
             if self._thread is thread_to_join:
                 self._thread = None
