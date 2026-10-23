@@ -315,6 +315,9 @@ def _record_invalid_output(
             {"kind": "loop_aborted", "reason": "invalid_output_limit_reached"},
             err,
         )
+    from agent.cli_backends.workspace_mutation.prompts import INVALID_OUTPUT_CORRECTION_NUDGE
+
+    session.correction = INVALID_OUTPUT_CORRECTION_NUDGE
     session.add_evidence(
         {
             "kind": "protocol_warning",

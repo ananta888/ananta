@@ -242,3 +242,12 @@ def build_iteration_prompt(
             allowed=_prompt_within_budget,
         )
     return "\n".join(parts)
+
+
+INVALID_OUTPUT_CORRECTION_NUDGE = (
+    "Your last answer was not one valid mutation-protocol envelope and was discarded. "
+    "Reply with exactly one JSON object and nothing else, starting with the kind field: "
+    '{"kind":"tool_request",...} or {"kind":"workspace_write",...} or '
+    '{"kind":"code_analysis",...} or {"kind":"final_answer",...}. '
+    "Prose outside the envelope, markdown fences and verdict-style JSON without kind all fail."
+)

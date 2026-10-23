@@ -516,3 +516,23 @@ def test_a_reviews_changed_files_are_citable_ground_truth(tmp_path):
     gate.observe_range(path="docs/decision.md", file_sha256=digest, line_start=1, line_end=1)
     assert [s["path"] for s in gate.state()["observed_sources"]] == ["docs/decision.md"]
     assert not (ananta / "materialization-manifest.json").exists()
+
+
+def test_an_invalid_protocol_answer_gets_a_correction_and_stays_bounded(tmp_path):
+    from agent.cli_backends.workspace_mutation import prompts
+    from agent.cli_backends.workspace_mutation._orchestrator import _record_invalid_output
+
+    evidence = []
+    session = SimpleNamespace(
+        invalid_count=0, limits=SimpleNamespace(max_invalid=2), report_iterations=[],
+        evidence_blocks=evidence, add_evidence=evidence.append, correction=None,
+        finish_with_summary=lambda outcome, summary, err: (1, json.dumps(summary), err),
+    )
+    # The first malformed answers keep the loop alive with an explicit protocol correction.
+    assert _record_invalid_output(session, 1, 1, "not json", "") is None
+    assert session.correction == prompts.INVALID_OUTPUT_CORRECTION_NUDGE
+    assert session.evidence_blocks[-1]["warning"] == "previous_answer_was_not_valid_mutation_json"
+    # The bound ends the loop with a machine-readable reason.
+    result = _record_invalid_output(session, 2, 1, "not json", "")
+    assert result[0] == 1
+    assert json.loads(result[1])["reason"] == "invalid_output_limit_reached"
