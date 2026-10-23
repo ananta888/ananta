@@ -461,3 +461,18 @@ def test_a_truncated_read_excerpt_is_still_an_observation(tmp_path):
     for name, sha, start, end in observed:
         gate.observe_range(path=name, file_sha256=sha, line_start=start, line_end=end)
     assert len(gate.state()["observed_sources"]) == 2
+
+
+def test_reads_before_the_first_codecompass_call_still_observe(tmp_path):
+    # Given a model that reads first and inspects with codecompass afterwards.
+    path = tmp_path / "app.py"
+    path.write_text("value = 1\n")
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    gate = CodeAnalysisGate(required=True, workspace=tmp_path)
+    gate.observe_range(path="app.py", file_sha256=digest, line_start=1, line_end=1)
+    # Then the range is registered regardless of the inspection order --
+    # only the analysis acceptance still demands the codecompass call.
+    assert len(gate.state()["observed_sources"]) == 1
+    assert gate.accept(_analysis(path)) == "codecompass_inspection_required"
+    gate.observe_codecompass(successful=True)
+    assert gate.accept(_analysis(path)) is None

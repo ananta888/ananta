@@ -107,7 +107,10 @@ class CodeAnalysisGate:
         self.codecompass_observed |= successful
 
     def observe_range(self, *, path: str, file_sha256: str, line_start: int, line_end: int) -> None:
-        if not self.codecompass_observed or line_start < 1 or line_end < line_start:
+        # Registration is order-independent: a read before the first codecompass
+        # call is still an observation. The inspection requirement is enforced
+        # when the analysis is accepted, never by silently dropping ranges.
+        if line_start < 1 or line_end < line_start:
             return
         target = (self.workspace / path).resolve()
         if not target.is_relative_to(self.workspace) or not is_source_reference(str(target)):
