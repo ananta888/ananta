@@ -366,3 +366,28 @@ def test_publication_refuses_a_checkout_on_an_unrelated_history(tmp_path):
         _publisher(policy, service).publish(item, lambda: None, lambda: None)
 
     assert service.pushes == 0
+
+
+def test_prepare_retry_carries_the_worker_pin(tmp_path):
+    import time
+
+    from agent.services.self_development.retries import prepare_retry
+
+    policy = SimpleNamespace(root=tmp_path, assert_current=lambda: None,
+        value={'max_attempts': 2, 'max_seconds': 0, 'max_tasks': 0, 'team_id': 't'})
+    state = {'session': {'id': 's', 'enabled': True,
+                         'expires_at': time.time() + 3600, 'dispatched': 0}}
+    ingested = []
+    queue = SimpleNamespace(ingest_task=lambda **kwargs: ingested.append(kwargs))
+    item = {'task_id': 'old', 'status': 'failed', 'contract': {'commit_message': 'm'},
+            'title': 't', 'description': 'd', 'todo_id': 'T',
+            'assigned_agent_url': 'http://ai-agent-alpha:5000'}
+
+    assert prepare_retry(item, policy, state, queue) is True
+
+    assert item['task_id'] != 'old'
+    assert ingested[0]['extra_fields']['assigned_agent_url'] == 'http://ai-agent-alpha:5000'
+    unpinned = {'task_id': 'old-2', 'status': 'failed', 'contract': {'commit_message': 'm'},
+                'title': 't', 'description': 'd', 'todo_id': 'T-2'}
+    assert prepare_retry(unpinned, policy, state, queue) is True
+    assert 'assigned_agent_url' not in ingested[1]['extra_fields']

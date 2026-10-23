@@ -73,6 +73,9 @@ def prepare_retry(item, policy, state, queue):
         extra_fields={
             "task_kind": "coding",
             "required_capabilities": ["coding", "testing", "workflow.adapter.native", "codecompass"],
+            # A worker pin belongs to the item, not to one attempt: a retried
+            # comparison arm must never drift onto the other backend.
+            **({"assigned_agent_url": item["assigned_agent_url"]} if item.get("assigned_agent_url") else {}),
         },
     )
     return True
