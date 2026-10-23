@@ -282,9 +282,11 @@ den Loop-Modus; (2) `structured_output` gilt nur für Nicht-`opencode`-Brains
    `tests/self_development/test_mutation_llm_backend.py`).
 2. ~~α-Routing + Brain in Compose~~ — erledigt (parametrisierte per-Kind-Map +
    `ANANTA_WORKSPACE_MUTATION_LLM_BACKEND`).
-3. **Live-Nachweis offen:** α-Loop-Lauf muss `pending_review → published`
-   erreichen; danach der Vergleichslauf α(Loop+opencode-Brain) vs
-   β(Loop+CLI-Brain) unter allen Gates.
+3. ~~**Live-Nachweis offen**~~ — **erledigt**: CMP-2502 (α-Loop-Lauf,
+   opencode-Brain) erreichte `pending_review → published`; der Change
+   (`text_budget.py`, Commit `8777450d`) liegt auf `ananta/self-development`.
+   Der Vergleichslauf α(Loop+opencode-Brain) vs β(Loop+CLI-Brain) unter allen
+   Gates bleibt der nächste Schritt.
 
 ---
 
@@ -295,9 +297,9 @@ den Loop-Modus; (2) `structured_output` gilt nur für Nicht-`opencode`-Brains
    Regression in `tests/self_development/test_backend_routing_priority.py`.
 2. **Vergleich fahren** — läuft; erster Befund unter L6 (α löst ohne Nachweis,
    β liefert Nachweis ohne Ergebnis).
-3. **L6 schließen (Variante A)** — Phasen 1+2 erledigt (Runner-Key + α-Routing);
-   Phase 3 (Live-Nachweis `pending_review → published` mit opencode-Brain) läuft.
-   Erst danach ist ein `opencode`-Lauf jenseits von `failed` möglich.
+3. ~~**L6 schließen (Variante A)**~~ — **erledigt** (Runner-Key + α-Routing +
+   Live-Nachweis `pending_review → published` mit opencode-Brain, CMP-2502).
+   Ein `opencode`-Lauf kann über `failed` hinaus bis zur Publikation kommen.
 4. **L2 + L5** — MCP-Export um read/write-Specs für den **lokalen
    Worker-Clone** erweitern, Spec-/Binding-Teil in den gemeinsamen Helfer legen
    (Approval-Policy nachweisen; kein Zugriff auf Hub- oder Origin-Repo).
