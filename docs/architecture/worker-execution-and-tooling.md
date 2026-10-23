@@ -241,6 +241,14 @@ zwei Konsumenten, keine Kopie).
 liefert **Nachweis ohne Ergebnis** — beide scheitern an derselben Evidence-Gate,
 aus entgegengesetzten Richtungen.
 
+**Aufgelöst im zweiten Vergleichslauf (CMP-26xx/27xx):** beide Brains
+vervollständigen die Kette `authoring → Evidenz-Gates → unabhängiger Review →
+Publikation` — β `ananta-worker` publizierte `span_budget` (`ddf750b0c`), α
+`opencode` publizierte `entry_budget` (`7667fc63b`), jeweils nach einem
+7/7-Review. Die Restfehler waren Compliancelücken im Loop (Analysis-Zitat-Spin,
+fehlender `test.run`-Nachweis, leere Change-Sets) und sind als begrenzte
+Korrekturpfade statt Iterationsverbrauch abgebunden.
+
 Für `opencode` fehlt die Brücke, die der `ananta-worker`-Loop implizit baut:
 eine vom Hub reservierte Run-Identität mit eingereichtem Ergebnis (final
 answer, Datei-Digests, Verifikationsbefund) — dieselbe Kette, die
@@ -295,8 +303,8 @@ den Loop-Modus; (2) `structured_output` gilt nur für Nicht-`opencode`-Brains
 1. ~~**L1 schließen**~~ — **erledigt**: `ANANTA_SGPT_ROUTING_TASK_KIND_BACKEND`
    je Worker gesetzt, geprüft mit `resolve(task_kind='coding') → opencode | ananta-worker`,
    Regression in `tests/self_development/test_backend_routing_priority.py`.
-2. **Vergleich fahren** — läuft; erster Befund unter L6 (α löst ohne Nachweis,
-   β liefert Nachweis ohne Ergebnis).
+2. ~~**Vergleich fahren**~~ — **erledigt**: beide Brains publizieren unter allen
+   Gates (Details und Restfehler unter L6).
 3. ~~**L6 schließen (Variante A)**~~ — **erledigt** (Runner-Key + α-Routing +
    Live-Nachweis `pending_review → published` mit opencode-Brain, CMP-2502).
    Ein `opencode`-Lauf kann über `failed` hinaus bis zur Publikation kommen.
