@@ -74,3 +74,36 @@ def test_explicit_contract_policy_propagates_analysis_without_planning(monkeypat
     assert app.config['AGENT_CONFIG']['ananta_worker_workspace_mutation']['require_code_analysis'] is True
     assert json.loads(saved[0].value_json)['require_code_analysis'] is True
     assert apply_worker_scope(app, policy) is False
+
+
+def test_hub_accepts_analysis_of_the_runs_own_changed_bytes(tmp_path):
+    # Given an analysis that grounds in what the run just wrote (a documents-only
+    # change has no other state to analyze).
+    report, baseline = _report(tmp_path)
+    changed = 'todos/todo.track.json'
+    content = '{"tasks": []}\n'
+    reference = {'path': changed, 'file_sha256': hashlib.sha256(content.encode()).hexdigest(),
+                 'line_start': 1, 'line_end': 1}
+    report['code_analysis']['observed_sources'] = [reference]
+    report['code_analysis']['analysis']['sources'] = [reference]
+    (tmp_path / 'todos').mkdir()
+    (tmp_path / 'todos' / 'todo.track.json').write_text(content)
+    (tmp_path / '.ananta/mutation-report.json').write_text(json.dumps(report))
+
+    accepted = verify_worker_analysis(tmp_path, task_id='assigned-task', baseline=baseline)
+
+    assert accepted.code_analysis.analysis.sources[0].path == changed
+
+
+def test_hub_rejects_an_invented_source_state(tmp_path):
+    # Given a citation matching neither the exported revision nor the workspace.
+    report, baseline = _report(tmp_path)
+    (tmp_path / 'agent').mkdir()
+    (tmp_path / 'agent' / 'value.py').write_text('value = 3\n')
+    invented = hashlib.sha256(b'invented').hexdigest()
+    report['code_analysis']['observed_sources'][0]['file_sha256'] = invented
+    report['code_analysis']['analysis']['sources'][0]['file_sha256'] = invented
+    (tmp_path / '.ananta/mutation-report.json').write_text(json.dumps(report))
+
+    with pytest.raises(AnalysisVerificationError):
+        verify_worker_analysis(tmp_path, task_id='assigned-task', baseline=baseline)

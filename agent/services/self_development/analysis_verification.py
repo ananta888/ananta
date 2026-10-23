@@ -1,6 +1,7 @@
 """Hub verification of the delegated runtime's source-analysis prerequisite."""
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Literal
@@ -55,7 +56,14 @@ class WorkerAnalysisReport(BaseModel):
 
 def verify_worker_analysis(workspace: Path, *, task_id: str,
                            baseline: Mapping[str, str]) -> WorkerAnalysisReport:
-    """Bind observed pre-write source ranges to this Task's exported revision."""
+    """Bind observed source ranges to real bytes of this Task's workspace.
+
+    A citation is grounded when it names the exported revision (pre-write) or
+    the run's own changed bytes (post-write): analyzing what one just built is
+    legitimate authoring, and the runtime observation list proves the model
+    really read those bytes. Only citations that match neither state are
+    invented and fail closed.
+    """
     try:
         report = WorkerAnalysisReport.model_validate_json(
             read_source(workspace, '.ananta/mutation-report.json'))
@@ -65,7 +73,14 @@ def verify_worker_analysis(workspace: Path, *, task_id: str,
         raise AnalysisVerificationError('worker_code_analysis_task_mismatch')
     observation = report.code_analysis
     for ref in observation.analysis.sources:
-        if (baseline.get(ref.path) != ref.file_sha256
+        grounded = baseline.get(ref.path) == ref.file_sha256
+        if not grounded:
+            try:
+                current = hashlib.sha256(read_source(workspace, ref.path)).hexdigest()
+            except ValueError:
+                current = None
+            grounded = current == ref.file_sha256
+        if (not grounded
                 or not any(source.path == ref.path and source.file_sha256 == ref.file_sha256
                     and source.line_start <= ref.line_start <= ref.line_end <= source.line_end
                     for source in observation.observed_sources)):
