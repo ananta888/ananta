@@ -102,7 +102,11 @@ def import_document(document: dict, source: str, policy) -> list[dict]:
             'description': str(task.get('description') or task.get('implementation_note') or ''),
             'original_status': original, 'status': 'blocked' if reason else 'ready',
             'reason': reason, 'dependencies': [d for d in dependencies if d not in done],
-            'contract': contract, 'source_execution': task.get('execution'), **requirements})
+            'contract': contract, 'source_execution': task.get('execution'),
+            # An operator may pin the item to one worker (e.g. an A/B comparison
+            # pair must not share a backend by dispatch luck).
+            **({'assigned_agent_url': str(task['assigned_agent_url'])} if task.get('assigned_agent_url') else {}),
+            **requirements})
     return result
 
 

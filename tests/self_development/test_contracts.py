@@ -90,3 +90,11 @@ def test_source_block_does_not_disappear_with_execution_contract(tmp_path):
     item = import_document(document, 'todo.json', policy(tmp_path))[0]
     assert item['status'] == 'blocked'
     assert item['reason'] == 'source_task_needs_review'
+
+
+def test_import_carries_an_operator_worker_pin(tmp_path):
+    document = form()
+    document['tasks'][0]['assigned_agent_url'] = 'http://ai-agent-alpha:5000'
+    records = import_document(document, 'todo.json', policy(tmp_path))
+    assert records[0]['assigned_agent_url'] == 'http://ai-agent-alpha:5000'
+    assert 'assigned_agent_url' not in import_document(form(), 'todo.json', policy(tmp_path))[0]

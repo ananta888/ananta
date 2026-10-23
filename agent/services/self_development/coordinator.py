@@ -164,6 +164,11 @@ class DevelopmentCoordinator:
                         "task_kind": "coding",
                         "required_capabilities": ["coding", "testing", "workflow.adapter.native", "codecompass"],
                         "depends_on": dependency_ids,
+                        **(
+                            {"assigned_agent_url": item["assigned_agent_url"]}
+                            if item.get("assigned_agent_url")
+                            else {}
+                        ),
                     },
                 )
                 added += 1
