@@ -148,6 +148,17 @@ ANALYSIS_STEP_CORRECTION_NUDGE = (
 )
 
 
+ANALYSIS_CITATION_CORRECTION_NUDGE = (
+    "Your code_analysis was rejected because its source citations are not in the observed set. "
+    "Do not invent ranges and do not widen them: reply in the next turn with exactly one protocol "
+    "answer citing ONLY entries copied verbatim from the observed_sources list of the rejection "
+    "evidence (path, file_sha256, line_start and line_end must lie inside one observed range): "
+    '{"kind":"code_analysis","sources":[{"path":"aus_observed_sources","file_sha256":"aus_observed_sources",'
+    '"line_start":1,"line_end":20}],"findings":"...","change_reasoning":"...","test_reasoning":"..."}. '
+    "Citations you did not observe keep the analysis blocked."
+)
+
+
 def required_analysis_instructions() -> str:
     """Describe the source-bound action consumed by the runtime prerequisite."""
     return (

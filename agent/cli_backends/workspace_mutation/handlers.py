@@ -38,6 +38,7 @@ ActionHandler = Callable[[MutationSession, LoopTurn], "LoopResult | None"]
 
 
 FINAL_ANSWER_CORRECTION_BUDGET = 2
+ANALYSIS_REJECTION_LIMIT = 5
 
 
 def handle_final_answer(session: MutationSession, turn: LoopTurn) -> "LoopResult | None":
@@ -216,17 +217,37 @@ def _rejection_hint(reason: str, state: dict) -> str:
     return ""
 
 
-def handle_code_analysis(session: MutationSession, turn: LoopTurn) -> None:
+def handle_code_analysis(session: MutationSession, turn: LoopTurn) -> "LoopResult | None":
     payload = {key: value for key, value in turn.message.items() if key != "kind"}
     reason = session.analysis_gate.accept(payload)
     turn.row["analysis_status"] = reason or "accepted"
     data: dict = dict(session.analysis_gate.state())
-    if reason:
-        hint = _rejection_hint(reason, data)
-        if hint:
-            data["action_required"] = hint
-    session.add_evidence({"kind": "code_analysis_result", "status": "error" if reason else "ok",
+    if not reason:
+        session.analysis_rejection_streak = 0
+        session.correction = None
+        session.add_evidence({"kind": "code_analysis_result", "status": "ok", "error": None, "data": data})
+        return None
+    hint = _rejection_hint(reason, data)
+    if hint:
+        data["action_required"] = hint
+    # A rejected citation must not spin out the iteration budget: correct it
+    # explicitly and stop after a bounded number of failures instead of burning
+    # every remaining turn on a contract the model is not satisfying.
+    streak = int(getattr(session, "analysis_rejection_streak", 0)) + 1
+    session.analysis_rejection_streak = streak
+    from agent.cli_backends.workspace_mutation.prompts import ANALYSIS_CITATION_CORRECTION_NUDGE
+
+    session.correction = ANALYSIS_CITATION_CORRECTION_NUDGE
+    session.add_evidence({"kind": "code_analysis_result", "status": "error",
                           "error": reason, "data": data})
+    if streak >= ANALYSIS_REJECTION_LIMIT:
+        return session.finish_with_summary(
+            "analysis_rejected_repeatedly",
+            {"kind": "loop_aborted", "reason": "analysis_rejected_repeatedly",
+             "last_error": reason, "code_analysis": data},
+            turn.err,
+        )
+    return None
 
 
 ACTION_HANDLERS: dict[str, ActionHandler] = {

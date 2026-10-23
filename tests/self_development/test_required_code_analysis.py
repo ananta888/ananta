@@ -369,3 +369,51 @@ def test_analysis_rejection_carries_an_action_required_hint(tmp_path):
     handlers.handle_code_analysis(session, _turn({"kind": "code_analysis", **_analysis(other)}))
     assert (session.evidence_blocks[-1]["data"]["action_required"]
             == "cite_an_observed_source_range_with_its_sha256")
+
+
+def _observed_session(tmp_path):
+    session = _session(tmp_path)
+    gate = session.analysis_gate
+    gate.observe_codecompass(successful=True)
+    path = tmp_path / "app.py"
+    path.write_text("value = 1\n")
+    gate.observe_range(path="app.py", file_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
+                       line_start=1, line_end=1)
+    return session, path
+
+
+_BAD_CITATION = {"sources": [{"path": "other.py", "file_sha256": "0" * 64, "line_start": 1, "line_end": 2}],
+                 "findings": "f", "change_reasoning": "c", "test_reasoning": "t"}
+
+
+def test_rejected_analysis_citations_are_corrected_then_bounded(tmp_path):
+    # Given a session that observed exactly one source range.
+    session, _path = _observed_session(tmp_path)
+    # When the model repeatedly cites ranges it never observed.
+    assert handlers.handle_code_analysis(session, _turn({"kind": "code_analysis", **_BAD_CITATION})) is None
+    # Then a correction names the observed set, and the loop stops being generous.
+    assert "observed_sources" in session.correction
+    assert session.evidence_blocks[-1]["data"]["action_required"] == \
+        "cite_an_observed_source_range_with_its_sha256"
+    for _ in range(handlers.ANALYSIS_REJECTION_LIMIT - 2):
+        assert handlers.handle_code_analysis(session, _turn({"kind": "code_analysis", **_BAD_CITATION})) is None
+    result = handlers.handle_code_analysis(session, _turn({"kind": "code_analysis", **_BAD_CITATION}))
+    # The bounded budget ends the loop with a machine-readable reason, never max_iterations.
+    assert result[0] == 1
+    summary = json.loads(result[1])
+    assert summary["kind"] == "loop_aborted"
+    assert summary["reason"] == "analysis_rejected_repeatedly"
+    assert summary["last_error"] == "code_analysis_source_not_observed"
+
+
+def test_accepted_analysis_clears_the_correction_streak(tmp_path):
+    # Given one rejected citation followed by the accepted protocol answer.
+    session, path = _observed_session(tmp_path)
+    assert handlers.handle_code_analysis(session, _turn({"kind": "code_analysis", **_BAD_CITATION})) is None
+    # When the model cites the observed range verbatim.
+    assert handlers.handle_code_analysis(session, _turn({"kind": "code_analysis", **_analysis(path)})) is None
+    # Then the streak and the correction reset and the prerequisite is satisfied.
+    assert session.analysis_rejection_streak == 0
+    assert session.correction is None
+    assert session.analysis_gate.pending is False
+    assert session.evidence_blocks[-1]["status"] == "ok"
