@@ -28,7 +28,7 @@ class VerifiedPublicationPolicy:
             'git.push': {'workspace_id': 'self-development', 'remote': 'origin',
                          'branch': self.policy.value['branch'], 'credential_ref': REFERENCE},
             'git.fetch': {'workspace_id': 'self-development', 'remote': 'origin',
-                          'credential_ref': REFERENCE},
+                          'branch': self.policy.value['branch'], 'credential_ref': REFERENCE},
         }
         valid = (tool_name not in required and base.decision != 'policy_denied'
                  and target_id == 'self-development' and arguments == expected.get(tool_name))
@@ -108,8 +108,12 @@ class Publisher:
                 raise ValueError('publication_checkout_moved')
         if git(checkout, 'status', '--porcelain'):
             raise ValueError('publication_checkout_dirty')
-        self._require(service.fetch('self-development', remote='origin', credential_ref=REFERENCE))
-        tip = git(checkout, 'rev-parse', 'origin/' + self.policy.value['branch'])
+        branch = self.policy.value['branch']
+        self._require(service.fetch('self-development', remote='origin',
+            branch=branch, credential_ref=REFERENCE))
+        # FETCH_HEAD, not the remote-tracking ref: the checkout's fetch refspec may be
+        # pinned to a sibling branch, and the explicit fetch just named this one.
+        tip = git(checkout, 'rev-parse', 'FETCH_HEAD')
         item['published_base'] = tip
         committed = item.get('commit_sha')
         if committed and is_ancestor(checkout, committed, tip):

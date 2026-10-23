@@ -214,7 +214,7 @@ class _GitOps:
 
     def fetch(self, workspace_id, **kwargs):
         # No network in tests: report the local line as the live tip.
-        git(self.checkout, 'update-ref', 'refs/remotes/origin/ananta/self-development', 'HEAD')
+        git(self.checkout, 'update-ref', 'FETCH_HEAD', 'HEAD')
         return SimpleNamespace(ok=True, error=None)
 
     def stage(self, workspace_id, paths, **kwargs):

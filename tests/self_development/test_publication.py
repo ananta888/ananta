@@ -140,8 +140,11 @@ class _Service:
         self.checkout = checkout
         self.pushes = 0
 
-    def fetch(self, workspace_id, *, remote=None, credential_ref=None, approval_id=None):
-        _git(self.checkout, 'fetch', remote)
+    def fetch(self, workspace_id, *, remote=None, branch=None, credential_ref=None, approval_id=None):
+        if branch:
+            _git(self.checkout, 'fetch', remote, branch)
+        else:
+            _git(self.checkout, 'fetch', remote)
         return SimpleNamespace(ok=True, error=None)
 
     def stage(self, workspace_id, paths):
@@ -311,9 +314,11 @@ def test_publication_grant_is_bound_to_exact_fetch_arguments():
     with app.app_context():
         exact = service.authorize('git.fetch', 'fetch', target_id='self-development', approval_id=None,
             arguments={'workspace_id': 'self-development', 'remote': 'origin',
+                       'branch': 'ananta/self-development',
                        'credential_ref': 'secret://self-development/github'})
         other = service.authorize('git.fetch', 'fetch', target_id='self-development', approval_id=None,
-            arguments={'workspace_id': 'self-development', 'remote': 'elsewhere',
+            arguments={'workspace_id': 'self-development', 'remote': 'origin',
+                       'branch': 'setup/local-self-development',
                        'credential_ref': 'secret://self-development/github'})
     assert exact.allowed
     assert not other.allowed
