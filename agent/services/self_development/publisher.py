@@ -80,6 +80,7 @@ class Publisher:
         self._require(service.push('self-development', remote='origin',
             branch=policy.value['branch'], credential_ref=REFERENCE))
         item['status'] = 'published'
+        item['reason'] = None  # a recovered item must not keep its last failure text
         persist()
         return item['commit_sha']
 

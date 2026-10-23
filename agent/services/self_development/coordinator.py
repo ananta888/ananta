@@ -242,7 +242,7 @@ class DevelopmentCoordinator:
                         item["reason"] = str(exc)[:240]
                         self.journal.write(state)
                     continue
-                if item["status"] == "failed" and prepare_retry(item, self.policy, state, self.queue):
+                if prepare_retry(item, self.policy, state, self.queue):
                     count += 1
             self.journal.write(state)
         return {"retried": count, **self.status()}
