@@ -2,7 +2,7 @@
   "$schema": "../todo.track.schema.json",
   "version": "1.0",
   "created": "2026-10-03",
-  "updated_at": "2026-10-03",
+  "updated_at": "2026-10-23",
   "owner": "Peter Stuiber / Ananta",
   "track": "jspace_observatory",
   "title": "J-Space Observatory: interne Agenten-Repräsentationen beobachten, korrelieren und später gezielt steuern",
@@ -33,13 +33,17 @@
     "todos/todo.nex-n2-5-mini-ananta-evaluation.json",
     "todos/active/todo.long-context-strategy.json",
     "llama.cpp vision/decision workstream",
-    "Evolver / GEP-Artefakte als First-Class-Ananta-Artefakte"
+    "Evolver / GEP-Artefakte als First-Class-Ananta-Artefakte",
+    "todos/active/todo.dspy-optimization-evaluation-engine-integration.json",
+    "todos/active/todo.ananta-local-multi-model-runtime-and-automated-needle-training.json"
   ],
   "source_basis": [
     "Anthropic Jacobian Lens / J-Space",
     "Neuronpedia Jacobian-Lens weights for supported open-weight models",
     "AI Torture Chamber activation steering experiments",
-    "Ananta agent/tool-call traces and execution audit infrastructure"
+    "Ananta agent/tool-call traces and execution audit infrastructure",
+    "https://github.com/anthropics/jacobian-lens",
+    "https://transformer-circuits.pub/2026/workspace/index.html"
   ],
   "architecture_decisions": [
     "Phase 1 ist strikt read-only: keine Aktivierungsmanipulation im produktiven Agentenpfad.",
@@ -48,7 +52,9 @@
     "Raw activations werden standardmäßig nicht dauerhaft gespeichert; bevorzugt werden reduzierte/projizierte Trace-Artefakte.",
     "J-Space-Trace, Agentenentscheidung, Tool-Call, Ergebnis und Benchmark-Metriken erhalten gemeinsame Trace-/Step-IDs.",
     "Steering/Ablation kommt erst nach reproduzierbaren Beobachtungs-Benchmarks und läuft zunächst nur in Shadow/A-B-Experimenten.",
-    "Evolver darf später Steering-Vektoren und Harness-Konfigurationen gemeinsam evaluieren, aber nur gegen explizite Qualitäts- und Sicherheitsmetriken."
+    "Evolver darf später Steering-Vektoren und Harness-Konfigurationen gemeinsam evaluieren, aber nur gegen explizite Qualitäts- und Sicherheitsmetriken.",
+    "Cross-model transfer benötigt gemessenes Alignment; gemeinsame verbalisierbare Konzepte beweisen keine identischen Koordinaten.",
+    "Backprop und Lens-Fitting sind auf Forschungsworker begrenzt; normale GGUF-Inferenz liefert diese Fähigkeit nicht automatisch."
   ],
   "non_goals": [
     "Keine Behauptung, dass J-Space subjektives Erleben oder Bewusstsein misst.",
@@ -124,6 +130,52 @@
       "task_ids": [
         "JSP-013",
         "JSP-014"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "JSP-M5",
+      "title": "Jacobian-Lens-Technik und lokale Ressourcen",
+      "task_ids": [
+        "JSP-022",
+        "JSP-023",
+        "JSP-024",
+        "JSP-025"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "JSP-M6",
+      "title": "Herstellerübergreifende J-Space-Forschung und Alignment",
+      "task_ids": [
+        "JSP-026",
+        "JSP-027",
+        "JSP-028",
+        "JSP-029",
+        "JSP-030"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "JSP-M7",
+      "title": "Ananta-Forschungsruntime, Governance und Integration",
+      "task_ids": [
+        "JSP-031",
+        "JSP-032",
+        "JSP-033",
+        "JSP-034",
+        "JSP-035"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "JSP-M8",
+      "title": "CodeCompass, UI und Release-Qualität",
+      "task_ids": [
+        "JSP-036",
+        "JSP-037",
+        "JSP-038",
+        "JSP-039"
       ],
       "status": "todo"
     }
@@ -597,6 +649,414 @@
         "Es ist quantitativ belegbar, ob und wann emergente Kommunikation gegenüber Englisch/JSON Vorteile bietet.",
         "Generalisation und Interpretierbarkeit werden getrennt von reiner Trainingseffizienz berichtet."
       ]
+    },
+    {
+      "id": "JSP-022",
+      "milestone_id": "JSP-M5",
+      "title": "Anthropic-Referenzimplementierung pinnen und mathematisch auditieren",
+      "type": "research",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "JSP-001"
+      ],
+      "implementation": [
+        "Quellcode jlens/fitting.py, Fit-Schätzer, Aggregation von Quell- und Zukunftspositionen, Tokenizer, Modellrevision, Apache-2.0-Lizenz und SHA dokumentieren.",
+        "Bestehende Ananta-Schnittstellen per Tests absichern; nur additive, feature-flagged Änderungen nach AGENTS.md.",
+        "Deterministische Tests, explizite Failure-Modes und messbare Benchmark-Ergebnisse als Hub-auditierte Artefakte liefern."
+      ],
+      "acceptance_criteria": [
+        "Quellcodebasierte Integration an dokumentierten Repositorypfaden verifiziert; keine neue parallele Hub- oder Datenpipeline.",
+        "Kontrollbedingungen und reproduzierbare, versionierte Ergebnisse einschließlich negativer Befunde vorhanden."
+      ]
+    },
+    {
+      "id": "JSP-023",
+      "milestone_id": "JSP-M5",
+      "title": "Fitting-Worker und Apply-Adapter implementieren",
+      "type": "feature",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "JSP-022",
+        "JSP-003"
+      ],
+      "implementation": [
+        "Isolierter PyTorch/HuggingFace-Worker mit jlens.fit und JacobianLens.apply/save/load; kein Autograd in GGUF/llama.cpp behaupten; model/tokenizer/lens Digests, Device Limits und feature flag.",
+        "Bestehende Ananta-Schnittstellen per Tests absichern; nur additive, feature-flagged Änderungen nach AGENTS.md.",
+        "Deterministische Tests, explizite Failure-Modes und messbare Benchmark-Ergebnisse als Hub-auditierte Artefakte liefern."
+      ],
+      "acceptance_criteria": [
+        "Quellcodebasierte Integration an dokumentierten Repositorypfaden verifiziert; keine neue parallele Hub- oder Datenpipeline.",
+        "Kontrollbedingungen und reproduzierbare, versionierte Ergebnisse einschließlich negativer Befunde vorhanden."
+      ]
+    },
+    {
+      "id": "JSP-024",
+      "milestone_id": "JSP-M5",
+      "title": "Jacobian-Mathematik gegen Finite Differences testen",
+      "type": "evaluation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "JSP-023"
+      ],
+      "implementation": [
+        "Toy Transformer, finite differences, Layer-Basis, Tokenpositionen, future-target aggregation, Normalisierung, Dimensionsfehler, Leakage-Negativkontrollen.",
+        "Bestehende Ananta-Schnittstellen per Tests absichern; nur additive, feature-flagged Änderungen nach AGENTS.md.",
+        "Deterministische Tests, explizite Failure-Modes und messbare Benchmark-Ergebnisse als Hub-auditierte Artefakte liefern."
+      ],
+      "acceptance_criteria": [
+        "Quellcodebasierte Integration an dokumentierten Repositorypfaden verifiziert; keine neue parallele Hub- oder Datenpipeline.",
+        "Kontrollbedingungen und reproduzierbare, versionierte Ergebnisse einschließlich negativer Befunde vorhanden."
+      ]
+    },
+    {
+      "id": "JSP-025",
+      "milestone_id": "JSP-M5",
+      "title": "VRAM- und Laufzeitmatrix auf 16 GB GPU erstellen",
+      "type": "evaluation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "JSP-023"
+      ],
+      "implementation": [
+        "RTX 5060 Ti 16GB, optional RTX 3080 10GB und 64GB RAM; Fitting, Offload, Peak VRAM, OOM recovery, quantisierte Inferenz vs trainierbares Backend testen.",
+        "Bestehende Ananta-Schnittstellen per Tests absichern; nur additive, feature-flagged Änderungen nach AGENTS.md.",
+        "Deterministische Tests, explizite Failure-Modes und messbare Benchmark-Ergebnisse als Hub-auditierte Artefakte liefern."
+      ],
+      "acceptance_criteria": [
+        "Quellcodebasierte Integration an dokumentierten Repositorypfaden verifiziert; keine neue parallele Hub- oder Datenpipeline.",
+        "Kontrollbedingungen und reproduzierbare, versionierte Ergebnisse einschließlich negativer Befunde vorhanden."
+      ]
+    },
+    {
+      "id": "JSP-026",
+      "milestone_id": "JSP-M6",
+      "title": "Gemeinsamen Workspace vs universellen Koordinatenraum abgrenzen",
+      "type": "research",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "JSP-024"
+      ],
+      "implementation": [
+        "Hypothesen und Nullhypothesen für Qwen/Gemma/andere Familien präregistrieren; ähnliche verbalisierbare Konzepte nicht als identische Koordinaten ausgeben.",
+        "Bestehende Ananta-Schnittstellen per Tests absichern; nur additive, feature-flagged Änderungen nach AGENTS.md.",
+        "Deterministische Tests, explizite Failure-Modes und messbare Benchmark-Ergebnisse als Hub-auditierte Artefakte liefern."
+      ],
+      "acceptance_criteria": [
+        "Quellcodebasierte Integration an dokumentierten Repositorypfaden verifiziert; keine neue parallele Hub- oder Datenpipeline.",
+        "Kontrollbedingungen und reproduzierbare, versionierte Ergebnisse einschließlich negativer Befunde vorhanden."
+      ]
+    },
+    {
+      "id": "JSP-027",
+      "milestone_id": "JSP-M6",
+      "title": "Mehrsprachige unabhängige Benchmark-Datasets und Leakage Gates",
+      "type": "feature",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "JSP-026"
+      ],
+      "implementation": [
+        "Deutsch/Englisch Coding, Mathe, Fehlererkennung, Unsicherheit, Tool Use, OOD und Kontrafaktualpaare; gehashte train/validation/test Splits, Negativkontrollen.",
+        "Bestehende Ananta-Schnittstellen per Tests absichern; nur additive, feature-flagged Änderungen nach AGENTS.md.",
+        "Deterministische Tests, explizite Failure-Modes und messbare Benchmark-Ergebnisse als Hub-auditierte Artefakte liefern."
+      ],
+      "acceptance_criteria": [
+        "Quellcodebasierte Integration an dokumentierten Repositorypfaden verifiziert; keine neue parallele Hub- oder Datenpipeline.",
+        "Kontrollbedingungen und reproduzierbare, versionierte Ergebnisse einschließlich negativer Befunde vorhanden."
+      ]
+    },
+    {
+      "id": "JSP-028",
+      "milestone_id": "JSP-M6",
+      "title": "Layer- und Familienvergleich mit statistischen Kontrollen",
+      "type": "evaluation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "JSP-025",
+        "JSP-027"
+      ],
+      "implementation": [
+        "Top-K Rankings, Zukunftspositionen, Stabilität und semantische Ähnlichkeit gegen Logit Lens, zufällige Probes, Permutation und Bootstrap-Konfidenzintervalle vergleichen.",
+        "Bestehende Ananta-Schnittstellen per Tests absichern; nur additive, feature-flagged Änderungen nach AGENTS.md.",
+        "Deterministische Tests, explizite Failure-Modes und messbare Benchmark-Ergebnisse als Hub-auditierte Artefakte liefern."
+      ],
+      "acceptance_criteria": [
+        "Quellcodebasierte Integration an dokumentierten Repositorypfaden verifiziert; keine neue parallele Hub- oder Datenpipeline.",
+        "Kontrollbedingungen und reproduzierbare, versionierte Ergebnisse einschließlich negativer Befunde vorhanden."
+      ]
+    },
+    {
+      "id": "JSP-029",
+      "milestone_id": "JSP-M6",
+      "title": "Cross-Model Alignment mit CCA/Procrustes erforschen",
+      "type": "experiment",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "JSP-028"
+      ],
+      "implementation": [
+        "Orthogonale/affine Alignment-Modelle nur auf Training anpassen; holdout Transfer gegen Text, JSON, gemeinsame Embeddings und random alignment prüfen; kein universal-space-Claim.",
+        "Bestehende Ananta-Schnittstellen per Tests absichern; nur additive, feature-flagged Änderungen nach AGENTS.md.",
+        "Deterministische Tests, explizite Failure-Modes und messbare Benchmark-Ergebnisse als Hub-auditierte Artefakte liefern."
+      ],
+      "acceptance_criteria": [
+        "Quellcodebasierte Integration an dokumentierten Repositorypfaden verifiziert; keine neue parallele Hub- oder Datenpipeline.",
+        "Kontrollbedingungen und reproduzierbare, versionierte Ergebnisse einschließlich negativer Befunde vorhanden."
+      ]
+    },
+    {
+      "id": "JSP-030",
+      "milestone_id": "JSP-M6",
+      "title": "Latente Modell-zu-Modell-Kommunikation experimentell messen",
+      "type": "experiment",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "JSP-029",
+        "JSP-011"
+      ],
+      "implementation": [
+        "Nur isoliert: gemappte latente Nachrichten, autorisierte Worker, Hub-only Relay, Verifikation vor Modellinjektion; Semantik, Rate, Tasknutzen, Robustheit, Bandbreite gegen Sprache/JSON messen.",
+        "Bestehende Ananta-Schnittstellen per Tests absichern; nur additive, feature-flagged Änderungen nach AGENTS.md.",
+        "Deterministische Tests, explizite Failure-Modes und messbare Benchmark-Ergebnisse als Hub-auditierte Artefakte liefern."
+      ],
+      "acceptance_criteria": [
+        "Quellcodebasierte Integration an dokumentierten Repositorypfaden verifiziert; keine neue parallele Hub- oder Datenpipeline.",
+        "Kontrollbedingungen und reproduzierbare, versionierte Ergebnisse einschließlich negativer Befunde vorhanden."
+      ]
+    },
+    {
+      "id": "JSP-031",
+      "milestone_id": "JSP-M7",
+      "title": "Hub/Worker Capability Contracts für Activation Capture anbinden",
+      "type": "architecture",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "JSP-023"
+      ],
+      "implementation": [
+        "An agent/services/local_model_runtime_composition.py, local_multi_model_runtime.py, model_runtime_selection_service.py anschließen; Hub behält Routing und Queue; keine Worker-zu-Worker-Orchestrierung.",
+        "Bestehende Ananta-Schnittstellen per Tests absichern; nur additive, feature-flagged Änderungen nach AGENTS.md.",
+        "Deterministische Tests, explizite Failure-Modes und messbare Benchmark-Ergebnisse als Hub-auditierte Artefakte liefern."
+      ],
+      "acceptance_criteria": [
+        "Quellcodebasierte Integration an dokumentierten Repositorypfaden verifiziert; keine neue parallele Hub- oder Datenpipeline.",
+        "Kontrollbedingungen und reproduzierbare, versionierte Ergebnisse einschließlich negativer Befunde vorhanden."
+      ]
+    },
+    {
+      "id": "JSP-032",
+      "milestone_id": "JSP-M7",
+      "title": "Research-Training-Run, Lineage und Promotion-Gates adaptieren",
+      "type": "feature",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "JSP-031",
+        "JSP-027"
+      ],
+      "implementation": [
+        "agent/services/research_training_run_service.py, research_training_recipe_service.py, research_training_evaluation_service.py, Attestations und Release Gate nutzen; SHA für Modell, Lens, Datensatz, Alignment; keine automatische Promotion.",
+        "Bestehende Ananta-Schnittstellen per Tests absichern; nur additive, feature-flagged Änderungen nach AGENTS.md.",
+        "Deterministische Tests, explizite Failure-Modes und messbare Benchmark-Ergebnisse als Hub-auditierte Artefakte liefern."
+      ],
+      "acceptance_criteria": [
+        "Quellcodebasierte Integration an dokumentierten Repositorypfaden verifiziert; keine neue parallele Hub- oder Datenpipeline.",
+        "Kontrollbedingungen und reproduzierbare, versionierte Ergebnisse einschließlich negativer Befunde vorhanden."
+      ]
+    },
+    {
+      "id": "JSP-033",
+      "milestone_id": "JSP-M7",
+      "title": "PII, Prompt-Injection, Berechtigung und Audit schützen",
+      "type": "feature",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "JSP-031"
+      ],
+      "implementation": [
+        "agent/artifacts/execution_provenance.py und schemas/artifacts/execution_provenance.v1.json wiederverwenden; Raw Activations standardmäßig nicht speichern; redigierte Top-K, TTL, Rollen, Löschung, manipulationssichere Digests.",
+        "Bestehende Ananta-Schnittstellen per Tests absichern; nur additive, feature-flagged Änderungen nach AGENTS.md.",
+        "Deterministische Tests, explizite Failure-Modes und messbare Benchmark-Ergebnisse als Hub-auditierte Artefakte liefern."
+      ],
+      "acceptance_criteria": [
+        "Quellcodebasierte Integration an dokumentierten Repositorypfaden verifiziert; keine neue parallele Hub- oder Datenpipeline.",
+        "Kontrollbedingungen und reproduzierbare, versionierte Ergebnisse einschließlich negativer Befunde vorhanden."
+      ]
+    },
+    {
+      "id": "JSP-034",
+      "milestone_id": "JSP-M7",
+      "title": "Shadow-Fehlerprognose und Modell-Fallback evaluieren",
+      "type": "evaluation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "JSP-028",
+        "JSP-032"
+      ],
+      "implementation": [
+        "Entropie- und Unsicherheitssignale gegen Logit Entropy, Verifier und textuelle Selfchecks bewerten; Calibration, False Positives, AUROC, Costs und OOD; keine Routing-Aktivierung ohne Gate.",
+        "Bestehende Ananta-Schnittstellen per Tests absichern; nur additive, feature-flagged Änderungen nach AGENTS.md.",
+        "Deterministische Tests, explizite Failure-Modes und messbare Benchmark-Ergebnisse als Hub-auditierte Artefakte liefern."
+      ],
+      "acceptance_criteria": [
+        "Quellcodebasierte Integration an dokumentierten Repositorypfaden verifiziert; keine neue parallele Hub- oder Datenpipeline.",
+        "Kontrollbedingungen und reproduzierbare, versionierte Ergebnisse einschließlich negativer Befunde vorhanden."
+      ]
+    },
+    {
+      "id": "JSP-035",
+      "milestone_id": "JSP-M7",
+      "title": "Steering, Ablation, Reflection Training und DSPy-Baseline",
+      "type": "experiment",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "JSP-028",
+        "JSP-032"
+      ],
+      "implementation": [
+        "Nur genehmigte Off-line A/B-Läufe: coordinate swaps, Ablation, Steering, counterfactual reflection, LoRA/SFT und DSPy-Baselines; Rollback via Research Promotion Gates.",
+        "Bestehende Ananta-Schnittstellen per Tests absichern; nur additive, feature-flagged Änderungen nach AGENTS.md.",
+        "Deterministische Tests, explizite Failure-Modes und messbare Benchmark-Ergebnisse als Hub-auditierte Artefakte liefern."
+      ],
+      "acceptance_criteria": [
+        "Quellcodebasierte Integration an dokumentierten Repositorypfaden verifiziert; keine neue parallele Hub- oder Datenpipeline.",
+        "Kontrollbedingungen und reproduzierbare, versionierte Ergebnisse einschließlich negativer Befunde vorhanden."
+      ]
+    },
+    {
+      "id": "JSP-036",
+      "milestone_id": "JSP-M8",
+      "title": "J-Space mit CodeCompass Retrieval- und Coding-Traces verknüpfen",
+      "type": "feature",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "JSP-032",
+        "JSP-008"
+      ],
+      "implementation": [
+        "Existing CodeCompass Evidence IDs, Source Snippets, Tool Call Outcomes und Step IDs referenzieren; kein zweiter Index, keine unautorisierte Quellcode-Exfiltration.",
+        "Bestehende Ananta-Schnittstellen per Tests absichern; nur additive, feature-flagged Änderungen nach AGENTS.md.",
+        "Deterministische Tests, explizite Failure-Modes und messbare Benchmark-Ergebnisse als Hub-auditierte Artefakte liefern."
+      ],
+      "acceptance_criteria": [
+        "Quellcodebasierte Integration an dokumentierten Repositorypfaden verifiziert; keine neue parallele Hub- oder Datenpipeline.",
+        "Kontrollbedingungen und reproduzierbare, versionierte Ergebnisse einschließlich negativer Befunde vorhanden."
+      ]
+    },
+    {
+      "id": "JSP-037",
+      "milestone_id": "JSP-M8",
+      "title": "Observatory-CLI und UI zur modellübergreifenden Analyse ausbauen",
+      "type": "feature",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "JSP-006",
+        "JSP-032"
+      ],
+      "implementation": [
+        "Bestehende agent/cli/commands und Artefakt-Read-Models benutzen: Layer x Position, Top-K, Timeline, Modellvergleich, Alignment/Steering Deltas, Zugriffskontrolle.",
+        "Bestehende Ananta-Schnittstellen per Tests absichern; nur additive, feature-flagged Änderungen nach AGENTS.md.",
+        "Deterministische Tests, explizite Failure-Modes und messbare Benchmark-Ergebnisse als Hub-auditierte Artefakte liefern."
+      ],
+      "acceptance_criteria": [
+        "Quellcodebasierte Integration an dokumentierten Repositorypfaden verifiziert; keine neue parallele Hub- oder Datenpipeline.",
+        "Kontrollbedingungen und reproduzierbare, versionierte Ergebnisse einschließlich negativer Befunde vorhanden."
+      ]
+    },
+    {
+      "id": "JSP-038",
+      "milestone_id": "JSP-M8",
+      "title": "CI-Gates und unabhängige End-to-End-Replikation",
+      "type": "evaluation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "JSP-030",
+        "JSP-033",
+        "JSP-034",
+        "JSP-035",
+        "JSP-037"
+      ],
+      "implementation": [
+        "CPU-Toy-CI, optional GPU, bestehende research-training-gate.yml; OOM, ungeeignete Modellrevision, falscher Digest, Tokenizer-Mismatch, Worker-Abbruch, Policy-Fail und Rollback prüfen.",
+        "Bestehende Ananta-Schnittstellen per Tests absichern; nur additive, feature-flagged Änderungen nach AGENTS.md.",
+        "Deterministische Tests, explizite Failure-Modes und messbare Benchmark-Ergebnisse als Hub-auditierte Artefakte liefern."
+      ],
+      "acceptance_criteria": [
+        "Quellcodebasierte Integration an dokumentierten Repositorypfaden verifiziert; keine neue parallele Hub- oder Datenpipeline.",
+        "Kontrollbedingungen und reproduzierbare, versionierte Ergebnisse einschließlich negativer Befunde vorhanden."
+      ]
+    },
+    {
+      "id": "JSP-039",
+      "milestone_id": "JSP-M8",
+      "title": "Ergebnisse, Grenzen und Reproduzierbarkeit dokumentieren",
+      "type": "documentation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "progress_percent": 0,
+      "depends_on": [
+        "JSP-038"
+      ],
+      "implementation": [
+        "docs/jspace-observatory.md mit Fit-Mathematik, Modell-/Hardwarematrix, Nullresultaten, Evidenzklassen, Setup-Anweisungen, Sicherheitsgrenzen und klarer Trennung zwischen J-Space und Universalraum ergänzen.",
+        "Bestehende Ananta-Schnittstellen per Tests absichern; nur additive, feature-flagged Änderungen nach AGENTS.md.",
+        "Deterministische Tests, explizite Failure-Modes und messbare Benchmark-Ergebnisse als Hub-auditierte Artefakte liefern."
+      ],
+      "acceptance_criteria": [
+        "Quellcodebasierte Integration an dokumentierten Repositorypfaden verifiziert; keine neue parallele Hub- oder Datenpipeline.",
+        "Kontrollbedingungen und reproduzierbare, versionierte Ergebnisse einschließlich negativer Befunde vorhanden."
+      ]
     }
   ],
   "critical_path_tasks": [
@@ -615,7 +1075,17 @@
     "JSP-018",
     "JSP-019",
     "JSP-020",
-    "JSP-021"
+    "JSP-021",
+    "JSP-022",
+    "JSP-023",
+    "JSP-024",
+    "JSP-026",
+    "JSP-027",
+    "JSP-028",
+    "JSP-031",
+    "JSP-032",
+    "JSP-033",
+    "JSP-038"
   ],
   "success_criteria": [
     "Ananta kann J-Space-Readouts lokaler Agentenläufe reproduzierbar und auditierbar erfassen.",
@@ -636,60 +1106,60 @@
     "J-Space Observatory UI/CLI",
     "docs/jspace-observatory.md",
     "Sicherer Shutdown-Verhaltens/J-Space-Replikationsbenchmark",
-    "Emergent-Agent-Language Benchmark mit J-Space-Decoding"
+    "Emergent-Agent-Language Benchmark mit J-Space-Decoding",
+    "Gepinnter Jacobian-Lens-Adapter",
+    "Cross-Model Alignment/Transfer Evaluation",
+    "Hub-governed Latent-Message Experiment"
   ],
   "summary_notes": [
     "MVP bewusst read-only halten; Nutzen zuerst messen.",
-    "Korrelation ist nicht Kausalität und J-Space ist kein direkter Zugriff auf 'Gedanken'."
+    "Korrelation ist nicht Kausalität und J-Space ist kein direkter Zugriff auf 'Gedanken'.",
+    "2026-10-23: Repository AGENTS.md, local_model_runtime_composition.py, local_multi_model_runtime.py, model_runtime_selection_service.py, research_training_run_service.py, dspy_evaluation_bridge_service.py, execution_provenance.py und TODO-Track-Schema eingesehen; Pfade vor Implementierung gegen den dann aktuellen Commit prüfen."
   ],
   "tasks_status_summary": {
-    "total": 21,
+    "total": 39,
     "by_status": {
-      "todo": 21,
-      "in_progress": 0,
-      "partial": 0,
-      "blocked": 0,
-      "done": 0
+      "todo": 39
     },
     "progress_percent_done": 0,
     "by_priority": {
-      "P0": 13,
-      "P1": 6,
+      "P0": 24,
+      "P1": 13,
       "P2": 2
     },
     "by_risk": {
-      "low": 2,
-      "medium": 11,
-      "high": 7,
-      "critical": 1
+      "medium": 18,
+      "low": 3,
+      "high": 14,
+      "critical": 4
     },
     "critical_path": {
-      "total": 16,
+      "total": 26,
       "done": 0,
-      "remaining": 16
+      "remaining": 26
     },
     "milestones": {
-      "total": 7,
-      "todo": 7,
+      "total": 11,
+      "todo": 11,
       "in_progress": 0,
       "blocked": 0,
       "done": 0
     }
   },
   "tasks_type_summary": {
-    "total": 21,
+    "total": 39,
     "by_type": {
-      "research": 4,
-      "evaluation": 5,
-      "architecture": 1,
-      "feature": 6,
-      "experiment": 4,
-      "documentation": 1
+      "research": 6,
+      "evaluation": 10,
+      "architecture": 2,
+      "feature": 12,
+      "experiment": 7,
+      "documentation": 2
     }
   },
   "progress_summary": {
     "state": "todo",
-    "todo_remaining": 21,
+    "todo_remaining": 39,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
