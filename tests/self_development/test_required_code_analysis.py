@@ -476,3 +476,25 @@ def test_reads_before_the_first_codecompass_call_still_observe(tmp_path):
     assert gate.accept(_analysis(path)) == "codecompass_inspection_required"
     gate.observe_codecompass(successful=True)
     assert gate.accept(_analysis(path)) is None
+
+
+def test_declared_change_set_files_are_citable_ground_truth(tmp_path):
+    # Given a documents-only change whose contract declares the docs file.
+    ananta = tmp_path / ".ananta"
+    ananta.mkdir()
+    (ananta / "materialization-manifest.json").write_text(
+        json.dumps([{"workspace_path": "docs/decision.md", "allowed_operations": ["write"]},
+                    {"workspace_path": "todos/todo.track.json", "allowed_operations": ["write"]}]))
+    doc = tmp_path / "docs"
+    doc.mkdir()
+    (doc / "decision.md").write_text("# Decision\n")
+    (tmp_path / "notes.txt").write_text("not declared\n")
+    digest = hashlib.sha256((doc / "decision.md").read_bytes()).hexdigest()
+    gate = CodeAnalysisGate(required=True, workspace=tmp_path)
+    gate.observe_codecompass(successful=True)
+    # When the model observes its declared files and some unrelated text file.
+    gate.observe_range(path="docs/decision.md", file_sha256=digest, line_start=1, line_end=1)
+    other = hashlib.sha256((tmp_path / "notes.txt").read_bytes()).hexdigest()
+    gate.observe_range(path="notes.txt", file_sha256=other, line_start=1, line_end=1)
+    # Then the declared file counts and the undeclared document stays out.
+    assert [s["path"] for s in gate.state()["observed_sources"]] == ["docs/decision.md"]

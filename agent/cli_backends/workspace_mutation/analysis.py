@@ -89,6 +89,27 @@ def collect_read_observations(reads) -> list[tuple[str, str, int, int]]:
     return observed
 
 
+def _declared_scope(workspace: Path) -> set[str]:
+    """The contract's change-set paths: always citable analysis ground truth.
+
+    A documents-only change has no source suffix to offer, and its declared
+    files are exactly the bytes the change is judged on. Everything outside the
+    declared scope still has to be source code.
+    """
+    try:
+        rows = json.loads(
+            (workspace / ".ananta" / "materialization-manifest.json").read_text(encoding="utf-8")
+        )
+    except (OSError, ValueError):
+        return set()
+    declared = set()
+    for row in rows if isinstance(rows, list) else []:
+        value = row.get("workspace_path") if isinstance(row, dict) else None
+        if value:
+            declared.add(str(value).lstrip("/"))
+    return declared
+
+
 class CodeAnalysisGate:
     """Accumulate runtime observations before permitting the first mutation."""
 
@@ -98,6 +119,7 @@ class CodeAnalysisGate:
         self.codecompass_observed = False
         self.sources: list[ObservedSource] = []
         self.analysis: CodeAnalysis | None = None
+        self.declared_paths = _declared_scope(self.workspace)
 
     @property
     def pending(self) -> bool:
@@ -113,7 +135,10 @@ class CodeAnalysisGate:
         if line_start < 1 or line_end < line_start:
             return
         target = (self.workspace / path).resolve()
-        if not target.is_relative_to(self.workspace) or not is_source_reference(str(target)):
+        if not target.is_relative_to(self.workspace):
+            return
+        relative = str(target.relative_to(self.workspace))
+        if not is_source_reference(str(target)) and relative not in self.declared_paths:
             return
         try:
             content = target.read_bytes()
