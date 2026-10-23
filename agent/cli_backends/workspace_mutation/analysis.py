@@ -63,6 +63,32 @@ class ObservedSource:
     line_end: int
 
 
+def collect_read_observations(reads) -> list[tuple[str, str, int, int]]:
+    """Observation candidates from successful read results.
+
+    A read range counts regardless of excerpt truncation or emptiness: the gate
+    re-verifies the bytes and bounds itself, and an excerpt clipped at the
+    output cap must stay citable instead of silently un-observing its range.
+    """
+    observed: list[tuple[str, str, int, int]] = []
+    for read in reads:
+        data = read.get("data") or {}
+        if read.get("status") != "ok":
+            continue
+        for source in read.get("evidence") or []:
+            if source.get("kind") != "file_excerpt":
+                continue
+            observed.append(
+                (
+                    str(source.get("path") or ""),
+                    str(data.get("file_sha256") or ""),
+                    int(data.get("line_start") or 0),
+                    int(data.get("line_end") or 0),
+                )
+            )
+    return observed
+
+
 class CodeAnalysisGate:
     """Accumulate runtime observations before permitting the first mutation."""
 

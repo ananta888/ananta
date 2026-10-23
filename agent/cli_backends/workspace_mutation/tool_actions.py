@@ -225,17 +225,12 @@ def handle_tool_request(session: MutationSession, turn: LoopTurn) -> LoopResult 
         reads = ((result.get("data") or {}).get("materialized_range_results") or [])
         if tool_name == "repo.read_file_range":
             reads = [result]
-        for read in reads:
-            data = read.get("data") or {}
-            if read.get("status") != "ok":
-                continue
-            for source in read.get("evidence") or []:
-                if source.get("kind") != "file_excerpt" or source.get("truncated") or not source.get("excerpt"):
-                    continue
-                session.analysis_gate.observe_range(
-                    path=str(source.get("path") or ""), file_sha256=str(data.get("file_sha256") or ""),
-                    line_start=int(data.get("line_start") or 0), line_end=int(data.get("line_end") or 0),
-                )
+        from agent.cli_backends.workspace_mutation.analysis import collect_read_observations
+
+        for path, file_sha256, line_start, line_end in collect_read_observations(reads):
+            session.analysis_gate.observe_range(
+                path=path, file_sha256=file_sha256, line_start=line_start, line_end=line_end
+            )
     if tool_name == "repo.read_file_range":
         annotate_analysis_read(session, result, arguments)
     if tool_name == "test.run":

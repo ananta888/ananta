@@ -437,3 +437,27 @@ def test_final_answer_without_verification_gets_bounded_correction_turns(tmp_pat
     # The budget ends with the machine-readable prerequisite failure, never a hang.
     assert result[0] == 1
     assert json.loads(result[1])["reason"] == "verification_command_required"
+
+
+def test_a_truncated_read_excerpt_is_still_an_observation(tmp_path):
+    from agent.cli_backends.workspace_mutation.analysis import collect_read_observations
+
+    # Given a successful read whose excerpt was clipped at the output cap.
+    path = tmp_path / "big.py"
+    path.write_text("x = 1\n" * 500)
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    reads = [{"status": "ok", "data": {"file_sha256": digest, "line_start": 1, "line_end": 120},
+              "evidence": [{"kind": "file_excerpt", "path": "big.py", "excerpt": "x = 1 ...", "truncated": True}]},
+             {"status": "ok", "data": {"file_sha256": digest, "line_start": 121, "line_end": 200},
+              "evidence": [{"kind": "file_excerpt", "path": "big.py", "excerpt": "", "truncated": True}]},
+             {"status": "error", "data": {"file_sha256": digest, "line_start": 1, "line_end": 2},
+              "evidence": [{"kind": "file_excerpt", "path": "big.py", "excerpt": "x = 1"}]}]
+    # When the observations are collected.
+    observed = collect_read_observations(reads)
+    # Then every successful range counts and the gate verifies its bytes itself.
+    assert observed == [("big.py", digest, 1, 120), ("big.py", digest, 121, 200)]
+    gate = CodeAnalysisGate(required=True, workspace=tmp_path)
+    gate.observe_codecompass(successful=True)
+    for name, sha, start, end in observed:
+        gate.observe_range(path=name, file_sha256=sha, line_start=start, line_end=end)
+    assert len(gate.state()["observed_sources"]) == 2
