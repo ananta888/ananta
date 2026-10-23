@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 import time
 import uuid
@@ -564,7 +565,9 @@ class DevelopmentCoordinator:
             item["assignment"] = dict(projection)
             self.journal.write(state)
             dispatch_result = execute()
-            if not dispatch_result.completed:
+            if not dispatch_result.completed and not self._recover_lost_dispatch(
+                task.id, str(worker.url), profile, workspace
+            ):
                 return {"passed": False, "reason_code": "worker_execution_failed"}
             self._check_live(state)
             self._verify_worker_result(task.id, str(worker.url), profile["command"])
@@ -697,6 +700,53 @@ class DevelopmentCoordinator:
                 update_local_task_status(
                     item["task_id"], "cancelled", event_type="self_development_dependency_deadlocked"
                 )
+
+    def _recover_lost_dispatch(self, task_id, worker_url, profile, workspace):
+        """Salvage a finished workspace run whose dispatch response was lost.
+
+        A transport deadline or a restart can kill the result handshake while the
+        worker's durable artifacts stand. The recovery never trusts them alone: the
+        allowlisted verification command is re-run against the recovered workspace
+        and must pass, and the task row then records exactly what a successful
+        dispatch would have persisted.
+        """
+        import subprocess
+
+        from agent.services.self_development.execution_recovery import completed_run_artifacts
+
+        if completed_run_artifacts(workspace) is None:
+            return False
+        command = str(profile.get("command") or "").strip()
+        if not command:
+            return False
+        try:
+            result = subprocess.run(
+                command,
+                shell=True,
+                cwd=workspace,
+                capture_output=True,
+                timeout=int(profile.get("timeout_seconds") or 600),
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            logging.getLogger(__name__).warning("recovery_verification_failed task=%s", task_id)
+            return False
+        if result.returncode != 0:
+            logging.getLogger(__name__).warning(
+                "recovery_verification_not_passed task=%s rc=%s", task_id, result.returncode
+            )
+            return False
+        update_local_task_status(
+            task_id,
+            "completed",
+            event_type="artifact_first_completion",
+            event_actor="self-development-hub",
+            event_details={"worker_url": worker_url, "recovered_from_workspace": True},
+            last_output="recovered from workspace artifacts",
+            last_exit_code=0,
+            last_proposal={"command": command, "reason": "Workspace mutation finished; execute Hub-allowlisted verification"},
+        )
+        return True
 
     @staticmethod
     def _verify_worker_result(task_id, worker_url, command):

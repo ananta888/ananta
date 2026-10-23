@@ -18,8 +18,10 @@ log = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
-# Just under the hub's dispatch hard timeout (propose + execute + 30s slack at
-# the governed policy levels): the worker always answers before the hub gives up.
+# The worker must always answer before the hub's propose transport deadline
+# (autopilot_security_policies.<level>.propose_timeout) expires, so a finished
+# run is never lost to a handshake race: keep this wall strictly below it
+# (2100 < 2400 at the governed levels).
 WALL_TIMEOUT_SECONDS = 2100
 
 
