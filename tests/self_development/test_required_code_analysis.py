@@ -498,3 +498,21 @@ def test_declared_change_set_files_are_citable_ground_truth(tmp_path):
     gate.observe_range(path="notes.txt", file_sha256=other, line_start=1, line_end=1)
     # Then the declared file counts and the undeclared document stays out.
     assert [s["path"] for s in gate.state()["observed_sources"]] == ["docs/decision.md"]
+
+
+def test_a_reviews_changed_files_are_citable_ground_truth(tmp_path):
+    # Given a review workspace: the files under review live in review.json and
+    # there is deliberately no materialization manifest (a review never mutates).
+    ananta = tmp_path / ".ananta"
+    ananta.mkdir()
+    (ananta / "review.json").write_text(
+        json.dumps({"author_task_id": "t", "changed_files": {"docs/decision.md": "0" * 64}}))
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "decision.md").write_text("# Decision\n")
+    digest = hashlib.sha256((docs / "decision.md").read_bytes()).hexdigest()
+    gate = CodeAnalysisGate(required=True, workspace=tmp_path)
+    gate.observe_codecompass(successful=True)
+    gate.observe_range(path="docs/decision.md", file_sha256=digest, line_start=1, line_end=1)
+    assert [s["path"] for s in gate.state()["observed_sources"]] == ["docs/decision.md"]
+    assert not (ananta / "materialization-manifest.json").exists()

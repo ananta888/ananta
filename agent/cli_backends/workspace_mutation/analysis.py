@@ -94,19 +94,28 @@ def _declared_scope(workspace: Path) -> set[str]:
 
     A documents-only change has no source suffix to offer, and its declared
     files are exactly the bytes the change is judged on. Everything outside the
-    declared scope still has to be source code.
+    declared scope still has to be source code. A review workspace carries the
+    same ground truth in its ``review.json`` (the files under review); it never
+    gets a materialization manifest because a review must not mutate anything.
     """
+    declared = set()
     try:
         rows = json.loads(
             (workspace / ".ananta" / "materialization-manifest.json").read_text(encoding="utf-8")
         )
+        for row in rows if isinstance(rows, list) else []:
+            value = row.get("workspace_path") if isinstance(row, dict) else None
+            if value:
+                declared.add(str(value).lstrip("/"))
     except (OSError, ValueError):
-        return set()
-    declared = set()
-    for row in rows if isinstance(rows, list) else []:
-        value = row.get("workspace_path") if isinstance(row, dict) else None
-        if value:
+        pass
+    try:
+        review = json.loads((workspace / ".ananta" / "review.json").read_text(encoding="utf-8"))
+        changed = review.get("changed_files") if isinstance(review, dict) else None
+        for value in (changed if isinstance(changed, dict) else {}) or {}:
             declared.add(str(value).lstrip("/"))
+    except (OSError, ValueError):
+        pass
     return declared
 
 
