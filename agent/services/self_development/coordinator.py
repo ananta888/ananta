@@ -248,14 +248,9 @@ class DevelopmentCoordinator:
         return {"retried": count, **self.status()}
 
     def _publication_retryable(self, item):
-        reason = str(item.get("reason") or "")
-        seal = self.policy.root / "sealed" / str(item.get("task_id") or "")
-        return (
-            ("publication" in reason or item.get("status") == "publication_failed")
-            and bool(item.get("hashes"))
-            and bool(item.get("contract"))
-            and seal.is_dir()
-        )
+        from agent.services.self_development.retries import publication_recovery_available
+
+        return publication_recovery_available(item, self.policy)
 
     def manages(self, task_id):
         return any(

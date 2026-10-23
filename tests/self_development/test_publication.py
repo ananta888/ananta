@@ -324,25 +324,25 @@ def test_publication_grant_is_bound_to_exact_fetch_arguments():
     assert not other.allowed
 
 
-def test_publication_only_failures_are_retryable_without_the_seal(tmp_path):
+def test_publication_recovery_is_judged_by_state_not_reason_text(tmp_path):
     from agent.services.self_development.coordinator import DevelopmentCoordinator
 
-    stub = SimpleNamespace(policy=SimpleNamespace(root=tmp_path))
-    recoverable = {'task_id': 'task-7', 'status': 'failed', 'hashes': {'a.py': 'x'},
-                   'contract': {'commit_message': 'm'},
-                   'reason': 'acceptance_review_failed:publication_git_command_failed'}
+    reviewed = SimpleNamespace(policy=SimpleNamespace(root=tmp_path,
+        value={'quality_gates': {'require_acceptance_review': True}}))
+    item = {'task_id': 'task-7', 'status': 'failed', 'hashes': {'a.py': 'x'},
+            'contract': {'commit_message': 'm'}, 'acceptance_review': {'verdict': 'approved'},
+            'reason': 'self_development_git_command_failed:rev-parse'}
     # A lost seal means the change cannot be rebuilt: fall back to the full re-run path.
-    assert not DevelopmentCoordinator._publication_retryable(stub, recoverable)
+    assert not DevelopmentCoordinator._publication_retryable(reviewed, item)
     (tmp_path / 'sealed' / 'task-7').mkdir(parents=True)
-    assert DevelopmentCoordinator._publication_retryable(stub, recoverable)
-    executable = {'task_id': 'task-8', 'status': 'publication_failed', 'hashes': {'a.py': 'x'},
-                  'contract': {'commit_message': 'm'}, 'reason': '[Errno 13] Permission denied'}
-    (tmp_path / 'sealed' / 'task-8').mkdir()
-    assert DevelopmentCoordinator._publication_retryable(stub, executable)
-    missing = {'task_id': 'task-9', 'status': 'failed', 'hashes': {'a.py': 'x'},
-               'contract': {'commit_message': 'm'}, 'reason': 'worker_review_answer_missing'}
-    (tmp_path / 'sealed' / 'task-9').mkdir()
-    assert not DevelopmentCoordinator._publication_retryable(stub, missing)
+    assert DevelopmentCoordinator._publication_retryable(reviewed, item)
+    # A rejected or missing review never publishes; only a re-run can make progress.
+    unreviewed = {**item, 'acceptance_review': None}
+    assert not DevelopmentCoordinator._publication_retryable(reviewed, unreviewed)
+    permissive = SimpleNamespace(policy=SimpleNamespace(root=tmp_path, value={}))
+    assert DevelopmentCoordinator._publication_retryable(permissive, unreviewed)
+    assert not DevelopmentCoordinator._publication_retryable(
+        reviewed, {'task_id': 'task-9', 'status': 'failed'})
 
 
 def test_publication_refuses_a_checkout_on_an_unrelated_history(tmp_path):

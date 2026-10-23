@@ -12,12 +12,28 @@ from agent.services.self_development.budget import (
 )
 
 
+def publication_recovery_available(item, policy) -> bool:
+    """The sealed, reviewed change only owes its publication step.
+
+    Judged by state, never by reason text: a failed recovery attempt rewrites the
+    reason while the sealed hashes, the accepted review and the seal stay the
+    authoritative record of how far the item came.
+    """
+    review_required = bool((policy.value.get("quality_gates") or {}).get("require_acceptance_review"))
+    seal = policy.root / "sealed" / str(item.get("task_id") or "")
+    return (
+        bool(item.get("hashes"))
+        and bool(item.get("contract"))
+        and (bool(item.get("acceptance_review")) or not review_required)
+        and seal.is_dir()
+    )
+
+
 def prepare_retry(item, policy, state, queue):
     attempts = item.setdefault("attempts", [])
-    review_failed = str(item.get("reason") or "").startswith("acceptance_review_failed:")
     if (
         not item.get("contract")
-        or (item.get("outcome", {}).get("passed") and not review_failed)
+        or publication_recovery_available(item, policy)
         or attempt_budget_exhausted(policy.value, attempts)
         or (policy.root / "stop").exists()
         or not session_active(policy.value, state.get("session"), time.time())
