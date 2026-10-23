@@ -159,6 +159,15 @@ ANALYSIS_CITATION_CORRECTION_NUDGE = (
 )
 
 
+VERIFICATION_CORRECTION_NUDGE = (
+    "final_answer is blocked: the executable proposal needs the verification command that was "
+    "actually run. Execute the allowlisted test command first — reply in the next turn with exactly "
+    'one protocol answer: {"kind":"tool_request","tool_name":"test.run","arguments":'
+    '{"command":"<command from the allowlisted_test_commands of the rejection evidence>"}}. '
+    "Only after test.run has completed may you answer final_answer."
+)
+
+
 def required_analysis_instructions() -> str:
     """Describe the source-bound action consumed by the runtime prerequisite."""
     return (

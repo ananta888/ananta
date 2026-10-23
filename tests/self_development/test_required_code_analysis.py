@@ -417,3 +417,23 @@ def test_accepted_analysis_clears_the_correction_streak(tmp_path):
     assert session.correction is None
     assert session.analysis_gate.pending is False
     assert session.evidence_blocks[-1]["status"] == "ok"
+
+
+def test_final_answer_without_verification_gets_bounded_correction_turns(tmp_path):
+    # Given a session whose analysis is optional but the executable proposal
+    # boundary needs a verification command that was actually run.
+    session = _session(tmp_path, required=False)
+    session.cfg["return_executable_proposal"] = True
+    session.cfg["allowlisted_test_commands"] = ["python -m pytest tests/a", "python -m pytest tests/b"]
+    # When the model answers final_answer without running test.run.
+    first = _turn({"kind": "final_answer", "answer": "done"})
+    assert handlers.handle_final_answer(session, first) is None
+    # Then a bounded correction names test.run and the allowlisted commands.
+    assert "test.run" in session.correction
+    assert session.evidence_blocks[-1]["error"] == "verification_command_required"
+    assert session.evidence_blocks[-1]["data"]["allowlisted_test_commands"]
+    assert handlers.handle_final_answer(session, _turn({"kind": "final_answer", "answer": "done"})) is None
+    result = handlers.handle_final_answer(session, _turn({"kind": "final_answer", "answer": "done"}))
+    # The budget ends with the machine-readable prerequisite failure, never a hang.
+    assert result[0] == 1
+    assert json.loads(result[1])["reason"] == "verification_command_required"

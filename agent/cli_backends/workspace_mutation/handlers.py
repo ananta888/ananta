@@ -75,6 +75,37 @@ def handle_final_answer(session: MutationSession, turn: LoopTurn) -> "LoopResult
              "code_analysis": session.analysis_gate.state()},
             turn.err,
         )
+    if session.cfg.get("return_executable_proposal") and not str(
+        getattr(session, "verification_command", "") or ""
+    ).strip():
+        commands = list(session.cfg.get("allowlisted_test_commands") or [])
+        if len(commands) != 1:
+            # The proposal boundary cannot hand back a command that never ran:
+            # correct toward test.run with a bounded budget instead of aborting.
+            refusals = int(getattr(session, "verification_refusals", 0)) + 1
+            session.verification_refusals = refusals
+            turn.row["result"] = "verification_command_required"
+            session.add_evidence(
+                {
+                    "kind": "verification_result",
+                    "status": "policy_blocked",
+                    "error": "verification_command_required",
+                    "data": {
+                        "action_required": "run_test_dot_run_with_an_allowlisted_command",
+                        "allowlisted_test_commands": commands,
+                    },
+                }
+            )
+            if refusals <= FINAL_ANSWER_CORRECTION_BUDGET:
+                from agent.cli_backends.workspace_mutation.prompts import VERIFICATION_CORRECTION_NUDGE
+
+                session.correction = VERIFICATION_CORRECTION_NUDGE
+                return None
+            return session.finish_with_summary(
+                "verification_command_required",
+                {"kind": "loop_aborted", "reason": "verification_command_required"},
+                turn.err,
+            )
     final_check = session.hub_check(iteration_number=turn.iteration)
     policy_status = str((final_check.get("policy_result") or {}).get("status") or "ok")
     source_line_status = str((final_check.get("source_line_policy_result") or {}).get("status") or "ok")
