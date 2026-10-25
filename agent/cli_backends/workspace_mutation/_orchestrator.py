@@ -327,6 +327,9 @@ def _record_invalid_output(
                 "kind": "tool_request", "tool_name": "repo.read_file_range",
                 "arguments": {"path": "app.py", "line_start": 1, "line_end": 80},
             },
+            "expected_final_answer_example": {
+                "kind": "final_answer", "answer": "the complete analysis as one string",
+            },
         }
     )
     return None

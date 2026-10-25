@@ -6,8 +6,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from agent.cli_backends.workspace_mutation.analysis import CodeAnalysisGate
 from agent.cli_backends.workspace_mutation import handlers, tool_actions
+from agent.cli_backends.workspace_mutation.analysis import CodeAnalysisGate
 
 
 def _session(tmp_path, required=True):
@@ -73,12 +73,22 @@ def test_correction_names_the_analysis_step_when_observations_already_exist(tmp_
     # explicit code_analysis step is still missing.
     session = _session(tmp_path)
     session.analysis_gate.observe_codecompass(successful=True)
+    source = tmp_path / "app.py"
+    source.write_text("value = 1\n")
+    session.analysis_gate.observe_range(
+        path="app.py",
+        file_sha256=hashlib.sha256(source.read_bytes()).hexdigest(),
+        line_start=1,
+        line_end=1,
+    )
     # When the model jumps to final_answer anyway.
     assert handlers.handle_final_answer(session, _turn({"kind": "final_answer", "answer": "done"})) is None
-    # Then the correction names exactly the missing step, not the whole sequence.
+    # Then the correction names exactly the missing step and hands over the
+    # citable ranges copy-paste ready, instead of making the model retype hashes.
     assert "codecompass.plan_context" not in session.correction
     assert '"kind":"code_analysis"' in session.correction
-    assert "must be ranges you actually observed" in session.correction
+    assert '"app.py"' in session.correction
+    assert "never type hashes yourself" in session.correction
 
 
 def _analysis(path: Path):
@@ -134,6 +144,25 @@ def test_source_change_between_read_and_analysis_is_rejected(tmp_path):
     assert gate.pending
 
 
+def test_superfluous_reanalysis_rejection_never_aborts_the_loop(tmp_path):
+    # Given a session whose analysis gate is already open.
+    session = _session(tmp_path)
+    session.analysis_gate.observe_codecompass(successful=True)
+    source = tmp_path / "app.py"
+    source.write_text("value = 1\n")
+    analysis = _analysis(source)
+    session.analysis_gate.observe_range(**analysis["sources"][0])
+    assert session.analysis_gate.accept(analysis) is None
+    # When the model repeatedly re-submits the analysis citing pre-write bytes.
+    source.write_text("value = 2\n")
+    for _ in range(handlers.ANALYSIS_REJECTION_LIMIT + 2):
+        assert handlers.handle_code_analysis(session, _turn({"kind": "code_analysis", **analysis})) is None
+    # Then the loop keeps running: an open gate makes re-analysis rejections
+    # corrections, never a bounded abort, and the accepted analysis stands.
+    assert session.analysis_gate.analysis is not None
+    assert "already accepted" in session.correction
+
+
 @pytest.mark.parametrize("status", ["ok", "error"])
 def test_codecompass_materialization_is_observed_only_after_success(tmp_path, monkeypatch, status):
     # Given real source ranges and a CodeCompass adapter that succeeds or fails.
@@ -169,7 +198,7 @@ def test_codecompass_materialization_is_observed_only_after_success(tmp_path, mo
 ])
 def test_required_analysis_never_falls_back_to_weaker_loop(tmp_path, monkeypatch, config):
     # Given a required analysis configuration and an unavailable mutation loop.
-    from agent.cli_backends import sgpt, workspace_mutation, tool_loop
+    from agent.cli_backends import sgpt, tool_loop, workspace_mutation
 
     monkeypatch.setattr(sgpt, "_get_agent_config", lambda: {"ananta_worker_workspace_mutation": config})
     monkeypatch.setattr(workspace_mutation, "get_workspace_mutation_config", lambda workdir: config)
@@ -391,8 +420,10 @@ def test_rejected_analysis_citations_are_corrected_then_bounded(tmp_path):
     session, _path = _observed_session(tmp_path)
     # When the model repeatedly cites ranges it never observed.
     assert handlers.handle_code_analysis(session, _turn({"kind": "code_analysis", **_BAD_CITATION})) is None
-    # Then a correction names the observed set, and the loop stops being generous.
-    assert "observed_sources" in session.correction
+    # Then a correction hands over the observed ranges copy-paste ready, and the
+    # loop stops being generous.
+    assert '"app.py"' in session.correction
+    assert "VERBATIM" in session.correction
     assert session.evidence_blocks[-1]["data"]["action_required"] == \
         "cite_an_observed_source_range_with_its_sha256"
     for _ in range(handlers.ANALYSIS_REJECTION_LIMIT - 2):

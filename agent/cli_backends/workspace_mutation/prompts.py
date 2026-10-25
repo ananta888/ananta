@@ -136,26 +136,53 @@ ANALYSIS_CORRECTION_NUDGE = (
 )
 
 
-ANALYSIS_STEP_CORRECTION_NUDGE = (
-    "Your codecompass observations are already registered. final_answer stays blocked until you "
-    "emit the analysis step itself — reply in the next turn with exactly one protocol answer and "
-    "nothing else: "
-    '{"kind":"code_analysis","sources":[{"path":"rel/pfad","file_sha256":"HASH_AUS_DEM_LESEERGEBNIS",'
-    '"line_start":1,"line_end":20}],"findings":"beobachtetes Verhalten und Aufrufbeziehungen",'
-    '"change_reasoning":"Aenderungsansatz und Architekturfolgen","test_reasoning":"konkrete Verifikation '
-    'und relevante Regressionen"} — the sources must be ranges you actually observed, with their '
-    "hashes from the read results. Only after this step is accepted may you answer final_answer."
-)
+def _observed_ranges_json(observed_sources: Any) -> str:
+    """Copy-paste ready JSON of the citable ranges (bounded to the first four)."""
+    entries = [dict(source) for source in list(observed_sources or [])[:4]]
+    return json.dumps(entries, ensure_ascii=False)
 
 
-ANALYSIS_CITATION_CORRECTION_NUDGE = (
-    "Your code_analysis was rejected because its source citations are not in the observed set. "
-    "Do not invent ranges and do not widen them: reply in the next turn with exactly one protocol "
-    "answer citing ONLY entries copied verbatim from the observed_sources list of the rejection "
-    "evidence (path, file_sha256, line_start and line_end must lie inside one observed range): "
-    '{"kind":"code_analysis","sources":[{"path":"aus_observed_sources","file_sha256":"aus_observed_sources",'
-    '"line_start":1,"line_end":20}],"findings":"...","change_reasoning":"...","test_reasoning":"..."}. '
-    "Citations you did not observe keep the analysis blocked."
+def analysis_step_correction_nudge(observed_sources: Any) -> str:
+    ranges = _observed_ranges_json(observed_sources)
+    if ranges == "[]":
+        return (
+            "Your codecompass inspection is registered but no readable source range is yet observed. "
+            "Call codecompass.plan_context or repo.read_file_range first, then reply with exactly one "
+            'protocol answer: {"kind":"code_analysis","sources":[{"path":...,"file_sha256":...,'
+            '"line_start":...,"line_end":...}],"findings":"...","change_reasoning":"...",'
+            '"test_reasoning":"..."} using the hash from the read result.'
+        )
+    return (
+        "Your codecompass observations are already registered. final_answer stays blocked until you "
+        "emit the analysis step itself — reply in the next turn with exactly one protocol answer and "
+        "nothing else: "
+        '{"kind":"code_analysis","sources":[<one entry copied VERBATIM from '
+        + ranges
+        + '">],"findings":"beobachtetes Verhalten und Aufrufbeziehungen",'
+        '"change_reasoning":"Aenderungsansatz und Architekturfolgen","test_reasoning":"konkrete Verifikation '
+        'und relevante Regressionen"} — never type hashes yourself, copy the whole object. '
+        "Only after this step is accepted may you answer final_answer."
+    )
+
+
+def analysis_citation_correction_nudge(observed_sources: Any) -> str:
+    ranges = _observed_ranges_json(observed_sources)
+    return (
+        "Your code_analysis was rejected because its source citations are not in the observed set. "
+        "Do not invent ranges, do not widen them and do not retype hashes: reply in the next turn with "
+        "exactly one protocol answer whose sources array is copied VERBATIM (character for character) "
+        "from this list of observed ranges: "
+        + ranges
+        + '. Shape: {"kind":"code_analysis","sources":[<copied entry>],"findings":"...",'
+        '"change_reasoning":"...","test_reasoning":"..."}. '
+        "Citations you did not observe keep the analysis blocked."
+    )
+
+
+ANALYSIS_ALREADY_ACCEPTED_NUDGE = (
+    "The code_analysis was already accepted earlier in this run; do not repeat it. "
+    "Continue with your remaining steps (fix the failing tests, run the verification "
+    "command with test.run) and then answer final_answer."
 )
 
 
@@ -246,8 +273,11 @@ def build_iteration_prompt(
 
 INVALID_OUTPUT_CORRECTION_NUDGE = (
     "Your last answer was not one valid mutation-protocol envelope and was discarded. "
-    "Reply with exactly one JSON object and nothing else, starting with the kind field: "
-    '{"kind":"tool_request",...} or {"kind":"workspace_write",...} or '
-    '{"kind":"code_analysis",...} or {"kind":"final_answer",...}. '
-    "Prose outside the envelope, markdown fences and verdict-style JSON without kind all fail."
+    "Reply with exactly one JSON object and nothing else, starting with the kind field. "
+    'To run a tool: {"kind":"tool_request","tool_name":"test.run","arguments":{"command":"..."}}. '
+    'To finish with your analysis: {"kind":"final_answer","answer":"<your complete analysis as one string>"}. '
+    'Other kinds: {"kind":"workspace_write",...}, {"kind":"code_analysis",...}, {"kind":"patch_request",...}. '
+    "Prose outside the envelope, markdown fences and verdict-style JSON without kind all fail. "
+    "Never write your analysis as free text in the reply: it belongs inside the answer field "
+    "of a final_answer envelope."
 )

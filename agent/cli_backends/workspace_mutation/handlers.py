@@ -60,10 +60,12 @@ def handle_final_answer(session: MutationSession, turn: LoopTurn) -> "LoopResult
         if refusals <= FINAL_ANSWER_CORRECTION_BUDGET:
             if session.analysis_gate.codecompass_observed:
                 from agent.cli_backends.workspace_mutation.prompts import (
-                    ANALYSIS_STEP_CORRECTION_NUDGE,
+                    analysis_step_correction_nudge,
                 )
 
-                session.correction = ANALYSIS_STEP_CORRECTION_NUDGE
+                session.correction = analysis_step_correction_nudge(
+                    session.analysis_gate.state().get("observed_sources")
+                )
             else:
                 from agent.cli_backends.workspace_mutation.prompts import ANALYSIS_CORRECTION_NUDGE
 
@@ -261,16 +263,23 @@ def handle_code_analysis(session: MutationSession, turn: LoopTurn) -> "LoopResul
     hint = _rejection_hint(reason, data)
     if hint:
         data["action_required"] = hint
+    session.add_evidence({"kind": "code_analysis_result", "status": "error",
+                          "error": reason, "data": data})
+    if not session.analysis_gate.pending:
+        # The gate is already open: a superfluous re-analysis of stale bytes is
+        # corrected, but it never spends the rejection budget of the loop.
+        from agent.cli_backends.workspace_mutation.prompts import ANALYSIS_ALREADY_ACCEPTED_NUDGE
+
+        session.correction = ANALYSIS_ALREADY_ACCEPTED_NUDGE
+        return None
     # A rejected citation must not spin out the iteration budget: correct it
     # explicitly and stop after a bounded number of failures instead of burning
     # every remaining turn on a contract the model is not satisfying.
     streak = int(getattr(session, "analysis_rejection_streak", 0)) + 1
     session.analysis_rejection_streak = streak
-    from agent.cli_backends.workspace_mutation.prompts import ANALYSIS_CITATION_CORRECTION_NUDGE
+    from agent.cli_backends.workspace_mutation.prompts import analysis_citation_correction_nudge
 
-    session.correction = ANALYSIS_CITATION_CORRECTION_NUDGE
-    session.add_evidence({"kind": "code_analysis_result", "status": "error",
-                          "error": reason, "data": data})
+    session.correction = analysis_citation_correction_nudge(data.get("observed_sources"))
     if streak >= ANALYSIS_REJECTION_LIMIT:
         return session.finish_with_summary(
             "analysis_rejected_repeatedly",
