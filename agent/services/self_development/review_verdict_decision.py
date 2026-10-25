@@ -1,35 +1,42 @@
 """Decision-scored verdict production for the self-development acceptance review.
 
-The decision service (``POST /v1/decision``) scores every verdict field as a
-decision tree against the review evidence, so the verdict JSON is assembled from
-scored booleans instead of generated free text: its shape is guaranteed and a
-worker answer that is not valid JSON can no longer block a review round. Values
-stay fail-closed: an unconfirmed field never passes a criterion, and approval is
-derived only from confirmed criteria plus a confirmed absence of findings.
-"""
+Two independent decision engines answer the same questions about the review
+evidence and the verdict is accepted only when they agree: the local Laya
+server (typed decisions, single forward pass) and the Bonsai decision server
+(``POST /v1/decision``, scored decision tree with world knowledge). Two models
+have to be wrong -- or manipulated -- the same way at once, which is what makes
+the pair worth more than either alone.
 
+The verdict JSON is assembled from the agreed answers, so its shape is
+guaranteed and nothing is parsed out of free text. Everything stays
+fail-closed: disagreement, low confidence and transport failures never approve
+an acceptance; a veto-only gate where the decision never grants approval by
+itself.
+"""
 from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Callable, Mapping, Protocol, Sequence
+from typing import Any, Mapping, Protocol, Sequence
 
 from agent.services.self_development.acceptance_review import (
     AcceptanceReviewError,
     AcceptanceReviewResult,
 )
-from agent.services.vision_decision_provider import (
-    MAX_FIELDS,
-    MAX_TEXT_CHARS,
-    VisionContext,
-    VisionDecisionSchema,
-)
+from agent.services.vision_decision_provider import MAX_TEXT_CHARS
 
 VERDICT_TASK_ID = "self_development_review_verdict"
 
 FINDING_CRITERION_UNCONFIRMED = "criterion_unconfirmed"
 FINDING_REPORTED = "review_findings_reported"
-FINDING_UNCONFIRMED = "review_findings_unconfirmed"
+FINDING_DISAGREEMENT = "review_verdict_decision_disagreed"
+FINDING_ABSTAINED = "review_verdict_decision_unconfirmed"
+
+# The two engines agree on the side of 0.5; the threshold only refuses true
+# coin flips. Laya's general checkpoints are honestly uncertain on review
+# evidence (confidence |2p-1| around 0.3 on good verdicts), so a higher bar
+# would veto every acceptance instead of every manipulation.
+AGREEMENT_MIN_CONFIDENCE = 0.3
 
 _REQUIREMENTS_CHARS = 600
 _FILES_CHARS = 350
@@ -57,26 +64,6 @@ def _criteria(requirements: Mapping[str, Any]) -> tuple[str, ...]:
     return tuple(str(item) for item in raw)
 
 
-def _verdict_schema(criteria: Sequence[str]) -> VisionDecisionSchema:
-    spec: dict[str, dict[str, Any]] = {
-        f"criterion_{index}": {
-            "type": "boolean",
-            "description": (
-                f"Acceptance criterion {index}: {text} "
-                "Is this criterion satisfied by the changed files and the analysis?"
-            ),
-        }
-        for index, text in enumerate(criteria)
-    }
-    spec["no_findings"] = {
-        "type": "boolean",
-        "description": (
-            "Does the analysis report no blocking findings, issues or objections about the change?"
-        ),
-    }
-    return VisionDecisionSchema.from_mapping(VERDICT_TASK_ID, spec)
-
-
 def _decision_text(
     *, requirements: Mapping[str, Any], changed_files: Mapping[str, str], analysis: str
 ) -> str:
@@ -92,21 +79,45 @@ def _decision_text(
     return "\n".join(parts)[:MAX_TEXT_CHARS]
 
 
-def _default_runtime_loader() -> Any:
-    from agent.services.vision_decision_hub_service import get_vision_hub_runtime
+def _questions(criteria: Sequence[str]) -> tuple:
+    from agent.services.decision_providers.types import DecisionQuestion
 
-    return get_vision_hub_runtime()
+    items = [
+        DecisionQuestion.noul(
+            f"criterion_{index}",
+            f"Acceptance criterion {index}: {text} "
+            "Is this criterion satisfied by the changed files and the analysis?",
+        )
+        for index, text in enumerate(criteria)
+    ]
+    items.append(
+        DecisionQuestion.noul(
+            "findings_reported",
+            "The analysis reports blocking findings, issues or objections about the change.",
+        )
+    )
+    return tuple(items)
+
+
+def _blocked(criteria_count: int, finding: str) -> AcceptanceReviewResult:
+    return AcceptanceReviewResult(
+        approved=False,
+        criteria_passed=(False,) * criteria_count,
+        findings=(finding,),
+    )
 
 
 class DecisionReviewVerdictProducer:
-    """VisionDecision-backed producer; every anomaly fails closed."""
+    """Verdicts from an agreed decision stage; every anomaly fails closed."""
 
     def __init__(
         self,
         *,
-        runtime_loader: Callable[[], Any] | None = None,
+        stage: Any,
+        timeout_seconds: float = 30.0,
     ) -> None:
-        self._runtime_loader = runtime_loader or _default_runtime_loader
+        self._stage = stage
+        self._timeout = timeout_seconds
 
     def produce(
         self,
@@ -115,73 +126,79 @@ class DecisionReviewVerdictProducer:
         changed_files: Mapping[str, str],
         analysis: str,
     ) -> AcceptanceReviewResult:
-        try:
-            return self._produce(
-                requirements=requirements, changed_files=changed_files, analysis=analysis
-            )
-        except AcceptanceReviewError:
-            raise
-        except Exception as exc:
-            _log.exception("review verdict decision scoring failed")
-            raise AcceptanceReviewError("review_verdict_decision_failed") from exc
+        from agent.services.decision_providers.types import (
+            DecisionProviderError,
+            DecisionRequest,
+        )
 
-    def _produce(
-        self,
-        *,
-        requirements: Mapping[str, Any],
-        changed_files: Mapping[str, str],
-        analysis: str,
-    ) -> AcceptanceReviewResult:
         criteria = _criteria(requirements)
         if not criteria:
             raise AcceptanceReviewError("review_verdict_criteria_mismatch")
-        if len(criteria) + 1 > MAX_FIELDS:
+        if len(criteria) + 1 > 32:
             raise AcceptanceReviewError("review_verdict_schema_too_large")
-        runtime = self._runtime_loader()
-        if runtime is None:
-            raise AcceptanceReviewError("review_verdict_decision_failed")
-        outcome = runtime.provider.decide(
-            _verdict_schema(criteria),
-            [
-                VisionContext(
-                    images=(),
-                    text=_decision_text(
-                        requirements=requirements, changed_files=changed_files, analysis=analysis
-                    ),
-                )
-            ],
-            require_media=False,
+        request = DecisionRequest(
+            state=_decision_text(
+                requirements=requirements, changed_files=changed_files, analysis=analysis
+            ),
+            questions=_questions(criteria),
+            purpose="self_development_review",
         )
-        if not outcome.ok or not outcome.results:
+        try:
+            trace, result = self._stage.attempt(request, self._timeout)
+        except DecisionProviderError as exc:
+            _log.warning("review verdict decision failed: %s", exc.reason_code)
+            raise AcceptanceReviewError("review_verdict_decision_failed") from exc
+        _log.info(
+            "review verdict stage=%s outcome=%s latency_ms=%.0f",
+            trace.provider_id, trace.outcome, trace.latency_ms,
+        )
+        if result is None:
+            if trace.outcome == "disagreement":
+                return _blocked(len(criteria), FINDING_DISAGREEMENT)
+            if trace.outcome == "low_confidence":
+                return _blocked(len(criteria), FINDING_ABSTAINED)
             raise AcceptanceReviewError("review_verdict_decision_failed")
-        fields = outcome.results[0].fields
-        passed: list[bool] = []
-        findings: list[str] = []
-        for index in range(len(criteria)):
-            field = fields.get(f"criterion_{index}")
-            if field is None or not field.accepted:
-                passed.append(False)
-                findings.append(f"{FINDING_CRITERION_UNCONFIRMED}:{index}")
-            else:
-                passed.append(field.value is True)
-        clean = fields.get("no_findings")
-        if clean is None or not clean.accepted:
-            findings.append(FINDING_UNCONFIRMED)
-        elif clean.value is not True:
-            findings.append(FINDING_REPORTED)
+        passed = tuple(
+            float(result.answers[f"criterion_{index}"].probability or 0.0) >= 0.5
+            for index in range(len(criteria))
+        )
+        flagged = float(result.answers["findings_reported"].probability or 0.0) >= 0.5
+        findings = (FINDING_REPORTED,) if flagged else ()
         return AcceptanceReviewResult(
             approved=all(passed) and not findings,
-            criteria_passed=tuple(passed),
-            findings=tuple(findings),
+            criteria_passed=passed,
+            findings=findings,
         )
+
+
+def _provider_settings() -> Mapping[str, Any] | None:
+    from agent.cli_backends.helpers import _get_agent_config
+    from agent.services.decision_providers.config import SECTION, normalize_decision_config
+
+    section = (_get_agent_config() or {}).get(SECTION)
+    if not section:
+        return None
+    return normalize_decision_config(section)
+
+
+def _build_stage(settings: Mapping[str, Any]) -> Any:
+    from agent.services.decision_providers.cascade import AgreementStage, CascadeStage
+    from agent.services.decision_providers.service import build_provider
+
+    providers_cfg = settings["providers"]
+    names = [name for name in ("laya", "local_decision") if providers_cfg[name]["enabled"]]
+    providers = [build_provider(name, providers_cfg[name]) for name in names]
+    if len(providers) > 1:
+        return AgreementStage(providers, AGREEMENT_MIN_CONFIDENCE)
+    return CascadeStage(providers[0], AGREEMENT_MIN_CONFIDENCE)
 
 
 def build_review_verdict_producer() -> ReviewVerdictProducer | None:
-    """Producer active only when the operator enabled the verdict task; misconfiguration fails loud."""
-    runtime = _default_runtime_loader()
-    if runtime is None:
+    """Producer active only when the operator enabled a decision engine for it."""
+    settings = _provider_settings()
+    if settings is None or not settings["enabled"]:
         return None
-    config = runtime.provider.config
-    if config.schemas and VERDICT_TASK_ID not in config.schemas:
+    providers_cfg = settings["providers"]
+    if not any(providers_cfg[name]["enabled"] for name in ("laya", "local_decision")):
         return None
-    return DecisionReviewVerdictProducer()
+    return DecisionReviewVerdictProducer(stage=_build_stage(settings))

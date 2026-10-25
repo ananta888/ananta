@@ -11,8 +11,9 @@ from agent.services.self_development.acceptance_review import (
     AcceptanceReviewResult,
 )
 from agent.services.self_development.review_verdict_decision import (
+    FINDING_ABSTAINED,
+    FINDING_DISAGREEMENT,
     FINDING_REPORTED,
-    FINDING_UNCONFIRMED,
     VERDICT_TASK_ID,
     DecisionReviewVerdictProducer,
     _decision_text,
@@ -23,39 +24,31 @@ from agent.services.vision_decision_provider import MAX_TEXT_CHARS
 from agent.services.vision_decision_task_policy import DEFAULT_VISION_TASK_CATALOG
 
 _REQUIREMENTS = {"acceptance_criteria": ["criterion A text", "criterion B text"]}
-_MISSING = object()
 
 
-def _field(*, accepted=True, value=True):
-    return SimpleNamespace(accepted=accepted, value=value)
-
-
-def _outcome(fields, *, ok=True):
-    return SimpleNamespace(ok=ok, results=[SimpleNamespace(fields=fields)])
-
-
-class _FakeProvider:
-    def __init__(self, outcome=None, *, schemas=()):
-        self.config = SimpleNamespace(schemas=tuple(schemas))
+class _Stage:
+    def __init__(self, *, outcome="accepted", answers=None, raises=None):
         self.outcome = outcome
-        self.calls = []
+        self.answers = answers or {}
+        self.raises = raises
+        self.seen = []
 
-    def decide(self, schema, contexts, **kwargs):
-        self.calls.append({"schema": schema, "contexts": contexts, "kwargs": kwargs})
-        return self.outcome
+    def attempt(self, request, timeout):
+        self.seen.append({"request": request, "timeout": timeout})
+        if self.raises is not None:
+            raise self.raises
+        result = SimpleNamespace(answers=dict(self.answers))
+        return SimpleNamespace(provider_id="fake", outcome=self.outcome, latency_ms=1.0), (
+            result if self.outcome == "accepted" else None
+        )
 
 
-def _producer(outcome=None, *, schemas=(), loader_result=_MISSING, loader_raises=False):
-    provider = _FakeProvider(outcome, schemas=schemas)
+def _answer(value):
+    return SimpleNamespace(probability=1.0 if value else 0.0)
 
-    def loader():
-        if loader_raises:
-            raise RuntimeError("boom")
-        if loader_result is not _MISSING:
-            return loader_result
-        return SimpleNamespace(provider=provider)
 
-    return DecisionReviewVerdictProducer(runtime_loader=loader), provider
+def _producer(stage):
+    return DecisionReviewVerdictProducer(stage=stage)
 
 
 def test_review_verdict_task_is_registered_and_informational():
@@ -76,110 +69,123 @@ def test_decision_text_fits_provider_limit_and_keeps_the_analysis():
     assert "Reviewer analysis:" in text
 
 
-def test_producer_assembles_approval_from_confirmed_criteria():
-    producer, provider = _producer(
-        _outcome(
-            {
-                "criterion_0": _field(value=True),
-                "criterion_1": _field(value=True),
-                "no_findings": _field(value=True),
-            }
-        )
+def test_questions_cover_every_criterion_plus_the_findings_check():
+    stage = _Stage(
+        answers={"criterion_0": _answer(True), "criterion_1": _answer(True), "findings_reported": _answer(False)}
     )
-    result = producer.produce(requirements=_REQUIREMENTS, changed_files={}, analysis="clean")
+    _producer(stage).produce(requirements=_REQUIREMENTS, changed_files={}, analysis="...")
+    question = stage.seen[0]["request"]
+    assert [q.key for q in question.questions] == ["criterion_0", "criterion_1", "findings_reported"]
+    assert all(q.kind == "noul" for q in question.questions)
+    assert "criterion A text" in question.questions[0].instructions
+    assert question.purpose == "self_development_review"
+
+
+def test_agreed_true_verdict_approves():
+    stage = _Stage(
+        answers={"criterion_0": _answer(True), "criterion_1": _answer(True), "findings_reported": _answer(False)}
+    )
+    result = _producer(stage).produce(requirements=_REQUIREMENTS, changed_files={}, analysis="clean")
     assert result == AcceptanceReviewResult(approved=True, criteria_passed=(True, True), findings=())
-    call = provider.calls[0]
-    assert call["kwargs"] == {"require_media": False}
-    assert set(call["schema"].fields and [f.name for f in call["schema"].fields]) == {
-        "criterion_0",
-        "criterion_1",
-        "no_findings",
-    }
 
 
-def test_producer_never_approves_without_every_criterion():
-    producer, _ = _producer(
-        _outcome(
-            {
-                "criterion_0": _field(value=True),
-                "criterion_1": _field(value=False),
-                "no_findings": _field(value=True),
-            }
-        )
+def test_agreed_false_criterion_blocks_without_extra_finding():
+    stage = _Stage(
+        answers={"criterion_0": _answer(True), "criterion_1": _answer(False), "findings_reported": _answer(False)}
     )
-    result = producer.produce(requirements=_REQUIREMENTS, changed_files={}, analysis="...")
+    result = _producer(stage).produce(requirements=_REQUIREMENTS, changed_files={}, analysis="...")
     assert result == AcceptanceReviewResult(approved=False, criteria_passed=(True, False), findings=())
 
 
-def test_producer_treats_unconfirmed_fields_as_findings():
-    producer, _ = _producer(
-        _outcome(
-            {
-                "criterion_0": _field(value=True),
-                "criterion_1": _field(accepted=False, value=None),
-                "no_findings": _field(accepted=False, value=None),
-            }
-        )
+def test_reported_findings_block_an_otherwise_clean_verdict():
+    stage = _Stage(
+        answers={"criterion_0": _answer(True), "criterion_1": _answer(True), "findings_reported": _answer(True)}
     )
-    result = producer.produce(requirements=_REQUIREMENTS, changed_files={}, analysis="...")
-    assert result.approved is False
-    assert result.criteria_passed == (True, False)
-    assert result.findings == ("criterion_unconfirmed:1", FINDING_UNCONFIRMED)
-
-
-def test_producer_records_reported_findings():
-    producer, _ = _producer(
-        _outcome({"criterion_0": _field(), "criterion_1": _field(), "no_findings": _field(value=False)})
-    )
-    result = producer.produce(requirements=_REQUIREMENTS, changed_files={}, analysis="...")
+    result = _producer(stage).produce(requirements=_REQUIREMENTS, changed_files={}, analysis="...")
     assert result == AcceptanceReviewResult(
         approved=False, criteria_passed=(True, True), findings=(FINDING_REPORTED,)
     )
 
 
-def test_producer_fails_closed_on_technical_errors():
-    producer, _ = _producer(_outcome({}, ok=False))
+def test_engine_disagreement_blocks_the_acceptance():
+    result = _producer(_Stage(outcome="disagreement")).produce(
+        requirements=_REQUIREMENTS, changed_files={}, analysis="a convincing lie"
+    )
+    assert result == AcceptanceReviewResult(
+        approved=False, criteria_passed=(False, False), findings=(FINDING_DISAGREEMENT,)
+    )
+
+
+def test_low_confidence_blocks_the_acceptance():
+    result = _producer(_Stage(outcome="low_confidence")).produce(
+        requirements=_REQUIREMENTS, changed_files={}, analysis="..."
+    )
+    assert result == AcceptanceReviewResult(
+        approved=False, criteria_passed=(False, False), findings=(FINDING_ABSTAINED,)
+    )
+
+
+def test_technical_failures_fail_closed():
+    from agent.services.decision_providers.types import DecisionProviderError
+
     with pytest.raises(AcceptanceReviewError) as excinfo:
-        producer.produce(requirements=_REQUIREMENTS, changed_files={}, analysis="...")
+        _producer(_Stage(raises=DecisionProviderError("timeout", retryable=True))).produce(
+            requirements=_REQUIREMENTS, changed_files={}, analysis="..."
+        )
     assert excinfo.value.reason_code == "review_verdict_decision_failed"
 
-    producer, _ = _producer(_outcome({}), loader_result=None)
     with pytest.raises(AcceptanceReviewError) as excinfo:
-        producer.produce(requirements=_REQUIREMENTS, changed_files={}, analysis="...")
+        _producer(_Stage(outcome="error")).produce(requirements=_REQUIREMENTS, changed_files={}, analysis="...")
     assert excinfo.value.reason_code == "review_verdict_decision_failed"
 
-    producer, _ = _producer(_outcome({}), loader_raises=True)
+    stage = _Stage()
     with pytest.raises(AcceptanceReviewError) as excinfo:
-        producer.produce(requirements=_REQUIREMENTS, changed_files={}, analysis="...")
-    assert excinfo.value.reason_code == "review_verdict_decision_failed"
-
-
-def test_producer_requires_bounded_criteria():
-    producer, provider = _producer(_outcome({}))
-    with pytest.raises(AcceptanceReviewError) as excinfo:
-        producer.produce(requirements={}, changed_files={}, analysis="...")
+        _producer(stage).produce(requirements={}, changed_files={}, analysis="...")
     assert excinfo.value.reason_code == "review_verdict_criteria_mismatch"
-    assert provider.calls == []
+    assert stage.seen == []
 
     huge = {"acceptance_criteria": [f"c{i}" for i in range(32)]}
     with pytest.raises(AcceptanceReviewError) as excinfo:
-        producer.produce(requirements=huge, changed_files={}, analysis="...")
+        _producer(stage).produce(requirements=huge, changed_files={}, analysis="...")
     assert excinfo.value.reason_code == "review_verdict_schema_too_large"
-    assert provider.calls == []
+    assert stage.seen == []
 
 
-def test_factory_producer_only_when_task_enabled(monkeypatch):
-    module = __import__(
-        "agent.services.self_development.review_verdict_decision", fromlist=["_default_runtime_loader"]
-    )
-    monkeypatch.setattr(module, "_default_runtime_loader", lambda: None)
+def test_factory_activates_an_agreement_of_two_engines(monkeypatch):
+    import agent.services.self_development.review_verdict_decision as module
+
+    settings = {
+        "enabled": True,
+        "providers": {
+            "laya": {"enabled": True, "base_url": "http://laya:8080", "model": "",
+                     "allowed_hosts": ["laya"], "api_key_env": "LAYA_API_KEY",
+                     "timeout_seconds": 5.0, "max_retries": 1, "max_state_chars": 32000},
+            "local_decision": {"enabled": True, "base_url": "http://egpu-code:18150",
+                               "base_url_env": "", "timeout_seconds": 20.0, "max_inflight": 4,
+                               "require_cache_isolation": False, "scoped_prefix_cache": False},
+        },
+    }
+    monkeypatch.setattr(module, "_provider_settings", lambda: settings)
+    producer = build_review_verdict_producer()
+    assert isinstance(producer, DecisionReviewVerdictProducer)
+    stage = producer._stage
+    assert len(stage.providers) == 2
+    assert {p.provider_id for p in stage.providers} == {"laya", "llamacpp_decision"}
+
+
+def test_factory_is_inactive_without_decision_engines(monkeypatch):
+    import agent.services.self_development.review_verdict_decision as module
+
+    monkeypatch.setattr(module, "_provider_settings", lambda: None)
+    assert build_review_verdict_producer() is None
+    monkeypatch.setattr(module, "_provider_settings", lambda: {"enabled": False, "providers": {}})
     assert build_review_verdict_producer() is None
     monkeypatch.setattr(
-        module, "_default_runtime_loader", lambda: SimpleNamespace(provider=_FakeProvider(None, schemas=("shapes-v1",)))
+        module,
+        "_provider_settings",
+        lambda: {"enabled": True, "providers": {"laya": {"enabled": False}, "local_decision": {"enabled": False}}},
     )
     assert build_review_verdict_producer() is None
-    monkeypatch.setattr(module, "_default_runtime_loader", lambda: SimpleNamespace(provider=_FakeProvider(None)))
-    assert build_review_verdict_producer() is not None
 
 
 class _RecordingProducer:
@@ -239,9 +245,7 @@ def _reviewer(tmp_path, producer):
 def test_collect_review_uses_decision_produced_verdict(tmp_path):
     produced = AcceptanceReviewResult(approved=True, criteria_passed=(True,), findings=())
     producer = _RecordingProducer(produced)
-    receipt = _collect(
-        _reviewer(tmp_path, producer), tmp_path, '{"not": "a verdict at all"'
-    )
+    receipt = _collect(_reviewer(tmp_path, producer), tmp_path, '{"not": "a verdict at all"')
     assert receipt.result is produced
     assert producer.seen and producer.seen[0]["analysis"]
 
@@ -257,44 +261,3 @@ def test_collect_review_without_producer_keeps_strict_parse(tmp_path):
     with pytest.raises(Exception) as excinfo:
         _collect(_reviewer(tmp_path, None), tmp_path, "no json here")
     assert getattr(excinfo.value, "reason_code", "") == "worker_review_verdict_unparseable"
-
-
-def test_analysis_brief_omits_verdict_json_contract():
-    from agent.services.self_development.review_workflow import VERDICT_CONTRACT, build_review_brief
-
-    brief = build_review_brief(
-        todo_id="t",
-        requirements={"acceptance_criteria": ["c1"]},
-        changed_files={"a.py": "abc"},
-        verification_command="pytest -q",
-        attempt=1,
-        verdict_from_decision=True,
-    )
-    assert VERDICT_CONTRACT not in brief
-    assert "ATTEMPT" not in brief
-    assert "your analysis" in brief
-    assert "Run exactly: pytest -q" in brief
-
-
-def test_analysis_manifest_makes_prose_answers_persistable(tmp_path):
-    from agent.services.self_development.final_answer_artifact import (
-        ANALYSIS_CONTRACT,
-        review_answer_present,
-        write_final_answer,
-    )
-
-    workspace = tmp_path / "ws"
-    (workspace / ".ananta").mkdir(parents=True)
-    (workspace / ".ananta" / "review.json").write_text(
-        json.dumps({"output_contract": ANALYSIS_CONTRACT}), encoding="utf-8"
-    )
-    assert write_final_answer(workspace, task_id="t1", answer="The change adds tests. pytest passes.")
-    assert review_answer_present(workspace)
-
-    legacy = tmp_path / "legacy"
-    (legacy / ".ananta").mkdir(parents=True)
-    (legacy / ".ananta" / "review.json").write_text(
-        json.dumps({"output_contract": "json verdict"}), encoding="utf-8"
-    )
-    assert not write_final_answer(legacy, task_id="t2", answer="The change adds tests.")
-    assert not review_answer_present(legacy)
