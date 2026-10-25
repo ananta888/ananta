@@ -22,6 +22,9 @@ from agent.services.self_development.acceptance_review import (
     AcceptanceReviewRequest,
     AcceptanceReviewResult,
 )
+from agent.services.self_development.review_verdict_decision import (
+    ReviewVerdictProducer,
+)
 from agent.services.self_development.workspace import export_revision, read_source
 
 PROJECT_ID = "ananta-self-development"
@@ -53,8 +56,9 @@ def select_reviewer_worker(
     ``available_workers`` still drops offline and out-of-grace Workers itself.
     """
     if workers is None:
-        from agent.services.autopilot_support_service import get_autopilot_support_service
         from flask import current_app, has_app_context
+
+        from agent.services.autopilot_support_service import get_autopilot_support_service
 
         workers, _ = get_autopilot_support_service().available_workers(
             team_id=team_id,
@@ -79,7 +83,13 @@ def select_reviewer_worker(
 
 
 def build_review_brief(
-    *, todo_id: str, requirements: dict, changed_files: dict, verification_command: str, attempt: int = 0
+    *,
+    todo_id: str,
+    requirements: dict,
+    changed_files: dict,
+    verification_command: str,
+    attempt: int = 0,
+    verdict_from_decision: bool = False,
 ) -> str:
     """Bounded reviewer assignment; JSON data only, never execution authority."""
     criteria = requirements.get("acceptance_criteria")
@@ -99,10 +109,13 @@ def build_review_brief(
     ]
     if criteria:
         lines.append("")
-        lines.append(
-            "Judge every criterion in order; criteria_passed must have exactly "
-            f"{len(criteria)} entries in the same order."
-        )
+        if verdict_from_decision:
+            lines.append(f"Discuss every acceptance criterion in order ({len(criteria)} criteria).")
+        else:
+            lines.append(
+                "Judge every criterion in order; criteria_passed must have exactly "
+                f"{len(criteria)} entries in the same order."
+            )
     lines += [
         "",
         # The `Run exactly:` marker is the same declaration the development brief
@@ -110,18 +123,31 @@ def build_review_brief(
         # step, which is what `collect_review` compares against the reservation.
         "Run exactly: " + verification_command,
         "Execute that command once with test.run before you answer.",
-        # The loop dialect speaks "kind"; a plain CLI backend (no loop) must see
-        # the tool call spelled out — it never produced the verdict otherwise.
-        'Finish by calling the final_answer tool exactly once with an "answer" containing '
-        'ONLY this JSON object (loop backends: kind "final_answer"): ' + VERDICT_CONTRACT,
-        "approved is true only when every criterion passes and findings is empty.",
     ]
-    if attempt > 0:
+    if verdict_from_decision:
         lines += [
-            "",
-            f"ATTEMPT {attempt + 1}: the previous answer was not the required JSON verdict. "
-            "Answer ONLY with this exact JSON object — no prose, no other keys: " + VERDICT_CONTRACT,
+            # A verdict claim here would only be mirrored by the decision model:
+            # the hub scores the verdict from the analysis, so none is requested.
+            'Finish by calling the final_answer tool exactly once with an "answer" containing '
+            "your analysis (loop backends: kind \"final_answer\"): one observation per "
+            "acceptance criterion, the verification command result, and every finding or "
+            "objection. Do not write a verdict JSON — the hub scores the verdict "
+            "independently from your analysis.",
         ]
+    else:
+        lines += [
+            # The loop dialect speaks "kind"; a plain CLI backend (no loop) must see
+            # the tool call spelled out — it never produced the verdict otherwise.
+            'Finish by calling the final_answer tool exactly once with an "answer" containing '
+            'ONLY this JSON object (loop backends: kind "final_answer"): ' + VERDICT_CONTRACT,
+            "approved is true only when every criterion passes and findings is empty.",
+        ]
+        if attempt > 0:
+            lines += [
+                "",
+                f"ATTEMPT {attempt + 1}: the previous answer was not the required JSON verdict. "
+                "Answer ONLY with this exact JSON object — no prose, no other keys: " + VERDICT_CONTRACT,
+            ]
     brief = "\n".join(lines)
     if len(brief) > _MAX_ANSWER_CHARS:
         raise ReviewWorkflowError("review_brief_too_large")
@@ -185,6 +211,7 @@ class QueueAcceptanceReviewer:
         policy_digest: str,
         choose_worker: Callable[[str], str] | None = None,
         task_lookup: Callable[[str], Any] | None = None,
+        verdict_producer: ReviewVerdictProducer | None = None,
     ) -> None:
         self.queue = queue
         self.registry = registry
@@ -194,6 +221,7 @@ class QueueAcceptanceReviewer:
         self.tenant_id = tenant_id
         self.team_id = team_id
         self.policy_digest = policy_digest
+        self.verdict_producer = verdict_producer
         # The default selector must carry the reviewer team; injected callables keep
         # their single-argument (author url) contract.
         self.choose_worker = choose_worker or (
@@ -294,14 +322,19 @@ class QueueAcceptanceReviewer:
             target.chmod(0o644)
         requirements = json.loads(request.requirements_json)
         changed_files = {path: digest for path, digest in request.changed_files}
-        from agent.services.self_development.final_answer_artifact import review_answer_rounds
+        from agent.services.self_development.final_answer_artifact import (
+            ANALYSIS_CONTRACT,
+            review_answer_rounds,
+        )
 
+        decision_scores_verdict = self.verdict_producer is not None
         brief = build_review_brief(
             todo_id=str(requirements.get("todo_id") or ""),
             requirements=requirements,
             changed_files=changed_files,
             verification_command=verification_command,
             attempt=review_answer_rounds(workspace),
+            verdict_from_decision=decision_scores_verdict,
         )
         manifest = {
             "schema": "self_development_review_brief.v1",
@@ -312,7 +345,7 @@ class QueueAcceptanceReviewer:
             "requirements": requirements,
             "changed_files": changed_files,
             "verification_command": verification_command,
-            "output_contract": VERDICT_CONTRACT,
+            "output_contract": ANALYSIS_CONTRACT if decision_scores_verdict else VERDICT_CONTRACT,
             "final_answer_file": ".ananta/last-final-answer.json",
         }
         (workspace / ".ananta").mkdir(parents=True, exist_ok=True)
@@ -368,9 +401,17 @@ class QueueAcceptanceReviewer:
             raise ReviewWorkflowError("worker_review_answer_missing")
         requirements = json.loads(request.requirements_json)
         criteria = requirements.get("acceptance_criteria")
-        result = parse_review_verdict(
-            str(artifact.get("answer") or ""), criteria_count=len(criteria) if isinstance(criteria, list) else 0
-        )
+        criteria_count = len(criteria) if isinstance(criteria, list) else 0
+        if self.verdict_producer is not None:
+            result = self.verdict_producer.produce(
+                requirements=requirements,
+                changed_files={path: digest for path, digest in request.changed_files},
+                analysis=str(artifact.get("answer") or ""),
+            )
+        else:
+            result = parse_review_verdict(
+                str(artifact.get("answer") or ""), criteria_count=criteria_count
+            )
         completed = self.registry.record_result(
             tenant_id=self.tenant_id,
             project_id=PROJECT_ID,

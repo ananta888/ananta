@@ -8,6 +8,8 @@ linking and no shared memory. Rules:
   malformed or schema-invalid responses are ``ok=False`` and carry no value, never a default label;
 * Ananta always sends abstain thresholds and re-checks them locally; a field the server lists in
   ``abstained`` (or that fails the local check) carries no value and must be escalated;
+* every context carries at least one image unless the caller explicitly opts into text-only scoring
+  with ``require_media=False`` (the self-development review gate);
 * a decision value is advisory and never grants a permission; the hub owns policy and fallback.
 
 Images are validated and bounded locally (count, bytes, pixels, side length) and re-encoded as PNG
@@ -771,10 +773,17 @@ class VisionDecisionProvider:
         *,
         return_probs: bool = False,
         deadline_monotonic: float | None = None,
+        require_media: bool = True,
     ) -> VisionDecisionOutcome:
         started = self._clock()
         try:
-            outcome = self._decide(schema, contexts, return_probs=return_probs, deadline_monotonic=deadline_monotonic)
+            outcome = self._decide(
+                schema,
+                contexts,
+                return_probs=return_probs,
+                deadline_monotonic=deadline_monotonic,
+                require_media=require_media,
+            )
         except Exception:  # a provider bug never becomes a decision
             _log.exception("vision decision provider failed")
             outcome = VisionDecisionOutcome.failure("provider_error", schema_id=getattr(schema, "schema_id", None))
@@ -804,6 +813,7 @@ class VisionDecisionProvider:
         *,
         return_probs: bool,
         deadline_monotonic: float | None,
+        require_media: bool = True,
     ) -> VisionDecisionOutcome:
         sid = schema.schema_id if isinstance(schema, VisionDecisionSchema) else None
         if not isinstance(schema, VisionDecisionSchema):
@@ -825,8 +835,12 @@ class VisionDecisionProvider:
         # Local validation and re-encoding run before anything leaves the process.
         request_contexts: list[list[dict[str, Any]]] = []
         for context in contexts:
-            if not context.images:
+            if not context.images and require_media:
                 return VisionDecisionOutcome.failure("invalid_request", "every context needs at least one image", schema_id=sid)
+            if not context.images and not context.text.strip():
+                return VisionDecisionOutcome.failure(
+                    "invalid_request", "every context needs an image or text", schema_id=sid
+                )
             if len(context.text) > MAX_TEXT_CHARS:
                 return VisionDecisionOutcome.failure("invalid_request", "context text is too long", schema_id=sid)
             parts: list[dict[str, Any]] = []

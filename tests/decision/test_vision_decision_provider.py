@@ -273,6 +273,24 @@ def test_ok_outcome_and_request_shape():
     assert text_part == {"type": "text", "text": SECRET_PROMPT}
 
 
+def test_text_only_context_needs_explicit_opt_in():
+    transport = FakeTransport()
+    provider = _provider(transport)
+
+    strict = _decide(provider, images=0)
+    assert (strict.ok, strict.error_code) == (False, "invalid_request")
+    assert transport.calls == []
+
+    empty = provider.decide(SCHEMA, [VisionContext(images=(), text="   ")], require_media=False)
+    assert (empty.ok, empty.error_code) == (False, "invalid_request")
+    assert transport.calls == []
+
+    opened = provider.decide(SCHEMA, [VisionContext(images=(), text="verdict only")], require_media=False)
+    assert opened.ok and opened.error_code is None
+    (text_part,) = transport.calls[0]["body"]["contexts"][0]
+    assert text_part == {"type": "text", "text": "verdict only"}
+
+
 def test_gate_ok_needs_policy_to_act():
     outcome = _decide(_provider(FakeTransport()))
     hub = gate_vision_decision(outcome)

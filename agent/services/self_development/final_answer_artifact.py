@@ -31,6 +31,7 @@ from agent.services.long_context_step_result import output_answer
 log = logging.getLogger(__name__)
 
 FINAL_ANSWER_SCHEMA = "ananta_worker_final_answer.v1"
+ANALYSIS_CONTRACT = "ananta_review_analysis.v1"
 _MAX_ANSWER_CHARS = 16000
 REVIEW_ANSWER_ROUNDS_MAX = 3
 _REVIEW_ANSWER_ROUNDS_FILE = "review-answer-rounds"
@@ -114,21 +115,36 @@ def _balanced_object(text: str, start: int) -> str | None:
     return None
 
 
+def _analysis_contract(root: Path) -> bool:
+    """Whether the review admission asked for a prose analysis instead of a verdict JSON."""
+    try:
+        manifest = json.loads((root / ".ananta" / "review.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    return str((manifest or {}).get("output_contract") or "") == ANALYSIS_CONTRACT
+
+
 def write_final_answer(workspace: str | Path, *, task_id: str, answer: str, session_id: str = "") -> bool:
     """Persist the verdict artifact when the workspace has none yet.
 
     Never overwrites: the mutation loop owns the file it already wrote, so this
-    only ever fills the gap of a backend that answers without a loop.
+    only ever fills the gap of a backend that answers without a loop. A review
+    admission with the :data:`ANALYSIS_CONTRACT` stores the analysis text as-is;
+    every other review keeps requiring the verdict contract, where a missing or
+    unparseable verdict stays missing.
     """
     root = Path(workspace)
     artifact_path = root / ".ananta" / "last-final-answer.json"
     if artifact_path.exists():
         return False
-    verdict = extract_verdict_answer(answer)
-    if verdict is None:
+    if _analysis_contract(root):
+        content = str(answer or "").strip()
+    else:
+        content = extract_verdict_answer(answer)
+    if not content:
         log.info("final_answer_artifact_skipped_no_verdict task=%s", task_id)
         return False
-    artifact = build_final_answer_artifact(task_id=task_id, answer=verdict, session_id=session_id)
+    artifact = build_final_answer_artifact(task_id=task_id, answer=content, session_id=session_id)
     try:
         artifact_path.parent.mkdir(parents=True, exist_ok=True)
         artifact_path.write_text(json.dumps(artifact, ensure_ascii=False), encoding="utf-8")

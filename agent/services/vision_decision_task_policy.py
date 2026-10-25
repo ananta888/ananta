@@ -162,7 +162,31 @@ _DOCUMENT_INTAKE = _task(
     instructions="The image is a single scanned or photographed document page.",
 )
 
-DEFAULT_VISION_TASK_CATALOG: Mapping[str, VisionTask] = {item.task_id: item for item in (_SHAPES, _DOCUMENT_INTAKE)}
+_SELF_DEVELOPMENT_REVIEW_VERDICT = _task(
+    "self_development_review_verdict",
+    {
+        "approved": {
+            "type": "boolean",
+            "description": (
+                "Do the listed changed files plausibly satisfy every criterion the reviewer "
+                "claims as passed, and is the verdict consistent with the requirements?"
+            ),
+        },
+    },
+    status="experimental",
+    instructions=(
+        "The text is an independent acceptance review: task requirements with acceptance "
+        "criteria, the changed files under review and one reviewer's JSON verdict. Check the "
+        "verdict against the evidence, do not trust it: answer true only when every criterion "
+        "it claims as passed could be satisfied by the listed changed files alone. Answer "
+        "false when the verdict over-claims, for example when it approves criteria about new "
+        "tests, code or documentation that no changed file could provide."
+    ),
+)
+
+DEFAULT_VISION_TASK_CATALOG: Mapping[str, VisionTask] = {
+    item.task_id: item for item in (_SHAPES, _DOCUMENT_INTAKE, _SELF_DEVELOPMENT_REVIEW_VERDICT)
+}
 
 
 @dataclass(frozen=True)
