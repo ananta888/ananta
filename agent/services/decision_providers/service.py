@@ -99,6 +99,19 @@ def build_provider(name: str, settings: Mapping[str, Any], *,
             timeout_seconds=settings["timeout_seconds"], max_retries=settings["max_retries"],
             max_inflight=settings["max_inflight"], max_state_chars=settings["max_state_chars"],
         )
+    if name == "laya":
+        from agent.services.decision_providers.laya import LayaDecisionProvider
+        from agent.services.decision_providers.typesafe import read_api_key
+
+        key_env = settings["api_key_env"]
+        return LayaDecisionProvider(
+            base_url=settings["base_url"], model=settings.get("model", ""),
+            allowed_hosts=settings["allowed_hosts"],
+            api_key=lambda: read_api_key({"TYPESAFE_API_KEY": env.get(key_env, ""),
+                                          "TYPESAFE_API_KEY_FILE": env.get(key_env + "_FILE", "")}),
+            timeout_seconds=settings["timeout_seconds"], max_retries=settings["max_retries"],
+            max_state_chars=settings["max_state_chars"],
+        )
     if name == "llm":
         from agent.services.decision_providers.llm import LLMDecisionProvider
 
@@ -153,7 +166,7 @@ class DecisionService:
                             thresholds)
 
     def _provider(self, name: str, settings: Mapping[str, Any]) -> DecisionProvider:
-        if name not in {"jeff", "local_decision"}:
+        if name not in {"jeff", "local_decision", "laya"}:
             return self._factory(name, settings)
         # Admission and circuit state must survive individual decisions. The
         # cache is scoped to this injected service, bounded, and config-keyed.

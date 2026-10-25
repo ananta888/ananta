@@ -39,7 +39,7 @@ from collections.abc import Mapping
 from typing import Any
 
 SECTION = "decision_providers"
-PROVIDERS = ("jev", "local_decision", "llm", "jeff")
+PROVIDERS = ("jev", "local_decision", "llm", "jeff", "laya")
 EXTERNAL_PROVIDERS = frozenset({"jev"})
 AREAS = ("tool_routing", "companion_route", "companion_knowledge", "retrieval_intent", "rag_needed",
          "chat_intent", "hub_direct", "prompt_injection", "context_strategy")
@@ -64,6 +64,9 @@ DEFAULTS: dict[str, Any] = {
                  "model_revision": "d0a4e53d09cebe6bc963dd9be319d4279084bb2d",
                  "allowed_hosts": ["jeff", "localhost", "127.0.0.1"], "api_key_env": "JEFF_API_KEY",
                  "timeout_seconds": 5.0, "max_retries": 1, "max_inflight": 4, "max_state_chars": 8000},
+        "laya": {"enabled": False, "base_url": "http://laya:8080", "model": "",
+                 "allowed_hosts": ["laya", "localhost", "127.0.0.1"], "api_key_env": "LAYA_API_KEY",
+                 "timeout_seconds": 5.0, "max_retries": 1, "max_state_chars": 32000},
     },
     "areas": {},
 }
@@ -150,6 +153,23 @@ def _provider(name: str, raw: Any) -> dict[str, Any]:
                 raise DecisionConfigError("decision_provider_bound_invalid:jeff:" + key)
         if not isinstance(result["api_key_env"], str) or not result["api_key_env"].replace("_", "").isalnum():
             raise DecisionConfigError("decision_provider_api_key_env_invalid:jeff")
+    if name == "laya":
+        from agent.services.decision_providers.jeff import validate_local_endpoint
+        from agent.services.decision_providers.types import DecisionProviderError
+
+        hosts = result["allowed_hosts"]
+        if not isinstance(hosts, list) or not hosts or any(not isinstance(h, str) for h in hosts):
+            raise DecisionConfigError("decision_provider_hosts_invalid:laya")
+        try:
+            validate_local_endpoint(result["base_url"], hosts)
+        except DecisionProviderError as error:
+            raise DecisionConfigError(error.reason_code) from None
+        result["model"] = str(result["model"] or "").strip()
+        for key, minimum, maximum in [("max_retries", 0, 5), ("max_state_chars", 1000, 50000)]:
+            if type(result[key]) is not int or not minimum <= result[key] <= maximum:
+                raise DecisionConfigError("decision_provider_bound_invalid:laya:" + key)
+        if not isinstance(result["api_key_env"], str) or not result["api_key_env"].replace("_", "").isalnum():
+            raise DecisionConfigError("decision_provider_api_key_env_invalid:laya")
     return result
 
 
