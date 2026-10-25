@@ -69,6 +69,24 @@ def test_a_shared_checkout_is_copied_into_a_task_owned_workspace_with_a_manifest
     assert not (shared / ".ananta").exists()
 
 
+def test_source_modules_named_artifacts_are_copied_but_not_the_runtime_output_dir(tmp_path):
+    shared = _shared_checkout(tmp_path)
+    (shared / "agent" / "artifacts").mkdir(parents=True)
+    (shared / "agent" / "artifacts" / "goal_artifact_service.py").write_text(
+        "class GoalArtifactService:\n    pass\n", encoding="utf-8"
+    )
+    (shared / "artifacts").mkdir()
+    (shared / "artifacts" / "domain-report.json").write_text("{}", encoding="utf-8")
+    task = _task("art-1", shared, scope_key="shared")
+
+    with _app(tmp_path).app_context():
+        WorkerWorkspaceService().resolve_workspace_context(task=task)
+
+    target = tmp_path / "root" / "self-dev-art-1"
+    assert (target / "agent" / "artifacts" / "goal_artifact_service.py").is_file()
+    assert not (target / "artifacts" / "domain-report.json").exists()
+
+
 def test_operator_named_files_become_the_materialization_manifest(tmp_path):
     shared = _shared_checkout(tmp_path)
     task = _task("decl-9", shared, materialized_files=["tests/test_growth.py"])

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import difflib
 import hashlib
-import re
 import json
 import logging
 import os
@@ -13,7 +12,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
-from flask import current_app, g as flask_g, has_app_context, has_request_context
+from flask import current_app, has_app_context, has_request_context
+from flask import g as flask_g
 
 from agent.config import settings
 from agent.services.output_dir_lock_service import get_output_dir_lock_service
@@ -40,8 +40,10 @@ class WorkerWorkspaceContext:
 
 
 from agent.services._worker_workspace_context_writer import (
-    prepare_opencode_context_files as _prepare_opencode_context_files,
     prepare_ananta_worker_context_files as _prepare_ananta_worker_context_files,
+)
+from agent.services._worker_workspace_context_writer import (
+    prepare_opencode_context_files as _prepare_opencode_context_files,
 )
 
 
@@ -326,19 +328,23 @@ class WorkerWorkspaceService:
         if source == target or not source.is_dir() or workspace_dir.exists():
             return workspace_dir
         workspace_dir.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copytree(
-            source,
-            workspace_dir,
-            ignore=shutil.ignore_patterns(
-                ".git",
-                "__pycache__",
-                ".pytest_cache",
-                ".venv",
-                "project-workspaces",
-                "artifacts",
-                "*.log",
-            ),
-        )
+        root = source
+
+        def _ignore(directory: str, names: list[str]) -> set[str]:
+            # `artifacts` is runtime output only at the workspace root; a source
+            # module may carry the same name (agent/artifacts) and must be copied.
+            base = Path(directory).resolve()
+            dropped = {
+                name
+                for name in names
+                if name in {".git", "__pycache__", ".pytest_cache", ".venv", "project-workspaces"}
+                or name.endswith(".log")
+            }
+            if base == root:
+                dropped |= {name for name in names if name == "artifacts"}
+            return dropped
+
+        shutil.copytree(source, workspace_dir, ignore=_ignore)
         self._write_isolation_manifest(task=task, workspace_dir=workspace_dir, workspace_cfg=workspace_cfg)
         return workspace_dir
 

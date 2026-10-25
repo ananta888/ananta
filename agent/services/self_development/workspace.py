@@ -176,7 +176,7 @@ def seal_changes(workspace: Path, baseline: dict, allowed: list[str], seal: Path
     current = {}
     for root, dirs, files in os.walk(workspace, followlinks=False):
         relative = Path(root).relative_to(workspace)
-        root_metadata = {".ananta", ".pytest_cache", "rag_helper"} if relative == Path(".") else set()
+        root_metadata = {".ananta", ".pytest_cache", "rag_helper", "data"} if relative == Path(".") else set()
         dirs[:] = [d for d in dirs if d != "__pycache__" and d not in root_metadata]
         for directory in dirs:
             if (Path(root) / directory).is_symlink():
@@ -190,7 +190,11 @@ def seal_changes(workspace: Path, baseline: dict, allowed: list[str], seal: Path
                 raise ValueError("source_symlink_denied")
             with actual.open("rb") as stream:
                 current[path] = hashlib.file_digest(stream, "sha256").hexdigest()
-    changed = {p for p in set(baseline) | set(current) if p != "AGENTS.md" and baseline.get(p) != current.get(p)}
+    changed = {
+        p
+        for p in set(baseline) | set(current)
+        if p != "AGENTS.md" and not p.startswith("data/") and baseline.get(p) != current.get(p)
+    }
     declared_new_missing = sorted(p for p in allowed if p not in baseline and p not in current)
     if declared_new_missing:
         # A declared new file the run never created is an incomplete deliverable:

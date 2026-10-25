@@ -42,6 +42,16 @@ def test_out_of_scope_source_edit_is_rejected(tmp_path):
         seal_changes(root, baseline, ['tests/test_original.py'], tmp_path / 'seal')
 
 
+def test_runtime_data_writes_are_ignored(tmp_path):
+    root, baseline = workspace(tmp_path)
+    (root / 'data').mkdir()
+    (root / 'data/app.log').write_text('runtime noise\n')
+    baseline['data/app.log'] = hashlib.sha256(b'exported\n').hexdigest()
+    (root / 'tests/test_original.py').write_text('after\n')
+    hashes = seal_changes(root, baseline, ['tests/test_original.py'], tmp_path / 'seal')
+    assert hashes == {'tests/test_original.py': hashlib.sha256(b'after\n').hexdigest()}
+
+
 def test_declared_new_file_that_was_never_written_fails_closed(tmp_path):
     # Given one declared file changed while the other declared new file was never
     # created — the deliverable the task contract promised stayed incomplete.
