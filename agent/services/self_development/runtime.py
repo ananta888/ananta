@@ -62,6 +62,7 @@ def _build_reviewer(policy, *, queue, registry):
     """
     if not (policy.value.get("quality_gates") or {}).get("require_acceptance_review"):
         return None
+    from agent.services.self_development.review_verdict_decision import build_review_verdict_producer
     from agent.services.self_development.review_workflow import QueueAcceptanceReviewer
 
     return QueueAcceptanceReviewer(
@@ -73,6 +74,7 @@ def _build_reviewer(policy, *, queue, registry):
         tenant_id=policy.value["tenant_id"],
         team_id=policy.value["team_id"],
         policy_digest=policy.digest,
+        verdict_producer=build_review_verdict_producer(),
     )
 
 
@@ -218,6 +220,40 @@ def apply_tool_loop_limits(app, policy):
     except Exception as exc:  # pragma: no cover - persistence is best effort
         app.logger.warning("self_development_tool_loop_persist_failed: %s", exc)
     app.logger.info("self_development_tool_loop_limits_applied")
+    return True
+
+
+def apply_propose_timeouts(app, policy):
+    """Widen the propose transport budget for autonomous development runs.
+
+    The governed forward deadline must not cut a proposal the Worker's model
+    call is still allowed to finish: the mutation loop budget is 30 minutes,
+    while the stock propose transport gives up after 5.
+    """
+    config = app.config.get("AGENT_CONFIG")
+    if not isinstance(config, dict):
+        return False
+    target = 1800
+    try:
+        current = int(config.get("task_propose_timeout_seconds") or 0)
+    except (TypeError, ValueError):
+        current = 0
+    if current >= target:
+        return False
+    config["task_propose_timeout_seconds"] = target
+    app.config["AGENT_CONFIG"] = config
+    import json
+
+    try:
+        from agent.db_models import ConfigDB
+        from agent.services.repository_registry import get_repository_registry
+
+        get_repository_registry().config_repo.save(
+            ConfigDB(key="task_propose_timeout_seconds", value_json=json.dumps(target))
+        )
+    except Exception as exc:  # pragma: no cover - persistence is best effort
+        app.logger.warning("self_development_propose_timeout_persist_failed: %s", exc)
+    app.logger.info("self_development_propose_timeouts_applied")
     return True
 
 

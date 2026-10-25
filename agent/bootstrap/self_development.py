@@ -17,6 +17,7 @@ def initialize_self_development(app):
     try:
         from agent.services.self_development.runtime import (
             apply_guardrails,
+            apply_propose_timeouts,
             apply_tool_loop_limits,
             apply_worker_scope,
             ensure_autopilot,
@@ -30,6 +31,7 @@ def initialize_self_development(app):
             apply_worker_scope(app, coordinator.policy)
             apply_guardrails(app, coordinator.policy)
             apply_tool_loop_limits(app, coordinator.policy)
+            apply_propose_timeouts(app, coordinator.policy)
             try:
                 # Deterministic bookkeeping: sync the TODO folder (release satisfied waits,
                 # archive what is worked off) and re-arm the items that only failed because the
