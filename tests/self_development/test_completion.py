@@ -447,3 +447,71 @@ def test_a_policy_change_rearms_only_the_items_it_invalidated(tmp_path):
     assert state['items']['b']['status'] == 'failed'  # a real failure stays failed
     assert len(queue.ingested) == 1  # exactly the re-armed item, with a fresh task id
     assert queue.ingested[0]['team_id'] == 'team'
+
+
+def test_bookkeeping_failures_never_consume_the_retry_budget(tmp_path):
+    """Policy collisions and operator stops got no real attempt at the work.
+
+    Their attempt records are dropped before the budget check, so an item that
+    died six times on digest collisions is a valid candidate again; a genuine
+    work failure keeps every attempt and stays failed.
+    """
+    from agent.services.self_development.coordinator import DevelopmentCoordinator
+
+    checkout = _checkout_with_todos(tmp_path)
+    policy = _policy(tmp_path / 'private', checkout)
+
+    class _Queue:
+        def __init__(self):
+            self.ingested = []
+
+        def ingest_task(self, **kwargs):
+            self.ingested.append(kwargs)
+
+    queue = _Queue()
+    coordinator = DevelopmentCoordinator(policy, queue=queue)
+    bookkeeping_attempts = [
+        {'task_id': 'old-%d' % n, 'reason': 'development_policy_changed', 'outcome': None, 'revision': 'r'}
+        for n in range(6)
+    ]
+    work_attempts = [
+        {'task_id': 'old-%d' % n, 'reason': 'development_evidence_gate_failed:evidence_run_not_successful',
+         'outcome': None, 'revision': 'r'}
+        for n in range(4)
+    ]
+
+    def _item(todo_id, task_id, reason, attempts, files):
+        return {'key': todo_id.lower(), 'task_id': task_id, 'source': 'todos/active/todo.done.json',
+                'todo_id': todo_id, 'title': todo_id, 'description': '', 'original_status': 'todo',
+                'status': 'failed', 'reason': reason, 'dependencies': [],
+                'contract': {'files': [files]}, 'attempts': list(attempts)}
+
+    state = {'session': {'id': 's', 'enabled': True, 'expires_at': None, 'dispatched': 0}, 'items': {
+        'a': _item('A', 't-a', 'development_policy_changed', bookkeeping_attempts, 'tests/x.py'),
+        'b': _item('B', 't-b', 'development_evidence_gate_failed:evidence_run_not_successful',
+                   work_attempts, 'tests/y.py'),
+        'c': _item('C', 't-c', 'development_session_stopped_or_budget_exhausted',
+                   bookkeeping_attempts, 'tests/z.py'),
+    }}
+
+    class _Journal:
+        def locked(self):
+            import contextlib
+            return contextlib.nullcontext()
+
+        def read(self):
+            return state
+
+        def write(self, new_state):
+            state.update(new_state)
+
+    coordinator.journal = _Journal()
+
+    assert coordinator.rearm_stale_policy_items() == 2  # the two bookkeeping items
+    assert state['items']['a']['status'] == 'ready'
+    assert state['items']['c']['status'] == 'ready'
+    # only the re-arm record itself remains; six digest collisions were no work attempt
+    assert len(state['items']['a']['attempts']) == 1
+    assert state['items']['b']['status'] == 'failed'  # a work failure keeps its verdict
+    assert len(state['items']['b']['attempts']) == 4  # and its full budget history
+    assert len(queue.ingested) == 2

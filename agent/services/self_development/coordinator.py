@@ -46,23 +46,32 @@ class DevelopmentCoordinator:
         self.reviewer = reviewer
 
     def rearm_stale_policy_items(self) -> int:
-        """Re-arm items that failed only because the operator changed the policy.
+        """Re-arm items that failed only because of bookkeeping, not work quality.
 
-        ``development_policy_changed`` is bookkeeping, not work quality: an admitted item fails
-        closed the moment the policy digest changes (live: 69 items after the ``all-tests``
-        profile was added). With the fresh digest those items are valid candidates again, so
-        the Hub restarts the run by itself; nothing else is retried here.
+        ``development_policy_changed`` fails an admitted item closed the moment the
+        policy digest changes (live: 69 items after the ``all-tests`` profile was
+        added); ``development_session_stopped_or_budget_exhausted`` is an operator
+        stop mid-run. Neither ever got a real attempt at the work, so those
+        attempts do not consume the retry budget: with the fresh digest the items
+        are valid candidates again, the Hub restarts the run by itself, and the
+        dependent chains behind them release as the roots publish. Nothing else
+        is retried here; a genuine work failure keeps its attempts and its verdict.
         """
         from agent.services.self_development.retries import prepare_retry
 
+        bookkeeping = ("development_policy_changed", "development_session_stopped_or_budget_exhausted")
         with self.journal.locked():
             state = self.journal.read()
-            count = sum(
-                prepare_retry(item, self.policy, state, self.queue)
-                for item in state["items"].values()
-                if item.get("status") == "failed"
-                and str(item.get("reason") or "").startswith("development_policy_changed")
-            )
+            count = 0
+            for item in state["items"].values():
+                if item.get("status") != "failed" or not str(item.get("reason") or "").startswith(bookkeeping):
+                    continue
+                attempts = item.get("attempts") or []
+                kept = [a for a in attempts if not str(a.get("reason") or "").startswith(bookkeeping)]
+                if len(kept) != len(attempts):
+                    item["attempts"] = kept
+                if prepare_retry(item, self.policy, state, self.queue):
+                    count += 1
             self.journal.write(state)
         return count
 
