@@ -1,0 +1,1136 @@
+{
+  "$schema": "../todo.track.schema.json",
+  "id": "todo.agent-work-efficiency-semantic-redundancy",
+  "title": "Evidence-driven Agent Work Efficiency: semantische Redundanz, Test-Subsumption und Kostenwahrheit",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "agent-work-efficiency-semantic-redundancy",
+  "status": "todo",
+  "created_at": "2026-10-29",
+  "updated_at": "2026-10-29",
+  "purpose": "Unnötige Arbeit agentenübergreifend nachweisen statt nur identische Tests wiedererkennen; kostbare zusätzliche Verifikation erhalten, aber redundante Test-, Tool-, Retrieval-, Planning- und Delegationsarbeit erkennen und optimieren.",
+  "goal": "Nachvollziehbare marginale Evidence je Arbeitsschritt und konservative Empfehlung bzw. policy-gesteuerte Optimierung; messbare eingesparte Zeit und Kosten bei unveränderter bzw. besserer Fehlererkennung und Sicherheit.",
+  "related_todos": [
+    "todos/active/todo.self-evolving-harness.json",
+    "todos/active/todo.self-development-dual-path-exploration-codecompass.json"
+  ],
+  "existing_reuse": {
+    "worker/core/trace_v2.py": "TraceBundleV2, ModelCallTrace",
+    "agent/services/workflow_runtime/telemetry.py": "Canonical Workflow OTel export",
+    "scripts/goal_latency_diagnostics.py": "Phase/Idle classification",
+    "agent/services/harness_action_fusion.py": "Semantics-preserving Action Fusion",
+    "agent/services/harness_compaction.py": "Evidence-preserving context compaction",
+    "agent/services/harness_pareto.py": "Pareto ranker",
+    "agent/services/harness_benchmark.py": "Resource/quality metrics",
+    "docs/OBSERVABILITY.md": "LGPP dashboards"
+  },
+  "non_goals": [
+    "Kein zweiter Trace-/Cost-/Metric-Store oder neuer Control Plane",
+    "Keine automatische Gleichsetzung ähnlicher Tests mit inhaltlicher Redundanz",
+    "Keine Sicherheits-/Qualitätschecks durch bloße Ähnlichkeit überspringen",
+    "Keine Behauptung von gemessenen Einsparungen aus Schätzungen",
+    "Keine Zusammenlegung der bewusst unabhängigen Self-Development- und Multi-Agent-Pfade"
+  ],
+  "design_principles": [
+    "Evidence before optimization; gleiche Coverage ist keine gleiche Testaussage",
+    "Unknown != equivalent; conservative fail-closed",
+    "Unabhängige Oracles und diverse Tests können absichtlich wertvoll sein",
+    "Auditierbare Empfehlung vor automatischem Skip",
+    "Kostenzuordnung bei parallelen Arbeitsschritten ohne doppelte Wallclock-Anrechnung",
+    "Relevante Dateizustände inklusive uncommitted changes und Umgebung berücksichtigen",
+    "Scopes/Auth/Policies/Approvals unangetastet",
+    "Lernende Vorschläge nur nach deterministischer Verifikation, Benchmark und Rollback"
+  ],
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "milestones": [
+    {
+      "id": "M1",
+      "title": "Bestandsaufnahme und Datenverträge",
+      "task_ids": [
+        "AWER-001",
+        "AWER-002",
+        "AWER-003",
+        "AWER-004",
+        "AWER-005"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M2",
+      "title": "Deterministische Duplikate und Gültigkeit",
+      "task_ids": [
+        "AWER-006",
+        "AWER-007",
+        "AWER-008",
+        "AWER-009",
+        "AWER-010",
+        "AWER-011"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M3",
+      "title": "Semantische Testüberlappung und marginale Evidenz",
+      "task_ids": [
+        "AWER-012",
+        "AWER-013",
+        "AWER-014",
+        "AWER-015",
+        "AWER-016",
+        "AWER-017",
+        "AWER-018",
+        "AWER-019"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M4",
+      "title": "Weitere Verschwendungs- und Qualitätsmuster",
+      "task_ids": [
+        "AWER-020",
+        "AWER-021",
+        "AWER-022",
+        "AWER-023",
+        "AWER-024",
+        "AWER-025",
+        "AWER-026",
+        "AWER-027"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M5",
+      "title": "Entscheidungsmodell und Governance",
+      "task_ids": [
+        "AWER-028",
+        "AWER-029",
+        "AWER-030",
+        "AWER-031",
+        "AWER-032",
+        "AWER-033",
+        "AWER-034"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M6",
+      "title": "Visualisierung und Steuerung",
+      "task_ids": [
+        "AWER-035",
+        "AWER-036",
+        "AWER-037",
+        "AWER-038",
+        "AWER-039"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M7",
+      "title": "Validierung und Rollout",
+      "task_ids": [
+        "AWER-040",
+        "AWER-041",
+        "AWER-042",
+        "AWER-043",
+        "AWER-044",
+        "AWER-045"
+      ],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "AWER-001",
+      "title": "Repository-Inventur und echte Integrationsmatrix",
+      "type": "M1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [],
+      "details": "Bestehende TraceBundleV2, OpenTelemetry, Harness-Metriken, goal_latency_diagnostics, ActionFusion, Compaction, Self-Development, CodeCompass, CLI und Runner auf produktive Datenflüsse, Aktivierung und Lücken prüfen; keine parallelen Stores.",
+      "acceptance_criteria": [
+        "Konkrete Unit- und Integrationsbelege für: Repository-Inventur und echte Integrationsmatrix.",
+        "Ergebnisse sind mit bestehender Ananta-Evidence und Audit korreliert; keine parallele Datenhaltung.",
+        "Sicherer Fallback bei unvollständigen Daten; keine stillen Test-Skips."
+      ],
+      "deliverables": [
+        "Versionierter Vertrag/Code und reproduzierbare Tests",
+        "Gemessene und nachvollziehbare Evidence"
+      ]
+    },
+    {
+      "id": "AWER-002",
+      "title": "Kanonischer WorkAction- und Evidence-Vertrag",
+      "type": "M1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [],
+      "details": "Versionierte Ereignisse für Agent, Run, Task, Tool, Test, Revision, Dependency-Closure, Environment, Intent, Outcome, Zeit, Ressourcen, Kosten, Test-Art und Evidence-IDs; Schema-Migrationen.",
+      "acceptance_criteria": [
+        "Konkrete Unit- und Integrationsbelege für: Kanonischer WorkAction- und Evidence-Vertrag.",
+        "Ergebnisse sind mit bestehender Ananta-Evidence und Audit korreliert; keine parallele Datenhaltung.",
+        "Sicherer Fallback bei unvollständigen Daten; keine stillen Test-Skips."
+      ],
+      "deliverables": [
+        "Versionierter Vertrag/Code und reproduzierbare Tests",
+        "Gemessene und nachvollziehbare Evidence"
+      ]
+    },
+    {
+      "id": "AWER-003",
+      "title": "Zeit-/Kosten-Accounting und Attribution",
+      "type": "M1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [],
+      "details": "Wallclock vs CPU/GPU vs LLM-Wartezeit vs Queue vs Toolzeit, Parallelüberlappung und kritischer Pfad; Token-/Providerpreise zeitversionssicher; measured/estimated/unknown streng trennen.",
+      "acceptance_criteria": [
+        "Konkrete Unit- und Integrationsbelege für: Zeit-/Kosten-Accounting und Attribution.",
+        "Ergebnisse sind mit bestehender Ananta-Evidence und Audit korreliert; keine parallele Datenhaltung.",
+        "Sicherer Fallback bei unvollständigen Daten; keine stillen Test-Skips."
+      ],
+      "deliverables": [
+        "Versionierter Vertrag/Code und reproduzierbare Tests",
+        "Gemessene und nachvollziehbare Evidence"
+      ]
+    },
+    {
+      "id": "AWER-004",
+      "title": "Agent-/Tool-Adapter und Capture-Abdeckung",
+      "type": "M1",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [],
+      "details": "Native Worker, Codex CLI, Claude Code, OpenCode/OMO, pytest, unittest, Jest/Vitest, Playwright, Build/Lint/Typecheck, Shell, GitHub Actions über vorhandene Tool-Grenzen; capability-discovery.",
+      "acceptance_criteria": [
+        "Konkrete Unit- und Integrationsbelege für: Agent-/Tool-Adapter und Capture-Abdeckung.",
+        "Ergebnisse sind mit bestehender Ananta-Evidence und Audit korreliert; keine parallele Datenhaltung.",
+        "Sicherer Fallback bei unvollständigen Daten; keine stillen Test-Skips."
+      ],
+      "deliverables": [
+        "Versionierter Vertrag/Code und reproduzierbare Tests",
+        "Gemessene und nachvollziehbare Evidence"
+      ]
+    },
+    {
+      "id": "AWER-005",
+      "title": "Datenschutz, Scoping und unveränderliche Evidenz",
+      "type": "M1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [],
+      "details": "Keine Secrets, Prompts, Testfixtures mit Kundendaten oder Pfade ungeschützt exportieren; tenant/repo/run scopes, hashing, retention, audit, redaction und evidenzgebundene Entscheidungen.",
+      "acceptance_criteria": [
+        "Konkrete Unit- und Integrationsbelege für: Datenschutz, Scoping und unveränderliche Evidenz.",
+        "Ergebnisse sind mit bestehender Ananta-Evidence und Audit korreliert; keine parallele Datenhaltung.",
+        "Sicherer Fallback bei unvollständigen Daten; keine stillen Test-Skips."
+      ],
+      "deliverables": [
+        "Versionierter Vertrag/Code und reproduzierbare Tests",
+        "Gemessene und nachvollziehbare Evidence"
+      ]
+    },
+    {
+      "id": "AWER-006",
+      "title": "Normalisierung von Testkommandos",
+      "type": "M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "AWER-005"
+      ],
+      "details": "Argumentreihenfolge wo semantisch invariant, cwd, env, Runner-Version, Seed, Auswahl, Marker, Coverage/Parallel/Timeout/Retry-Modus normalisieren; keine falsche Äquivalenz bei side effects.",
+      "acceptance_criteria": [
+        "Konkrete Unit- und Integrationsbelege für: Normalisierung von Testkommandos.",
+        "Ergebnisse sind mit bestehender Ananta-Evidence und Audit korreliert; keine parallele Datenhaltung.",
+        "Sicherer Fallback bei unvollständigen Daten; keine stillen Test-Skips."
+      ],
+      "deliverables": [
+        "Versionierter Vertrag/Code und reproduzierbare Tests",
+        "Gemessene und nachvollziehbare Evidence"
+      ]
+    },
+    {
+      "id": "AWER-007",
+      "title": "Reproduzierbarer Test-State-Fingerprint",
+      "type": "M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [],
+      "details": "Relevant code/dependency/lock/config/fixture/generated artifact/schema/env/toolchain hashes plus uncommitted Änderungen, runtime services, database state und feature flags; unbekannt bleibt unbekannt.",
+      "acceptance_criteria": [
+        "Konkrete Unit- und Integrationsbelege für: Reproduzierbarer Test-State-Fingerprint.",
+        "Ergebnisse sind mit bestehender Ananta-Evidence und Audit korreliert; keine parallele Datenhaltung.",
+        "Sicherer Fallback bei unvollständigen Daten; keine stillen Test-Skips."
+      ],
+      "deliverables": [
+        "Versionierter Vertrag/Code und reproduzierbare Tests",
+        "Gemessene und nachvollziehbare Evidence"
+      ]
+    },
+    {
+      "id": "AWER-008",
+      "title": "Evidence-Ledger erfolgreicher Läufe",
+      "type": "M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [],
+      "details": "Success plus Tests/Assertions/Scope, Git/tree digest, Laufzeit, TTL, Flaky history, Confidence, Provenance, trusted producer; immutable evidence references und invalidation reasons.",
+      "acceptance_criteria": [
+        "Konkrete Unit- und Integrationsbelege für: Evidence-Ledger erfolgreicher Läufe.",
+        "Ergebnisse sind mit bestehender Ananta-Evidence und Audit korreliert; keine parallele Datenhaltung.",
+        "Sicherer Fallback bei unvollständigen Daten; keine stillen Test-Skips."
+      ],
+      "deliverables": [
+        "Versionierter Vertrag/Code und reproduzierbare Tests",
+        "Gemessene und nachvollziehbare Evidence"
+      ]
+    },
+    {
+      "id": "AWER-009",
+      "title": "Transitive Invalidation und Change-Impact",
+      "type": "M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [],
+      "details": "AST/import/dependency/call graph via CodeCompass, Coverage, Buildgraph, migrations, config und dynamic imports; relevante Änderungen invalidieren, unbekannte Abhängigkeit konservativ behandeln.",
+      "acceptance_criteria": [
+        "Konkrete Unit- und Integrationsbelege für: Transitive Invalidation und Change-Impact.",
+        "Ergebnisse sind mit bestehender Ananta-Evidence und Audit korreliert; keine parallele Datenhaltung.",
+        "Sicherer Fallback bei unvollständigen Daten; keine stillen Test-Skips."
+      ],
+      "deliverables": [
+        "Versionierter Vertrag/Code und reproduzierbare Tests",
+        "Gemessene und nachvollziehbare Evidence"
+      ]
+    },
+    {
+      "id": "AWER-010",
+      "title": "Identische Tests erkennen – beobachtender Modus",
+      "type": "M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [],
+      "details": "Exakt gleiche Aufrufe und State nachweisbar erkennen; Wiederholungsgrund aufnehmen, Audit-Record erstellen, niemals allein wegen Command-Gleichheit unterdrücken.",
+      "acceptance_criteria": [
+        "Konkrete Unit- und Integrationsbelege für: Identische Tests erkennen – beobachtender Modus.",
+        "Ergebnisse sind mit bestehender Ananta-Evidence und Audit korreliert; keine parallele Datenhaltung.",
+        "Sicherer Fallback bei unvollständigen Daten; keine stillen Test-Skips."
+      ],
+      "deliverables": [
+        "Versionierter Vertrag/Code und reproduzierbare Tests",
+        "Gemessene und nachvollziehbare Evidence"
+      ]
+    },
+    {
+      "id": "AWER-011",
+      "title": "Legitime Wiederholungsgründe",
+      "type": "M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [],
+      "details": "Flaky/statistische Tests, Zeit-/Race-/Concurrency-/Performance-Tests, Security-Gates, externe Services, Freshness, manuelle Overrides, Regression über verschiedene Kontexte und unabhängige Verifikation schützen.",
+      "acceptance_criteria": [
+        "Konkrete Unit- und Integrationsbelege für: Legitime Wiederholungsgründe.",
+        "Ergebnisse sind mit bestehender Ananta-Evidence und Audit korreliert; keine parallele Datenhaltung.",
+        "Sicherer Fallback bei unvollständigen Daten; keine stillen Test-Skips."
+      ],
+      "deliverables": [
+        "Versionierter Vertrag/Code und reproduzierbare Tests",
+        "Gemessene und nachvollziehbare Evidence"
+      ]
+    },
+    {
+      "id": "AWER-012",
+      "title": "Testidentität jenseits des Namens",
+      "type": "M3",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "AWER-011"
+      ],
+      "details": "AST-basierte semantische Signatur aus Assertions, Fixtures, Preconditions, Inputs, Outcomes, Mutationen und getesteten Produktionspfaden; Parametrisierungen bewusst auseinanderhalten.",
+      "acceptance_criteria": [
+        "Konkrete Unit- und Integrationsbelege für: Testidentität jenseits des Namens.",
+        "Ergebnisse sind mit bestehender Ananta-Evidence und Audit korreliert; keine parallele Datenhaltung.",
+        "Sicherer Fallback bei unvollständigen Daten; keine stillen Test-Skips."
+      ],
+      "deliverables": [
+        "Versionierter Vertrag/Code und reproduzierbare Tests",
+        "Gemessene und nachvollziehbare Evidence"
+      ]
+    },
+    {
+      "id": "AWER-013",
+      "title": "Coverage- und Assertion-Overlap",
+      "type": "M3",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [],
+      "details": "Line/branch/function/condition coverage mit Assertion-Evidenz, Coverage-Kontext und Ausführungszustand kombinieren; reine Coverage niemals als Gleichwertigkeit behandeln.",
+      "acceptance_criteria": [
+        "Konkrete Unit- und Integrationsbelege für: Coverage- und Assertion-Overlap.",
+        "Ergebnisse sind mit bestehender Ananta-Evidence und Audit korreliert; keine parallele Datenhaltung.",
+        "Sicherer Fallback bei unvollständigen Daten; keine stillen Test-Skips."
+      ],
+      "deliverables": [
+        "Versionierter Vertrag/Code und reproduzierbare Tests",
+        "Gemessene und nachvollziehbare Evidence"
+      ]
+    },
+    {
+      "id": "AWER-014",
+      "title": "Äquivalenzklassen und Metamorphic Relations",
+      "type": "M3",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [],
+      "details": "Inputs/Outputs, Property-based und Metamorphic-Tests als Verhaltensklassen clustern; Äquivalenz nur mit Beweis oder konservativer Einordnung.",
+      "acceptance_criteria": [
+        "Konkrete Unit- und Integrationsbelege für: Äquivalenzklassen und Metamorphic Relations.",
+        "Ergebnisse sind mit bestehender Ananta-Evidence und Audit korreliert; keine parallele Datenhaltung.",
+        "Sicherer Fallback bei unvollständigen Daten; keine stillen Test-Skips."
+      ],
+      "deliverables": [
+        "Versionierter Vertrag/Code und reproduzierbare Tests",
+        "Gemessene und nachvollziehbare Evidence"
+      ]
+    },
+    {
+      "id": "AWER-015",
+      "title": "Mutation-Testing und Fehlersensitivität",
+      "type": "M3",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [],
+      "details": "Überlappende Tests mit Mutation-Score, unique killed mutants und Fehlererkennung vergleichen; nicht-equivalente Mutanten und flaky Testeffekte berücksichtigen.",
+      "acceptance_criteria": [
+        "Konkrete Unit- und Integrationsbelege für: Mutation-Testing und Fehlersensitivität.",
+        "Ergebnisse sind mit bestehender Ananta-Evidence und Audit korreliert; keine parallele Datenhaltung.",
+        "Sicherer Fallback bei unvollständigen Daten; keine stillen Test-Skips."
+      ],
+      "deliverables": [
+        "Versionierter Vertrag/Code und reproduzierbare Tests",
+        "Gemessene und nachvollziehbare Evidence"
+      ]
+    },
+    {
+      "id": "AWER-016",
+      "title": "Graph-basierte Relevanz und CodeCompass",
+      "type": "M3",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [],
+      "details": "Test→Assertion→Requirement→Code→Change→Risk→Evidence Beziehungen in existierender GraphRAG/CodeCompass-Schicht; deduplizierte IDs und inkrementelle Updates.",
+      "acceptance_criteria": [
+        "Konkrete Unit- und Integrationsbelege für: Graph-basierte Relevanz und CodeCompass.",
+        "Ergebnisse sind mit bestehender Ananta-Evidence und Audit korreliert; keine parallele Datenhaltung.",
+        "Sicherer Fallback bei unvollständigen Daten; keine stillen Test-Skips."
+      ],
+      "deliverables": [
+        "Versionierter Vertrag/Code und reproduzierbare Tests",
+        "Gemessene und nachvollziehbare Evidence"
+      ]
+    },
+    {
+      "id": "AWER-017",
+      "title": "Marginaler Zusatznutzen pro Test",
+      "type": "M3",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [],
+      "details": "Unique coverage, unique mutation kills, neue Requirements, neue Fehlerklassen, unabhängiger Oracle, Confidence, Laufzeit und Kosten; konservative unbekannt-Kategorie.",
+      "acceptance_criteria": [
+        "Konkrete Unit- und Integrationsbelege für: Marginaler Zusatznutzen pro Test.",
+        "Ergebnisse sind mit bestehender Ananta-Evidence und Audit korreliert; keine parallele Datenhaltung.",
+        "Sicherer Fallback bei unvollständigen Daten; keine stillen Test-Skips."
+      ],
+      "deliverables": [
+        "Versionierter Vertrag/Code und reproduzierbare Tests",
+        "Gemessene und nachvollziehbare Evidence"
+      ]
+    },
+    {
+      "id": "AWER-018",
+      "title": "Ketten- und Subsumptionserkennung",
+      "type": "M3",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [],
+      "details": "Test A subsumiert B nur bei nachgewiesenen Voraussetzungen und mindestens gleicher Prüfstärke; Testsuiten/Teilselektionen, batch vs Einzeltests und Reihenfolgeabhängigkeit abbilden.",
+      "acceptance_criteria": [
+        "Konkrete Unit- und Integrationsbelege für: Ketten- und Subsumptionserkennung.",
+        "Ergebnisse sind mit bestehender Ananta-Evidence und Audit korreliert; keine parallele Datenhaltung.",
+        "Sicherer Fallback bei unvollständigen Daten; keine stillen Test-Skips."
+      ],
+      "deliverables": [
+        "Versionierter Vertrag/Code und reproduzierbare Tests",
+        "Gemessene und nachvollziehbare Evidence"
+      ]
+    },
+    {
+      "id": "AWER-019",
+      "title": "LLM-Assistenz nur als Hypothesengenerator",
+      "type": "M3",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [],
+      "details": "Kleine lokale Modelle dürfen semantische Kandidaten vorschlagen; deterministische Evidenz und unabhängige Gates entscheiden; kein autonomes Skip aufgrund Embedding-Ähnlichkeit.",
+      "acceptance_criteria": [
+        "Konkrete Unit- und Integrationsbelege für: LLM-Assistenz nur als Hypothesengenerator.",
+        "Ergebnisse sind mit bestehender Ananta-Evidence und Audit korreliert; keine parallele Datenhaltung.",
+        "Sicherer Fallback bei unvollständigen Daten; keine stillen Test-Skips."
+      ],
+      "deliverables": [
+        "Versionierter Vertrag/Code und reproduzierbare Tests",
+        "Gemessene und nachvollziehbare Evidence"
+      ]
+    },
+    {
+      "id": "AWER-020",
+      "title": "Redundante Lese-/Such-/Retrievalaufrufe",
+      "type": "M4",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "AWER-019"
+      ],
+      "details": "Wiederholte Datei-Reads, grep, CodeCompass/RAG-Queries, unveränderte Ergebnisse und kontextlose Suchschleifen erkennen; berechtigtes Refresh unterscheiden.",
+      "acceptance_criteria": [
+        "Konkrete Unit- und Integrationsbelege für: Redundante Lese-/Such-/Retrievalaufrufe.",
+        "Ergebnisse sind mit bestehender Ananta-Evidence und Audit korreliert; keine parallele Datenhaltung.",
+        "Sicherer Fallback bei unvollständigen Daten; keine stillen Test-Skips."
+      ],
+      "deliverables": [
+        "Versionierter Vertrag/Code und reproduzierbare Tests",
+        "Gemessene und nachvollziehbare Evidence"
+      ]
+    },
+    {
+      "id": "AWER-021",
+      "title": "Thrashing, Fix-Revert-Loops und Plan-Churn",
+      "type": "M4",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [],
+      "details": "Gleiche Fixes rückgängig/wiederholen, identische Fehler mit gleichen Maßnahmen, Prompt-/Plan-Neustarts, wiederholte Toolfehler und Dead Ends als Muster erkennen.",
+      "acceptance_criteria": [
+        "Konkrete Unit- und Integrationsbelege für: Thrashing, Fix-Revert-Loops und Plan-Churn.",
+        "Ergebnisse sind mit bestehender Ananta-Evidence und Audit korreliert; keine parallele Datenhaltung.",
+        "Sicherer Fallback bei unvollständigen Daten; keine stillen Test-Skips."
+      ],
+      "deliverables": [
+        "Versionierter Vertrag/Code und reproduzierbare Tests",
+        "Gemessene und nachvollziehbare Evidence"
+      ]
+    },
+    {
+      "id": "AWER-022",
+      "title": "Breite Test-Suiten ohne Change Impact",
+      "type": "M4",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [],
+      "details": "Full-suite vs impacted tests anhand Evidenz und Safety-Gates bewerten; zu häufige Tests, aber auch zu seltene Tests sichtbar machen.",
+      "acceptance_criteria": [
+        "Konkrete Unit- und Integrationsbelege für: Breite Test-Suiten ohne Change Impact.",
+        "Ergebnisse sind mit bestehender Ananta-Evidence und Audit korreliert; keine parallele Datenhaltung.",
+        "Sicherer Fallback bei unvollständigen Daten; keine stillen Test-Skips."
+      ],
+      "deliverables": [
+        "Versionierter Vertrag/Code und reproduzierbare Tests",
+        "Gemessene und nachvollziehbare Evidence"
+      ]
+    },
+    {
+      "id": "AWER-023",
+      "title": "Build-/Lint-/Typecheck-Duplikate",
+      "type": "M4",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [],
+      "details": "Gleiche Artefakte, unveränderte Inputs, bereits grüne CI-Gates und gleichartige lokale Prüfungen korrelieren; Toolchain-/Cache-/Scope-Differenzen beachten.",
+      "acceptance_criteria": [
+        "Konkrete Unit- und Integrationsbelege für: Build-/Lint-/Typecheck-Duplikate.",
+        "Ergebnisse sind mit bestehender Ananta-Evidence und Audit korreliert; keine parallele Datenhaltung.",
+        "Sicherer Fallback bei unvollständigen Daten; keine stillen Test-Skips."
+      ],
+      "deliverables": [
+        "Versionierter Vertrag/Code und reproduzierbare Tests",
+        "Gemessene und nachvollziehbare Evidence"
+      ]
+    },
+    {
+      "id": "AWER-024",
+      "title": "Kontextfenster-, Summarization- und Token-Overhead",
+      "type": "M4",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [],
+      "details": "Unnötig wiederholte große Outputs, mehrfaches Retrieval, ineffektives Compaction-Verhalten, Output-Truncation und Modellaufrufe ohne neue Evidenz bewerten.",
+      "acceptance_criteria": [
+        "Konkrete Unit- und Integrationsbelege für: Kontextfenster-, Summarization- und Token-Overhead.",
+        "Ergebnisse sind mit bestehender Ananta-Evidence und Audit korreliert; keine parallele Datenhaltung.",
+        "Sicherer Fallback bei unvollständigen Daten; keine stillen Test-Skips."
+      ],
+      "deliverables": [
+        "Versionierter Vertrag/Code und reproduzierbare Tests",
+        "Gemessene und nachvollziehbare Evidence"
+      ]
+    },
+    {
+      "id": "AWER-025",
+      "title": "Delegation, Parallelität und Queue-Verschwendung",
+      "type": "M4",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [],
+      "details": "Doppelbeauftragungen, blockierte Abhängigkeiten, Parallelüberlappungen, Lock-Contention, unnötige Handoffs, Retry-Storms, Provider-Fallbacks; echte Ursache statt Symptome.",
+      "acceptance_criteria": [
+        "Konkrete Unit- und Integrationsbelege für: Delegation, Parallelität und Queue-Verschwendung.",
+        "Ergebnisse sind mit bestehender Ananta-Evidence und Audit korreliert; keine parallele Datenhaltung.",
+        "Sicherer Fallback bei unvollständigen Daten; keine stillen Test-Skips."
+      ],
+      "deliverables": [
+        "Versionierter Vertrag/Code und reproduzierbare Tests",
+        "Gemessene und nachvollziehbare Evidence"
+      ]
+    },
+    {
+      "id": "AWER-026",
+      "title": "Test-Flakiness und Umgebungsprobleme",
+      "type": "M4",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [],
+      "details": "Nichtdeterministische Fehler, fehlende Dienste, Race Conditions und Infrastruktur-Noise separat klassifizieren, damit echte Produktfehler nicht als Waste markiert werden.",
+      "acceptance_criteria": [
+        "Konkrete Unit- und Integrationsbelege für: Test-Flakiness und Umgebungsprobleme.",
+        "Ergebnisse sind mit bestehender Ananta-Evidence und Audit korreliert; keine parallele Datenhaltung.",
+        "Sicherer Fallback bei unvollständigen Daten; keine stillen Test-Skips."
+      ],
+      "deliverables": [
+        "Versionierter Vertrag/Code und reproduzierbare Tests",
+        "Gemessene und nachvollziehbare Evidence"
+      ]
+    },
+    {
+      "id": "AWER-027",
+      "title": "Opportunity-Cost statt bloß Duplikatzahl",
+      "type": "M4",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [],
+      "details": "Zusatznutzen vs Zeit/Euro/Hardware/CO2 optional, kritischer Pfad und Verzögerung anderer Agents; hypothetische Einsparung klar von real eingespartem Aufwand trennen.",
+      "acceptance_criteria": [
+        "Konkrete Unit- und Integrationsbelege für: Opportunity-Cost statt bloß Duplikatzahl.",
+        "Ergebnisse sind mit bestehender Ananta-Evidence und Audit korreliert; keine parallele Datenhaltung.",
+        "Sicherer Fallback bei unvollständigen Daten; keine stillen Test-Skips."
+      ],
+      "deliverables": [
+        "Versionierter Vertrag/Code und reproduzierbare Tests",
+        "Gemessene und nachvollziehbare Evidence"
+      ]
+    },
+    {
+      "id": "AWER-028",
+      "title": "Reason-Code-Taxonomie und Erklärbarkeit",
+      "type": "M5",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "AWER-027"
+      ],
+      "details": "proposed_redundant, exact_replay, semantic_overlap, justified_recheck, freshness_expired, safety_gate, flaky, unknown, insufficient_evidence, provenance_conflict etc. mit Evidenzlinks.",
+      "acceptance_criteria": [
+        "Konkrete Unit- und Integrationsbelege für: Reason-Code-Taxonomie und Erklärbarkeit.",
+        "Ergebnisse sind mit bestehender Ananta-Evidence und Audit korreliert; keine parallele Datenhaltung.",
+        "Sicherer Fallback bei unvollständigen Daten; keine stillen Test-Skips."
+      ],
+      "deliverables": [
+        "Versionierter Vertrag/Code und reproduzierbare Tests",
+        "Gemessene und nachvollziehbare Evidence"
+      ]
+    },
+    {
+      "id": "AWER-029",
+      "title": "Vierstufiges Entscheidungssystem",
+      "type": "M5",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [],
+      "details": "observe → recommend → ask/approve → gated automated skip; Opt-in, pro Workflow/Tool/Testklasse; unbekannte oder riskante Zustände immer execute.",
+      "acceptance_criteria": [
+        "Konkrete Unit- und Integrationsbelege für: Vierstufiges Entscheidungssystem.",
+        "Ergebnisse sind mit bestehender Ananta-Evidence und Audit korreliert; keine parallele Datenhaltung.",
+        "Sicherer Fallback bei unvollständigen Daten; keine stillen Test-Skips."
+      ],
+      "deliverables": [
+        "Versionierter Vertrag/Code und reproduzierbare Tests",
+        "Gemessene und nachvollziehbare Evidence"
+      ]
+    },
+    {
+      "id": "AWER-030",
+      "title": "Harte No-Skip-Gates",
+      "type": "M5",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [],
+      "details": "Security, Auth/Permissions, Data-loss, migrations, contracts, integration/e2e, release/CI/holdout/acceptance, external side effects, nondeterministic tests standardmäßig unüberspringbar.",
+      "acceptance_criteria": [
+        "Konkrete Unit- und Integrationsbelege für: Harte No-Skip-Gates.",
+        "Ergebnisse sind mit bestehender Ananta-Evidence und Audit korreliert; keine parallele Datenhaltung.",
+        "Sicherer Fallback bei unvollständigen Daten; keine stillen Test-Skips."
+      ],
+      "deliverables": [
+        "Versionierter Vertrag/Code und reproduzierbare Tests",
+        "Gemessene und nachvollziehbare Evidence"
+      ]
+    },
+    {
+      "id": "AWER-031",
+      "title": "Staleness-/Freshness- und Unsicherheitsmodell",
+      "type": "M5",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [],
+      "details": "TTL nach Testart, Change Impact, Confidence Intervals, Coverage Confidence, Environment Drift, unknown inputs; Fail-closed bei veralteter Evidenz.",
+      "acceptance_criteria": [
+        "Konkrete Unit- und Integrationsbelege für: Staleness-/Freshness- und Unsicherheitsmodell.",
+        "Ergebnisse sind mit bestehender Ananta-Evidence und Audit korreliert; keine parallele Datenhaltung.",
+        "Sicherer Fallback bei unvollständigen Daten; keine stillen Test-Skips."
+      ],
+      "deliverables": [
+        "Versionierter Vertrag/Code und reproduzierbare Tests",
+        "Gemessene und nachvollziehbare Evidence"
+      ]
+    },
+    {
+      "id": "AWER-032",
+      "title": "Risk-Adaptive Testplanung",
+      "type": "M5",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [],
+      "details": "Cost-benefit als Pareto-Optimierung unter Mindestabdeckung, Risiko, unabhängigen Oracles und Budgets; Qualität/Sicherheit vor Laufzeitersparnis.",
+      "acceptance_criteria": [
+        "Konkrete Unit- und Integrationsbelege für: Risk-Adaptive Testplanung.",
+        "Ergebnisse sind mit bestehender Ananta-Evidence und Audit korreliert; keine parallele Datenhaltung.",
+        "Sicherer Fallback bei unvollständigen Daten; keine stillen Test-Skips."
+      ],
+      "deliverables": [
+        "Versionierter Vertrag/Code und reproduzierbare Tests",
+        "Gemessene und nachvollziehbare Evidence"
+      ]
+    },
+    {
+      "id": "AWER-033",
+      "title": "Explizite Nutzerintention und Override",
+      "type": "M5",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [],
+      "details": "Agent/Human requested rerun, reproduce, verify independently, 3x stress run, random-seed exploration immer respektieren; Audit für Override und Entscheidung.",
+      "acceptance_criteria": [
+        "Konkrete Unit- und Integrationsbelege für: Explizite Nutzerintention und Override.",
+        "Ergebnisse sind mit bestehender Ananta-Evidence und Audit korreliert; keine parallele Datenhaltung.",
+        "Sicherer Fallback bei unvollständigen Daten; keine stillen Test-Skips."
+      ],
+      "deliverables": [
+        "Versionierter Vertrag/Code und reproduzierbare Tests",
+        "Gemessene und nachvollziehbare Evidence"
+      ]
+    },
+    {
+      "id": "AWER-034",
+      "title": "Selbstoptimierung über bestehendes Harness",
+      "type": "M5",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [],
+      "details": "Strategien als versionierte Harness-Candidates, Baseline, offline replay, holdout, promotion und rollback; keine neuen autonomen Policy-Systeme.",
+      "acceptance_criteria": [
+        "Konkrete Unit- und Integrationsbelege für: Selbstoptimierung über bestehendes Harness.",
+        "Ergebnisse sind mit bestehender Ananta-Evidence und Audit korreliert; keine parallele Datenhaltung.",
+        "Sicherer Fallback bei unvollständigen Daten; keine stillen Test-Skips."
+      ],
+      "deliverables": [
+        "Versionierter Vertrag/Code und reproduzierbare Tests",
+        "Gemessene und nachvollziehbare Evidence"
+      ]
+    },
+    {
+      "id": "AWER-035",
+      "title": "Run-Timeline und Critical-Path-Waterfall",
+      "type": "M6",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "AWER-034"
+      ],
+      "details": "Tool/LLM/Queue/Tests/Overlaps mit korrelierten Trace-IDs, Ursache/Empfehlung und realer vs theoretischer Zeitersparnis anzeigen.",
+      "acceptance_criteria": [
+        "Konkrete Unit- und Integrationsbelege für: Run-Timeline und Critical-Path-Waterfall.",
+        "Ergebnisse sind mit bestehender Ananta-Evidence und Audit korreliert; keine parallele Datenhaltung.",
+        "Sicherer Fallback bei unvollständigen Daten; keine stillen Test-Skips."
+      ],
+      "deliverables": [
+        "Versionierter Vertrag/Code und reproduzierbare Tests",
+        "Gemessene und nachvollziehbare Evidence"
+      ]
+    },
+    {
+      "id": "AWER-036",
+      "title": "Test-Evidenzgraph und Cluster-UI",
+      "type": "M6",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [],
+      "details": "Identische/nahe verwandte Tests, überdeckte und einzigartige Assertions, Change impact, Mutation differences und Safety-Gates visuell explorieren.",
+      "acceptance_criteria": [
+        "Konkrete Unit- und Integrationsbelege für: Test-Evidenzgraph und Cluster-UI.",
+        "Ergebnisse sind mit bestehender Ananta-Evidence und Audit korreliert; keine parallele Datenhaltung.",
+        "Sicherer Fallback bei unvollständigen Daten; keine stillen Test-Skips."
+      ],
+      "deliverables": [
+        "Versionierter Vertrag/Code und reproduzierbare Tests",
+        "Gemessene und nachvollziehbare Evidence"
+      ]
+    },
+    {
+      "id": "AWER-037",
+      "title": "Effizienz-Dashboard",
+      "type": "M6",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [],
+      "details": "Wallclock, CPU/GPU/Token, Euro, unique evidence, duplicate rate, risk-adjusted saved time, false positive rate nach Agent/Modell/Tool/Repo/Task.",
+      "acceptance_criteria": [
+        "Konkrete Unit- und Integrationsbelege für: Effizienz-Dashboard.",
+        "Ergebnisse sind mit bestehender Ananta-Evidence und Audit korreliert; keine parallele Datenhaltung.",
+        "Sicherer Fallback bei unvollständigen Daten; keine stillen Test-Skips."
+      ],
+      "deliverables": [
+        "Versionierter Vertrag/Code und reproduzierbare Tests",
+        "Gemessene und nachvollziehbare Evidence"
+      ]
+    },
+    {
+      "id": "AWER-038",
+      "title": "CLI-, API- und Exportvertrag",
+      "type": "M6",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [],
+      "details": "Read-only explain/why-rerun/why-skip/compare/export JSON und OTLP; existierende Ananta CLI und UI erweitern, keine getrennte Infrastruktur.",
+      "acceptance_criteria": [
+        "Konkrete Unit- und Integrationsbelege für: CLI-, API- und Exportvertrag.",
+        "Ergebnisse sind mit bestehender Ananta-Evidence und Audit korreliert; keine parallele Datenhaltung.",
+        "Sicherer Fallback bei unvollständigen Daten; keine stillen Test-Skips."
+      ],
+      "deliverables": [
+        "Versionierter Vertrag/Code und reproduzierbare Tests",
+        "Gemessene und nachvollziehbare Evidence"
+      ]
+    },
+    {
+      "id": "AWER-039",
+      "title": "Cross-Agent-Deduplikation",
+      "type": "M6",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [],
+      "details": "Session-übergreifende Evidence Reuse zwischen Codex/Claude/OpenCode/native Agents nur bei identischer autorisierter Scope-/Revision-/Environment-Bindung.",
+      "acceptance_criteria": [
+        "Konkrete Unit- und Integrationsbelege für: Cross-Agent-Deduplikation.",
+        "Ergebnisse sind mit bestehender Ananta-Evidence und Audit korreliert; keine parallele Datenhaltung.",
+        "Sicherer Fallback bei unvollständigen Daten; keine stillen Test-Skips."
+      ],
+      "deliverables": [
+        "Versionierter Vertrag/Code und reproduzierbare Tests",
+        "Gemessene und nachvollziehbare Evidence"
+      ]
+    },
+    {
+      "id": "AWER-040",
+      "title": "Deterministische Fixture-Matrix",
+      "type": "M7",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "AWER-039"
+      ],
+      "details": "Exakt gleich, kosmetisch ähnlich, überlappende Assertions, unterschiedliche Daten, identischer Code mit anderer Config, fixtures, lockfile, DB-State, Seeds, unstaged files, dynamic deps.",
+      "acceptance_criteria": [
+        "Konkrete Unit- und Integrationsbelege für: Deterministische Fixture-Matrix.",
+        "Ergebnisse sind mit bestehender Ananta-Evidence und Audit korreliert; keine parallele Datenhaltung.",
+        "Sicherer Fallback bei unvollständigen Daten; keine stillen Test-Skips."
+      ],
+      "deliverables": [
+        "Versionierter Vertrag/Code und reproduzierbare Tests",
+        "Gemessene und nachvollziehbare Evidence"
+      ]
+    },
+    {
+      "id": "AWER-041",
+      "title": "Adversarielle False-Positive-Tests",
+      "type": "M7",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [],
+      "details": "Gleiche Coverage aber anderer Assertion-Oracle, flakiness, race, security, permissions, cache poisoning, cross-tenant, LLM Halluzination, stale graph, untrusted traces.",
+      "acceptance_criteria": [
+        "Konkrete Unit- und Integrationsbelege für: Adversarielle False-Positive-Tests.",
+        "Ergebnisse sind mit bestehender Ananta-Evidence und Audit korreliert; keine parallele Datenhaltung.",
+        "Sicherer Fallback bei unvollständigen Daten; keine stillen Test-Skips."
+      ],
+      "deliverables": [
+        "Versionierter Vertrag/Code und reproduzierbare Tests",
+        "Gemessene und nachvollziehbare Evidence"
+      ]
+    },
+    {
+      "id": "AWER-042",
+      "title": "Offline Replay und Gegenfaktualanalyse",
+      "type": "M7",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [],
+      "details": "Echte historische Traces replayen, hypothetische Skip-Entscheidungen gegen spätere Fehler/Regressionen prüfen; counterfactual selection bias und fehlendes Ground Truth kennzeichnen.",
+      "acceptance_criteria": [
+        "Konkrete Unit- und Integrationsbelege für: Offline Replay und Gegenfaktualanalyse.",
+        "Ergebnisse sind mit bestehender Ananta-Evidence und Audit korreliert; keine parallele Datenhaltung.",
+        "Sicherer Fallback bei unvollständigen Daten; keine stillen Test-Skips."
+      ],
+      "deliverables": [
+        "Versionierter Vertrag/Code und reproduzierbare Tests",
+        "Gemessene und nachvollziehbare Evidence"
+      ]
+    },
+    {
+      "id": "AWER-043",
+      "title": "A/B-, Shadow- und Canary-Gates",
+      "type": "M7",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [],
+      "details": "Zuerst observe-only, danach menschliche Freigabe, Canary mit Shadow-Run; Zero critical false skips, Benchmark/Quality nonregression, Kosten/Time-Budgets.",
+      "acceptance_criteria": [
+        "Konkrete Unit- und Integrationsbelege für: A/B-, Shadow- und Canary-Gates.",
+        "Ergebnisse sind mit bestehender Ananta-Evidence und Audit korreliert; keine parallele Datenhaltung.",
+        "Sicherer Fallback bei unvollständigen Daten; keine stillen Test-Skips."
+      ],
+      "deliverables": [
+        "Versionierter Vertrag/Code und reproduzierbare Tests",
+        "Gemessene und nachvollziehbare Evidence"
+      ]
+    },
+    {
+      "id": "AWER-044",
+      "title": "Produktive Telemetrie, Budget- und Degradationstests",
+      "type": "M7",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [],
+      "details": "Agent-Ausfälle, OTel-Backpressure, Datenverlust, großer Repo-/Testbestand, Cache invalidation, 16GB VRAM Budget; Monitor darf Agenten nicht blockieren.",
+      "acceptance_criteria": [
+        "Konkrete Unit- und Integrationsbelege für: Produktive Telemetrie, Budget- und Degradationstests.",
+        "Ergebnisse sind mit bestehender Ananta-Evidence und Audit korreliert; keine parallele Datenhaltung.",
+        "Sicherer Fallback bei unvollständigen Daten; keine stillen Test-Skips."
+      ],
+      "deliverables": [
+        "Versionierter Vertrag/Code und reproduzierbare Tests",
+        "Gemessene und nachvollziehbare Evidence"
+      ]
+    },
+    {
+      "id": "AWER-045",
+      "title": "Runbooks, Contracts und Migration",
+      "type": "M7",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [],
+      "details": "AGENTS.md, CLI/docs, Datenschutz, Betriebsanleitung, schema validation, Recovery/Rollback, Upgrade-/Fallback-Pfade und Abnahmeevidenz dokumentieren.",
+      "acceptance_criteria": [
+        "Konkrete Unit- und Integrationsbelege für: Runbooks, Contracts und Migration.",
+        "Ergebnisse sind mit bestehender Ananta-Evidence und Audit korreliert; keine parallele Datenhaltung.",
+        "Sicherer Fallback bei unvollständigen Daten; keine stillen Test-Skips."
+      ],
+      "deliverables": [
+        "Versionierter Vertrag/Code und reproduzierbare Tests",
+        "Gemessene und nachvollziehbare Evidence"
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "AWER-001",
+    "AWER-002",
+    "AWER-003",
+    "AWER-007",
+    "AWER-008",
+    "AWER-009",
+    "AWER-010",
+    "AWER-011",
+    "AWER-017",
+    "AWER-028",
+    "AWER-029",
+    "AWER-030",
+    "AWER-040",
+    "AWER-041"
+  ],
+  "tasks_status_summary": {
+    "total": 45,
+    "by_status": {
+      "todo": 45,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P0": 21,
+      "P1": 23,
+      "P2": 1
+    },
+    "by_risk": {
+      "medium": 10,
+      "high": 23,
+      "critical": 12
+    },
+    "critical_path": {
+      "total": 14,
+      "done": 0,
+      "remaining": 14
+    },
+    "milestones": {
+      "total": 7,
+      "todo": 7,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "summary_notes": [
+    "Vor produktivem Eingriff produktiven Adapter und bereits bestehende semantische Äquivalenzprüfung erneut prüfen.",
+    "Saved time/costs sind nur bei tatsächlich vermiedenen Aktionen measured; sonst projected/estimated.",
+    "Reruns nach Änderungen an Konfiguration, Fixtures oder transientem Environment sind nicht pauschal redundant."
+  ],
+  "execution_order": [
+    "M1",
+    "M2",
+    "M3",
+    "M4",
+    "M5",
+    "M6",
+    "M7"
+  ]
+}
