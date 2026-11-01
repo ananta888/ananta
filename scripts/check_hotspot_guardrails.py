@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Report maintainability hotspot size guardrails without failing by default."""
+"""Report maintainability hotspot size guardrails without failing by default.
+
+With ``--fail-on-over-budget`` the script exits non-zero when a target exceeds
+its budget, unless the target is listed in the ``--allowlist`` file. Allowlist
+entries are documented exceptions with a reason (e.g. a tracked remediation
+task); they must not be used to hide new growth.
+"""
 
 from __future__ import annotations
 
@@ -43,20 +49,51 @@ def _line_count(path: Path) -> int:
     return sum(1 for _ in path.open(encoding="utf-8", errors="ignore"))
 
 
+def _load_allowlist(path: Path) -> dict[str, str]:
+    """Return {target_path: reason} from a JSON allowlist file."""
+    if not path.exists():
+        return {}
+    data = json.loads(path.read_text(encoding="utf-8"))
+    return {str(k): str(v) for k, v in data.items()}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Report hotspot size guardrails")
     parser.add_argument("--json", action="store_true", help="Print machine-readable JSON")
     parser.add_argument("--fail-on-over-budget", action="store_true", help="Exit non-zero when a target is over budget")
+    parser.add_argument(
+        "--allowlist",
+        type=Path,
+        default=None,
+        help="JSON file mapping over-budget paths to a documented reason",
+    )
     args = parser.parse_args()
 
     report = build_hotspot_report()
+    allowlist = _load_allowlist(args.allowlist) if args.allowlist else {}
+
+    blocking = []
+    for entry in report["entries"]:
+        reason = allowlist.get(str(entry["path"]))
+        if entry["status"] == "over_budget":
+            if reason:
+                entry["status"] = "allowlisted"
+                entry["allowlist_reason"] = reason
+            else:
+                blocking.append(entry)
+        if args.json:
+            continue
+        suffix = f" (allowlisted: {reason})" if entry["status"] == "allowlisted" else ""
+        print(f"{entry['status']}: {entry['path']} lines={entry['lines']} max={entry['max_lines']}{suffix}")
+
     if args.json:
         print(json.dumps(report, indent=2, sort_keys=True))
-    else:
-        for entry in report["entries"]:
-            print(f"{entry['status']}: {entry['path']} lines={entry['lines']} max={entry['max_lines']}")
 
-    return 1 if args.fail_on_over_budget and report["over_budget"] else 0
+    unknown = sorted(set(allowlist) - {str(e["path"]) for e in report["entries"]})
+    if unknown:
+        print(f"allowlist entries without a guardrail target (remove them): {unknown}", flush=True)
+
+    return 1 if args.fail_on_over_budget and blocking else 0
 
 
 if __name__ == "__main__":

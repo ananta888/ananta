@@ -1,0 +1,6 @@
+# Import-cycle baseline for scripts/check_cycles.py (CLN-027).
+# One line per cycle group: comma-separated sorted module names, optional
+# '# reason'. Entries describe tracked legacy debt; NEW cycles fail the check.
+# When a group disappears, the check reports it as stale — prune the line.
+agent.auth,agent.common.audit,agent.db_models,agent.services.hub_event_service # legacy auth<->audit<->db_models<->hub_event cycle; untangling tracked in cleanup CLN-M8 (hub/worker decoupling)
+agent.routes._auth_mfa_routes,agent.routes._auth_registration_routes,agent.routes._auth_test_routes,agent.routes._auth_users_routes,agent.routes.auth # auth shim: sub-route modules import the shim while the shim aggregates their register_routes (SPLIT-037 debt)

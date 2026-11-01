@@ -66,6 +66,19 @@ def check_complexity_suppressions():
     return run_command([sys.executable, "scripts/check_complexity_suppressions.py"])
 
 
+def check_hotspot_budgets():
+    print("\n--- Checking Hotspot Size Budgets (CLN-026) ---", flush=True)
+    return run_command(
+        [
+            sys.executable,
+            "scripts/check_hotspot_guardrails.py",
+            "--fail-on-over-budget",
+            "--allowlist",
+            "reports/hotspot-budget-allowlist.json",
+        ]
+    )
+
+
 def check_fast_tests():
     print("\n--- Running Fast Tests (pytest) ---", flush=True)
     # Running core unit tests, contract tests and smoke tests as fast tests
@@ -140,6 +153,8 @@ def main():
         if not check_dead_code():
             success = False
         if not check_complexity_suppressions():
+            success = False
+        if not check_hotspot_budgets():
             success = False
         if not check_fast_tests():
             success = False
