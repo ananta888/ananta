@@ -1,0 +1,1522 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "version": 1,
+  "created": "2026-11-01",
+  "updated": "2026-11-01",
+  "project": "ananta",
+  "owner": "Ananta",
+  "track": "repo-hygiene-cleanup-remediation",
+  "title": "Repo-Aufräumung: Sicherheit, Git-Hygiene, tote Flaechen, Quality-Gates, Architektur und Config-SSOT",
+  "purpose": "Systematische Bereinigung des kumulierten technischen Debts: Secrets und getrackte Runtime-Artefakte entfernen, tote Flaechen streichen, Quality-Gates aktivieren, Architektur-/SOLID-Verstoesse beheben und konkurrierende Single-Source-of-Truth konsolidieren.",
+  "goal": "Ein sauberes, wartbares Repo ohne getrackte Secrets/Artefakte, ohne tote Flaechen, mit aktivierten Lint-/Type-/Coverage-Gates, behebten Schichtverstoesen und dokumentierten, detektor-verankerten Architekturregeln - ohne Regression der bestehenden Hub-Worker-Architektur.",
+  "priority": "P0",
+  "status": "todo",
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high"],
+  "sources": [
+    "Konsolidierte Saustall-Analyse 2026-11-01 (read-only, 4 Teilstudien: Dead-Code/Duplikate, Architektur/SOLID, Tests/Gates, Deps/Config/Env)",
+    "AGENTS.md (Output Boundary, hub-worker Trennung, SOLID, Evidence Identity, headless tests)",
+    "docs/decouple-sgpt-from-services.md (SGDEC-D5 preserved facades)",
+    "docs/architecture/meet-hub-worker-boundaries.md (preserved SRP/DIP debt)",
+    "scripts/check_imports.py, check_service_boundaries.py, check_hotspot_guardrails.py, check_cycles.py, check_dead_code.py, check_duplicates.py, check_cli_backend_shim_imports.py",
+    "scripts/check_meet_worker_boundaries.py, check_complexity_suppressions.py, check_shim_imports.py, check_memory_channels.py",
+    "reports/architecture-import-baseline.txt",
+    "pyproject.toml, requirements*.txt, requirements*.lock, .flake8, Makefile, .github/workflows/*",
+    ".gitignore, .gitleaks.toml (derzeit untracked), devtools/coverage-thresholds.backend.json",
+    "todos/todo.track.schema.json"
+  ],
+  "architecture_constraints": [
+    "Die Hub-Worker-Architektur bleibt unangetastet: Hub bleibt Control Plane und Task-Queue-Eigentuemer; Worker fuehren nur delegierte Arbeit aus und orchestrieren niemals.",
+    "Aufräum-Änderungen sind additiv/destruktiv nur dort, wo es explizit als bereinigend begruendet ist (tote Flächen, Secrets, Artefakte); keine Breaking Changes an lebenden APIs ohne Migrationspfad.",
+    "Keine neuen parallelen Mechanismen einführen: jede Konsolidierung wählt EINEN Gewinner-Mechanismus und dokumentiert die Präzedenz.",
+    "SGDEC-D5-Fassaden (agent.common.error_handler/audit/signals) bleiben erhalten, bis der dokumentierte Migrationsplan greift.",
+    "Tests bleiben vollstaendig headless und self-contained; Aufräum-Verifikation laeuft ueber automatisierte Gates, nicht interaktive Prüfung.",
+    "SOLID beachten: jede Zerlegung schützt SRP/DIP; keine God-Services ersetzen durch neue God-Module.",
+    "Detektoren (scripts/check_*.py) sind das Verankerungsmittel fuer Architekturregeln; jede neue Regel bekommt einen lauffähigen Check.",
+    "Secrets duerfen nie ins Repo gelangen; Rotation und Untracking vor allen anderen Änderungen."
+  ],
+  "milestones": [
+    {
+      "id": "CLN-M1",
+      "title": "Sicherheit und Secrets-Bereinigung (P0)",
+      "task_ids": ["CLN-001", "CLN-002", "CLN-003", "CLN-004", "CLN-005", "CLN-006"],
+      "status": "todo"
+    },
+    {
+      "id": "CLN-M2",
+      "title": "Git-Hygiene und getrackte Artefakte (P0/P1)",
+      "task_ids": ["CLN-007", "CLN-008", "CLN-009", "CLN-010", "CLN-011", "CLN-012", "CLN-013", "CLN-014"],
+      "status": "todo"
+    },
+    {
+      "id": "CLN-M3",
+      "title": "Dependency- und Manifest-Konsolidierung (P1)",
+      "task_ids": ["CLN-015", "CLN-016", "CLN-017", "CLN-018", "CLN-019", "CLN-020", "CLN-021"],
+      "status": "todo"
+    },
+    {
+      "id": "CLN-M4",
+      "title": "Quality-Gates und CI-Haertung (P0/P1)",
+      "task_ids": ["CLN-022", "CLN-023", "CLN-024", "CLN-025", "CLN-026", "CLN-027", "CLN-028", "CLN-029"],
+      "status": "todo"
+    },
+    {
+      "id": "CLN-M5",
+      "title": "Toter Code und tote Flaechen (P1/P2)",
+      "task_ids": ["CLN-030", "CLN-031", "CLN-032", "CLN-033", "CLN-034", "CLN-035", "CLN-036", "CLN-037", "CLN-038"],
+      "status": "todo"
+    },
+    {
+      "id": "CLN-M6",
+      "title": "Testlandschaft strukturieren (P1/P2)",
+      "task_ids": ["CLN-039", "CLN-040", "CLN-041", "CLN-042", "CLN-043", "CLN-044", "CLN-045", "CLN-046"],
+      "status": "todo"
+    },
+    {
+      "id": "CLN-M7",
+      "title": "Architektur Teil 1: Import-Grenzen und Schichtverstoesse (P1)",
+      "task_ids": ["CLN-047", "CLN-048", "CLN-049", "CLN-050", "CLN-051", "CLN-052", "CLN-053"],
+      "status": "todo"
+    },
+    {
+      "id": "CLN-M8",
+      "title": "Architektur Teil 2: God-Services und Hub-Worker-Entkopplung (P2)",
+      "task_ids": ["CLN-054", "CLN-055", "CLN-056", "CLN-057", "CLN-058", "CLN-059", "CLN-060", "CLN-061"],
+      "status": "todo"
+    },
+    {
+      "id": "CLN-M9",
+      "title": "Config, Env und Compose Single-Source-of-Truth (P2/P3)",
+      "task_ids": ["CLN-062", "CLN-063", "CLN-064", "CLN-065", "CLN-066", "CLN-067", "CLN-068", "CLN-069"],
+      "status": "todo"
+    },
+    {
+      "id": "CLN-M10",
+      "title": "Verifikation, Abschluss und Verankerung (P1)",
+      "task_ids": ["CLN-070", "CLN-071", "CLN-072", "CLN-073", "CLN-074", "CLN-075"],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "CLN-001",
+      "title": "Committed symmetrische Secret-Keys rotieren und untracken",
+      "description": "Die getrackten Dateien frontend-angular/secrets/secret_key und rag-helper/secrets/secret_key enthalten 43-Byte Base64-Keymaterial (in History seit b7d2f91/ef633e1). Keys rotieren, Dateien aus dem Index entfernen (git rm --cached), Gitignore verschärfen (verschachtelte **/secrets/**) und History-Belastung bewerten.",
+      "type": "security",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "milestone_id": "CLN-M1",
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Beide secret_key-Dateien sind nicht mehr getrackt und durch neue, nicht-getrackte Keys ersetzt.",
+        "Gitignore schuetzt verschachtelte secrets/ Verzeichnisse (**/secrets/** mit !**/secrets/.gitkeep).",
+        "Entscheidung zur History-Bereinigung ist dokumentiert (Rotation ausreichend vs. history rewrite), falls die Keys reale Daten schuetzten.",
+        "Negativ-Test: git ls-files zeigt keine secret_key mehr; Secret-Scan findet kein Keymaterial im Tree."
+      ],
+      "implementation_notes": "Vorrang vor allen anderen Arbeiten. Falls unklar ob Keys real: als real behandeln und rotieren (least privilege).",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-002",
+      "title": "Getrackte Credentials entfernen (.envrc, login_payload.json)",
+      "description": "login_payload.json ist getrackt mit {\"username\":\"admin\",\"password\":\"admin\"}; .envrc ist getrackt mit export ANANTA_PASSWORD=test123. Beide aus dem Index entfernen, harte Defaults durch sichere Platzhalter ersetzen bzw. Datei in gitignore ueberfuehren.",
+      "type": "security",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "milestone_id": "CLN-M1",
+      "depends_on": [],
+      "acceptance_criteria": [
+        "login_payload.json und .envrc sind nicht mehr getrackt bzw. enthalten keine Credentials.",
+        "Dokumentierte Defaults (INITIAL_ADMIN_PASSWORD=test123, POSTGRES_PASSWORD=replace_this) sind durch sichere Platzhalter ersetzt oder klar als Beispiel markiert.",
+        "Keine harten Default-Credentials mehr in getrackten Dateien (grep fuer password/secret/token in *.json/*.envrc root)."
+      ],
+      "implementation_notes": ".env.example:289/32 mitpruefen; schwache Defaults sind derselbe Befundklasse zuzuordnen.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-003",
+      "title": "Live-API-Keys auf Platte pruefen, rotieren und Secret-Handling haerten",
+      "description": ".env:28-29 enthaelt live-aussehende Keys (sk-proj-..., sk-or-v1-...). Ob echt klaeren; falls ja rotieren und in einen Secret-Store (hvac ist Dependency) ueberfuehren. config/secrets/*.pem (Private Keys) aus dem Build-Context nach data/secrets/ oder Vault verschieben.",
+      "type": "security",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "milestone_id": "CLN-M1",
+      "depends_on": ["CLN-001"],
+      "acceptance_criteria": [
+        "Echte Keys sind rotiert; .env ist weiterhin gitignored und nie in History (git log --all -- .env bleibt leer).",
+        "Private Keys liegen ausserhalb des Docker-Build-Context (data/secrets/ oder Vault).",
+        "Secret-Handling ist dokumentiert (wo liegen Keys, wie werden sie injiziert)."
+      ],
+      "implementation_notes": "Nicht-Key-Werte duerfen bleiben; Fokus auf echtes Secret-Material. config/secrets/ ist bereits gitignored, aber im Tree -> Build-Leak-Risiko.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-004",
+      "title": ".gitleaks.toml tracken und Secret-Scan verankern",
+      "description": ".gitleaks.toml wird durch die /.*-Catchall-Ignore-Regel nicht getrackt, dadurch ist die Scan-Policy nicht reproduzierbar. Datei tracken (gitignore-Ausnahme wie !/.github/), sicherstellen dass der Secret-Scan die Policy nutzt und im CI laeuft.",
+      "type": "security",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "milestone_id": "CLN-M1",
+      "depends_on": ["CLN-001"],
+      "acceptance_criteria": [
+        ".gitleaks.toml ist getrackt und im Repo sichtbar.",
+        "Secret-Scan-Job im CI nutzt die getrackte Policy und laeuft reproduzierbar.",
+        "Test: bewusster Dummy-Secret in Testdatei wird vom Scan gefunden (Negativ-Kontrolle der Scan-Wirksamkeit)."
+      ],
+      "implementation_notes": "Gitignore-Ausnahme analog zu !/.github/; Scan-Config versioniert.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-005",
+      "title": "Secret- und Credential-Flaechen systematisch auditieren",
+      "description": "Vollstaendiger Sweep ueber getrackte Dateien auf harte Credentials, Tokens, Keys (ausser dokumentierter Beispiel-Platzhalter). Deckt auch .env.example:347 (TURN-Gate-Passwort, ununterscheidbar von echtem Default) und alle *_TOKEN/*_KEY/*_SECRET/*_PASSWORD ein.",
+      "type": "security",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "milestone_id": "CLN-M1",
+      "depends_on": ["CLN-002", "CLN-003"],
+      "acceptance_criteria": [
+        "Audit-Report listet alle getrackten Credential-Funde mit Pfad und Behandlung (rotiert/entfernt/Platzhalter).",
+        "Fixture-Werte sind klar als solche markiert und von echten Defaults unterscheidbar.",
+        "Keine neuen harten Secrets im Tree (verifiziert ueber Secret-Scan aus CLN-004)."
+      ],
+      "implementation_notes": "Nur getrackte Dateien; .env ist gitignored und wird ueber CLN-003 abgedeckt.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-006",
+      "title": "Secret-Security-Tests und Gitignore-Regressionstests haerten",
+      "description": "Bestehende Tests (z.B. tests/security/workflow_runtime/test_secret_key_file_security.py) erweitern sodass Regressionen (wieder getrackte secret_key, credentials im Tree, kaputte Ignore-Anker) automatisch failen. Gitignore-Luecken (verschachtelte secrets/ pattern) abdecken.",
+      "type": "testing",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "milestone_id": "CLN-M1",
+      "depends_on": ["CLN-004"],
+      "acceptance_criteria": [
+        "Automatisierter Test schlaegt an, wenn secret_key/credentials wieder getrackt werden.",
+        "Gitignore-Muster fuer verschachtelte secrets/ sind per Test verifiziert.",
+        "Tests sind headless und deterministisch."
+      ],
+      "implementation_notes": "Verankert die M1-Ergebnisse gegen Rueckfall; analog zu bestehenden tests/security-Mustern.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-007",
+      "title": "Root-Scratch- und Runtime-Muell-Dateien untracken",
+      "description": "Getrackte Root-Dateien ohne Quellcharakter entfernen: crash.txt, user.json (27KB Shell-History), system_context.txt, running-copilot.chat.txt, nginx_dependencies.txt, nginx_error_logs.txt, nginx_user_check.txt, set_llm_config.json, ananta.runtime-profile.json, release-verification-report.json, tasks_review.md. Via git rm --cached, Dateien koennen lokal bleiben.",
+      "type": "hygiene",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "milestone_id": "CLN-M2",
+      "depends_on": ["CLN-002"],
+      "acceptance_criteria": [
+        "Alle genannten Dateien sind nicht mehr getrackt (git ls-files root zeigt sie nicht).",
+        "Gitignore deckt sie ab (falls erneutes Auftreten verhindert werden soll).",
+        "Output-Boundary-Regel aus AGENTS.md ist fuer diese Pfade eingehalten (Runtime -> nicht committet)."
+      ],
+      "implementation_notes": "AGENTS.md Output-Boundary-Tabelle ist die Referenz; Runtime-Dateien sind dort explizit nicht als Source markiert.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-008",
+      "title": "test.db, test-reports/, test-results/ aus dem Index entfernen",
+      "description": "test.db (1.9MB SQLite) ist getrackt; 124 test-reports/-Dateien (letzter Stand 2026-04, inkl. 246KB backend-coverage.xml) sind getrackt obwohl .gitignore sie ignoriert; test-results/ enthaelt 1 stale Datei. Alle git rm --cached.",
+      "type": "hygiene",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "milestone_id": "CLN-M2",
+      "depends_on": ["CLN-007"],
+      "acceptance_criteria": [
+        "test.db, test-reports/**, test-results/** sind nicht mehr getrackt.",
+        "Repo-Groesse verringert (Clone-Bloat entfernt); .gitignore regelt weiterhin die Pfade.",
+        "Keine legitimen Gate-Reports (artifacts/test-gates/) werden entfernt - nur Root-Test-Muell."
+      ],
+      "implementation_notes": "artifacts/test-gates/ und artifacts/domain/ bleiben getrackt (AGENTS.md Output Boundary); hier nur test-reports/test-results/test.db.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-009",
+      "title": "ananta.egg-info* Build-Artefakte untracken und ignorieren",
+      "description": "ananta.egg-info/ und src/ananta.egg-info/ (PKG-INFO, SOURCES.txt etc.) sind getrackte Build-Artefakte. git rm --cached und *.egg-info in .gitignore aufnehmen.",
+      "type": "hygiene",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "milestone_id": "CLN-M2",
+      "depends_on": ["CLN-007"],
+      "acceptance_criteria": [
+        "Keine egg-info-Dateien mehr getrackt.",
+        "*.egg-info/ ist in .gitignore.",
+        "Neuer Build erzeugt keinen getrackten Muell."
+      ],
+      "implementation_notes": "Build-Artefakte duerfen nie getrackt sein; einfacher, isolierter Schritt.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-010",
+      "title": "ci-artifacts/ gitignore-Regeln mit gezielten Ausnahmen bereinigen",
+      "description": "ci-artifacts/ (30 Dateien) ist nicht ignoriert und enthaelt Mischung aus legitimen Gate-JSONs/Eclipse-Update-Site und Junk (coverage-local/nohup.out, e2e-compose-local/nohup.out, lokale Rerun-Summaries). Pattern analog artifacts/test-gates: gitignore mit !-Ausnahmen fuer bewusste Evidence.",
+      "type": "hygiene",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "milestone_id": "CLN-M2",
+      "depends_on": ["CLN-008"],
+      "acceptance_criteria": [
+        "Junk (nohup.out, lokale Rerun-Reste) ist nicht getrackt.",
+        "Bewusste Evidence-JSONs bleiben getrackt via !-Ausnahmen.",
+        "Muster entspricht artifacts/test-gates-Regel aus AGENTS.md."
+      ],
+      "implementation_notes": "Kein grobes Ignore des gesamten Verzeichnisses ohne Ausnahmen; bewusste Artefakte erhalten.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-011",
+      "title": "Kaputte UTF-16 test-reports/.gitignore reparieren oder entfernen",
+      "description": "test-reports/.gitignore ist UTF-16 LE kodiert (NUL-interleaved); Git kann die Muster nicht matchen -> wirkungslos. In UTF-8 umwandeln oder loeschen (Parent-Regel aus .gitignore:131 reicht).",
+      "type": "hygiene",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "milestone_id": "CLN-M2",
+      "depends_on": ["CLN-008"],
+      "acceptance_criteria": [
+        "Keine UTF-16-kodierte Ignore-Datei mehr im Repo.",
+        "Ignore-Verhalten fuer test-reports/ ist korrekt (verifiziert ueber git check-ignore)."
+      ],
+      "implementation_notes": "Klein, aber Quelle fuer falsche Sicherheit; Parent-Regel genuegt.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-012",
+      "title": "tests_support.py aus dem Root nach tests/ verschieben",
+      "description": "tests_support.py liegt im Repo-Root (77-Zeilen Auth-Seed-Helper, von conftest importiert). Gehoert nach tests/support.py; Importstellen in conftest/tests anpassen.",
+      "type": "hygiene",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "milestone_id": "CLN-M2",
+      "depends_on": ["CLN-008"],
+      "acceptance_criteria": [
+        "Modul liegt unter tests/, Root enthaelt keine Test-Helfer mehr.",
+        "Alle Importe sind aktualisiert; Testlauf bleibt gruen.",
+        "Keine weiteren Root-Module ausser Quell-/Doku-Dateien."
+      ],
+      "implementation_notes": "Importpfad-Refactor; Testlauf zur Verifikation.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-013",
+      "title": "Gitignore-Luecken systematisch schliessen",
+      "description": "Gitignore auf bekannte Luecken pruefen: verschachtelte secrets/ (root-anker), *.egg-info, ci-artifacts-Junk, build/dist trees, *.pyc, .gitleaks-Ausnahme. Konsolidieren und gegen Testfaelle verankern.",
+      "type": "hygiene",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "milestone_id": "CLN-M2",
+      "depends_on": ["CLN-001", "CLN-009", "CLN-010"],
+      "acceptance_criteria": [
+        "Alle identifizierten Luecken sind geschlossen; git check-ignore verifiziert fuer Repraesentativ-Pfade.",
+        "Keine uebermaessig breiten Muster die legitime Source verstecken (z.B. /.* betroffen pruefen).",
+        "Regeln sind kommentiert und nachvollziehbar."
+      ],
+      "implementation_notes": "Vorsicht: /.*-Catchall versteckt bereits .gitleaks.toml (CLN-004); gezielte !-Ausnahmen statt breiter Locks.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-014",
+      "title": "Output-Boundary-Regel durch Detektor verankern",
+      "description": "Neuer Check (scripts/check_output_boundary.py) der verhindert dass Runtime-Artefakte (test.db, *.log, user.json, egg-info, test-reports) erneut getrackt werden. Orientiert an AGENTS.md Output-Boundary-Tabelle.",
+      "type": "testing",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "milestone_id": "CLN-M2",
+      "depends_on": ["CLN-007", "CLN-008", "CLN-009"],
+      "acceptance_criteria": [
+        "Check faengt getrackte Runtime-Artefakte und faelscht im CI.",
+        "Check ist in CI/Release-Gate eingebunden.",
+        "Negativ-Test: absichtlich getracktes Artefakt wird gemeldet."
+      ],
+      "implementation_notes": "Verankert M2 gegen Rueckfall; Muster von scripts/check_*.py uebernehmen.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-015",
+      "title": "Tote Dependencies entfernen (mistralai, langdetect)",
+      "description": "mistralai und langdetect haben 0 Imports in agent/worker/src/scripts/tests. Aus pyproject.toml und requirements*.txt entfernen; lock-Files neu generieren.",
+      "type": "deps",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "milestone_id": "CLN-M3",
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Beide Pakete sind aus allen Manifesten entfernt.",
+        "Import-Scan (0 refs) bestaetigt; Testlauf bricht nicht.",
+        "requirements.lock ist konsistent neu erzeugt."
+      ],
+      "implementation_notes": "Vorher via grep bestaetigen dass keine dynamischen Imports existieren; dann streichen.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-016",
+      "title": "llama-index in optional extra (rag-embeddings) verschieben",
+      "description": "llama-index wird nur in agent/semantic_search_engine.py genutzt (gated via ANANTA_ENABLE_LLAMAINDEX_EMBEDDINGS), zieht aber grossen transitiven Baum. In ein optionales extra analog qdrant/duckdb verschieben.",
+      "type": "deps",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "milestone_id": "CLN-M3",
+      "depends_on": ["CLN-015"],
+      "acceptance_criteria": [
+        "llama-index ist optionales extra; Kern-Installation ohne es.",
+        "Feature bleibt bei gesetztem extra + Flag funktionsfaehig.",
+        "Docker-Builds die es brauchen setzen das extra explizit."
+      ],
+      "implementation_notes": "Folgt dem bestehenden optional-extras-Muster in pyproject.toml.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-017",
+      "title": "Kaputtes requirements-no-tsl.txt loeschen oder regenerieren",
+      "description": "requirements-no-tsl.txt ist inkorrekt: fehlende 11 Runtime-Deps (jsonschema, langdetect, lxml, openpyxl, pypdf, python-docx, python-pptx, PyYAML, tree_sitter_*), 6 Dev-Deps drin (pytest, httpx, flake8, mypy, ruff, pytest-cross...). Header behauptet pyproject sei SSOT, ist es aber nicht.",
+      "type": "deps",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "milestone_id": "CLN-M3",
+      "depends_on": ["CLN-015"],
+      "acceptance_criteria": [
+        "Datei ist entfernt oder regeneriert und konsistent zu pyproject.toml.",
+        "Kein Docker-Build nutzt mehr die inkorrekte Datei.",
+        "Dev-Deps sind aus Runtime-Manifesten entfernt."
+      ],
+      "implementation_notes": "Empfehlung: loeschen und bei Bedarf aus pyproject generieren; kaputtes Manifest ist aktiv schaedlich.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-018",
+      "title": "Redundantes requirements-dev.txt entfernen",
+      "description": "requirements-dev.txt ist byte-identisch zum dev-extra in pyproject.toml. Entfernen; pyproject.toml + requirements-dev.lock als Single Source nutzen.",
+      "type": "deps",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "milestone_id": "CLN-M3",
+      "depends_on": ["CLN-017"],
+      "acceptance_criteria": [
+        "requirements-dev.txt ist entfernt.",
+        "CI baut aus pyproject + locks; keine Referenz auf die entfernte Datei.",
+        "Dokumentation spiegelt neue Manifest-Struktur."
+      ],
+      "implementation_notes": "Teil der Manifest-Konsolidierung auf pyproject+locks.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-019",
+      "title": "Dependency-Drift-Detektor (pyproject vs requirements) implementieren",
+      "description": "Neuer Check der faelscht wenn requirements*.txt und pyproject.toml auseinanderlaufen (Name/Spezifikation). Verhindert erneute Fragmentierung der ~40 Manifeste.",
+      "type": "testing",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "milestone_id": "CLN-M3",
+      "depends_on": ["CLN-017", "CLN-018"],
+      "acceptance_criteria": [
+        "Check erkennt Abweichungen zwischen Manifesten und faelscht im CI.",
+        "Negativ-Test: absichtliche Abweichung wird gemeldet.",
+        "Check ist dokumentiert und im CI verankert."
+      ],
+      "implementation_notes": "Muster von scripts/check_* uebernehmen; verhindert Rueckfall der Fragmentierung.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-020",
+      "title": "Uneinheitliche Version-Pins vereinheitlichen (cryptography, Pillow)",
+      "description": "cryptography ist root unpinned aber ==43.0.3 in sfu-runtime-agent/pyproject und ==44.0.3 in turn-observer-agent/pyproject. Pillow unpinned root vs ==11.3.0 in docker/meet-media. Pins vereinheitlichen oder gezielt begruendet trennen.",
+      "type": "deps",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "milestone_id": "CLN-M3",
+      "depends_on": ["CLN-015"],
+      "acceptance_criteria": [
+        "Version-Spezifikationen sind konsistent oder Abweichung explizit begruendet dokumentiert.",
+        "Keine stillen Konflikte zwischen Subpackages."
+      ],
+      "implementation_notes": "Bei verteilten Paketen: gemeinsamen Pin-Bereich definieren oder Dokumentation der bewussten Trennung.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-021",
+      "title": "shell_gpt/agent-sgpt Ambiguitaet entscheiden und Makefile worker-standalone fixen",
+      "description": "shell_gpt ist pip-Dependency aber agent/sgpt/ ist geforkter Fork (Import-Topologie mehrdeutig, sgpt nicht in .venv installiert). Entscheiden: externes Tool dokumentieren ODER Fork abschliessen. Makefile Target worker-standalone-build zeigt auf nicht existierendes Dockerfile (liegt in docker/old_way/) -> Pfad fixen oder Target entfernen.",
+      "type": "deps",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "milestone_id": "CLN-M3",
+      "depends_on": [],
+      "acceptance_criteria": [
+        "shell_gpt-Rolle ist eindeutig (externes Tool ODER vollstaendiger Fork); keine doppelte Quelle.",
+        "Makefile worker-standalone-build zeigt auf existierendes Dockerfile oder ist entfernt.",
+        "Dokumentation spiegelt die Entscheidung."
+      ],
+      "implementation_notes": "Beides sind Quellen fuer kaputte/verwirrende Builds; Entscheidung dokumentieren.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-022",
+      "title": "CI-Lint- und Type-Gate aktivieren (ruff + mypy)",
+      "description": "Kein Python-Lint/Type-Gate in CI: alle Caller nutzen --skip-style --skip-types; ruff/mypy nie in 34 Workflows. Neuer CI-Job: ruff format --check + ruff check + mypy agent. Schnell fehlschlagend, vor den Test-Shards.",
+      "type": "quality",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "milestone_id": "CLN-M4",
+      "depends_on": [],
+      "acceptance_criteria": [
+        "CI-Job fuehrt ruff format --check, ruff check und mypy agent aus und faelscht bei Verstoss.",
+        "Job laeuft vor/vorab zu Test-Shards (fail fast).",
+        "Bestehender Code ist konform oder bewusst mit Allow-List/Schuldenstand dokumentiert (kein stiller --skip)."
+      ],
+      "implementation_notes": "Hoechster Defensivwert: verhindert neuen Debt. quality-and-docs.yml/nightly nutzen derzeit --skip-style --skip-types -> dort ersetzen.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-023",
+      "title": "Globales pytest timeout=300 setzen",
+      "description": "pyproject [tool.pytest.ini_options] hat kein timeout; nur 2 Workflows setzen --timeout (300/900), lokal und in quality-and-docs/python-verification unbounded. AGENTS.md verlangt bounded diagnostics. Globales timeout=300 ergaenzen; @pytest.mark.timeout in 248 Dateien beibehalten.",
+      "type": "quality",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "low",
+      "milestone_id": "CLN-M4",
+      "depends_on": [],
+      "acceptance_criteria": [
+        "pytest hat globales timeout; kein Test haengt unbounded.",
+        "Lokale make-check- und alle CI-Laeufe sind bounded.",
+        "Per-Test @pytest.mark.timeout-Overrides funktionieren weiter."
+      ],
+      "implementation_notes": "1-Zeilen-Fix mit hohem Compliance-Effekt (AGENTS.md Fully Automated Execution).",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-024",
+      "title": "flake8/ruff Stil-Konflikt loesen (88 vs 120)",
+      "description": ".flake8 setzt max-line-length=88, ruff erzwingt 120 - zwei widerspruechliche Stylesheets; flake8 laeuft nirgends. Entscheiden: .flake8 loeschen ODER an ruff angleichen und betreiben.",
+      "type": "quality",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "milestone_id": "CLN-M4",
+      "depends_on": ["CLN-022"],
+      "acceptance_criteria": [
+        "Genau ein Linter/Stylesheet ist verbindlich; kein Widerspruch mehr.",
+        "Konfiguration ist dokumentiert; CI nutzt den gewaehlten Linter."
+      ],
+      "implementation_notes": "Empfehlung: flake8 entfernen, ruff als alleinigen Standard; da ruff bereits konfiguriert und performanter.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-025",
+      "title": "Coverage-Gate pro PR und --cov-fail-under ergaenzen",
+      "description": "Coverage-Job ist label-/push-gated (if: !=pull_request || label==coverage), Regressionen landen auf main. Kein --cov-fail-under gesetzt. Coverage pro PR laufen lassen (mit paths-filter) und --cov-fail-under gemaess devtools/coverage-thresholds.backend.json ergaenzen.",
+      "type": "quality",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "milestone_id": "CLN-M4",
+      "depends_on": ["CLN-022"],
+      "acceptance_criteria": [
+        "Coverage laeuft bei jedem PR (oder mit sinnvollen paths-filtern).",
+        "--cov-fail-under spiegelt global_min_percent; Regressionen faelschen frueh.",
+        "devtools/check_backend_coverage_thresholds.py bleibt die granulare Validierung."
+      ],
+      "implementation_notes": "Belt-and-braces neben dem JSON-Threshold-Validator.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-026",
+      "title": "check_hotspot_guardrails in CI mit fail-on-over-budget verankern",
+      "description": "check_hotspot_guardrails.py meldet ai_agent.py (965/250) und service_registry.py (370/250) als over_budget, faelscht aber nur mit --fail-on-over-budget (nicht in CI). In CI aktivieren; Budget-Ueberschreitungen muessen entweder gefixt oder bewusst mit allowlist begruendet werden.",
+      "type": "quality",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "milestone_id": "CLN-M4",
+      "depends_on": ["CLN-022"],
+      "acceptance_criteria": [
+        "CI faelscht bei Budget-Ueberschreitung (oder erlaubt nur dokumentierte Ausnahmen).",
+        "ai_agent.py/service_registry.py werden via CLN-048/CLN-061 unter Budget gebracht oder bewusst begruendet.",
+        "Kein stiller Default der ueber Budget laufende Module toleriert."
+      ],
+      "implementation_notes": "Verankert die Groessen-Budgets; Blocker fuer D8-Befund.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-027",
+      "title": "check_cycles.py reparieren und in CI betreiben",
+      "description": "check_cycles.py ist nicht lauffaehig (networkx fehlt) und strukturell schwach (is_known_cycle hardcodet False, Imports als bare strings). Reparieren: networkx ergaenzen oder entfernen, Imports zu Dateien aufloesen, echte Zyklen erkennen (agent.services<->worker.core).",
+      "type": "quality",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "milestone_id": "CLN-M4",
+      "depends_on": ["CLN-028"],
+      "acceptance_criteria": [
+        "Check ist lauffaehig und erkennt echte Import-Zyklen (inkl. agent.services<->worker.core).",
+        "Check ist in CI verankert.",
+        "Negativ-Test: absichtlicher Zyklus wird gefunden."
+      ],
+      "implementation_notes": "Voraussetzung fuer CLN-056 (Zyklus-Aufbrechen); ohne lauffaehigen Check keine Verifikation.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-028",
+      "title": "Fehlende Dev-Deps fuer Check-Skripte ergaenzen",
+      "description": "Mehrere check_*.py sind nicht lauffaehig wegen fehlender Deps: check_cycles (networkx), check_mcp_api_operation_allowlists (jsonschema), check_workflow_gates (pytest), check_tiny_tool_router (agent nicht importabel). Dev-Deps ergaenzen (requirements-dev.lock) und Check-Umgebung herstellen.",
+      "type": "quality",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "milestone_id": "CLN-M4",
+      "depends_on": ["CLN-018"],
+      "acceptance_criteria": [
+        "Alle architektur-relevanten check_*.py sind in der Check-Umgebung lauffaehig.",
+        "Fehlende Deps sind in requirements-dev.lock ergaenzt.",
+        "Katalog aller check-Skripte mit Status (lauf/faehig/nicht) ist dokumentiert."
+      ],
+      "implementation_notes": "Blockiert CLN-027 und CLN-072; Check-Layer muss ueberhaupt erst betreibbar sein.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-029",
+      "title": "check_imports.py Coverage auf worker/ und cli_backends erweitern",
+      "description": "check_imports.py RULES decken nur agent.routes/services/repositories/common + plugins ab; worker/, agent/cli_backends/, ananta_contracts/ und Cross-Tree agent.services<->worker.* sind unprueft (Luecke die F1.1/F1.2 erlaubt). RULES erweitern oder check_worker_boundaries.py ergaenzen.",
+      "type": "quality",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "milestone_id": "CLN-M4",
+      "depends_on": ["CLN-022"],
+      "acceptance_criteria": [
+        "worker->agent.services (ausser *_ports/*_contract/config/auth/ananta_contracts) wird gefangen.",
+        "agent.services<->worker.* Verstoesse werden gemeldet.",
+        "Check ist in CI; Verstoesse aus CLN-054/055 werden sichtbar."
+      ],
+      "implementation_notes": "Whitelist: ananta_contracts.*, *_ports, *_contract, agent.config, agent.auth erlaubt; Rest verboten.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-030",
+      "title": "agent/services/di.py tote Factories streichen",
+      "description": "di.py (961 LOC) deklariert 59 get_*_repository-Factories; 58 haben 0 Referenzen ausserhalb. Einziger Prod-Konsument: result_memory_service.py:141 (get_memory_entry_repository). 58 tote Factories + __getattr__-Machinery entfernen; get_memory_entry_repository hinter get_repository_registry() migrieren; DI-Seam dokumentieren.",
+      "type": "deadcode",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "milestone_id": "CLN-M5",
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Tote Factories sind entfernt; Modul ist schlank oder aufgeloest.",
+        "get_memory_entry_repository funktioniert weiter (Test), migriert hinter get_repository_registry().",
+        "Dokumentation benennt get_repository_registry() als kanonischen DI-Seam (keine zwei konkurrierenden Inversionen)."
+      ],
+      "implementation_notes": "Hoechster Dead-Code-Hebel (D1). ISP: zwei DI-Schichten entfernen, eine behalten.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-031",
+      "title": "Tote Blueprints entfernen (task_engine, artifact_status, agent_templates)",
+      "description": "3 Blueprints werden nie in Prod registriert: task_engine_bp (agent/routes/task_engine.py), artifact_status_bp (agent/routes/tasks/artifact_status.py), admin_agent_templates_bp (agent/routes/admin/agent_templates.py). Getestete Helper extrahieren (z.B. get_task_artifact_status, _validate_context_policy) in services; Blueprint-Files loeschen oder ueber test_support registrieren.",
+      "type": "deadcode",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "milestone_id": "CLN-M5",
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Keine unregistrierten Blueprints mehr (Diff definition vs register_blueprint ist leer ausser bewussten test_support).",
+        "Getestete Helper bleiben erhalten und korrekt getestet.",
+        "Keine toten HTTP-Endpunkte in der API-Oberflaeche."
+      ],
+      "implementation_notes": "Tote HTTP-Flaeche lockt falsche API-Doku und Pen-Test-Rauschen.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-032",
+      "title": "Vollstaendig verwaiste Service- und Worker-Module loeschen",
+      "description": "11 verwaiste agent/services-Module (416 LOC) mit 0 Referenzen inkl. Tests: adaptive_growth_decision_service, task_source_security_projection_service, prompt_improvement_service, codecompass_claim_extraction_service, blender_*, rag_index_embedding (leer), expert_registry, sfu_fleet_reconciliation_ports, deterministic_repair_path_service_original (Tombstone), task_finalization_service. Plus 10 worker-Orphans (548 LOC). task_finalization_service vorher gegen goal_task_finalization diffen.",
+      "type": "deadcode",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "milestone_id": "CLN-M5",
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Verwaiste Module sind entfernt (ausser ggf. task_finalization_service nach Diff-Begruendung).",
+        "Keine verlorenen Funktionen (task_finalization vs goal_task_finalization verglichen).",
+        "det_command_handler.py-Staledocstring (worker) korrigiert oder Modul entfernt."
+      ],
+      "implementation_notes": "Vor dem Loeschen von task_finalization_service Diff gegen goal_task_finalization (5621 B) - moeglicherweise verlorenes Verhalten.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-033",
+      "title": "118 test-only Services triagieren (wire-or-delete)",
+      "description": "118 agent/services-Module (17,2k LOC) werden ausschliesslich von tests/ referenziert, nie von Prod. Cluster: knowledge_expert_* (8), webrtc_turn_* (5, u.a. 488 LOC HMAC-Creds), imap_*/mail_* (7, 460 LOC mail_migration), verification_* (5), specialist_*/dspy_* (5). Pro Modul entscheiden: verdrahten (bootstrap) ODER nach experimental/tests verschieben ODER loeschen.",
+      "type": "deadcode",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "milestone_id": "CLN-M5",
+      "depends_on": ["CLN-032"],
+      "acceptance_criteria": [
+        "Jedes der 118 Module hat eine dokumentierte Entscheidung (wire/move/delete).",
+        "Geloeschte Module samt ihren Tests sind entfernt; verdrahtete sind ueber bootstrap erreichbar.",
+        "Keine Prod-dark-Module mehr im live namespace (LSP: in services/ = wired)."
+      ],
+      "implementation_notes": "Grosse Triage; clusterweise vorgehen (knowledge_expert_*, webrtc_turn_*, imap_* zuerst - ausgelaufene Feature-Wellen). 154 Test-Referenzen mit betroffen.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-034",
+      "title": "except: pass Sweep (412 Blöcke in 287 Dateien)",
+      "description": "412 bare except: pass in agent/worker verschlucken still Ausnahmen (Top Observability-Killer im Hub-Worker-System). Durch engere Handler + Logging ersetzen (except Exception: logger.debug oder schmaler). Worst: cli_backends/architecture_scan.py (6), shell/process.py (5), common/http.py (5), terminal_bridge.py (5).",
+      "type": "deadcode",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "high",
+      "milestone_id": "CLN-M5",
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Keine stillen except: pass mehr; Ausnahmen sind mindestens geloggt/observierbar.",
+        "Verhalten bleibt stabil (keine neuen Crash-Durchreicher ohne beguendeten Fall).",
+        "AGENTS.md 'observable and auditable' ist fuer diese Stellen eingehalten."
+      ],
+      "implementation_notes": "Package-weises Vorgehen; nicht blind ersetzen - manche Pass-Stellen sind intentional, diese begruenden. Aufwand hoch, Wert hoch (Observability).",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-035",
+      "title": "Singleton-/Factory-Boilerplate auf EIN Pattern konsolidieren",
+      "description": "Vier konkurrierende Patterns: (1) eager module-level x=Service() (203x), (2) lazy global _service, (3) current_app.extensions (20), (4) di.py late-binding. 258x identischer singleton=ClassName()/get_x_service()-Block, 313 get_*_service-Files. EIN kanonisches Pattern festlegen (constructor injection + di.py-style late binding als Bridge), Rest einfrieren via Detektor.",
+      "type": "refactor",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "high",
+      "milestone_id": "CLN-M5",
+      "depends_on": ["CLN-030"],
+      "acceptance_criteria": [
+        "Ein kanonisches DI/Singleton-Pattern ist in AGENTS.md dokumentiert.",
+        "Neue get_*_service() Zugaenge sind via Detektor begrenzt (Freeze).",
+        "Boilerplate ist ueber generischen Helfer (singleton(X)) reduziert."
+      ],
+      "implementation_notes": "Strukturelle Schuld (D6); 300-File-Greps bei jeder Wiring-Aenderung vermeiden. Kombiniert mit CLN-060.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-036",
+      "title": "Facade-/Compat-Shim-Residue entfernen (54 + 103)",
+      "description": "54 logikfreie Facade-Module (nur imports+__all__) und 103 'compatibility facade/shim'-Docstrings (SGPT-Decoupling/Layer-Moves Residue). Deprecation-Warnings einfuehren, nach einer Release entfernen. check_shim_imports.py zeigt team_blueprint_service-Shim mit 0 Importern -> sofort loeschbar.",
+      "type": "deadcode",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "milestone_id": "CLN-M5",
+      "depends_on": ["CLN-035"],
+      "acceptance_criteria": [
+        "team_blueprint_service-Shim ist entfernt (0 Importer verifiziert).",
+        "Uebrige Fassaden haben Deprecation-Pfad; Import-Graph-Oberflaeche verkleinert.",
+        "Alte Namen funktionieren waehrend der Migrationsfrist, danach nicht."
+      ],
+      "implementation_notes": "Nicht sofort alles loeschen - Konsumen koennen existieren; Deprecation-Zyklus. OCP: alte Namen bleiben waehrend Migration substituierbar.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-037",
+      "title": "Stale Import-Exceptions und check_shim-Residue bereinigen",
+      "description": "check_imports.py:44-46 traegt noch agent.common.sgpt EXCEPTIONS fuer Module die es nicht mehr gibt (Migration vollstaendig). Stale Exception-Rows loeschen; aehnlich veraltete Allow-List-Eintraege pruefen.",
+      "type": "hygiene",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "milestone_id": "CLN-M5",
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Keine Exception-Rows fuer nicht-existente Module in check_imports.py.",
+        "Allow-Lists reflektieren aktuellen Stand (nicht kodierte Schuld ohne Begruendung)."
+      ],
+      "implementation_notes": "Klein; aber stale Exceptions verstecken echte Verstoesse.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-038",
+      "title": "Tote Methoden in task_scoped_execution_service.py entfernen",
+      "description": "task_scoped_execution_service.py (965 LOC, 89 Import-Zeilen) enthaelt 32 zero-ref-Methoden (AST-Scan). Pro Name verifizieren dann entfernen; reduziert den God-Service-Footprint vor CLN-057.",
+      "type": "deadcode",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "milestone_id": "CLN-M5",
+      "depends_on": [],
+      "acceptance_criteria": [
+        "32 tote Methoden sind entfernt (nach per-Name-Verifikation gegen Aufrufer).",
+        "Verbleibende 3 oeffentliche Einstiegspunkte sind klar.",
+        "Testlauf gruen."
+      ],
+      "implementation_notes": "Vorbereitung fuer CLN-057 (Zerlegung); erst totes Volumen raus, dann strukturieren.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-039",
+      "title": "God-Tests splitten (9 Dateien >=2000 LOC)",
+      "description": "9 Testdateien >=2000 LOC: task_recovery_planning (4561), public_rendezvous_service_contract (3901), voice_live_runs (3096), workflow_transition_persistence (2875), workflow_transition_ownership_reservation (2767) etc. + 25 Dateien 1000-1999. Entlang natürlicher Szenario-Szenen splitten (z.B. recovery: _planning/_materialization/_approval/_api).",
+      "type": "testing",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "milestone_id": "CLN-M6",
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Keine Testdatei ueber 2000 LOC (Soft-Budget 1200 via Line-Gate aus CLN-046).",
+        "Splits folgen Szenarien, nicht willkuerlich; Testabdeckung bleibt gleich.",
+        "Testlauf gruen und nicht verlangsamt."
+      ],
+      "implementation_notes": "workflow_transition_*-Cluster (5 Dateien, 12k LOC) wuerde von geteiltem Fixture profitieren (CLN-042).",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-040",
+      "title": "Tote und deaktivierte Tests bereinigen",
+      "description": "2 tote Legacy-Auth-Module (test_user_management.py, test_user_management_v2.py, module-level skip, importieren nicht-existente User-Model). 1 unconditionierter skip (test_goals_planning_recovery.py:635 'pre-existing: autopilot tick engine dispatches 0 tasks' = deaktiverter Regressionstest). SmartCompressor-xfailes (Feature existiert nicht). Entscheiden: loeschen ODER fixen ODER Feature implementieren.",
+      "type": "testing",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "milestone_id": "CLN-M6",
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Tote Auth-Module entfernt.",
+        "Deaktivierter autopilot-Regressionstest ist entweder gefixt (Ticket) oder begruendet entfernt - nicht still geskippt.",
+        "SmartCompressor-Schicksal entschieden (implementieren ODER Spec-Tests entfernen)."
+      ],
+      "implementation_notes": "Der autopilot-Skip ist ein verdeckter Defekt-Verdacht (dispatches 0 tasks) - vor Entfernung gegen CLN-048 pruefen.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-041",
+      "title": "Flache Root-Test-Dateien einsortieren",
+      "description": "814 flache .py im tests/-Root (160k LOC), darunter 67 fehlplatzierte meet_*-Observer/Fixture-Module (z.B. tests/meet_dialog_avatar_observer.py) die nach tests/meet/ gehoeren. Imports anpassen (from tests.meet_... -> tests.meet.meet_...).",
+      "type": "testing",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "milestone_id": "CLN-M6",
+      "depends_on": ["CLN-012"],
+      "acceptance_criteria": [
+        "meet_*-Helper liegen unter tests/meet/; Root-Flaeche spuerbar reduziert.",
+        "Alle Importe korrekt; Testlauf gruen.",
+        "Namenskonvention fuer Helper-Module definiert."
+      ],
+      "implementation_notes": "Import-Refactor; kein Verhaltens-Change. Reduziert Root-Chaos.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-042",
+      "title": "Per-Domain conftests und Fixture-Deduplizierung",
+      "description": "579 @pytest.fixture in 434 Dateien (alles file-lokal), 297 Dateien bauen Flask-App inline, 22 redefinieren def app, 31 def client (schatten Root-Fixture), 46 eigene _login-Helper, 6 _block_sgpt. Geteilte app/client/auth-token-Fixtures nach tests/conftest.py bzw. Per-Domain (tests/workflow/, tests/task/) extrahieren.",
+      "type": "testing",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "milestone_id": "CLN-M6",
+      "depends_on": ["CLN-043"],
+      "acceptance_criteria": [
+        "Geteilte app/client/auth-Fixtures sind zentral; Datei-lokale Duplikate reduziert.",
+        "Per-Domain conftest.py existieren fuer die grossen Subdirs (workflow, task).",
+        "Testlauf stabil (Fixture-Aenderungen brechen keine Tests)."
+      ],
+      "implementation_notes": "Folgt CLN-043 (God-conftest aufteilen); von dort die Modules importieren.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-043",
+      "title": "God-conftest.py (1324 LOC) in composable Module aufteilen",
+      "description": "tests/conftest.py (1324 LOC) ist ein God-conftest mit DB-Isolation (_db_savepoint_isolation, cleanup_db_and_runtime), Env-Sandboxing, Planning-Brake, autouse fixtures, xdist-safe Sandboxes. In composable Fixture-Module zerlegen, die von conftest importiert werden (Merge-Konflikt-Magnet reduzieren).",
+      "type": "testing",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "high",
+      "milestone_id": "CLN-M6",
+      "depends_on": [],
+      "acceptance_criteria": [
+        "conftest.py ist schlank; Logik in importierbaren Fixture-Modulen.",
+        "Hermetisches Sandboxing (Netzwerk/DATA_DIR/RAG/Redis/CodeCompass) bleibt erhalten - best-practice.",
+        "xdist-Sicherheit bleibt gewaehrleistet; Testlauf gruen."
+      ],
+      "implementation_notes": "Das hermetic sealing ist best-in-class und muss erhalten bleiben (nicht zerstoeren). Nur Struktur aufteilen.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-044",
+      "title": "Coverage-Padding-Dateien umbenennen/mergen",
+      "description": "Dateien nach Coverage-Ziel statt Verhalten benannt: test_utils_extra.py (183 L), test_utils_coverage.py (246 L), auth/test_auth_extra_coverage.py, plus _extended/_v2/_v3-Familien (test_git_ops_extended, test_decision_context_v2, test_trace_v2, ...). Zu verhaltensbasierten Namen umbenennen oder zusammenfuehren.",
+      "type": "testing",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "milestone_id": "CLN-M6",
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Keine Testdateien mehr nach Coverage-Ziel benannt.",
+        "Verhaltensbasierende Namen; keine _v2/_v3-Akkumulation ohne Klaerung.",
+        "Testlauf gruen."
+      ],
+      "implementation_notes": "test_utils_extra.py ist zudem in make-check-Smoke-Liste (CLN-046 mitpruefen).",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-045",
+      "title": "In-test Sleeps >=5s bereinigen und Thread-Warning-Filter eingrenzen",
+      "description": "216 time.sleep()-Stellen; die meisten bounded, aber echte In-test-Sleeps: test_federation_e2e.py:64 (10s), test_meet_dialog_diagnostics_completion.py:78 (10s), test_repair_threading.py:245 (5s), meet_companion_* (30-60s). pyproject ignoriert global PytestUnhandledThreadExceptionWarning (maskiert echte Thread-Crashes). Sleeps reduzieren, Warning-Filter auf betroffene Module eingrenzen.",
+      "type": "testing",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "milestone_id": "CLN-M6",
+      "depends_on": ["CLN-023"],
+      "acceptance_criteria": [
+        "Keine In-test-Sleeps >=5s ausserhalb tests/slow/ und Child-Script-Strings.",
+        "Thread-Exception-Warning-Filter ist auf betroffene Module begrenzt (nicht global).",
+        "Lint-Regel verhindert neue grosse Sleeps."
+      ],
+      "implementation_notes": "Stubborn-Child sleeps (3600) in kill-tests sind legitim (bounded durch parent timeout); nur echte In-test-Sleeps anfassen.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-046",
+      "title": "Test-Line-Budget-Gate auf tests/ erweitern",
+      "description": "Bestehende 'Source file line limit gate' (quality-and-docs.yml:36) auf tests/ ausweichen (Soft-Budget 1200) um God-Test-Rueckfall zu verhindern. Ergaenzt CLN-039.",
+      "type": "testing",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "milestone_id": "CLN-M6",
+      "depends_on": ["CLN-039"],
+      "acceptance_criteria": [
+        "Line-Limit-Gate deckt tests/ ab; neue God-Tests werden gefangen.",
+        "Budget ist realistisch (1200) und dokumentiert.",
+        "Gate im CI verankert."
+      ],
+      "implementation_notes": "Verankert die Test-Splits gegen Rueckfall.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-047",
+      "title": "19 aktive check_imports.py-Verstoesse beheben (Memory + self_development)",
+      "description": "19 unbaselinierte Schichtverstoesse: memory_audit.py:22-24 (routes->repositories x3), repositories/memory_snapshot.py:16-18 (repo->services x3), memory_policy/memory_migration/result_memory_* etc. (repo->services x8), self_development/runtime.py:277,348 (services->routes x2). NICHT rebaseline - beheben. Pure Codecs/Validators nach agent/common/ oder agent/memory_contracts/ verschieben.",
+      "type": "refactor",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "milestone_id": "CLN-M7",
+      "depends_on": ["CLN-022"],
+      "acceptance_criteria": [
+        "check_imports.py ist gruen ohne Rebaseline (baseline nicht erweitert).",
+        "Memory-Subsystem-Layering ist korrekt (repositories haengen nicht an services).",
+        "self_development/runtime haengt nicht an routes."
+      ],
+      "implementation_notes": "Verstoesse gegen eigenes Layering-Modell (SRP/DIP auf Modulebene). Nicht rebaseline - das waere kodierte Schuld. Hohe Prioritaet.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-048",
+      "title": "Autopilot-Engine aus agent/routes/tasks/ nach services extrahieren",
+      "description": "agent/routes/tasks/ autopilot* + auto_planner = 6962 LOC reine Orchestrierung (Dispatch, Model-Selection, Stale-Recovery, Strategy-Exhaustion, Worker-Forwarding) im Presentation-Layer - der Kernfluss der Hub-Aufgabe. Nach agent/services/autopilot/ extrahieren, Routes bleiben duenn (parse->call->serialize).",
+      "type": "refactor",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "milestone_id": "CLN-M7",
+      "depends_on": ["CLN-047"],
+      "acceptance_criteria": [
+        "Autopilot-Orchestrierung liegt in services/ (nicht routes/); Routes sind duenn (<~40 Zeilen Handler).",
+        "Delegationsfluss (Hub-Kernaufgabe) ist im Service-Layer.",
+        "check_service_boundaries erlaubt keine services->routes mehr fuer autopilot.",
+        "Testlauf gruen; Verhalten unveraendert."
+      ],
+      "implementation_notes": "Hoechster Strukturwert der gesamten Bereinigung (A2). docs/status/architecture-source-map.md:8 nennt derzeit autopilot_tick_engine.py als Delegationsfluss-Heimat -> aktualisieren.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-049",
+      "title": "Route-Layer von Business-Logik, DB-Zugriff und subprocess befreien",
+      "description": "36 Route-Files greifen direkt auf Repositories/DB zu (memory_audit, system.py:915, goals_planning_routes). Business-Logik in Routen: knowledge.py:358-541 (Reconciliation ~180 LOC), system.py analyze_audit_logs/register_agent/probe_registered_agent. subprocess in routes (deterministic_run.py:19, snakes_ananta_config_tool_loop.py:48). In Services verschieben.",
+      "type": "refactor",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "high",
+      "milestone_id": "CLN-M7",
+      "depends_on": ["CLN-048"],
+      "acceptance_criteria": [
+        "Route-Handler sind duenn (parse->call service->serialize, ~<=40 Zeilen).",
+        "Keine direkten Repositoriy-/DB-/subprocess-Zugriffe in routes (check_imports erzwingt).",
+        "Reconciliation-/Audit-Logik liegt in services (z.B. knowledge_index_job_service, memory_audit_read_service)."
+      ],
+      "implementation_notes": "memory_audit_read_service existiert bereits und wird in memory_audit.py:7 korrekt genutzt - nur :22-24 Repo-Import ist der Leck. orchestration_policy/persistence.py ist ein persistence-Modul im routes-Tree (mit CLN-050).",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-050",
+      "title": "Services->Routes Allow-List aufloesen (orchestration_policy, dependency_policy)",
+      "description": "check_service_boundaries.py erlaubt 13 invertierte Import-Paare (kodierte Schuld): task_queue_service->routes.tasks.orchestration_policy.routing, task_management_service->routes.tasks.dependency_policy etc. orchestration_policy/* und dependency_policy nach agent/services/orchestration_policy/ verschieben; Allow-List loeschen.",
+      "type": "refactor",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "milestone_id": "CLN-M7",
+      "depends_on": ["CLN-049"],
+      "acceptance_criteria": [
+        "orchestration_policy/ und dependency_policy liegen im services-layer.",
+        "check_service_boundaries-Allow-List ist leer (oder nur dokumentierte Ausnahmen mit Begruendung).",
+        "Invertierte Abhaengigkeiten (business->presentation) sind aufgeloest (DIP)."
+      ],
+      "implementation_notes": "Eine Allow-List invertierter Imports ist kodifizierte Schuld; nach Umzug loeschen.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-051",
+      "title": "self_development/runtime services->routes Verstoss beheben",
+      "description": "agent/services/self_development/runtime.py:277 (from agent.routes.tasks.autopilot import autonomous_loop) und :348 (_background_threads_disabled) - ein Service startet die Route-Layer-Autopilot-Schleife. Verletzt check_service_boundaries selbst (nicht in Allow-List). In Service verlagern, Route delegiert.",
+      "type": "refactor",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "milestone_id": "CLN-M7",
+      "depends_on": ["CLN-048"],
+      "acceptance_criteria": [
+        "self_development/runtime haengt nicht an routes; autonomous_loop liegt im services-layer.",
+        "check_service_boundaries ohne diesen Verstoss.",
+        "Autopilot-Loop-Start ist korrekt gekapselt."
+      ],
+      "implementation_notes": "Teil der 19 check_imports-Verstoesse (2 davon); natuerlich nach CLN-048 (Autopilot-Extraktion).",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-052",
+      "title": "cli_backends/context.py Bypasses schliessen",
+      "description": "5 Stellen importieren agent.services direkt statt ueber default_context: workspace_mutation/_orchestrator.py:218,242, tool_routing.py:105,157, tool_actions.py:271, session.py:238, opencode_codecompass_mcp.py:26. Brechen den Monkeypatch-Seam (default_context.x=fake wirkt dort nicht). Ueber default_context leiten.",
+      "type": "refactor",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "milestone_id": "CLN-M7",
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Alle cli_backends-Service-Zugriffe laufen ueber default_context (ausser context.py selbst).",
+        "Monkeypatch-Seam funktioniert fuer alle Pfade (Test).",
+        "Detektor verbietet agent.services-Imports in cli_backends ausser context.py."
+      ],
+      "implementation_notes": "DIP/Testability; mechanischer Refactor. tasks/execution.py run_llm_cli_command duerftig durch task_scoped_execution_service funneln (optional).",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-053",
+      "title": "LLM-Interceptor Blueprint aus services nach routes verschieben",
+      "description": "agent/services/llm_interceptor/openai_compat_server.py:7,67-82 definiert ein Blueprint (llm_interceptor_openai_compat) mit @bp.route im Service-Layer. Nach agent/routes/ verschieben; Domain-Logik im Service lassen (SRP/DIP).",
+      "type": "refactor",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "milestone_id": "CLN-M7",
+      "depends_on": ["CLN-049"],
+      "acceptance_criteria": [
+        "Kein Blueprint mehr im services-layer (nur routes/ definiert Blueprints).",
+        "Domain-Logik bleibt im Service; Route ist duenn.",
+        "check_service_boundaries/check_imports sind gruen."
+      ],
+      "implementation_notes": "Blueprints gehoeren in routes/; Service-Blueprint ist Schichtverstoss.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-054",
+      "title": "Hub-Worker geteilte Contracts nach ananta_contracts/ verschieben (DIP)",
+      "description": "110 Worker->agent.services-Imports (z.B. worker/mail_task_composition.py 15x, worker/core/*_llm_strategy je 7-8) und 60 agent/services->worker.* (propose_strategy_registry, task_delegation_services). Geteilte Ports/Contracts (*_ports, *_contract) nach ananta_contracts/ (verifiziert sauber) verschieben; Injection im Composition Root.",
+      "type": "refactor",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "milestone_id": "CLN-M8",
+      "depends_on": ["CLN-029"],
+      "acceptance_criteria": [
+        "Worker haengen an abstrakten Contracts (ananta_contracts/*), nicht an konkreten agent.services.",
+        "agent.services haengen nicht an worker.*-Implementierungen; Strategies werden injiziert.",
+        "check_worker_boundaries (CLN-055) ist gruen."
+      ],
+      "implementation_notes": "DIP/ISP: Worker brauchen schmale Contracts, nicht volle Services. Ports/*_contract existieren teilweise bereits - konsolidieren. Hoechster Architekturwert neben CLN-048.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-055",
+      "title": "check_worker_boundaries.py neu erstellen (worker->agent Import-Gate)",
+      "description": "check_imports.py deckt worker/ nicht ab. Neuer Check: worker/ darf nur ananta_contracts.*, *_ports, *_contract, agent.config, agent.auth importieren - alles andere (agent.services Konkrete) faelscht. Verankert CLN-054. Auch Temporal-Workflow-Invariante (nur Hub-Delegation) pruefen.",
+      "type": "testing",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "milestone_id": "CLN-M8",
+      "depends_on": ["CLN-029"],
+      "acceptance_criteria": [
+        "Check faengt worker->agent.services Konkrete und agent.services->worker.* Verstoesse.",
+        "Whitelist nur erlaubte Contracts; Negativ-Test (absichtlicher Verstoss) gemeldet.",
+        "In CI verankert; meet_worker_boundaries bleibt gruen (bereits sauber)."
+      ],
+      "implementation_notes": "Muster von check_meet_worker_boundaries.py (funktioniert bereits fuer worker/meet_media).",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-056",
+      "title": "Import-Zyklus agent.services<->worker.core aufbrechen",
+      "description": "Echter Modulgraph-Zyklus: llm_response_normalizer:7->worker.core.propose_orchestrator->agent.services.propose_policy; worker.core.tool_calling_llm_strategy:8-19->agent.services->worker.core.propose_orchestrator. Aktuell nur per Import-Reihenfolge entdramatisiert. Reine Datentypen (ProposeContext, ProposeStrategyResult, Status-Konstanten) nach ananta_contracts/.",
+      "type": "refactor",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "high",
+      "milestone_id": "CLN-M8",
+      "depends_on": ["CLN-054", "CLN-027"],
+      "acceptance_criteria": [
+        "Kein agent.services<->worker.core Modulzyklus (check_cycles bestaetigt).",
+        "Geteilte Datentypen liegen in ananta_contracts/ (beide Seiten importieren dort).",
+        "Import-Reihenfolge-Tricks nicht mehr noetig."
+      ],
+      "implementation_notes": "Voraussetzung: check_cycles lauffaehig (CLN-027). Beide Seiten importieren ananta_contracts bereits - natuerliche Ablage.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-057",
+      "title": "TaskScopedExecutionService (80 Methoden) verantwortungsbasiert zerlegen",
+      "description": "TaskScopedExecutionService (965 LOC, 80 Methoden) mixt Config-Policy, Timeouts, LLM-Profile-Aufloesung, Workspace-Rewriting, Metrics, Forwarding + 30 _task_scoped_*-Wrapper (10.109 LOC). Auf 3 oeffentliche Einstiegspunkte reduzieren, Rest hinter Ports; Facade deprecaten. SPLIT-001p-Kommentare zeigen begonnene Zerlegung - abschliessen.",
+      "type": "refactor",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "high",
+      "milestone_id": "CLN-M8",
+      "depends_on": ["CLN-038"],
+      "acceptance_criteria": [
+        "Klasse hat fokussierte Verantwortungen (SRP); keine 80-Methoden-Fassade.",
+        "3 oeffentliche Einstiegspunkte; Caller migriert; Compat-Facade deprecatet.",
+        "Testlauf gruen; _task_scoped_*-Familie konsolidiert (Package agent/services/task_scoped/ statt 30 flache _files)."
+      ],
+      "implementation_notes": "ISP: God-Interface-Fassade beibehalten ist der Fehler - schrumpfen nach Migration. Nach CLN-038 (tote Methoden raus).",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-058",
+      "title": "WorkerWorkspaceService (42 Methoden) zerlegen",
+      "description": "WorkerWorkspaceService (925 LOC, 42 Methoden) mixt FS-I/O (shutil, difflib, snapshots), Locking (output_dir_lock_service), Flask-Request-Kontext (flask.g, has_request_context), Artifact-Sync, Diff-Generierung, Recovery-Claims. In Ports zerlegen (WorkspaceFs, WorkspacePolicy, ArtifactSync); Flask aus Domain-Kontext entfernen.",
+      "type": "refactor",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "high",
+      "milestone_id": "CLN-M8",
+      "depends_on": ["CLN-057"],
+      "acceptance_criteria": [
+        "SRP: FS/Persistence, Policy, Context, Transport getrennt ueber Ports.",
+        "Kein Flask-Request-Kontext in Domain-Logik (DIP).",
+        "Testlauf gruen; Verhalten unveraendert."
+      ],
+      "implementation_notes": "Composition ueber Ports statt God-Klasse. Teil der Top-3-God-Services.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-059",
+      "title": "VectorIndexTaskService-Facade und PlanningService.plan_goal entzerren",
+      "description": "VectorIndexTaskService (60 Methoden) ist selbst-deklarierte 'compatibility facade' die auf fokussierte Services delegiert - God-Interface beibehalten statt zu retiren. PlanningService.plan_goal = 368 Zeilen (512). Fassaden-Grenzen verkleinern; plan_goal nach Verantwortungen zerlegen.",
+      "type": "refactor",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "milestone_id": "CLN-M8",
+      "depends_on": ["CLN-057"],
+      "acceptance_criteria": [
+        "VectorIndexTaskService-Interface schrumpft auf benoetigte Methoden (ISP); Fassade deprecatet.",
+        "plan_goal ist in kleinere, testbare Funktionen zerlegt (SRP).",
+        "Testlauf gruen."
+      ],
+      "implementation_notes": "OCP/ISP: Fassaden sollten substituierbar und schmal sein, nicht God-Interfaces konservieren.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-060",
+      "title": "current_app Service-Locator durch Injection ersetzen (heisseste zuerst)",
+      "description": "2408 current_app-family-Usages in agent/services/ (108 Dateien), 20 Dateien cachen in current_app.extensions. Domain haengt am Framework-Container -> untestbar ohne App-Context. Konstruktor-Injection + di.py-style late binding als Bridge; heisseste Services zuerst.",
+      "type": "refactor",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "high",
+      "milestone_id": "CLN-M8",
+      "depends_on": ["CLN-035"],
+      "acceptance_criteria": [
+        "Heisse Services nutzen injizierte Abstraktionen statt current_app-Location.",
+        "Services sind ohne App-Context testbar.",
+        "Pattern in AGENTS.md dokumentiert (kombiniert mit CLN-035)."
+      ],
+      "implementation_notes": "DIP; grosser Aufwand, inkrementell heisseste zuerst. Repo hat die richtige Idee zweimal (di.py, CliBackendContext) - auf EINS konvergieren.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-061",
+      "title": "service_registry.py typisieren und unter Budget bringen",
+      "description": "service_registry.py (370 LOC, 1.5x ueber Budget 250) traegt alle 54 Service-Felder als Any - keine Typpruefung auf der zentralen Registry (ISP/DIP). Felder mit konkreten Service-Klassen/Protocols typisieren; Budget einhalten (Kombi mit CLN-026).",
+      "type": "refactor",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "milestone_id": "CLN-M8",
+      "depends_on": ["CLN-026"],
+      "acceptance_criteria": [
+        "CoreServiceRegistry-Felder sind typisiert (Protocols/konkrete Klassen statt Any).",
+        "check_hotspot_guardrails: service_registry.py unter Budget (370-><=250) oder begruendete Ausnahme.",
+        "Typfehler werden von mypy gefangen."
+      ],
+      "implementation_notes": "Zentrale Registry ohne Typen ist DIP/ISP-Mangel; Typisierung schuetzt Substituierbarkeit.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-062",
+      "title": "Config-SSOT-ADR schreiben (Gewinner-Mechanismus + Praezedenz)",
+      "description": "7 konkurrierende Config-Mechanismen (env, pydantic-settings, config_defaults*.py 2264 LOC, DB-Config-Table, Config-Graph-Stack, config/ JSON/YAML, Root-Runtime-State) mit impliziter Praezedenz. ADR das den Gewinner benennt (env -> Settings -> DB-Config-Graph) und Deprecation-Pfad fuer config_defaults-Mega-Dict festlegt.",
+      "type": "docs",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "high",
+      "milestone_id": "CLN-M9",
+      "depends_on": [],
+      "acceptance_criteria": [
+        "ADR benennt kanonischen Config-Mechanismus und vollstaendige Praezedenz-Reihenfolge.",
+        "Deprecation-Pfad fuer ueberfluessige Mechanismen dokumentiert.",
+        "233 policy/config-Services haben eine Konsolidierungs-Richtung (CLN-069)."
+      ],
+      "implementation_notes": "Strukturelles Kernproblem (wie Deps/Env/Singleton): mehrere SSOT mit impliziter Praezedenz. Hoechster Config-Hebel.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-063",
+      "title": "Config-Orphans und Runtime-State-Dateien bereinigen",
+      "description": "set_llm_config.json (nichts liest es), config/config.example.json (orphan), ananta.runtime-profile.json (Maschinen-Output mit host-spezifischem created_at/hardware), user.json (27KB Shell-History - siehe CLN-007). hub_benchmark_config.json + scenario_lmstudio.json nach config/ oder tests/fixtures/.",
+      "type": "hygiene",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "milestone_id": "CLN-M9",
+      "depends_on": ["CLN-007"],
+      "acceptance_criteria": [
+        "Orphan-Config-Dateien sind entfernt (nichts liest sie).",
+        "Runtime-State (ananta.runtime-profile.json, user.json) ist nicht getrackt (gitignore).",
+        "Dev-/Test-Fixtures liegen an passendem Ort (config/ oder tests/fixtures/)."
+      ],
+      "implementation_notes": "user.json/ananta.runtime-profile.json teils in CLN-007; hier config-spezifische Orphans + Platzierung.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-064",
+      "title": "Copilot-Citationen aus config.json bereinigen",
+      "description": "config.json (9.4KB, wird von hub_benchmark/hybrid_repository_scan/caseflow gelesen) enthaelt 13 ':contentReference[oaicite]...' Copilot-Citationen - ein AI-Draft der als Live-Config committed wurde. Citations entfernen und aus dokumentierter Quelle regenerieren.",
+      "type": "hygiene",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "milestone_id": "CLN-M9",
+      "depends_on": [],
+      "acceptance_criteria": [
+        "config.json enthält keine AI-Citationen/Artefakte mehr.",
+        "Wert ist saubere, konsumierbare Config (von 3 Modulen gelesen).",
+        "Ggf. Quelle/Doku fuer die Config dokumentiert."
+      ],
+      "implementation_notes": "AI-Draft-Reste in Live-Config sind ein Hygiene-/Korrektheitsproblem.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-065",
+      "title": "Env-Referenz aus Code generieren (723 undokumentiert, 9 Orphans)",
+      "description": "723 im Code gelesene Env-Namen sind undokumentiert (409 ANANTA_*, plus RAG_*, MEET_*, EVOLVER_*, GENERATIVE_*, JEFF_*, CLAUDE_CODE_*, SGPT_*, HERMES_*); 242 dokumentiert+ungelesen, 9 echte Orphans. 50KB .env.example driftet. Referenz aus Code generieren (os.getenv + validation_alias Union) statt 50KB handzuhalten.",
+      "type": "hygiene",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "milestone_id": "CLN-M9",
+      "depends_on": ["CLN-062"],
+      "acceptance_criteria": [
+        "Env-Referenz ist aus Code generiert (os.getenv + pydantic validation_alias).",
+        "9 Orphan-Vars entfernt; 723 undokumentierte ergaenzt oder bereinigt.",
+        "Generierung ist automatisierbar (CI-Drift-Check analog CLN-019)."
+      ],
+      "implementation_notes": "Handgepflegtes 50KB .env.example driftet um 242 Vars; generierte Referenz verhindert das. Pydantic-settings zweites Binding nicht vergessen (282 Fields in agent/config.py).",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-066",
+      "title": "Redundantes .env.template und .env.bak-* entfernen",
+      "description": ".env.template (67 Vars) ist strikte Teilmenge von .env.example (redundant, stale seit Sep 14). .env.bak-20261018 ist Backup-Rest. Entfernen; ein .env.example als Referenz behalten.",
+      "type": "hygiene",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "milestone_id": "CLN-M9",
+      "depends_on": ["CLN-065"],
+      "acceptance_criteria": [
+        "Nur ein .env.example existiert; .env.template/.env.bak-* entfernt.",
+        "Keine redundanten Env-Vorlagen mehr."
+      ],
+      "implementation_notes": "Klein; Teil der Env-SSOT-Bereinigung.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-067",
+      "title": "docker/old_way archivieren und brokenen Makefile-Target fixen",
+      "description": "docker/old_way/ (23 compose-Dateien) ist Legacy (README sagt es), wird aber noch referenziert; Makefile worker-standalone-build zeigt auf nicht-existierendes Dockerfile. Archivieren (legacy-branch/tag oder loeschen) und Makefile-Target fixen/entfernen (Kombi CLN-021).",
+      "type": "hygiene",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "milestone_id": "CLN-M9",
+      "depends_on": ["CLN-021"],
+      "acceptance_criteria": [
+        "docker/old_way ist archiviert/entfernt; compose-next ist der einzige Pfad.",
+        "Makefile-Target zeigt auf existierendes Dockerfile oder ist entfernt.",
+        "Keine toten Legacy-Referenzen mehr."
+      ],
+      "implementation_notes": "README deklariert compose-next als einzigen gueltigen Pfad; old_way ist tote Flaeche.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-068",
+      "title": "Compose-Wildwuchs konsolidieren (persona-*, jeff-cuda, Snapshots)",
+      "description": "8 nahezu identische docker-compose.persona-{generation,images,videos,voices}{,-hub}.yml (Template-Duplikat) -> 2 Overlays + Parameter. docker-compose.jeff-cuda.yml (424B, maschinenspezifisch) -> Override/Profile. ci-artifacts/compose/*.yml (Snapshots, drift-anfaellig) loeschen/generieren.",
+      "type": "hygiene",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "milestone_id": "CLN-M9",
+      "depends_on": ["CLN-067"],
+      "acceptance_criteria": [
+        "8 persona-Dateien sind auf parametrisierte Overlays reduziert.",
+        "jeff-cuda ist Profile/Override (nicht Root-File); jeff ggf. zu decision-inference dokumentiert/umbenannt.",
+        "ci-artifacts/compose-Snapshots entfernt oder generiert (kein Drift)."
+      ],
+      "implementation_notes": "jeff ist NICHT privat (pinned gliformer-large-v1 inference service) - nur der Name ist undurchsichtig -> dokumentieren statt loeschen.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-069",
+      "title": "Policy-/Config-Service-Konsolidierung (233 Module)",
+      "description": "233 agent/services-Dateien matchen config|setting|profile|policy (100+ *policy_service.py). Policy-Aufloesung ist O(100) ad-hoc Singletons. Ueber einen schmalen Policy-Port konsolidieren (SRP/DIP); folgt dem ADR aus CLN-062. Langfristige Strukturaufgabe.",
+      "type": "refactor",
+      "status": "todo",
+      "priority": "P3",
+      "risk": "high",
+      "milestone_id": "CLN-M9",
+      "depends_on": ["CLN-062", "CLN-035"],
+      "acceptance_criteria": [
+        "Policy-Aufloesung laeuft ueber einen definierten Port (nicht O(100) Singletons).",
+        "Konsolidierung ist inkrementell (keine Big-Bang); pro Domain nachziehbar.",
+        "SOLID: kleine fokussierte Interfaces (ISP), substituierbare Policies (LSP)."
+      ],
+      "implementation_notes": "P3/long-term; grosser Hebel aber hoher Aufwand. Nur nach ADR (CLN-062) und Singleton-Konsolidierung (CLN-035).",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-070",
+      "title": "Ueberlappende/ tote Top-Level-Verzeichnisse bereinigen",
+      "description": "web/ + website/ ueberlappen (site.css in beiden, Inhalt verschieden) -> mergen. experiments/ (4 tote Spike-READMEs) -> archivieren. tools/fairphone_voxtral_offline/ (geraetespezifische Shell-Scripts) -> examples/. config/cli_backends/pi/ (Node-Runtime in config/) -> worker/ oder services/.",
+      "type": "hygiene",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "milestone_id": "CLN-M10",
+      "depends_on": [],
+      "acceptance_criteria": [
+        "web/+website/ sind zu einem Static-Site-Dir zusammengefuehrt.",
+        "experiments/ archiviert; fairphone-Skripte unter examples/.",
+        "Node-Runtime pi/ liegt nicht mehr unter config/."
+      ],
+      "implementation_notes": "Struktur-Hygiene; geringes Risiko, verbessert Uebersicht.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-071",
+      "title": "rag-helper/ einhausen (Repo-im-Repo)",
+      "description": "rag-helper/ (172 Dateien, 1,8GB out/ untracked) ist semi-autonom: eigenes requirements.txt, eigenes .github/workflows/python-ci.yml, eigenes secrets/secret_key (committed, siehe CLN-001), Tests, Profiles. Mindestens CI-Workflow + Secret entfernen; als Python-Subpackage dokumentieren; out/ ignorieren.",
+      "type": "hygiene",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "milestone_id": "CLN-M10",
+      "depends_on": ["CLN-001"],
+      "acceptance_criteria": [
+        "rag-helper/ hat kein eigenes CI/kein committed Secret mehr.",
+        "Dokumentiert als Subpackage; Build-Tree (out/) ignoriert.",
+        "Kein Repo-im-Repo-Chaos (eine CI, eine Secret-Policy)."
+      ],
+      "implementation_notes": "secret_key aus CLN-001; hier die Repo-im-Repo-Containment. out/ (1.8GB) verkleinert Repo-Working-Tree.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-072",
+      "title": "Alle Architektur-Detektoren lauffaehig und in CI verankert",
+      "description": "Konsolidierungs-Task: alle check_*.py aus CLN-022..029, CLN-014, CLN-019, CLN-029, CLN-055 sind lauffaehig, dokumentiert (Katalog mit Status) und im CI/Release-Gate verankert. Kein toter/ nie-laufender Check mehr.",
+      "type": "quality",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "milestone_id": "CLN-M10",
+      "depends_on": ["CLN-014", "CLN-019", "CLN-027", "CLN-029", "CLN-055"],
+      "acceptance_criteria": [
+        "Check-Katalog dokumentiert: Skript, was es schuetzt, CI-Status.",
+        "Alle Architektur-Gates laufen im CI und faelschen korrekt.",
+        "Negativ-Kontrollen (absichtliche Verstoesse) fuer kritische Checks hinterlegt."
+      ],
+      "implementation_notes": "Verankerung des gesamten Gate-Layers; ohne das verfaellt der erarbeitete Standard.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-073",
+      "title": "Finale SOLID-/Architektur-Review aller Bereinigungen",
+      "description": "Review aller CLN-Aenderungen gegen SOLID und Hub-Worker-Regeln: bewusst erhaltene Schuld dokumentieren (SGDEC-D5, meet-hub-worker-boundaries preserved debt), keine neuen God-Services, keine Breaking Changes ohne Migrationspfad. Ergebnis in docs/architecture/.",
+      "type": "docs",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "milestone_id": "CLN-M10",
+      "depends_on": ["CLN-048", "CLN-054", "CLN-057"],
+      "acceptance_criteria": [
+        "SRP/DIP/ISP/OCP/LSP-Einhaltung der Aenderungen ist belegt.",
+        "Bewusst erhaltene technische Schuld ist dokumentiert (Pfad + Begruendung).",
+        "Hub-Worker-Architektur unangetastet (AGENTS.md Summary-Regel)."
+      ],
+      "implementation_notes": "AGENTS.md 'Expected Output Behavior': SOLID-Verstoesse die erhalten/entfernt/verursacht werden explizit benennen.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-074",
+      "title": "Vollstaendiger Regressionstest-Lauf (alle Gates gruen)",
+      "description": "Abschluss-Verifikation: alle Tests (Tier core/slow), alle Detektoren, Lint/Type/Coverage-Gates laufen gruen oder mit dokumentierter begruendeter Ausnahme. Keine Regression gegen Baseline (v.a. 26k Tests).",
+      "type": "testing",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "milestone_id": "CLN-M10",
+      "depends_on": ["CLN-072", "CLN-073"],
+      "acceptance_criteria": [
+        "Testlauf (core+slow) gruen oder Verstoesse dokumentiert + begruendet.",
+        "Alle Detektoren + Lint/Type/Coverage gruen.",
+        "Keine verlorenen Testabdeckung/Bugs durch Bereinigungen (Coverage stabil)."
+      ],
+      "implementation_notes": "Headless, bounded (timeout aus CLN-023). Ergebnis-Artefakte in erlaubte artifacts/-Pfade.",
+      "progress_percent": 0
+    },
+    {
+      "id": "CLN-075",
+      "title": "Anti-Regressions-Regeln in AGENTS.md/docs verankern",
+      "description": "Erarbeitete Standards dokumentieren: Output-Boundary-Detektor (CLN-014), kanonisches DI-Pattern (CLN-035/060), Config-SSOT-Praezedenz (CLN-062), Import-Grenzen (CLN-029/055), Manifest-Struktur (pyproject+locks). In AGENTS.md/docs/architecture/ so festhalten dass kuenftige Aenderungen eingehalten werden.",
+      "type": "docs",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "milestone_id": "CLN-M10",
+      "depends_on": ["CLN-014", "CLN-035", "CLN-062", "CLN-072"],
+      "acceptance_criteria": [
+        "Neue Regeln sind in AGENTS.md/docs dokumentiert und mit Detektoren verankert.",
+        "Kuenftige Aenderungen haben klare Regeln (kein Rueckfall in alten Wildwuchs).",
+        "Doku ist Source (Output Boundary: docs/ ist committable)."
+      ],
+      "implementation_notes": "Verankert den Gesamterfolg; ohne dies akkumuliert sich der Debt neu.",
+      "progress_percent": 0
+    }
+  ],
+  "critical_path_tasks": [
+    "CLN-001",
+    "CLN-002",
+    "CLN-003",
+    "CLN-004",
+    "CLN-022",
+    "CLN-023",
+    "CLN-028",
+    "CLN-029",
+    "CLN-047",
+    "CLN-048",
+    "CLN-054",
+    "CLN-055",
+    "CLN-057",
+    "CLN-060",
+    "CLN-062",
+    "CLN-072",
+    "CLN-073",
+    "CLN-074"
+  ],
+  "tasks_status_summary": {
+    "total": 75,
+    "by_status": {
+      "todo": 75,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P0": 5,
+      "P1": 37,
+      "P2": 32,
+      "P3": 1
+    },
+    "by_risk": {
+      "low": 30,
+      "medium": 28,
+      "high": 17
+    },
+    "critical_path": {
+      "total": 18,
+      "done": 0,
+      "remaining": 18
+    },
+    "milestones": {
+      "total": 10,
+      "todo": 10,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "progress_summary": {
+    "state": "todo",
+    "todo_remaining": 75,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "summary_notes": [
+    "Planungsartefakt auf Basis der Saustall-Analyse 2026-11-01; keine Implementierung beansprucht (alle status=todo).",
+    "Reihenfolge ist priorisiert: P0 Secrets/Artefakte zuerst (CLN-M1/M2), dann Defensiv-Gates (CLN-M4) um neuen Debt zu verhindern, dann toter Code/Struktur (CLN-M5/M6), dann Architektur (CLN-M7/M8), dann Config-SSOT (CLN-M9), Abschluss (CLN-M10).",
+    "Grundproblem: mehrere konkurrierende Single-Source-of-Truth (40 Dep-Manifeste, 7 Config-Mechanismen, 1009 Env-Namen in 2 Binding-Stilen, 4 Singleton-Patterns) + getrackte Runtime-Artefakte + deaktivierte Quality-Gates.",
+    "Kein Copy-Problem (0 Duplikat-Paar ueber 2500 Dateien) - strukturelle/ Ablagerungs-Schuld; daher Zerlegung statt Deduplizierung.",
+    "Hoechste Einzel-Hebel: (1) Secrets/Artefakte raus (CLN-M1/M2), (2) Lint/Type/Timeout-Gates an (CLN-022/023), (3) di.py+Toter-Code (CLN-030..033), (4) Autopilot aus routes (CLN-048) + Hub-Worker-Entkopplung (CLN-054).",
+    "Bewahren: hermetisches tests/conftest.py-Sandboxing, Tier/Shard-System, @pytest.mark.timeout-Disziplin (248 Dateien), meet_worker_boundaries (bereits sauber), check_complexity_suppressions-Muster.",
+    "CLN-033 (118 test-only Services) und CLN-034 (412 except:pass) sind gross und brauchen verteilte, begruendete Entscheidungen; nicht blind automatisieren.",
+    "Nicht rebaseline bei check_imports-Verstoesen (CLN-047) - Behebung statt kodierte Schuld."
+  ]
+}
