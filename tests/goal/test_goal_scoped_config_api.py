@@ -246,7 +246,7 @@ def test_goal_create_with_explicit_overrides_snapshot_and_effective_config_agree
 def test_invalid_config_blocks_creation_not_just_planning(client, admin_auth_header, monkeypatch):
     """TRM-002: Unknown override keys must be rejected at create time, before planning runs."""
     planner_calls = []
-    original = __import__("agent.routes.tasks.auto_planner", fromlist=["generate_text"]).generate_text
+    original = __import__("agent.services.autopilot.auto_planner_engine", fromlist=["generate_text"]).generate_text
 
     def _spy(**kwargs):
         planner_calls.append(kwargs)

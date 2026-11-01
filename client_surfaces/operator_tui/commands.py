@@ -36,6 +36,9 @@ from client_surfaces.operator_tui.commands_share import _handle_share_command
 from client_surfaces.operator_tui.commands_sources import handle_sources_command
 from client_surfaces.operator_tui.commands_visual import handle_visual_commands
 from client_surfaces.operator_tui.commands_webrtc import _handle_webrtc_command, execute_center_browser_command
+from client_surfaces.operator_tui.diff.ai_diff_dispatch import (  # noqa: F401  (call-time resolution seam)
+    dispatch_ai_diff_request,
+)
 from client_surfaces.operator_tui.models import CommandResult, OperatorMode, OperatorState
 
 

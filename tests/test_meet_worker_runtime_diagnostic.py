@@ -40,7 +40,7 @@ def load_seam(monkeypatch, *, control=False):
         )
     written = Mock()
     monkeypatch.setattr(Path, "write_text", written)
-    seam = runpy.run_path(str(Path(__file__).with_name("meet_worker_container_sitecustomize.py")))
+    seam = runpy.run_path(str(Path(__file__).parent / "meet" / "meet_worker_container_sitecustomize.py"))
     return seam, written
 
 

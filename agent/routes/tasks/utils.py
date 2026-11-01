@@ -50,4 +50,5 @@ from agent.services.task_forwarding_utils import (  # noqa: E402,F401
     _step_forward_deadline_seconds,
     _update_local_task_status,
     _worker_error_payload,
+    update_local_task_status,  # noqa: F401  (test monkeypatch seam)
 )
