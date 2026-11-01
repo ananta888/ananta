@@ -90,9 +90,14 @@ def test_invalid_configuration_never_installs_generator(generation_task, tmp_pat
 
 def test_shipped_cpu_generator_is_separate_small_readonly_and_not_a_publisher():
     root = Path(__file__).resolve().parents[2]
-    config = yaml.safe_load((root / "docker-compose.persona-generation.yml").read_text())
+    config = yaml.safe_load((root / "docker-compose.persona-workers.yml").read_text())
     worker = config["services"]["persona-generation-worker"]
-    assert set(config["services"]) == {"persona-generation-worker"}
+    assert set(config["services"]) == {
+        "persona-generation-worker",
+        "persona-image-worker",
+        "persona-video-worker",
+        "persona-voice-worker",
+    }
     assert worker["read_only"] is True and worker["init"] is True and worker["cap_drop"] == ["ALL"]
     assert worker["mem_limit"] == "256m" and worker["cpus"] == 1 and worker["pids_limit"] == 32
     assert not {"ports", "devices", "gpus", "privileged"} & set(worker)

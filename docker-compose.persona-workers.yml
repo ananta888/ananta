@@ -1,0 +1,66 @@
+# Persona media workers (consolidated, CLN-068).
+# The four per-kind compose files were copy-paste templates of one security
+# baseline; this file keeps the shared baseline in the x-persona-worker anchor
+# and the per-kind resource/policy values inline. Per-kind policy comments:
+#   generation: Explicit CPU procedural generation; no GPU/model/human capture or publication grant.
+#   images: Dedicated CPU image inspection only. No host ports, models or publish credentials.
+#   videos: Opt-in CPU clip inspection only. No GPU, models, host ports or publish credentials.
+#   voices: Opt-in descriptor inspection only. No model, GPU, host ports or publishing keys.
+x-persona-worker: &persona-worker
+  init: true
+  read_only: true
+  pids_limit: 32
+  cap_drop: [ALL]
+  security_opt: ['no-new-privileges:true']
+services:
+  persona-generation-worker:
+    <<: *persona-worker
+    build: {context: ., dockerfile: docker/persona-generation/Dockerfile}
+    user: ${PERSONA_GENERATION_UID:-1000}:${PERSONA_GENERATION_GID:-1000}
+    environment: {PERSONA_GENERATION_WORKER_KEY_FILE: /run/secrets/persona-generation-key,
+      PERSONA_GENERATION_HUB_LEASE_URL: 'http://persona-authorizing-hub:5000/api/persona-media/v1/internal/generation-lease'}
+    volumes: ['${PERSONA_GENERATION_STATE_DIR:?Set an absolute private generation
+        state directory}/worker-key:/run/secrets/persona-generation-key:ro', '${PERSONA_GENERATION_STATE_DIR:?Set
+        an absolute private generation state directory}/worker-state:/state']
+    tmpfs: ['/tmp:size=32m,mode=1777']
+    mem_limit: 256m
+    cpus: 1
+    networks: [persona-generation]
+  persona-image-worker:
+    <<: *persona-worker
+    build: {context: ., dockerfile: docker/persona-image/Dockerfile}
+    user: ${PERSONA_IMAGE_UID:-1000}:${PERSONA_IMAGE_GID:-1000}
+    environment: {PERSONA_IMAGE_WORKER_KEY_FILE: /run/secrets/persona-image-key, PERSONA_IMAGE_HUB_LEASE_URL: 'http://persona-authorizing-hub:5000/api/persona-media/v1/internal/image-lease'}
+    volumes: ['${PERSONA_IMAGE_STATE_DIR:?Set an absolute private image state directory}/worker-key:/run/secrets/persona-image-key:ro',
+      '${PERSONA_IMAGE_STATE_DIR:?Set an absolute private image state directory}/worker-state:/state']
+    tmpfs: ['/tmp:size=64m,mode=1777']
+    mem_limit: 256m
+    cpus: 1
+    networks: [persona-images]
+  persona-video-worker:
+    <<: *persona-worker
+    build: {context: ., dockerfile: docker/persona-video/Dockerfile}
+    user: ${PERSONA_VIDEO_UID:-1000}:${PERSONA_VIDEO_GID:-1000}
+    environment: {PERSONA_VIDEO_WORKER_KEY_FILE: /run/secrets/persona-video-key, PERSONA_VIDEO_HUB_LEASE_URL: 'http://persona-authorizing-hub:5000/api/persona-media/v1/internal/video-lease'}
+    volumes: ['${PERSONA_VIDEO_STATE_DIR:?Set an absolute private video state directory}/worker-key:/run/secrets/persona-video-key:ro',
+      '${PERSONA_VIDEO_STATE_DIR:?Set an absolute private video state directory}/worker-state:/state']
+    tmpfs: ['/tmp:size=64m,mode=1777']
+    mem_limit: 384m
+    cpus: 1
+    networks: [persona-videos]
+  persona-voice-worker:
+    <<: *persona-worker
+    build: {context: ., dockerfile: docker/persona-voice/Dockerfile}
+    user: ${PERSONA_VOICE_UID:-1000}:${PERSONA_VOICE_GID:-1000}
+    environment: {PERSONA_VOICE_WORKER_KEY_FILE: /run/secrets/persona-voice-key, PERSONA_VOICE_HUB_LEASE_URL: 'http://persona-authorizing-hub:5000/api/persona-media/v1/internal/voice-lease'}
+    volumes: ['${PERSONA_VOICE_STATE_DIR:?Set an absolute private voice state directory}/worker-key:/run/secrets/persona-voice-key:ro',
+      '${PERSONA_VOICE_STATE_DIR:?Set an absolute private voice state directory}/worker-state:/state']
+    tmpfs: ['/tmp:size=16m,mode=1777']
+    mem_limit: 128m
+    cpus: 0.5
+    networks: [persona-voices]
+networks:
+  persona-generation: {internal: true}
+  persona-images: {internal: true}
+  persona-videos: {internal: true}
+  persona-voices: {internal: true}
