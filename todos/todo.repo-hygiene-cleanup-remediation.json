@@ -1451,7 +1451,7 @@
       "title": "Env-Referenz aus Code generieren (723 undokumentiert, 9 Orphans)",
       "description": "723 im Code gelesene Env-Namen sind undokumentiert (409 ANANTA_*, plus RAG_*, MEET_*, EVOLVER_*, GENERATIVE_*, JEFF_*, CLAUDE_CODE_*, SGPT_*, HERMES_*); 242 dokumentiert+ungelesen, 9 echte Orphans. 50KB .env.example driftet. Referenz aus Code generieren (os.getenv + validation_alias Union) statt 50KB handzuhalten.",
       "type": "hygiene",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "milestone_id": "CLN-M9",
@@ -1463,8 +1463,8 @@
         "9 Orphan-Vars entfernt; 723 undokumentierte ergaenzt oder bereinigt.",
         "Generierung ist automatisierbar (CI-Drift-Check analog CLN-019)."
       ],
-      "implementation_notes": "Handgepflegtes 50KB .env.example driftet um 242 Vars; generierte Referenz verhindert das. Pydantic-settings zweites Binding nicht vergessen (282 Fields in agent/config.py).",
-      "progress_percent": 0
+      "implementation_notes": "scripts/generate_env_reference.py (os.getenv+validation_alias-Sweep) -> docs/env-reference.generated.md (1227 Namen). 11 echte Orphans via git-grep-definitiv-Test aus .env.example entfernt (Analyse-Zahl 9 variiert je nach Sweep; urspruengliche 224 'Orphans' waren Compose-/Settings-False-Positives). Drift-Gate scripts/check_env_reference.py (Pipeline) failt bei dokumentierten, nirgends referenzierten Keys.",
+      "progress_percent": 100
     },
     {
       "id": "CLN-066",
@@ -1698,11 +1698,11 @@
   "tasks_status_summary": {
     "total": 75,
     "by_status": {
-      "todo": 43,
+      "todo": 42,
       "in_progress": 0,
       "partial": 12,
       "blocked": 0,
-      "done": 20
+      "done": 21
     },
     "progress_percent_done": 18.67,
     "by_priority": {
@@ -1731,7 +1731,7 @@
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 43,
+    "todo_remaining": 42,
     "in_progress": 0,
     "partial": 12,
     "blocked": 0,

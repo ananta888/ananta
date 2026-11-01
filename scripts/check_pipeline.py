@@ -71,6 +71,11 @@ def check_test_line_budget():
     return run_command([sys.executable, "scripts/check_test_line_budget.py"])
 
 
+def check_env_reference():
+    print("\n--- Checking Env Reference (CLN-065) ---", flush=True)
+    return run_command([sys.executable, "scripts/check_env_reference.py"])
+
+
 def check_singleton_freeze():
     print("\n--- Checking Singleton Freeze (CLN-035) ---", flush=True)
     return run_command([sys.executable, "scripts/check_singleton_freeze.py"])
@@ -173,6 +178,8 @@ def main():
         if not check_cli_backend_context_seam():
             success = False
         if not check_singleton_freeze():
+            success = False
+        if not check_env_reference():
             success = False
         if not check_test_line_budget():
             success = False
