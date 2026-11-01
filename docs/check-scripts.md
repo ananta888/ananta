@@ -1,6 +1,6 @@
 # Check-Skripte-Katalog (CLN-028)
 
-Status der `scripts/check_*.py`-Detektoren (Stand 2026-11-01). Alle Skripte
+Status der `scripts/check_*.py`-Detektoren (Stand 2026-11-01, nach M1-M9-Ausbau). Alle Skripte
 sind in der Check-Umgebung lauffähig (reines stdlib + deklarierte Deps); der
 Katalog dient als Referenz für CI-Anbindung und Weiterentwicklung.
 
@@ -31,6 +31,10 @@ Fehler oder fehlende Argumente.
 | `check_worker_boundaries.py` | gruen (mit Baseline) | CLN-029/CLN-055: worker->agent.* und agent/services->worker.* Kopplung; Baseline `reports/worker-boundary-baseline.txt` (91 Dateien, CLN-054 räumt ab) |
 | `check_complexity_suppressions.py` | gruen | verbietet `# noqa: C901` |
 | `check_hotspot_guardrails.py` | gruen (mit Allowlist) | CLN-026: `--fail-on-over-budget`, Ausnahmen in `reports/hotspot-budget-allowlist.json` |
+| `check_singleton_freeze.py` | gruen | CLN-035: Freeze der get_*_service-Boilerplate (343 Module, reports/singleton-freeze.txt) |
+| `check_test_line_budget.py` | gruen (mit Allowlist) | CLN-046: Test-Budget 1200 Zeilen, reports/test-line-budget-allowlist.json |
+| `check_cli_backend_context_seam.py` | gruen | CLN-052: cli_backends erreichen services nur ueber default_context |
+| `check_worker_boundaries.py` | gruen (mit Baseline) | CLN-029/055: hub/worker Importgrenzen |
 | `check_output_boundary.py` | gruen | CLN-014: Runtime-Artefakte duerfen nicht getrackt sein |
 | `check_docs_present.py` | gruen | |
 | `check_planning_contract.py` | gruen | |

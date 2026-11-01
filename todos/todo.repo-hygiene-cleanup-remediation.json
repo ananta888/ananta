@@ -1395,7 +1395,7 @@
       "title": "Config-SSOT-ADR schreiben (Gewinner-Mechanismus + Praezedenz)",
       "description": "7 konkurrierende Config-Mechanismen (env, pydantic-settings, config_defaults*.py 2264 LOC, DB-Config-Table, Config-Graph-Stack, config/ JSON/YAML, Root-Runtime-State) mit impliziter Praezedenz. ADR das den Gewinner benennt (env -> Settings -> DB-Config-Graph) und Deprecation-Pfad fuer config_defaults-Mega-Dict festlegt.",
       "type": "docs",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "high",
       "milestone_id": "CLN-M9",
@@ -1405,8 +1405,8 @@
         "Deprecation-Pfad fuer ueberfluessige Mechanismen dokumentiert.",
         "233 policy/config-Services haben eine Konsolidierungs-Richtung (CLN-069)."
       ],
-      "implementation_notes": "Strukturelles Kernproblem (wie Deps/Env/Singleton): mehrere SSOT mit impliziter Praezedenz. Hoechster Config-Hebel.",
-      "progress_percent": 0
+      "implementation_notes": "docs/adr/0002-config-single-source-of-truth.md: kanonische Praezedenz (Request-Override > Env > pydantic-settings > DB-Config-Graph > config/-Dateien > config_defaults-Residual > Policy-Services), Deprecation-Pfad fuer config_defaults*.py + policy-Konsolidierung dokumentiert.",
+      "progress_percent": 100
     },
     {
       "id": "CLN-063",
@@ -1589,7 +1589,7 @@
       "title": "Alle Architektur-Detektoren lauffaehig und in CI verankert",
       "description": "Konsolidierungs-Task: alle check_*.py aus CLN-022..029, CLN-014, CLN-019, CLN-029, CLN-055 sind lauffaehig, dokumentiert (Katalog mit Status) und im CI/Release-Gate verankert. Kein toter/ nie-laufender Check mehr.",
       "type": "quality",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "milestone_id": "CLN-M10",
@@ -1605,8 +1605,8 @@
         "Alle Architektur-Gates laufen im CI und faelschen korrekt.",
         "Negativ-Kontrollen (absichtliche Verstoesse) fuer kritische Checks hinterlegt."
       ],
-      "implementation_notes": "Verankerung des gesamten Gate-Layers; ohne das verfaellt der erarbeitete Standard.",
-      "progress_percent": 0
+      "implementation_notes": "docs/check-scripts.md aktualisiert (neue Gates: singleton_freeze, test_line_budget, cli_backend_context_seam, worker_boundaries, env_reference); alle Checks in check_pipeline verankert.",
+      "progress_percent": 100
     },
     {
       "id": "CLN-073",
@@ -1656,7 +1656,7 @@
       "title": "Anti-Regressions-Regeln in AGENTS.md/docs verankern",
       "description": "Erarbeitete Standards dokumentieren: Output-Boundary-Detektor (CLN-014), kanonisches DI-Pattern (CLN-035/060), Config-SSOT-Praezedenz (CLN-062), Import-Grenzen (CLN-029/055), Manifest-Struktur (pyproject+locks). In AGENTS.md/docs/architecture/ so festhalten dass kuenftige Aenderungen eingehalten werden.",
       "type": "docs",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "milestone_id": "CLN-M10",
@@ -1671,8 +1671,8 @@
         "Kuenftige Aenderungen haben klare Regeln (kein Rueckfall in alten Wildwuchs).",
         "Doku ist Source (Output Boundary: docs/ ist committable)."
       ],
-      "implementation_notes": "Verankert den Gesamterfolg; ohne dies akkumuliert sich der Debt neu.",
-      "progress_percent": 0
+      "implementation_notes": "AGENTS.md: Abschnitt 'Verankerte Repo-Regeln (Automatisierte Gates)' mit den 6 neuen Regeln/Detektoren ergaenzt.",
+      "progress_percent": 100
     }
   ],
   "critical_path_tasks": [
@@ -1698,11 +1698,11 @@
   "tasks_status_summary": {
     "total": 75,
     "by_status": {
-      "todo": 42,
+      "todo": 39,
       "in_progress": 0,
       "partial": 12,
       "blocked": 0,
-      "done": 21
+      "done": 24
     },
     "progress_percent_done": 18.67,
     "by_priority": {
@@ -1731,7 +1731,7 @@
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 42,
+    "todo_remaining": 39,
     "in_progress": 0,
     "partial": 12,
     "blocked": 0,

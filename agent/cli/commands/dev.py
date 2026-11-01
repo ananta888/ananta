@@ -112,7 +112,10 @@ def _configure_subparsers(p: argparse.ArgumentParser) -> None:
         help="Run first-goal acceptance test (replaces scripts/first_goal_acceptance_runner.py).",
     )
     acc_p.add_argument(
-        "--scenario-file", dest="scenario_file", default="config/scenario_lmstudio.json", help="Path to scenario JSON file."
+        "--scenario-file",
+        dest="scenario_file",
+        default="config/scenario_lmstudio.json",
+        help="Path to scenario JSON file.",
     )
     acc_p.add_argument("--sla-seconds", dest="sla_seconds", type=int, default=900, help="SLA timeout in seconds.")
     acc_p.add_argument("--password", default="test123", help="Hub admin password.")

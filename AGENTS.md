@@ -413,6 +413,23 @@ If a change would alter the architecture, it must be explicitly justified and di
 
 ---
 
+# Verankerte Repo-Regeln (Automatisierte Gates)
+
+- **Output Boundary:** `scripts/check_output_boundary.py` verhindert getrackte
+  Runtime-Artefakte (Commit-Regel-Tabelle oben).
+- **Singleton-Freeze:** keine neuen `get_*_service()`-Boilerplate-Accessoren
+  (`scripts/check_singleton_freeze.py`; kanonisches Pattern in
+  `docs/service-singletons.md`).
+- **Test-Line-Budget:** neue Testdateien > 1200 Zeilen failen
+  (`scripts/check_test_line_budget.py`).
+- **DI-Seam:** `agent/cli_backends/` erreicht services nur ueber
+  `default_context` (`scripts/check_cli_backend_context_seam.py`).
+- **Importgrenzen:** `check_imports.py` + `check_worker_boundaries.py` +
+  `check_service_boundaries.py` (Allow-Lists muessen leer bleiben oder
+  dokumentierte Ausnahmen tragen).
+- **Style/Type:** ruff format+check sind CI-Gates; mypy folgt
+  (`--skip-types` ist befristet).
+
 # Summary
 
 The following rule overrides all others:
