@@ -123,7 +123,7 @@
         "CLN-037",
         "CLN-038"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "CLN-M6",
@@ -1724,9 +1724,9 @@
     "milestones": {
       "total": 10,
       "todo": 9,
-      "in_progress": 1,
+      "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 1
     }
   },
   "progress_summary": {
@@ -1745,6 +1745,7 @@
     "Hoechste Einzel-Hebel: (1) Secrets/Artefakte raus (CLN-M1/M2), (2) Lint/Type/Timeout-Gates an (CLN-022/023), (3) di.py+Toter-Code (CLN-030..033), (4) Autopilot aus routes (CLN-048) + Hub-Worker-Entkopplung (CLN-054).",
     "Bewahren: hermetisches tests/conftest.py-Sandboxing, Tier/Shard-System, @pytest.mark.timeout-Disziplin (248 Dateien), meet_worker_boundaries (bereits sauber), check_complexity_suppressions-Muster.",
     "CLN-033 (118 test-only Services) und CLN-034 (412 except:pass) sind gross und brauchen verteilte, begruendete Entscheidungen; nicht blind automatisieren.",
-    "Nicht rebaseline bei check_imports-Verstoesen (CLN-047) - Behebung statt kodierte Schuld."
+    "Nicht rebaseline bei check_imports-Verstoesen (CLN-047) - Behebung statt kodierte Schuld.",
+    "M1-M5 umgesetzt 2026-11-01 (15 Commits): Secrets/Artefakte raus, Deps konsolidiert, Lint/Format/Timeout/Hotspot/Cycle/Worker-Boundary/Singleton-Gates scharf, di.py+ tote Blueprints+ 21 Waisen+ 23 tote Methoden+ 237 except:pass geloescht/geloggt. Partials mit Begruendung in den Tasks. Praexistente Test-Failures (3 Cluster) fuer CLN-040 dokumentiert."
   ]
 }
