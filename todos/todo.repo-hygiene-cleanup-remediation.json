@@ -868,7 +868,7 @@
       "title": "Singleton-/Factory-Boilerplate auf EIN Pattern konsolidieren",
       "description": "Vier konkurrierende Patterns: (1) eager module-level x=Service() (203x), (2) lazy global _service, (3) current_app.extensions (20), (4) di.py late-binding. 258x identischer singleton=ClassName()/get_x_service()-Block, 313 get_*_service-Files. EIN kanonisches Pattern festlegen (constructor injection + di.py-style late binding als Bridge), Rest einfrieren via Detektor.",
       "type": "refactor",
-      "status": "todo",
+      "status": "partial",
       "priority": "P2",
       "risk": "high",
       "milestone_id": "CLN-M5",
@@ -880,15 +880,15 @@
         "Neue get_*_service() Zugaenge sind via Detektor begrenzt (Freeze).",
         "Boilerplate ist ueber generischen Helfer (singleton(X)) reduziert."
       ],
-      "implementation_notes": "Strukturelle Schuld (D6); 300-File-Greps bei jeder Wiring-Aenderung vermeiden. Kombiniert mit CLN-060.",
-      "progress_percent": 0
+      "implementation_notes": "Wachstum eingefroren: scripts/check_singleton_freeze.py ratcht 343 Accessor-Module (reports/singleton-freeze.txt), in Check-Pipeline verankert, 3 Negativ-Tests. Kanonisches Pattern dokumentiert (docs/service-singletons.md: Konstruktor-Injection am Composition Root + DI-Seam). OFFEN: Bestands-Boilerplate (~258 Bloecke) inkrementell abbauen statt Big-Bang.",
+      "progress_percent": 60
     },
     {
       "id": "CLN-036",
       "title": "Facade-/Compat-Shim-Residue entfernen (54 + 103)",
       "description": "54 logikfreie Facade-Module (nur imports+__all__) und 103 'compatibility facade/shim'-Docstrings (SGPT-Decoupling/Layer-Moves Residue). Deprecation-Warnings einfuehren, nach einer Release entfernen. check_shim_imports.py zeigt team_blueprint_service-Shim mit 0 Importern -> sofort loeschbar.",
       "type": "deadcode",
-      "status": "todo",
+      "status": "partial",
       "priority": "P2",
       "risk": "medium",
       "milestone_id": "CLN-M5",
@@ -900,8 +900,8 @@
         "Uebrige Fassaden haben Deprecation-Pfad; Import-Graph-Oberflaeche verkleinert.",
         "Alte Namen funktionieren waehrend der Migrationsfrist, danach nicht."
       ],
-      "implementation_notes": "Nicht sofort alles loeschen - Konsumen koennen existieren; Deprecation-Zyklus. OCP: alte Namen bleiben waehrend Migration substituierbar.",
-      "progress_percent": 0
+      "implementation_notes": "team_blueprint_service-Shim (0 Importer, via check_shim_imports verifiziert) geloescht. Katalog reports/compat-facades-catalog.txt: 78 Standalone-Debt-Fassaden (Migrationspolitik im Header) + 32 legitime __init__-Re-Exports. OFFEN: Deprecation-Rollout/Abbau der 78 Fassaden nach Verbrauchermigration.",
+      "progress_percent": 50
     },
     {
       "id": "CLN-037",
@@ -1698,9 +1698,9 @@
   "tasks_status_summary": {
     "total": 75,
     "by_status": {
-      "todo": 68,
+      "todo": 66,
       "in_progress": 0,
-      "partial": 2,
+      "partial": 4,
       "blocked": 0,
       "done": 5
     },
@@ -1731,9 +1731,9 @@
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 68,
+    "todo_remaining": 66,
     "in_progress": 0,
-    "partial": 2,
+    "partial": 4,
     "blocked": 0,
     "done": 5
   },

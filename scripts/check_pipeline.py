@@ -66,6 +66,11 @@ def check_complexity_suppressions():
     return run_command([sys.executable, "scripts/check_complexity_suppressions.py"])
 
 
+def check_singleton_freeze():
+    print("\n--- Checking Singleton Freeze (CLN-035) ---", flush=True)
+    return run_command([sys.executable, "scripts/check_singleton_freeze.py"])
+
+
 def check_worker_boundaries():
     print("\n--- Checking Hub/Worker Boundaries (CLN-029/CLN-055) ---", flush=True)
     return run_command([sys.executable, "scripts/check_worker_boundaries.py"])
@@ -154,6 +159,8 @@ def main():
         if not check_cycles():
             success = False
         if not check_worker_boundaries():
+            success = False
+        if not check_singleton_freeze():
             success = False
         if not check_duplicates():
             success = False
