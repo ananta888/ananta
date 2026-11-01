@@ -24,7 +24,6 @@ REQUIRED_FILES = [
     "docker/compose-next/compose.stack.quickstart.yml",
     "docker/compose-next/compose.stack.full.yml",
     "requirements.txt",
-    "requirements-dev.txt",
     "requirements.lock",
     "requirements-dev.lock",
     "pyproject.toml",
@@ -191,16 +190,17 @@ def check_python_dependency_sources() -> CheckResult:
     project_deps = {package_name(dep) for dep in pyproject["project"].get("dependencies", [])}
     dev_deps = {package_name(dep) for dep in pyproject["project"].get("optional-dependencies", {}).get("dev", [])}
     runtime = requirement_names("requirements.txt")
-    dev = requirement_names("requirements-dev.txt")
+    dev_lock = requirement_names("requirements-dev.lock")
     problems = []
     if project_deps != runtime:
         problems.append(f"runtime mismatch: pyproject-only={sorted(project_deps - runtime)}, requirements-only={sorted(runtime - project_deps)}")
-    if dev_deps != dev:
-        problems.append(f"dev mismatch: pyproject-only={sorted(dev_deps - dev)}, requirements-dev-only={sorted(dev - dev_deps)}")
-    overlap = runtime & dev
+    unresolved_dev = dev_deps - dev_lock
+    if unresolved_dev:
+        problems.append(f"dev deps missing from requirements-dev.lock: {sorted(unresolved_dev)}")
+    overlap = runtime & dev_deps
     if overlap:
         problems.append(f"runtime/dev source overlap: {sorted(overlap)}")
-    return CheckResult("python-dependency-sources", not problems, "runtime and dev dependency sources match pyproject" if not problems else "; ".join(problems))
+    return CheckResult("python-dependency-sources", not problems, "runtime matches pyproject and dev deps resolve in lock" if not problems else "; ".join(problems))
 
 
 def check_python_locks() -> CheckResult:

@@ -70,7 +70,6 @@ _FULL_SUITE_TRIGGERS = (
     "requirements.lock",
     "requirements-dev.lock",
     "requirements.txt",
-    "requirements-dev.txt",
     "docker/compose-next/Dockerfile.tests-backend",
     "docker/compose-next/compose.tests-backend-base.yml",
 )

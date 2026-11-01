@@ -22,10 +22,21 @@ dependencies = [
     "psycopg2-binary",
     "pyotp",
     "qrcode",
+    # CLN-020: Pillow/cryptography are intentionally unpinned here; the resolved
+    # versions live in requirements.lock (cryptography==46.0.7, pillow==12.2.0).
+    # Standalone images pin their own versions (sfu-runtime-agent: cryptography==43.0.3,
+    # turn-observer-agent: cryptography==44.0.3, docker/meet-media: Pillow==11.3.0).
+    # These are separate builds; align them consciously when those images are
+    # rebuilt next — old cryptography lines are security-relevant.
     "Pillow",
     "cryptography",
     "alembic",
     "typer",
+    # AMBIGUITY (CLN-021): sgpt is invoked via `python -m sgpt` (agent/cli_backends/sgpt.py).
+    # Two sources provide the `sgpt` namespace: this pip package and the vendored
+    # fork agent/sgpt/ (resolved via sys.path in dev). Consolidation to ONE source
+    # requires verifying which one Docker installs resolve at runtime. Do not
+    # remove blindly — it may provide the fork's transitive deps in Docker builds.
     "shell_gpt",
     "prompt_toolkit",
     "click",
@@ -37,8 +48,6 @@ dependencies = [
     "PyYAML",
     "tree_sitter_java",
     "tree_sitter_c_sharp",
-    "llama-index",
-    "mistralai",
     "gitpython",
     "flask-sock",
     "simple-websocket",
@@ -46,11 +55,14 @@ dependencies = [
     "python-docx",
     "openpyxl",
     "python-pptx",
-    "langdetect",
     "jsonschema>=4.21,<5",
 ]
 
 [project.optional-dependencies]
+# Optional llama-index embeddings for semantic search. The core install does
+# NOT pull the large llama-index tree in; opt in explicitly. The feature is
+# also gated at runtime by ANANTA_ENABLE_LLAMAINDEX_EMBEDDINGS.
+llamaindex = ["llama-index"]
 # Cross-repository browser tests connect to the same pinned Playwright version
 # as docker/meet-media/Dockerfile. No browser download in ordinary dev installs.
 meet-tests = ["playwright==1.58.0"]
