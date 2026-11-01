@@ -24,7 +24,7 @@ This scratch test reproduces the relevant cross-file pattern as two
 separate pytest tests, run in the order that triggers the flake:
 
 1. ``test_awf_style_patches_di_layer`` — runs the awf-style monkeypatch
-   pattern (now targeting ``agent.services.di.memory_entry_repo`` after
+   pattern (now targeting ``agent.repository.memory_entry_repo`` after
    the DI-Layer refactor) and verifies the patched fake is the
    service's resolved repo.
 2. ``test_optional_fields_passes_after_awf`` — runs the optional-fields
@@ -66,7 +66,7 @@ def test_awf_style_patches_di_layer(db_session, monkeypatch):
     """Replicates the body of
     ``tests/worker/test_awf_worker_fixup_t021_t030.py::TestT022MemoryPolicy::test_enabled_false_skips_write``.
 
-    POST-DI-LAYER: patches ``agent.services.di.memory_entry_repo`` (the
+    POST-DI-LAYER: patches ``agent.repository.memory_entry_repo`` (the
     whole object) rather than mutating ``.save`` on the singleton. This
     is the test pattern that the DI-Layer refactor enables: replacing
     the whole repository object via the factory's lookup root instead
@@ -75,7 +75,7 @@ def test_awf_style_patches_di_layer(db_session, monkeypatch):
     from agent.services.result_memory_service import ResultMemoryService
 
     fake = _FakeMemoryRepo()
-    monkeypatch.setattr("agent.services.di.memory_entry_repo", fake)
+    monkeypatch.setattr("agent.repository.memory_entry_repo", fake)
 
     svc = ResultMemoryService()
     # Sanity: the service must resolve to our fake via the property.
@@ -105,13 +105,13 @@ def test_optional_fields_passes_after_awf(db_session, monkeypatch):
 
     POST-DI-LAYER: the property-based repo lookup in
     ``ResultMemoryService`` resolves the *current* value of
-    ``agent.services.di.memory_entry_repo`` on every call. We patch a
+    ``agent.repository.memory_entry_repo`` on every call. We patch a
     fresh fake here (in this test's monkeypatch scope), so this test
     sees only its own fake. The awf test's fake was scoped to its own
     monkeypatch and was torn down at the end of that test.
     """
     fake = _FakeMemoryRepo()
-    monkeypatch.setattr("agent.services.di.memory_entry_repo", fake)
+    monkeypatch.setattr("agent.repository.memory_entry_repo", fake)
 
     # Call the service. It will use the fake via the property lookup.
     from agent.services.result_memory_service import ResultMemoryService
