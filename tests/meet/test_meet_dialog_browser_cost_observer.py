@@ -5,7 +5,7 @@ from unittest.mock import Mock
 import pytest
 from playwright.sync_api import CDPSession, Page
 
-from tests.meet_dialog_browser_cost_observer import DialogBrowserCostObserver, operation_name
+from tests.meet.meet_dialog_browser_cost_observer import DialogBrowserCostObserver, operation_name
 from worker.meet_media.screen_frame_delivery import CANCEL, CLOSE, POLL, START
 
 

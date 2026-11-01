@@ -2,7 +2,7 @@
 
 import subprocess
 
-from tests.meet_speech_opening_delay import SCRIPT
+from tests.meet.meet_speech_opening_delay import SCRIPT
 
 
 def test_delay_affects_only_speech_worklet_completion_without_replacing_native_loading():

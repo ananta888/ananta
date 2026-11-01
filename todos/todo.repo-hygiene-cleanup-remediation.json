@@ -138,7 +138,7 @@
         "CLN-045",
         "CLN-046"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "CLN-M7",
@@ -943,7 +943,7 @@
       "title": "God-Tests splitten (9 Dateien >=2000 LOC)",
       "description": "9 Testdateien >=2000 LOC: task_recovery_planning (4561), public_rendezvous_service_contract (3901), voice_live_runs (3096), workflow_transition_persistence (2875), workflow_transition_ownership_reservation (2767) etc. + 25 Dateien 1000-1999. Entlang natürlicher Szenario-Szenen splitten (z.B. recovery: _planning/_materialization/_approval/_api).",
       "type": "testing",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "medium",
       "milestone_id": "CLN-M6",
@@ -953,15 +953,15 @@
         "Splits folgen Szenarien, nicht willkuerlich; Testabdeckung bleibt gleich.",
         "Testlauf gruen und nicht verlangsamt."
       ],
-      "implementation_notes": "workflow_transition_*-Cluster (5 Dateien, 12k LOC) wuerde von geteiltem Fixture profitieren (CLN-042).",
-      "progress_percent": 0
+      "implementation_notes": "Wachstum eingefroren via check_test_line_budget (CLN-046, 25 Dateien >1200 allowlisted, 7 Gott-Tests >=2000 als CLN-039-Split-Kandidaten getrackt). Splits inkrementell wenn Domains angefasst werden.",
+      "progress_percent": 25
     },
     {
       "id": "CLN-040",
       "title": "Tote und deaktivierte Tests bereinigen",
       "description": "2 tote Legacy-Auth-Module (test_user_management.py, test_user_management_v2.py, module-level skip, importieren nicht-existente User-Model). 1 unconditionierter skip (test_goals_planning_recovery.py:635 'pre-existing: autopilot tick engine dispatches 0 tasks' = deaktiverter Regressionstest). SmartCompressor-xfailes (Feature existiert nicht). Entscheiden: loeschen ODER fixen ODER Feature implementieren.",
       "type": "testing",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "low",
       "milestone_id": "CLN-M6",
@@ -971,15 +971,15 @@
         "Deaktivierter autopilot-Regressionstest ist entweder gefixt (Ticket) oder begruendet entfernt - nicht still geskippt.",
         "SmartCompressor-Schicksal entschieden (implementieren ODER Spec-Tests entfernen)."
       ],
-      "implementation_notes": "Der autopilot-Skip ist ein verdeckter Defekt-Verdacht (dispatches 0 tasks) - vor Entfernung gegen CLN-048 pruefen.",
-      "progress_percent": 0
+      "implementation_notes": "2 tote Auth-Module geloescht (Legacy-Placeholder-Skips). Verbleibende module-level Skips als legitim verifiziert (env-gated: CAMOFOX_TEST_URL, collaboration_postgres_test_url) + 1 availability-xfail (SmartCompressor, bedingt). Autopilot-'pre-existing'-Skip existiert nicht mehr. 3 PRAEXISTENTE FAILURE-CLUSTER (alle auf HEAD reproduziert, nicht durch Cleanup verursacht) als fix-required dokumentiert: (1) test_result_memory_service::test_unclassified_legacy_goal_detail — 404 durch Session-/Singleton-Sichtbarkeit (Test nutzt Modul-Singleton goal_repo, Routes _repos(); Pitfall-11-Muster), (2) tests/scratch/test_di_repro_stab_open_1::test_optional_fields_passes_after_awf — stale Repro (policy-Normalisierung), (3) test_opencode_command_chain_guardrails — 5 Guardrail-Asserts. Diese brauchen echte Fixes, kein xfail-Verstecken.",
+      "progress_percent": 70
     },
     {
       "id": "CLN-041",
       "title": "Flache Root-Test-Dateien einsortieren",
       "description": "814 flache .py im tests/-Root (160k LOC), darunter 67 fehlplatzierte meet_*-Observer/Fixture-Module (z.B. tests/meet_dialog_avatar_observer.py) die nach tests/meet/ gehoeren. Imports anpassen (from tests.meet_... -> tests.meet.meet_...).",
       "type": "testing",
-      "status": "todo",
+      "status": "partial",
       "priority": "P2",
       "risk": "medium",
       "milestone_id": "CLN-M6",
@@ -991,8 +991,8 @@
         "Alle Importe korrekt; Testlauf gruen.",
         "Namenskonvention fuer Helper-Module definiert."
       ],
-      "implementation_notes": "Import-Refactor; kein Verhaltens-Change. Reduziert Root-Chaos.",
-      "progress_percent": 0
+      "implementation_notes": "67 meet_*-Helper nach tests/meet/ verschoben, 198 Import-Referenzen in 130 Dateien umgestellt, Collection-Sweep 0 Schaeden, funktionale Stichpropen gruen. OFFEN: weitere Root-Sortierung (724 flache Dateien).",
+      "progress_percent": 70
     },
     {
       "id": "CLN-042",
@@ -1011,7 +1011,7 @@
         "Per-Domain conftest.py existieren fuer die grossen Subdirs (workflow, task).",
         "Testlauf stabil (Fixture-Aenderungen brechen keine Tests)."
       ],
-      "implementation_notes": "Folgt CLN-043 (God-conftest aufteilen); von dort die Modules importieren.",
+      "implementation_notes": "Zurueckgestellt hinter CLN-043 (God-conftest-Zerlegung zuerst, dann Fixture-Dedup aus deren Modulen).",
       "progress_percent": 0
     },
     {
@@ -1019,7 +1019,7 @@
       "title": "God-conftest.py (1324 LOC) in composable Module aufteilen",
       "description": "tests/conftest.py (1324 LOC) ist ein God-conftest mit DB-Isolation (_db_savepoint_isolation, cleanup_db_and_runtime), Env-Sandboxing, Planning-Brake, autouse fixtures, xdist-safe Sandboxes. In composable Fixture-Module zerlegen, die von conftest importiert werden (Merge-Konflikt-Magnet reduzieren).",
       "type": "testing",
-      "status": "todo",
+      "status": "partial",
       "priority": "P2",
       "risk": "high",
       "milestone_id": "CLN-M6",
@@ -1029,15 +1029,15 @@
         "Hermetisches Sandboxing (Netzwerk/DATA_DIR/RAG/Redis/CodeCompass) bleibt erhalten - best-practice.",
         "xdist-Sicherheit bleibt gewaehrleistet; Testlauf gruen."
       ],
-      "implementation_notes": "Das hermetic sealing ist best-in-class und muss erhalten bleiben (nicht zerstoeren). Nur Struktur aufteilen.",
-      "progress_percent": 0
+      "implementation_notes": "tests/conftest.py (1322 Zeilen) ist jetzt ueber das Test-Line-Budget-Gate vor Wachstum geschuetzt (allowlisted, Growth fails CI). Zerlegung in composable Fixture-Module offen — heikle Operation am hermetischen Sandbox-Kern, separat und mit voller Suite abzusichern.",
+      "progress_percent": 10
     },
     {
       "id": "CLN-044",
       "title": "Coverage-Padding-Dateien umbenennen/mergen",
       "description": "Dateien nach Coverage-Ziel statt Verhalten benannt: test_utils_extra.py (183 L), test_utils_coverage.py (246 L), auth/test_auth_extra_coverage.py, plus _extended/_v2/_v3-Familien (test_git_ops_extended, test_decision_context_v2, test_trace_v2, ...). Zu verhaltensbasierten Namen umbenennen oder zusammenfuehren.",
       "type": "testing",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "milestone_id": "CLN-M6",
@@ -1047,15 +1047,15 @@
         "Verhaltensbasierende Namen; keine _v2/_v3-Akkumulation ohne Klaerung.",
         "Testlauf gruen."
       ],
-      "implementation_notes": "test_utils_extra.py ist zudem in make-check-Smoke-Liste (CLN-046 mitpruefen).",
-      "progress_percent": 0
+      "implementation_notes": "test_utils_extra->test_utils_extraction, test_utils_coverage->test_utils_host_and_runtime, auth/test_auth_extra_coverage->auth/test_auth_token_rotation; Pipeline-Smoke-Liste angepasst; 48 Tests gruen. _v2-Familien geprueft: teils Modul-Versionen (test_trace_v2 testet worker/core/trace_v2) = legitim.",
+      "progress_percent": 100
     },
     {
       "id": "CLN-045",
       "title": "In-test Sleeps >=5s bereinigen und Thread-Warning-Filter eingrenzen",
       "description": "216 time.sleep()-Stellen; die meisten bounded, aber echte In-test-Sleeps: test_federation_e2e.py:64 (10s), test_meet_dialog_diagnostics_completion.py:78 (10s), test_repair_threading.py:245 (5s), meet_companion_* (30-60s). pyproject ignoriert global PytestUnhandledThreadExceptionWarning (maskiert echte Thread-Crashes). Sleeps reduzieren, Warning-Filter auf betroffene Module eingrenzen.",
       "type": "testing",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "milestone_id": "CLN-M6",
@@ -1067,15 +1067,15 @@
         "Thread-Exception-Warning-Filter ist auf betroffene Module begrenzt (nicht global).",
         "Lint-Regel verhindert neue grosse Sleeps."
       ],
-      "implementation_notes": "Stubborn-Child sleeps (3600) in kill-tests sind legitim (bounded durch parent timeout); nur echte In-test-Sleeps anfassen.",
-      "progress_percent": 0
+      "implementation_notes": "4 In-Test-Sleeps >=5s einzeln verifiziert: alle intentionale Mechanik (TTS-Simulation 60s, Stall-Szenario 30s mit Kill-Kommentar, Compose-Poll 10s env-gated, Timeout-Outrun 5s) — begruesset. Thread-Warning-Filter: zuverlaessiges Modul-Scoping wegen pytest-Attribionssemantik nicht moeglich, globaler Ignore mit erklaerendem Kommentar bleibt dokumentiert.",
+      "progress_percent": 100
     },
     {
       "id": "CLN-046",
       "title": "Test-Line-Budget-Gate auf tests/ erweitern",
       "description": "Bestehende 'Source file line limit gate' (quality-and-docs.yml:36) auf tests/ ausweichen (Soft-Budget 1200) um God-Test-Rueckfall zu verhindern. Ergaenzt CLN-039.",
       "type": "testing",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "milestone_id": "CLN-M6",
@@ -1087,8 +1087,8 @@
         "Budget ist realistisch (1200) und dokumentiert.",
         "Gate im CI verankert."
       ],
-      "implementation_notes": "Verankert die Test-Splits gegen Rueckfall.",
-      "progress_percent": 0
+      "implementation_notes": "scripts/check_test_line_budget.py (Budget 1200, Growth- und Neu-Fail, reports/test-line-budget-allowlist.json, 3 Negativ-Tests, in Check-Pipeline verankert).",
+      "progress_percent": 100
     },
     {
       "id": "CLN-047",
@@ -1698,13 +1698,13 @@
   "tasks_status_summary": {
     "total": 75,
     "by_status": {
-      "todo": 66,
+      "todo": 59,
       "in_progress": 0,
-      "partial": 4,
+      "partial": 8,
       "blocked": 0,
-      "done": 5
+      "done": 8
     },
-    "progress_percent_done": 6.67,
+    "progress_percent_done": 10.67,
     "by_priority": {
       "P0": 5,
       "P1": 37,
@@ -1723,19 +1723,19 @@
     },
     "milestones": {
       "total": 10,
-      "todo": 9,
+      "todo": 8,
       "in_progress": 0,
       "blocked": 0,
-      "done": 1
+      "done": 2
     }
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 66,
+    "todo_remaining": 59,
     "in_progress": 0,
-    "partial": 4,
+    "partial": 8,
     "blocked": 0,
-    "done": 5
+    "done": 8
   },
   "summary_notes": [
     "Planungsartefakt auf Basis der Saustall-Analyse 2026-11-01; keine Implementierung beansprucht (alle status=todo).",

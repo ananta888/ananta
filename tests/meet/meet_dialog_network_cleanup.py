@@ -8,7 +8,7 @@ setup, then clean it only after every dependent fixture has been reaped.
 import json
 import re
 
-from tests.meet_dialog_browser_fixture import docker
+from tests.meet.meet_dialog_browser_fixture import docker
 
 
 class DialogNetworkCleanup:

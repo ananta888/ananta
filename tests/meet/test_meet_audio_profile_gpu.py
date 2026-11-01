@@ -4,8 +4,8 @@ import os
 
 import pytest
 
-from tests.meet_gpu_capacity import require_gpu_capacity
-from tests.meet_gpu_source_fixture import run_probe
+from tests.meet.meet_gpu_capacity import require_gpu_capacity
+from tests.meet.meet_gpu_source_fixture import run_probe
 
 pytestmark = [
     pytest.mark.timeout(100),

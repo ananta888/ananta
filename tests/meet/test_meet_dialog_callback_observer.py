@@ -6,7 +6,7 @@ import pytest
 
 from agent.services.meet_contract import MeetError
 from agent.services.meet_dialog_service import MeetDialogService
-from tests.meet_dialog_callback_observer import DialogCallbackObserver
+from tests.meet.meet_dialog_callback_observer import DialogCallbackObserver
 
 
 def test_observer_keeps_only_bounded_success_timing_and_lease_generation(monkeypatch):

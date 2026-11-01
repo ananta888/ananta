@@ -7,7 +7,7 @@ from uuid import uuid4
 
 import pytest
 
-from tests.meet_dialog_browser_fixture import docker
+from tests.meet.meet_dialog_browser_fixture import docker
 
 
 @pytest.mark.skipif(os.environ.get("MEET_COMPANION_PACKAGED_GATE") != "1", reason="explicit owned helper image gate")

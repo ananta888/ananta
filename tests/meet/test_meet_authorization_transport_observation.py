@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from tests.meet_authorization_transport_observation import observe_authorization_transport
+from tests.meet.meet_authorization_transport_observation import observe_authorization_transport
 
 
 def test_observer_preserves_response_and_bounds_status_only_history(monkeypatch):

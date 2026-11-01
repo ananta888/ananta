@@ -250,24 +250,24 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
     from agent.services.meet_media_transport import HttpMediaWorker
     from agent.services.meet_turn_service import HubMediaTasks
     from agent.services.source_control_access_policy import HubSourcePrincipal
-    from tests.meet_bridge_browser_handshake import BridgeBrowserHandshake
-    from tests.meet_dialog_avatar_observer import make_avatar_observer
-    from tests.meet_dialog_browser_fixture import DialogBrowserFixture
-    from tests.meet_dialog_cadence_delay import (
+    from tests.meet.meet_bridge_browser_handshake import BridgeBrowserHandshake
+    from tests.meet.meet_dialog_avatar_observer import make_avatar_observer
+    from tests.meet.meet_dialog_browser_fixture import DialogBrowserFixture
+    from tests.meet.meet_dialog_cadence_delay import (
         install_cadence_delay,
         record_cadence_delay,
         require_cadence_complete,
         require_cadence_profile,
         start_cadence_observation,
     )
-    from tests.meet_dialog_cleanup import close_dialog_browsers, close_dialog_servers
-    from tests.meet_dialog_gpu_fixture import configure_dialog_gpu
-    from tests.meet_dialog_interruption import configure_interruption, finish_interruption
-    from tests.meet_dialog_network_cleanup import DialogNetworkCleanup
-    from tests.meet_dialog_policy_fixture import SyntheticMeetBinding
-    from tests.meet_dialog_screen_observation import record_screen_failure
-    from tests.meet_dialog_speech_observer import DialogSpeechObserver
-    from tests.meet_dialog_voice_scenario import make_voice_scenario
+    from tests.meet.meet_dialog_cleanup import close_dialog_browsers, close_dialog_servers
+    from tests.meet.meet_dialog_gpu_fixture import configure_dialog_gpu
+    from tests.meet.meet_dialog_interruption import configure_interruption, finish_interruption
+    from tests.meet.meet_dialog_network_cleanup import DialogNetworkCleanup
+    from tests.meet.meet_dialog_policy_fixture import SyntheticMeetBinding
+    from tests.meet.meet_dialog_screen_observation import record_screen_failure
+    from tests.meet.meet_dialog_speech_observer import DialogSpeechObserver
+    from tests.meet.meet_dialog_voice_scenario import make_voice_scenario
     from worker.meet_media.dialog_chat import DialogChatPump
     from worker.meet_media.dialog_client import HubDialogClient
     from worker.meet_media.dialog_runtime import run
@@ -285,7 +285,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
     cadence_delay = None
 
     meet = Path(__file__).resolve().parents[2] / "webrtc-minimize-server"
-    from tests.meet_companion_build import require_current_browser_build
+    from tests.meet.meet_companion_build import require_current_browser_build
 
     record_property(
         "meet_browser_build_preflight", require_current_browser_build(meet, os.environ.get("MEET_TEST_PUBLIC_DIR"))
@@ -378,7 +378,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
         new_context = Browser.new_context
 
         def observed_context(browser, *args, **kwargs):
-            from tests.meet_speech_worklet_observation import INSTALL
+            from tests.meet.meet_speech_worklet_observation import INSTALL
 
             context = new_context(browser, *args, **kwargs)
             startup_observer.observe_context(context)
@@ -440,13 +440,13 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
         completed = threading.Event()
         chat_ready = threading.Event()
         failures = []
-        from tests.meet_media_timing_observer import observe_media_timing_failure
+        from tests.meet.meet_media_timing_observer import observe_media_timing_failure
 
         observe_media_timing_failure(monkeypatch, record_property)
-        from tests.meet_dialog_startup_observer import DialogStartupObserver, require_observed_dialog_startup
+        from tests.meet.meet_dialog_startup_observer import DialogStartupObserver, require_observed_dialog_startup
 
         startup_observer = DialogStartupObserver(monkeypatch)
-        from tests.meet_dialog_soak_observer import DialogSoakObserver, record_soak_failure
+        from tests.meet.meet_dialog_soak_observer import DialogSoakObserver, record_soak_failure
 
         soak_observer = DialogSoakObserver(monkeypatch) if SOAK_SECONDS else None
         cadence_delay = install_cadence_delay(
@@ -624,7 +624,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
             }
         )
         if os.environ.get("MEET_TEST_SFRAME_PIPELINE_PROBE") == "1":
-            from tests.meet_dialog_screen_observation import require_pipeline_probe
+            from tests.meet.meet_dialog_screen_observation import require_pipeline_probe
 
             require_pipeline_probe(command("pipeline_probe"), record_property)
         assert chat_ready.wait(8), failures

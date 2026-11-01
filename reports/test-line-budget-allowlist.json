@@ -1,0 +1,132 @@
+{
+  "schema": "test_line_budget_allowlist.v1",
+  "budget_lines": 1200,
+  "policy": "new test files over budget fail; prune entries when files shrink or split",
+  "allowlist": [
+    {
+      "path": "tests/task/test_task_recovery_planning_service.py",
+      "line_count": 4302,
+      "reason": "god test (CLN-039 split candidate)"
+    },
+    {
+      "path": "tests/test_public_rendezvous_service_contract.py",
+      "line_count": 3899,
+      "reason": "god test (CLN-039 split candidate)"
+    },
+    {
+      "path": "tests/voice/test_voice_live_runs.py",
+      "line_count": 3055,
+      "reason": "god test (CLN-039 split candidate)"
+    },
+    {
+      "path": "tests/workflow/test_workflow_transition_persistence.py",
+      "line_count": 2875,
+      "reason": "god test (CLN-039 split candidate)"
+    },
+    {
+      "path": "tests/workflow/test_workflow_transition_ownership_reservation.py",
+      "line_count": 2767,
+      "reason": "god test (CLN-039 split candidate)"
+    },
+    {
+      "path": "tests/workflow/test_workflow_transition_authorization_grant.py",
+      "line_count": 2072,
+      "reason": "god test (CLN-039 split candidate)"
+    },
+    {
+      "path": "tests/recovery/test_recovery_result_boundary_and_finalization.py",
+      "line_count": 2054,
+      "reason": "god test (CLN-039 split candidate)"
+    },
+    {
+      "path": "tests/vector/test_vector_index_task_service.py",
+      "line_count": 1975,
+      "reason": "over-budget legacy test; split when touched"
+    },
+    {
+      "path": "tests/recovery/test_recovery_artifact_ingress.py",
+      "line_count": 1780,
+      "reason": "over-budget legacy test; split when touched"
+    },
+    {
+      "path": "tests/test_workflow_runtime_sqlalchemy_stores.py",
+      "line_count": 1745,
+      "reason": "over-budget legacy test; split when touched"
+    },
+    {
+      "path": "tests/workflow/test_workflow_transition_side_effect_authorization.py",
+      "line_count": 1539,
+      "reason": "over-budget legacy test; split when touched"
+    },
+    {
+      "path": "tests/workflow/test_workflow_transition_event_effect.py",
+      "line_count": 1520,
+      "reason": "over-budget legacy test; split when touched"
+    },
+    {
+      "path": "tests/test_workflow_configured_bridge_reconciler.py",
+      "line_count": 1451,
+      "reason": "over-budget legacy test; split when touched"
+    },
+    {
+      "path": "tests/model/test_model_invocation_service.py",
+      "line_count": 1440,
+      "reason": "over-budget legacy test; split when touched"
+    },
+    {
+      "path": "tests/test_workflow_control_dispatch_intents.py",
+      "line_count": 1432,
+      "reason": "over-budget legacy test; split when touched"
+    },
+    {
+      "path": "tests/recovery/test_recovery_dispatch_lease_repository_merge.py",
+      "line_count": 1406,
+      "reason": "over-budget legacy test; split when touched"
+    },
+    {
+      "path": "tests/workflow/test_workflow_transition_runner.py",
+      "line_count": 1393,
+      "reason": "over-budget legacy test; split when touched"
+    },
+    {
+      "path": "tests/knowledge/test_knowledge_index_execution_binding.py",
+      "line_count": 1343,
+      "reason": "over-budget legacy test; split when touched"
+    },
+    {
+      "path": "tests/conftest.py",
+      "line_count": 1322,
+      "reason": "over-budget legacy test; split when touched"
+    },
+    {
+      "path": "tests/task/test_task_endpoints.py",
+      "line_count": 1305,
+      "reason": "over-budget legacy test; split when touched"
+    },
+    {
+      "path": "tests/task/test_tasks_autopilot_proposals.py",
+      "line_count": 1303,
+      "reason": "over-budget legacy test; split when touched"
+    },
+    {
+      "path": "tests/knowledge/test_knowledge_index_worker_artifact_service.py",
+      "line_count": 1274,
+      "reason": "over-budget legacy test; split when touched"
+    },
+    {
+      "path": "tests/task/test_task_delegation_services_unit.py",
+      "line_count": 1254,
+      "reason": "over-budget legacy test; split when touched"
+    },
+    {
+      "path": "tests/workflow/test_workflow_worker_gateway_service.py",
+      "line_count": 1249,
+      "reason": "over-budget legacy test; split when touched"
+    },
+    {
+      "path": "tests/workflow_runtime/temporal/test_temporal_runtime_test_environment.py",
+      "line_count": 1211,
+      "reason": "over-budget legacy test; split when touched"
+    }
+  ]
+}

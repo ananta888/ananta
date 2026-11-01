@@ -3,8 +3,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from tests.meet_dialog_voice_scenario import make_voice_scenario
-from tests.meet_speech_playback_stall import PlaybackStallScenario
+from tests.meet.meet_dialog_voice_scenario import make_voice_scenario
+from tests.meet.meet_speech_playback_stall import PlaybackStallScenario
 from worker.meet_media.browser_pcm_feeder import BrowserPcmFeeder
 
 

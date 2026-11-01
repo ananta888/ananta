@@ -9,7 +9,7 @@ from uuid import uuid4
 import pytest
 from sqlalchemy.exc import OperationalError
 
-from tests.meet_dialog_cleanup import cancel_fixture_dialog, close_dialog_servers
+from tests.meet.meet_dialog_cleanup import cancel_fixture_dialog, close_dialog_servers
 
 
 def locked():

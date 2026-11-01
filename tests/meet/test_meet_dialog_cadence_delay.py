@@ -6,7 +6,7 @@ from unittest.mock import Mock
 import pytest
 from playwright.sync_api import Page
 
-from tests.meet_dialog_cadence_delay import PROFILE, DialogCadenceDelay, require_cadence_profile
+from tests.meet.meet_dialog_cadence_delay import PROFILE, DialogCadenceDelay, require_cadence_profile
 
 
 def test_delay_is_bounded_to_twenty_completed_waits_on_the_exact_owned_page(monkeypatch):
@@ -68,7 +68,11 @@ def test_off_is_passive_and_only_exact_five_minute_cpu_profile_can_activate():
 
 
 def test_disabled_hooks_do_not_patch_browser_or_emit_fault_observations(monkeypatch):
-    from tests.meet_dialog_cadence_delay import install_cadence_delay, record_cadence_delay, require_cadence_complete
+    from tests.meet.meet_dialog_cadence_delay import (
+        install_cadence_delay,
+        record_cadence_delay,
+        require_cadence_complete,
+    )
 
     original, record = Page.wait_for_timeout, Mock()
     delay = install_cadence_delay(False, monkeypatch, url="https://synthetic.test/machine")

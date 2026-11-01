@@ -6,7 +6,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from tests.meet_dialog_control_observer import DialogControlObserver
+from tests.meet.meet_dialog_control_observer import DialogControlObserver
 from worker.meet_media.dialog_control_exchange import DialogControlExchange
 
 

@@ -7,9 +7,9 @@ from unittest.mock import Mock
 
 import pytest
 
-from tests import meet_companion_ollama_fixture as ollama
-from tests import meet_ollama_model_fixture as model
-from tests.meet_companion_ollama_fixture import CompanionOllamaFixture
+from tests.meet import meet_companion_ollama_fixture as ollama
+from tests.meet import meet_ollama_model_fixture as model
+from tests.meet.meet_companion_ollama_fixture import CompanionOllamaFixture
 
 
 def synthetic_manifest(monkeypatch):

@@ -5,8 +5,8 @@ from unittest.mock import Mock
 
 import pytest
 
+from tests.meet.meet_multi_worker_runtime_stall import STALL_PROBE, stall_owned_runtime
 from tests.meet.test_meet_multi_worker_crash import fixture
-from tests.meet_multi_worker_runtime_stall import STALL_PROBE, stall_owned_runtime
 
 
 @pytest.mark.parametrize("change", [None, "running", "descendants", "elapsed", "kind", "unknown"])

@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.meet_gpu_source_fixture import run_probe
+from tests.meet.meet_gpu_source_fixture import run_probe
 from worker.meet_media.audio_output import FRAME_SAMPLES, SpeechFrame
 from worker.meet_media.speech_publication import SpeechPublication
 

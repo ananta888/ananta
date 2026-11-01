@@ -5,7 +5,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from tests.meet_dialog_transport_observer import DialogTransportObserver
+from tests.meet.meet_dialog_transport_observer import DialogTransportObserver
 from worker.meet_media.dialog_client import HubDialogClient
 
 

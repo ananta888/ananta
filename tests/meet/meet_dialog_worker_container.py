@@ -8,7 +8,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 from uuid import uuid4
 
-from tests.meet_dialog_browser_fixture import docker
+from tests.meet.meet_dialog_browser_fixture import docker
 
 
 class DialogWorkerContainer:
@@ -80,7 +80,7 @@ class DialogWorkerContainer:
             if info["IPAM"]["Config"][0]["Gateway"] != urlsplit(self.hub_url).hostname:
                 raise ValueError("test_worker_network_invalid")
         else:
-            from tests.meet_private_hub_endpoint import require_private_hub_endpoint
+            from tests.meet.meet_private_hub_endpoint import require_private_hub_endpoint
 
             require_private_hub_endpoint(self.command, self.network, self.hub_url, hub_identity)
         if self.command("image", "inspect", self.image, "--format", "{{.Id}}") != self.image:
@@ -88,7 +88,7 @@ class DialogWorkerContainer:
         root = Path(__file__).resolve().parents[1]
         namespace = None
         if self.network_namespace is not None:
-            from tests.meet_dialog_egress_guard import namespace_info
+            from tests.meet.meet_dialog_egress_guard import namespace_info
 
             namespace = namespace_info(self.command, self.network_namespace, self.network)
         mounts = [
@@ -111,7 +111,7 @@ class DialogWorkerContainer:
                 raise ValueError("test_worker_mount_invalid")
         gpu_arguments = []
         if self.gpu:
-            from tests.meet_dialog_gpu_resources import receive_gpu_arguments
+            from tests.meet.meet_dialog_gpu_resources import receive_gpu_arguments
 
             gpu_arguments = receive_gpu_arguments(self.command)
         self.created = True  # Covers an uncertain create result in cleanup.

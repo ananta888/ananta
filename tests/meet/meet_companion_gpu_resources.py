@@ -1,7 +1,7 @@
 """Closed WSL resources for an owned actual assigned-Companion TTS gate."""
 
-from tests.meet_gpu_capacity import require_gpu_capacity
-from tests.meet_gpu_wsl_fixture import driver_bindings, validate_driver_store
+from tests.meet.meet_gpu_capacity import require_gpu_capacity
+from tests.meet.meet_gpu_wsl_fixture import driver_bindings, validate_driver_store
 
 
 def gpu_tts_arguments(models, store, *, check_capacity=require_gpu_capacity):

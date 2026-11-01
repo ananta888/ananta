@@ -5,8 +5,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from tests.meet_dialog_cleanup import close_dialog_browsers
-from tests.meet_dialog_network_cleanup import DialogNetworkCleanup
+from tests.meet.meet_dialog_cleanup import close_dialog_browsers
+from tests.meet.meet_dialog_network_cleanup import DialogNetworkCleanup
 
 NAME = "meet-test-tls-aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa-network"
 IDENTIFIER = "a" * 64

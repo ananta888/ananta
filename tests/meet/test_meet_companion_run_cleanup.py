@@ -158,7 +158,7 @@ def test_real_sql_task_cas_triggers_registry_cleanup(app, models, status, expect
 
     from agent.database import engine
     from agent.db_models import TaskDB
-    from tests.meet_dialog_lifecycle_fixture import ensure_project
+    from tests.meet.meet_dialog_lifecycle_fixture import ensure_project
 
     f, _service = models
     pending = reserve(models)

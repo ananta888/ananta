@@ -9,8 +9,8 @@ import time
 from pathlib import Path
 from uuid import uuid4
 
-from tests.meet_browser_fixture_ca import require_fixture_certificate
-from tests.meet_browser_launch_diagnostic import CLASSIFY_LAUNCH_FAILURE, launch_failure
+from tests.meet.meet_browser_fixture_ca import require_fixture_certificate
+from tests.meet.meet_browser_launch_diagnostic import CLASSIFY_LAUNCH_FAILURE, launch_failure
 
 
 def docker(*args):

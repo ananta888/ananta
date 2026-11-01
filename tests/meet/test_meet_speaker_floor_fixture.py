@@ -9,8 +9,8 @@ from agent.models.meet_machine_principal import MeetMachinePrincipal
 from agent.services.meet_speech_result import validate_speech_binding
 from ananta_contracts.meet_speech import speech_profile
 from tests.meet import test_meet_speaker_floor as sql_fixture
-from tests.meet_multi_worker_media import MultiWorkerMediaScenario
-from tests.meet_multi_worker_speaker_floor import FloorTone, MultiWorkerSpeakerFloor, multi_worker_media
+from tests.meet.meet_multi_worker_media import MultiWorkerMediaScenario
+from tests.meet.meet_multi_worker_speaker_floor import FloorTone, MultiWorkerSpeakerFloor, multi_worker_media
 
 store = sql_fixture.store
 

@@ -2,7 +2,7 @@
 
 import json
 
-from tests.meet_dialog_browser_fixture import docker
+from tests.meet.meet_dialog_browser_fixture import docker
 
 
 def record_gpu_tts_receipts(container, record_property, *, enabled, scenario="answers-cancel"):

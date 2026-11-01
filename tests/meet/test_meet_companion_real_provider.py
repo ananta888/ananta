@@ -11,15 +11,15 @@ from flask import jsonify, request
 from sqlalchemy import select
 
 from agent.db_models.evidence_identity import HubRunEvidenceIdentityDB
+from tests.meet.meet_companion_ollama_fixture import CompanionOllamaFixture
+from tests.meet.meet_gpu_source_fixture import docker
+from tests.meet.meet_ollama_model_spec import MODEL_DIGEST
 from tests.meet.test_meet_companion_model_runs import models as models
 from tests.meet.test_meet_companion_task_control_http import running_hub
 from tests.meet.test_meet_companion_task_grants import assigned as assigned
 from tests.meet.test_meet_companion_task_model_http import http as http
 from tests.meet.test_meet_companion_task_model_process import process
 from tests.meet.test_meet_companion_task_tools import hub as hub
-from tests.meet_companion_ollama_fixture import CompanionOllamaFixture
-from tests.meet_gpu_source_fixture import docker
-from tests.meet_ollama_model_spec import MODEL_DIGEST
 from worker.meet_media.companion_execution_process import CompanionExecutionProcess
 
 

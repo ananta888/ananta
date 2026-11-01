@@ -9,7 +9,7 @@ from urllib.parse import urlsplit
 from uuid import uuid4
 
 from ananta_contracts.meet_egress import parse_egress_policy
-from tests.meet_dialog_browser_fixture import docker
+from tests.meet.meet_dialog_browser_fixture import docker
 
 
 def session_policy(hub_url, origin, turn_url):

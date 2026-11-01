@@ -8,8 +8,8 @@ from agent.services.meet_chat_policy import ChatReplyPolicy
 from agent.services.meet_dialog_replies import MeetDialogReplies
 from agent.services.meet_turn_service import HubMediaTasks
 from ananta_contracts.meet_speech import speech_profile
-from tests.meet_dialog_image_avatar_scenario import SyntheticImageProfiles
-from tests.meet_dialog_interruption import SyntheticToneWorker
+from tests.meet.meet_dialog_image_avatar_scenario import SyntheticImageProfiles
+from tests.meet.meet_dialog_interruption import SyntheticToneWorker
 
 
 class IndependentlyRevocableImages:

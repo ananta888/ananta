@@ -6,7 +6,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from tests.meet_multi_worker_crash import crash_owned_worker
+from tests.meet.meet_multi_worker_crash import crash_owned_worker
 
 
 def fixture():

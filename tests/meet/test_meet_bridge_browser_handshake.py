@@ -6,7 +6,7 @@ from unittest.mock import Mock
 import pytest
 
 from scripts.meet_test_browser_driver import peer_driver_snapshot
-from tests.meet_bridge_browser_handshake import BridgeBrowserHandshake
+from tests.meet.meet_bridge_browser_handshake import BridgeBrowserHandshake
 
 
 def request():

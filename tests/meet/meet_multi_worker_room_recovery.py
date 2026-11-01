@@ -11,7 +11,7 @@ from agent.services.meet_contract import MeetError
 from agent.services.meet_dialog_phases import MeetDialogPhases
 from agent.services.meet_dialog_recovery import MeetDialogRecovery
 from agent.services.task_runtime_service import compare_and_set_local_task_status
-from tests.meet_recovery_timing import RecoveryTiming
+from tests.meet.meet_recovery_timing import RecoveryTiming
 
 
 class MultiWorkerRoomRecovery:

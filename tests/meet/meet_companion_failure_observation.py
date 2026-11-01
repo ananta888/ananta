@@ -6,7 +6,7 @@ from collections import Counter
 from sqlalchemy import select
 
 from agent.db_models.evidence_identity import HubRunEvidenceIdentityDB
-from tests.meet_dialog_browser_fixture import docker
+from tests.meet.meet_dialog_browser_fixture import docker
 
 
 def record_companion_cleanup_snapshot(container, database, task_id, counts, record_property, *, enabled):

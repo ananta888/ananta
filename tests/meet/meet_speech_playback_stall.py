@@ -4,7 +4,7 @@ import threading
 import time
 
 from ananta_contracts.meet_speech import speech_profile
-from tests.meet_dialog_interruption import SyntheticToneWorker
+from tests.meet.meet_dialog_interruption import SyntheticToneWorker
 from worker.meet_media.browser_pcm_feeder import BrowserPcmFeeder
 
 

@@ -12,10 +12,10 @@ from agent.services.meet_contract import MeetError
 from agent.services.meet_dialog_authority import MeetDialogAuthority
 from agent.services.meet_dialog_principal_receipts import MeetDialogPrincipalReceipts
 from agent.services.meet_dialog_tasks import HubDialogTasks
+from tests.meet.meet_dialog_lifecycle_fixture import PUBLISHER, seed_parent
 from tests.meet.test_meet_dialog_avatar_negotiation import system
 from tests.meet.test_meet_role_assignment_lifecycle import MUTATIONS, mutate
 from tests.meet.test_meet_signing_key_id import signer
-from tests.meet_dialog_lifecycle_fixture import PUBLISHER, seed_parent
 
 pytestmark = pytest.mark.timeout(45)
 

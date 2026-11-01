@@ -7,7 +7,7 @@ import time
 from agent.services.meet_chat_policy import ChatReplyPolicy
 from ananta_contracts.meet_speech import speech_profile
 from ananta_contracts.persona_voice import inspect_voice_descriptor, voice_descriptor
-from tests.meet_dialog_interruption import SpeechInterruption, SyntheticToneWorker
+from tests.meet.meet_dialog_interruption import SpeechInterruption, SyntheticToneWorker
 from worker.meet_media.dialog_speech_output import DialogSpeechOutput
 
 
@@ -221,32 +221,32 @@ def make_voice_scenario(enabled, speech, monkeypatch, *, actual_gpu=False):
     if enabled == "playback-stall":
         if actual_gpu:
             raise ValueError("test_playback_stall_requires_synthetic_audio")
-        from tests.meet_speech_playback_stall import PlaybackStallScenario
+        from tests.meet.meet_speech_playback_stall import PlaybackStallScenario
 
         return PlaybackStallScenario(speech, monkeypatch)
     timing_probe = None
     if enabled == "latency":
         if actual_gpu:
             raise ValueError("test_voice_latency_requires_synthetic_audio")
-        from tests.meet_dialog_exchange_latency import inject_exchange_latency
+        from tests.meet.meet_dialog_exchange_latency import inject_exchange_latency
 
         inject_exchange_latency(monkeypatch)
     if enabled == "opening":
         if actual_gpu:
             raise ValueError("test_speech_delay_requires_synthetic_audio")
-        from tests.meet_speech_opening_delay import SpeechOpeningDelay
+        from tests.meet.meet_speech_opening_delay import SpeechOpeningDelay
 
         timing_probe = SpeechOpeningDelay(monkeypatch)
     if enabled == "screen-latency":
         if actual_gpu:
             raise ValueError("test_screen_delay_requires_synthetic_audio")
-        from tests.meet_screen_decode_delay import ScreenDecodeDelay
+        from tests.meet.meet_screen_decode_delay import ScreenDecodeDelay
 
         timing_probe = ScreenDecodeDelay(monkeypatch)
     if enabled == "playback-latency":
         if actual_gpu:
             raise ValueError("test_playback_delay_requires_synthetic_audio")
-        from tests.meet_speech_playback_delay import SpeechPlaybackDelay
+        from tests.meet.meet_speech_playback_delay import SpeechPlaybackDelay
 
         timing_probe = SpeechPlaybackDelay(monkeypatch)
     return (

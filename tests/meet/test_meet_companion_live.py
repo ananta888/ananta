@@ -22,9 +22,9 @@ from werkzeug.serving import WSGIRequestHandler, make_server
 from agent.routes.meet import meet_bp
 from agent.services.meet_machine_grant import MeetMachineGrantIssuer
 from agent.services.meet_turn_service import MeetTurnService
-from tests.meet_companion_build import require_current_browser_build
-from tests.meet_dialog_browser_fixture import docker
-from tests.meet_dialog_policy_fixture import SyntheticMeetBinding
+from tests.meet.meet_companion_build import require_current_browser_build
+from tests.meet.meet_dialog_browser_fixture import docker
+from tests.meet.meet_dialog_policy_fixture import SyntheticMeetBinding
 from tests.test_meet_dialog_cross_repository import close_bridge
 
 

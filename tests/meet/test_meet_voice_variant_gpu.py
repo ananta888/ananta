@@ -5,7 +5,7 @@ import os
 import pytest
 
 from ananta_contracts.meet_voice_catalog import EMOTIONAL_MODEL
-from tests.meet_gpu_source_fixture import run_probe
+from tests.meet.meet_gpu_source_fixture import run_probe
 
 
 @pytest.mark.timeout(90)

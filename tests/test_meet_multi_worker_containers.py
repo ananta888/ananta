@@ -103,20 +103,20 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
     from agent.services.meet_machine_grant import MeetMachineGrantIssuer
     from agent.services.meet_media_transport import HttpMediaWorker
     from agent.services.source_control_access_policy import HubSourcePrincipal
-    from tests.meet_companion_build import require_current_browser_build
-    from tests.meet_dialog_browser_fixture import docker
-    from tests.meet_dialog_cleanup import cancel_fixture_dialog
-    from tests.meet_dialog_policy_fixture import SyntheticMeetBinding
-    from tests.meet_dialog_resource_observation import DialogResourceObservation
-    from tests.meet_dialog_worker_container import DialogWorkerContainer
-    from tests.meet_multi_role_fixture import PARENTS, seed_multi_role_parents
-    from tests.meet_multi_worker_browser import MultiWorkerBrowserScenario
-    from tests.meet_multi_worker_control_recovery import MultiWorkerControlRecovery
-    from tests.meet_multi_worker_guarded_turn import MultiWorkerGuardedTurn
-    from tests.meet_multi_worker_room_recovery import MultiWorkerRoomRecovery
-    from tests.meet_multi_worker_speaker_floor import multi_worker_media
-    from tests.meet_multi_worker_terminal_control import MultiWorkerTerminalControl
-    from tests.meet_multi_worker_terminal_observations import terminal_observations
+    from tests.meet.meet_companion_build import require_current_browser_build
+    from tests.meet.meet_dialog_browser_fixture import docker
+    from tests.meet.meet_dialog_cleanup import cancel_fixture_dialog
+    from tests.meet.meet_dialog_policy_fixture import SyntheticMeetBinding
+    from tests.meet.meet_dialog_resource_observation import DialogResourceObservation
+    from tests.meet.meet_dialog_worker_container import DialogWorkerContainer
+    from tests.meet.meet_multi_role_fixture import PARENTS, seed_multi_role_parents
+    from tests.meet.meet_multi_worker_browser import MultiWorkerBrowserScenario
+    from tests.meet.meet_multi_worker_control_recovery import MultiWorkerControlRecovery
+    from tests.meet.meet_multi_worker_guarded_turn import MultiWorkerGuardedTurn
+    from tests.meet.meet_multi_worker_room_recovery import MultiWorkerRoomRecovery
+    from tests.meet.meet_multi_worker_speaker_floor import multi_worker_media
+    from tests.meet.meet_multi_worker_terminal_control import MultiWorkerTerminalControl
+    from tests.meet.meet_multi_worker_terminal_observations import terminal_observations
     from tests.test_meet_dialog_cross_repository import close_bridge
 
     assert os.environ.get("ANANTA_TEST_DATABASE_MODE") == "wal", "isolated concurrent SQL profile required"
@@ -131,7 +131,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
     worker_key.write_bytes(hmac_key)
     worker_key.chmod(0o600)
     principal = HubSourcePrincipal("owner", "synthetic", "synthetic", frozenset({"user"}))
-    from tests.meet_authorization_transport_observation import observe_authorization_transport
+    from tests.meet.meet_authorization_transport_observation import observe_authorization_transport
 
     transport_observation = []
     observe_authorization_transport(monkeypatch, transport_observation)
@@ -305,7 +305,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
         authority = MeetDialogAuthority(tasks, binding, {("synthetic", "synthetic"): capabilities})
         preauthorization = None
         if os.environ.get("MEET_MULTI_WORKER_PREAUTHORIZATION_GATE") == "1":
-            from tests.meet_multi_worker_preauthorization import MultiWorkerPreauthorization
+            from tests.meet.meet_multi_worker_preauthorization import MultiWorkerPreauthorization
 
             preauthorization = MultiWorkerPreauthorization(
                 engine, authority, PARENTS, principal, ready["room_id"], duration_seconds=duration_seconds
@@ -466,11 +466,11 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
         if room_recovery.enabled:
             room_recovery.exhaust(app, tasks, started, command, record_property)
         elif media_mode == "runtime-stall":
-            from tests.meet_multi_worker_runtime_stall import stall_owned_runtime
+            from tests.meet.meet_multi_worker_runtime_stall import stall_owned_runtime
 
             stall_owned_runtime(containers[0], record_property)
         elif worker_crash:
-            from tests.meet_multi_worker_crash import crash_owned_worker
+            from tests.meet.meet_multi_worker_crash import crash_owned_worker
 
             crash_owned_worker(containers[0])
         elif terminal_control.enabled:
@@ -503,7 +503,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
             assert revoked_ms < 5000, "end-to-end operator-revocation budget exceeded"
             record_property("operator_preauthorization_revocation_ms", revoked_ms)
         if worker_crash:
-            from tests.meet_multi_worker_crash import reconcile_crashed_worker
+            from tests.meet.meet_multi_worker_crash import reconcile_crashed_worker
 
             reconcile_crashed_worker(
                 app, tasks, started[0]["task_id"], record_property, container_killed=media_mode == "worker-crash"

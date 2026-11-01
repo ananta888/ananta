@@ -9,8 +9,8 @@ import time
 import pytest
 
 from ananta_contracts.meet_audio_profile import AudioReceiveProfile
+from tests.meet.meet_dialog_browser_fixture import docker
 from tests.meet.meet_receive_packaged_fixture import packaged_receive
-from tests.meet_dialog_browser_fixture import docker
 
 pytestmark = [
     pytest.mark.timeout(240),

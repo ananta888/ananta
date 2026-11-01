@@ -7,8 +7,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from tests.meet.test_meet_gpu_source_fixture import IMAGE, mounts
-from tests.meet_dialog_gpu_fixture import (
+from tests.meet.meet_dialog_gpu_fixture import (
     MODEL_DIGEST,
     MODEL_VOLUME,
     OLLAMA_IMAGE,
@@ -16,7 +15,8 @@ from tests.meet_dialog_gpu_fixture import (
     provider_command,
     worker_command,
 )
-from tests.meet_gpu_source_fixture import driver_bindings
+from tests.meet.meet_gpu_source_fixture import driver_bindings
+from tests.meet.test_meet_gpu_source_fixture import IMAGE, mounts
 
 BASE = "meet-test-inference-12345678-1234-1234-1234-123456789abc"
 

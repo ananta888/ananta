@@ -77,7 +77,7 @@ def configure_models(app, authority, grants, database, counts, *, actual=False):
 def wait_model_started(container, counts, *, assigned):
     import time
 
-    from tests.meet_dialog_browser_fixture import docker
+    from tests.meet.meet_dialog_browser_fixture import docker
 
     deadline = time.monotonic() + 10
     while True:
@@ -103,7 +103,7 @@ def wait_model_started(container, counts, *, assigned):
 def wait_source_pause_checkpoint(container, scenario, receive):
     import time
 
-    from tests.meet_dialog_browser_fixture import docker
+    from tests.meet.meet_dialog_browser_fixture import docker
 
     if scenario.endswith("-mid-speech"):
         assert receive(180) == {"speech_started": True}
@@ -133,7 +133,7 @@ def recover_crashed_worker(app, database, task_id, container, counts, receive):
     from agent.repositories.meet_dialog_deadlines import SqlDialogDeadlines
     from agent.services.meet_dialog_deadlines import MeetDialogDeadlines
     from agent.services.task_runtime_service import compare_and_set_local_task_status
-    from tests.meet_dialog_browser_fixture import docker
+    from tests.meet.meet_dialog_browser_fixture import docker
 
     docker("kill", container.name)
     assert docker("inspect", container.name, "--format", "{{.State.Running}}") == "false"

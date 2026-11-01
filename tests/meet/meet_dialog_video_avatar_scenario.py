@@ -14,8 +14,8 @@ from PIL import Image
 
 from ananta_contracts.meet_persona_video import decode_assignment
 from ananta_contracts.persona_video import SanitizedPersonaVideo, encode_video
-from tests.meet_dialog_avatar_observer import DialogAvatarObserver
-from tests.meet_dialog_image_avatar_scenario import SyntheticImageProfiles
+from tests.meet.meet_dialog_avatar_observer import DialogAvatarObserver
+from tests.meet.meet_dialog_image_avatar_scenario import SyntheticImageProfiles
 
 
 class SyntheticVideoProfiles:

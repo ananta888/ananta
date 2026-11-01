@@ -4,7 +4,7 @@ import os
 
 import pytest
 
-from tests.meet_gpu_source_fixture import run_probe
+from tests.meet.meet_gpu_source_fixture import run_probe
 
 
 @pytest.mark.skipif(os.environ.get("MEET_CURRENT_SOURCE_GPU_GATE") != "1", reason="opt-in isolated local GPU probe")

@@ -1,6 +1,6 @@
 """Task terminal cleanup observation for a genuinely interrupted TTS child."""
 
-from tests.meet_dialog_browser_fixture import docker
+from tests.meet.meet_dialog_browser_fixture import docker
 
 
 def require_retired_speech_scratch_cleanup(container, scenario):

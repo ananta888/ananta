@@ -5,7 +5,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from tests.meet_dialog_soak_observer import DialogSoakObserver
+from tests.meet.meet_dialog_soak_observer import DialogSoakObserver
 from worker.meet_media.dialog_screen_pump import DialogScreenPump
 
 

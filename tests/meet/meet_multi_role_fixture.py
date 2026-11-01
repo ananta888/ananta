@@ -3,7 +3,7 @@
 from sqlmodel import Session
 
 from agent.db_models import AgentInfoDB, OrganizationRoleAssignmentDB, OrganizationRoleSlotDB, TaskDB
-from tests.meet_dialog_lifecycle_fixture import PUBLISHER, seed_parent
+from tests.meet.meet_dialog_lifecycle_fixture import PUBLISHER, seed_parent
 
 SECOND_PUBLISHER = "http://synthetic-second-publisher:8091"
 PARENTS = ("meet-test-parent", "meet-test-parent-second")

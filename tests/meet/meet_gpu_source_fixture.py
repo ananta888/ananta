@@ -86,7 +86,7 @@ def probe_command(
         raise ValueError("test_gpu_wsl_driver_store_invalid")
     library_path = "/host-nvidia"
     if host_profile == "wsl":
-        from tests.meet_gpu_wsl_fixture import validate_driver_store
+        from tests.meet.meet_gpu_wsl_fixture import validate_driver_store
 
         library_path = "/usr/lib/wsl/lib:" + str(validate_driver_store(driver_store))
     args = [
@@ -141,7 +141,7 @@ def run_probe(
     if host_profile == "native" and driver_store is not None:
         raise ValueError("test_gpu_wsl_driver_store_invalid")
     if host_profile == "wsl":
-        from tests.meet_gpu_wsl_fixture import driver_bindings as wsl_bindings
+        from tests.meet.meet_gpu_wsl_fixture import driver_bindings as wsl_bindings
 
         bindings = wsl_bindings(driver_store)
     # Inspect only image identity and mounts, never service environment/secrets.

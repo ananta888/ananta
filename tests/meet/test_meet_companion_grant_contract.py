@@ -9,7 +9,7 @@ from flask import Flask
 from agent.routes.meet import meet_bp
 from agent.services.meet_machine_grant import MeetMachineGrantIssuer
 from agent.services.meet_turn_service import MeetTurnService
-from tests.meet_dialog_policy_fixture import SyntheticMeetBinding
+from tests.meet.meet_dialog_policy_fixture import SyntheticMeetBinding
 from worker.meet_media.contract import encode, signature
 
 pytestmark = pytest.mark.timeout(15)

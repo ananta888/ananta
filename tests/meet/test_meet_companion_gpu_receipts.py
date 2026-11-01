@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from tests import meet_companion_gpu_observation as observation
+from tests.meet import meet_companion_gpu_observation as observation
 
 
 def fixture(monkeypatch, *, utterances=1, samples=300000, frames=3, retired_at=3):

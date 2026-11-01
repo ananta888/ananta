@@ -7,7 +7,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from tests.meet_multi_worker_terminal_observations import terminal_observations
+from tests.meet.meet_multi_worker_terminal_observations import terminal_observations
 
 
 @pytest.mark.parametrize("crashed", [False, True])

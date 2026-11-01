@@ -3,7 +3,7 @@
 import json
 import os
 
-from tests.meet_dialog_egress_guard import DialogEgressGuard, session_policy
+from tests.meet.meet_dialog_egress_guard import DialogEgressGuard, session_policy
 
 
 class MultiWorkerGuardedTurn:

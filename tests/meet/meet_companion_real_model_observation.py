@@ -5,8 +5,8 @@ import os
 
 import pytest
 
-from tests.meet_companion_ollama_fixture import CompanionOllamaFixture
-from tests.meet_ollama_model_spec import MODEL_DIGEST
+from tests.meet.meet_companion_ollama_fixture import CompanionOllamaFixture
+from tests.meet.meet_ollama_model_spec import MODEL_DIGEST
 
 
 def real_model_scope(assigned, scenario):

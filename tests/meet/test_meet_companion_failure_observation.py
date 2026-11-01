@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from tests import meet_companion_failure_observation as observation
+from tests.meet import meet_companion_failure_observation as observation
 
 
 def test_stopped_container_keeps_authoritative_failed_run_state_without_exec(monkeypatch):

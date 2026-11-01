@@ -3,8 +3,8 @@
 import json
 from pathlib import Path
 
-from tests.meet_gpu_capacity import require_gpu_capacity
-from tests.meet_gpu_source_fixture import driver_bindings
+from tests.meet.meet_gpu_capacity import require_gpu_capacity
+from tests.meet.meet_gpu_source_fixture import driver_bindings
 
 
 def receive_gpu_arguments(command, *, check_capacity=require_gpu_capacity, model_directory: Path | None = None):

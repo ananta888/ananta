@@ -66,6 +66,11 @@ def check_complexity_suppressions():
     return run_command([sys.executable, "scripts/check_complexity_suppressions.py"])
 
 
+def check_test_line_budget():
+    print("\n--- Checking Test Line Budget (CLN-046) ---", flush=True)
+    return run_command([sys.executable, "scripts/check_test_line_budget.py"])
+
+
 def check_singleton_freeze():
     print("\n--- Checking Singleton Freeze (CLN-035) ---", flush=True)
     return run_command([sys.executable, "scripts/check_singleton_freeze.py"])
@@ -95,7 +100,7 @@ def check_fast_tests():
     fast_test_paths = [
         "tests/test_system_health_standard.py",
         "tests/test_task_state_machine_service.py",
-        "tests/test_utils_extra.py",
+        "tests/test_utils_extraction.py",
         "tests/test_result_memory_service.py",
         "tests/test_api_contract_tasks.py",
         "tests/test_evolution_engine_contract.py",
@@ -161,6 +166,8 @@ def main():
         if not check_worker_boundaries():
             success = False
         if not check_singleton_freeze():
+            success = False
+        if not check_test_line_budget():
             success = False
         if not check_duplicates():
             success = False

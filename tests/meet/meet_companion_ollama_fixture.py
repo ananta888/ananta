@@ -7,11 +7,11 @@ import re
 import time
 from uuid import uuid4
 
-from tests.meet_gpu_capacity import require_gpu_capacity
-from tests.meet_gpu_source_fixture import docker
-from tests.meet_gpu_wsl_fixture import driver_bindings, validate_driver_store
-from tests.meet_ollama_model_fixture import validate_model
-from tests.meet_ollama_model_spec import MODEL_DIGEST, OLLAMA_IMAGE
+from tests.meet.meet_gpu_capacity import require_gpu_capacity
+from tests.meet.meet_gpu_source_fixture import docker
+from tests.meet.meet_gpu_wsl_fixture import driver_bindings, validate_driver_store
+from tests.meet.meet_ollama_model_fixture import validate_model
+from tests.meet.meet_ollama_model_spec import MODEL_DIGEST, OLLAMA_IMAGE
 
 
 def provider_command(name, network, models, store):

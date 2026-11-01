@@ -9,8 +9,8 @@ import time
 from pathlib import Path
 from uuid import uuid4
 
+from tests.meet.meet_dialog_browser_fixture import docker
 from tests.meet.meet_restart_hub_runtime import validate_config
-from tests.meet_dialog_browser_fixture import docker
 
 
 class RestartHubContainer:

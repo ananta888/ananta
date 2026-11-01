@@ -7,10 +7,10 @@ import pytest
 
 from agent.services.meet_contract import MeetError
 from agent.services.meet_dialog_preauthorization import MeetDialogPreauthorization
+from tests.meet.meet_dialog_lifecycle_fixture import seed_parent
 from tests.meet.test_meet_dialog_avatar_negotiation import system
 from tests.meet.test_meet_preauthorization_policy import document
 from tests.meet.test_meet_preauthorization_store import store  # noqa: F401
-from tests.meet_dialog_lifecycle_fixture import seed_parent
 
 pytestmark = pytest.mark.timeout(45)
 OPERATOR = "local-uid:1000"

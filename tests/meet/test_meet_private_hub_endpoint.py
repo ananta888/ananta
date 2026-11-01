@@ -5,7 +5,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from tests.meet_private_hub_endpoint import require_private_hub_endpoint
+from tests.meet.meet_private_hub_endpoint import require_private_hub_endpoint
 
 IDENTITY = ("a" * 64, "sha256:" + "b" * 64)
 NETWORK = "meet-test-tls-" + "c" * 36 + "-network"

@@ -12,9 +12,9 @@ import time
 from pathlib import Path
 from uuid import uuid4
 
-from tests.meet_gpu_capacity import require_gpu_capacity
-from tests.meet_gpu_source_fixture import ROOT, docker, driver_bindings
-from tests.meet_ollama_model_spec import MODEL_DIGEST, OLLAMA_IMAGE
+from tests.meet.meet_gpu_capacity import require_gpu_capacity
+from tests.meet.meet_gpu_source_fixture import ROOT, docker, driver_bindings
+from tests.meet.meet_ollama_model_spec import MODEL_DIGEST, OLLAMA_IMAGE
 from worker.meet_media.contract import signature
 
 MODEL_VOLUME = "ananta-meet-media_meet-models"

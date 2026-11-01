@@ -7,7 +7,7 @@ import time
 import urllib.request
 from pathlib import Path
 
-from tests.meet_ollama_model_spec import MODEL_DIGEST
+from tests.meet.meet_ollama_model_spec import MODEL_DIGEST
 
 REGISTRY = "https://registry.ollama.ai/v2/library/qwen2.5"
 MANIFEST = "manifests/registry.ollama.ai/library/qwen2.5/1.5b"

@@ -11,9 +11,9 @@ from agent.services.meet_contract import MeetError
 from agent.services.meet_dialog_lifecycle import MeetDialogLifecycle
 from agent.services.meet_organization_principal_preflight import MeetOrganizationPrincipalPreflight
 from agent.services.meet_role_assignment import get_meet_role_assignments
+from tests.meet.meet_dialog_lifecycle_fixture import PUBLISHER, seed_parent
 from tests.meet.test_meet_dialog_avatar_negotiation import system
 from tests.meet.test_meet_role_assignment_lifecycle import MUTATIONS, mutate
-from tests.meet_dialog_lifecycle_fixture import PUBLISHER, seed_parent
 
 pytestmark = pytest.mark.timeout(45)
 PARENT = "meet-test-parent"

@@ -8,11 +8,11 @@ from unittest.mock import Mock
 
 import pytest
 
+from tests.meet.meet_dialog_egress_guard import namespace_info, session_policy
+from tests.meet.meet_dialog_worker_container import DialogWorkerContainer
+from tests.meet.meet_multi_worker_guarded_turn import MultiWorkerGuardedTurn
+from tests.meet.meet_worker_relay_context import install_relay_context, relay_context_script
 from tests.meet.test_meet_dialog_worker_container_fixture import HUB, IMAGE, NETWORK
-from tests.meet_dialog_egress_guard import namespace_info, session_policy
-from tests.meet_dialog_worker_container import DialogWorkerContainer
-from tests.meet_multi_worker_guarded_turn import MultiWorkerGuardedTurn
-from tests.meet_worker_relay_context import install_relay_context, relay_context_script
 
 ORIGIN, TURN = "https://172.30.0.2", "turn:172.30.0.4:3478?transport=udp"
 

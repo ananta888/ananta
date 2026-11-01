@@ -14,7 +14,7 @@ from tests.test_meet_dialog_authority import fixture
 
 def avatar_scope():
     from agent.database import engine
-    from tests.meet_dialog_lifecycle_fixture import ensure_project
+    from tests.meet.meet_dialog_lifecycle_fixture import ensure_project
 
     ensure_project(engine)  # callers start real Hub tasks for tenant/project
     f = fixture()

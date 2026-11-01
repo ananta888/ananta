@@ -7,7 +7,7 @@ import time
 from collections import deque
 
 from ananta_contracts.meet_speech import speech_profile
-from tests.meet_dialog_interruption import SyntheticToneWorker
+from tests.meet.meet_dialog_interruption import SyntheticToneWorker
 from worker.meet_media.avatar_browser import AvatarBrowserPort
 from worker.meet_media.dialog_avatar_pump import DialogAvatarPump
 
@@ -165,13 +165,13 @@ def make_avatar_observer(mode, speech, monkeypatch, *, actual_gpu=False):
     if mode == "video":
         if actual_gpu:
             raise ValueError("test_video_avatar_gpu_not_configured")
-        from tests.meet_dialog_video_avatar_scenario import VideoAvatarScenario
+        from tests.meet.meet_dialog_video_avatar_scenario import VideoAvatarScenario
 
         return VideoAvatarScenario(speech, monkeypatch)
     if mode in ("image", "image-renewal", "image-renewal-series"):
         if actual_gpu:
             raise ValueError("test_image_avatar_gpu_not_configured")
-        from tests.meet_dialog_image_avatar_scenario import ImageAvatarScenario
+        from tests.meet.meet_dialog_image_avatar_scenario import ImageAvatarScenario
 
         return ImageAvatarScenario(
             speech, monkeypatch, renewal=mode != "image", renewal_count=3 if mode == "image-renewal-series" else 1

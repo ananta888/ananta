@@ -12,7 +12,7 @@ from PIL import Image
 
 from agent.services.meet_contract import MeetError
 from agent.services.meet_dialog_service import MeetDialogService
-from tests.meet_dialog_avatar_observer import DialogAvatarObserver
+from tests.meet.meet_dialog_avatar_observer import DialogAvatarObserver
 from worker.meet_media.dialog_speech_output import DialogSpeechOutput, speech_binding
 from worker.meet_media.speech_publication import SpeechPublication
 
@@ -88,7 +88,7 @@ class ImageAvatarScenario:
         self.start_options = {"avatar_images": True}
         self.renewal = None
         if renewal:
-            from tests.meet_avatar_renewal_observer import AvatarRenewalObserver
+            from tests.meet.meet_avatar_renewal_observer import AvatarRenewalObserver
 
             self.renewal = AvatarRenewalObserver(monkeypatch)
             self.start_options["duration_seconds"] = 180 if renewal_count == 1 else 360

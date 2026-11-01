@@ -2,7 +2,7 @@
 
 import re
 
-from tests.meet_dialog_browser_fixture import DialogBrowserFixture
+from tests.meet.meet_dialog_browser_fixture import DialogBrowserFixture
 
 
 class BridgeBrowserHandshake:

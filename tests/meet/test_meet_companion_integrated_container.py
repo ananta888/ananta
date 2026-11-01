@@ -31,19 +31,19 @@ from agent.services.meet_dialog_worker_router import MeetDialogWorkerRouter
 from agent.services.meet_machine_grant import MeetMachineGrantIssuer
 from agent.services.meet_media_transport import HttpMediaWorker
 from agent.services.task_runtime_service import compare_and_set_local_task_status
-from tests.meet.test_meet_companion_profile_dispatch import companion_system
-from tests.meet_companion_build import require_current_browser_build
-from tests.meet_companion_failure_observation import record_companion_cleanup_snapshot
-from tests.meet_companion_gpu_observation import record_gpu_tts_receipts
-from tests.meet_companion_real_model_observation import (
+from tests.meet.meet_companion_build import require_current_browser_build
+from tests.meet.meet_companion_failure_observation import record_companion_cleanup_snapshot
+from tests.meet.meet_companion_gpu_observation import record_gpu_tts_receipts
+from tests.meet.meet_companion_real_model_observation import (
     expected_unique_replies,
     real_model_scope,
     record_real_model,
     start_real_model,
 )
-from tests.meet_companion_scratch_observation import require_retired_speech_scratch_cleanup
-from tests.meet_dialog_browser_fixture import docker
-from tests.meet_dialog_worker_container import DialogWorkerContainer
+from tests.meet.meet_companion_scratch_observation import require_retired_speech_scratch_cleanup
+from tests.meet.meet_dialog_browser_fixture import docker
+from tests.meet.meet_dialog_worker_container import DialogWorkerContainer
+from tests.meet.test_meet_companion_profile_dispatch import companion_system
 from tests.test_meet_dialog_cross_repository import close_bridge
 
 
@@ -254,7 +254,7 @@ def test_sql_assigned_companion_uses_actual_worker_and_browser(app, tmp_path, mo
                         "--env=TEST_BLOCK_ASSIGNED_TTS=" + ("1" if scenario == "speech-preparation-paused" else "0"),
                     ]
                 if gpu_tts:
-                    from tests.meet_companion_gpu_resources import gpu_tts_arguments
+                    from tests.meet.meet_companion_gpu_resources import gpu_tts_arguments
 
                     values[values.index("--memory=1g")] = "--memory=4g"
                     index = values.index("--entrypoint=timeout")

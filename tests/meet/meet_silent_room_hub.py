@@ -22,7 +22,7 @@ from agent.services.meet_machine_grant import MeetMachineGrantIssuer
 from agent.services.meet_media_transport import HttpMediaWorker
 from agent.services.meet_room_allocation import MeetRoomAllocation
 from agent.services.source_control_access_policy import HubSourcePrincipal
-from tests.meet_dialog_cleanup import close_dialog_servers
+from tests.meet.meet_dialog_cleanup import close_dialog_servers
 from worker.meet_media.dialog_client import HubDialogClient
 from worker.meet_media.dialog_runtime import run
 from worker.meet_media.server import create_server

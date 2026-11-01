@@ -2,7 +2,7 @@
 
 import json
 
-from tests.meet_multi_worker_crash import owned_worker_id
+from tests.meet.meet_multi_worker_crash import owned_worker_id
 
 STALL_PROBE = r"""
 import json, os, signal, time

@@ -10,8 +10,8 @@ from agent.repositories.meet_speaker_floor import turns as floor_turns
 from agent.services.meet_dialog_speaker_floor import MeetDialogSpeakerFloor
 from agent.services.meet_speaker_floor import MeetSpeakerFloor
 from agent.services.meet_speaker_policy import MeetSpeakerPolicy
-from tests.meet_dialog_interruption import synthetic_tone_result
-from tests.meet_multi_worker_media import MultiWorkerMediaScenario, TwoReplyToneWorker
+from tests.meet.meet_dialog_interruption import synthetic_tone_result
+from tests.meet.meet_multi_worker_media import MultiWorkerMediaScenario, TwoReplyToneWorker
 
 
 class FloorTone:

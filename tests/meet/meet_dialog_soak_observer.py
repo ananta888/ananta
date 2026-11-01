@@ -4,10 +4,10 @@ import threading
 import time
 from collections import deque
 
-from tests.meet_dialog_browser_cost_observer import DialogBrowserCostObserver
-from tests.meet_dialog_control_observer import DialogControlObserver
-from tests.meet_dialog_rpc_observer import DialogRpcObserver
-from tests.meet_dialog_transport_observer import DialogTransportObserver
+from tests.meet.meet_dialog_browser_cost_observer import DialogBrowserCostObserver
+from tests.meet.meet_dialog_control_observer import DialogControlObserver
+from tests.meet.meet_dialog_rpc_observer import DialogRpcObserver
+from tests.meet.meet_dialog_transport_observer import DialogTransportObserver
 from worker.meet_media.dialog_screen_pump import DialogScreenPump
 
 

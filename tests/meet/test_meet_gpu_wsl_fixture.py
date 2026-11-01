@@ -6,9 +6,9 @@ from unittest.mock import Mock
 
 import pytest
 
+from tests.meet.meet_gpu_source_fixture import probe_command, run_probe
+from tests.meet.meet_gpu_wsl_fixture import LIBRARIES, LIBRARY_ROOT, STORE_FILES, driver_bindings
 from tests.meet.test_meet_gpu_source_fixture import IMAGE, NAME
-from tests.meet_gpu_source_fixture import probe_command, run_probe
-from tests.meet_gpu_wsl_fixture import LIBRARIES, LIBRARY_ROOT, STORE_FILES, driver_bindings
 
 STORE = "/usr/lib/wsl/drivers/nv_dispig.inf_amd64_" + "a" * 16
 

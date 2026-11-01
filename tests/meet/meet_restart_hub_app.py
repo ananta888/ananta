@@ -24,9 +24,9 @@ def create_restart_hub(config):
     from agent.services.meet_media_transport import HttpMediaWorker
     from agent.services.source_control_access_policy import HubSourcePrincipal
     from agent.services.task_runtime_service import compare_and_set_local_task_status
+    from tests.meet.meet_dialog_lifecycle_fixture import seed_parent
+    from tests.meet.meet_dialog_policy_fixture import SyntheticMeetBinding
     from tests.meet.meet_restart_hub_control import register_control
-    from tests.meet_dialog_lifecycle_fixture import seed_parent
-    from tests.meet_dialog_policy_fixture import SyntheticMeetBinding
 
     init_db()
     app = create_app(agent="synthetic-restart-hub", testing=True)

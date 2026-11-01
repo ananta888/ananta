@@ -4,7 +4,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from tests.meet_dialog_chat_observer import DialogChatObserver
+from tests.meet.meet_dialog_chat_observer import DialogChatObserver
 from worker.meet_media.dialog_chat_browser import DialogChatBrowser
 from worker.meet_media.dialog_client import HubDialogClient
 from worker.meet_media.dialog_speech_output import DialogSpeechOutput

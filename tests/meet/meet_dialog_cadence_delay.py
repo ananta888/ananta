@@ -2,7 +2,7 @@
 
 import threading
 
-from tests.meet_dialog_ack_delay import PROFILE as ACK_PROFILE
+from tests.meet.meet_dialog_ack_delay import PROFILE as ACK_PROFILE
 
 PROFILE = "paired-idle-450-v1"
 
@@ -63,7 +63,7 @@ def install_cadence_delay(enabled, monkeypatch, *, url, profile=PROFILE):
     if profile == PROFILE:
         return DialogCadenceDelay(monkeypatch, url=url)
     if profile == ACK_PROFILE:
-        from tests.meet_dialog_ack_delay import DialogAckDelay
+        from tests.meet.meet_dialog_ack_delay import DialogAckDelay
 
         return DialogAckDelay(monkeypatch, url=url)
     raise ValueError("test_cadence_delay_profile_invalid")

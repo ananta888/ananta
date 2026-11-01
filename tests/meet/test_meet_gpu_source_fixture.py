@@ -6,7 +6,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from tests.meet_gpu_source_fixture import REQUIRED, driver_bindings, probe_command, run_probe
+from tests.meet.meet_gpu_source_fixture import REQUIRED, driver_bindings, probe_command, run_probe
 
 IMAGE = "sha256:" + "a" * 64
 NAME = "meet-test-gpu-12345678-1234-1234-1234-123456789abc"

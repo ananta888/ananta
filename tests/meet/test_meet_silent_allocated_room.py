@@ -25,10 +25,10 @@ def test_real_hub_allocates_silent_first_machine_then_human_joins_and_hub_stops(
     from playwright.sync_api import BrowserType
 
     from agent.services.private_container_network_policy import pin_private_container_address
+    from tests.meet.meet_companion_build import require_current_browser_build
+    from tests.meet.meet_dialog_browser_fixture import DialogBrowserFixture
     from tests.meet.meet_silent_room_driver import SilentRoomDriver
     from tests.meet.meet_silent_room_hub import SilentRoomHub
-    from tests.meet_companion_build import require_current_browser_build
-    from tests.meet_dialog_browser_fixture import DialogBrowserFixture
 
     repository = Path(__file__).resolve().parents[3] / "webrtc-minimize-server"
     record_property(

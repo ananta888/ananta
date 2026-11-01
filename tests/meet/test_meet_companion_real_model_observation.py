@@ -2,7 +2,7 @@
 
 import pytest
 
-from tests.meet_companion_real_model_observation import expected_unique_replies, real_model_scope
+from tests.meet.meet_companion_real_model_observation import expected_unique_replies, real_model_scope
 
 
 @pytest.mark.parametrize("unique", [1, 2, 3])

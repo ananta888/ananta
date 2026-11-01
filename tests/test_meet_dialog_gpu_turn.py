@@ -9,7 +9,7 @@ import pytest
 from agent.services.meet_media_transport import HttpMediaWorker
 from ananta_contracts.meet_speech import speech_profile
 from ananta_contracts.meet_speech_audio import decode_speech_wav
-from tests.meet_dialog_gpu_fixture import DialogGpuFixture
+from tests.meet.meet_dialog_gpu_fixture import DialogGpuFixture
 from worker.meet_media.contract import SCHEMA
 
 

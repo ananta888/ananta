@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 from ananta_contracts.persona_voice import inspect_voice_descriptor, voice_descriptor
-from tests.meet_dialog_voice_scenario import SyntheticVoiceProfiles, make_voice_scenario
+from tests.meet.meet_dialog_voice_scenario import SyntheticVoiceProfiles, make_voice_scenario
 
 
 def principal(**patch):

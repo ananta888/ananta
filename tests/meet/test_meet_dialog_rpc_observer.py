@@ -4,7 +4,7 @@ from unittest.mock import Mock
 
 from playwright.sync_api import Page
 
-from tests.meet_dialog_rpc_observer import DialogRpcObserver
+from tests.meet.meet_dialog_rpc_observer import DialogRpcObserver
 
 
 def test_rpc_observer_retains_only_bounded_tags_and_timings(monkeypatch):
